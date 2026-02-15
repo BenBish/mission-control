@@ -5,7 +5,7 @@
 
 import { Express, Request, Response } from 'express';
 import { ActivityLogger } from '../logger/activity-logger.js';
-import { ActivityFilter } from '../types/activity.js';
+import { ActivityFilter, Activity } from '../types/activity.js';
 
 export function setupRoutes(app: Express, logger: ActivityLogger) {
   // ============================================================================
@@ -94,7 +94,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
       const db = (logger as any).db;
       const activities = await db.getActivities({ limit: 1000 });
       const filtered = activities.filter(
-        (a) =>
+        (a: Activity) =>
           a.description.toLowerCase().includes(query.toLowerCase()) ||
           a.toolName?.toLowerCase().includes(query.toLowerCase()) ||
           JSON.stringify(a.details).toLowerCase().includes(query.toLowerCase())
@@ -260,10 +260,10 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
       const stats = await db.getStats();
       const activities = await db.getActivities({ limit: 1000 });
 
-      const success = activities.filter((a) => a.status === 'success').length;
-      const failure = activities.filter((a) => a.status === 'failure').length;
-      const totalCost = activities.reduce((sum, a) => sum + (a.cost?.usd || 0), 0);
-      const totalTokens = activities.reduce((sum, a) => sum + (a.tokens?.totalTokens || 0), 0);
+      const success = activities.filter((a: Activity) => a.status === 'success').length;
+      const failure = activities.filter((a: Activity) => a.status === 'failure').length;
+      const totalCost = activities.reduce((sum: number, a: Activity) => sum + (a.cost?.usd || 0), 0);
+      const totalTokens = activities.reduce((sum: number, a: Activity) => sum + (a.tokens?.totalTokens || 0), 0);
 
       res.json({
         success: true,
