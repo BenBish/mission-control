@@ -3,6 +3,7 @@ export default {
   extensionsToTreatAsEsm: ['.ts'],
   testEnvironment: 'node',
   testMatch: ['**/__tests__/**/*.test.ts'],
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
@@ -17,6 +18,10 @@ export default {
       },
     ],
   },
+  // Don't transform uuid since it's ESM-only
+  transformIgnorePatterns: [
+    'node_modules/(?!uuid)',
+  ],
   collectCoverageFrom: ['src/**/*.ts', '!src/**/*.test.ts', '!src/**/*.d.ts'],
   coverageThreshold: {
     global: {
