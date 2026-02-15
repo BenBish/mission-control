@@ -21,7 +21,7 @@ export class ActivityLogger extends EventEmitter {
    * Log start of a session
    */
   async logSessionStart(sessionId: string): Promise<string> {
-    const activityId = await this.log({
+    const activity = await this.log({
       sessionId,
       actor: {
         type: 'system',
@@ -34,7 +34,7 @@ export class ActivityLogger extends EventEmitter {
     await this.db.createSession(sessionId);
     this.sessionStarts.set(sessionId, new Date().toISOString());
 
-    return activityId;
+    return activity.id;
   }
 
   /**
@@ -44,7 +44,7 @@ export class ActivityLogger extends EventEmitter {
     const startTime = this.sessionStarts.get(sessionId);
     const endTime = new Date().toISOString();
 
-    const activityId = await this.log({
+    const activity = await this.log({
       sessionId,
       actor: {
         type: 'system',
@@ -57,7 +57,7 @@ export class ActivityLogger extends EventEmitter {
     await this.db.updateSession(sessionId, endTime);
     this.sessionStarts.delete(sessionId);
 
-    return activityId;
+    return activity.id;
   }
 
   /**
@@ -160,7 +160,7 @@ export class ActivityLogger extends EventEmitter {
     targetAgent: string,
     description: string
   ): Promise<string> {
-    return this.log({
+    const activity = await this.log({
       sessionId,
       parentActivityId,
       actor,
@@ -169,6 +169,7 @@ export class ActivityLogger extends EventEmitter {
       details: { targetAgent },
       tags: ['delegation'],
     });
+    return activity.id;
   }
 
   /**
@@ -180,7 +181,7 @@ export class ActivityLogger extends EventEmitter {
     agentId: string,
     agentRole: string
   ): Promise<string> {
-    return this.log({
+    const activity = await this.log({
       sessionId,
       parentActivityId,
       actor: {
@@ -192,6 +193,7 @@ export class ActivityLogger extends EventEmitter {
       details: { agentId, agentRole },
       tags: ['agent-lifecycle'],
     });
+    return activity.id;
   }
 
   /**
@@ -202,7 +204,7 @@ export class ActivityLogger extends EventEmitter {
     userId: string,
     request: string
   ): Promise<string> {
-    return this.log({
+    const activity = await this.log({
       sessionId,
       actor: {
         type: 'user',
@@ -212,6 +214,7 @@ export class ActivityLogger extends EventEmitter {
       description: `User requested: ${request}`,
       tags: ['user-input'],
     });
+    return activity.id;
   }
 
   /**
@@ -224,7 +227,7 @@ export class ActivityLogger extends EventEmitter {
     method: string,
     statusCode?: number
   ): Promise<string> {
-    return this.log({
+    const activity = await this.log({
       sessionId,
       actor,
       actionType: 'api_call',
@@ -232,6 +235,7 @@ export class ActivityLogger extends EventEmitter {
       details: { endpoint, method, statusCode },
       tags: ['api'],
     });
+    return activity.id;
   }
 
   /**
@@ -243,7 +247,7 @@ export class ActivityLogger extends EventEmitter {
     target: string,
     message: string
   ): Promise<string> {
-    return this.log({
+    const activity = await this.log({
       sessionId,
       actor,
       actionType: 'message',
@@ -251,6 +255,7 @@ export class ActivityLogger extends EventEmitter {
       details: { target, message },
       tags: ['messaging'],
     });
+    return activity.id;
   }
 
   /**
