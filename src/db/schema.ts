@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS activities (
   cost_usd REAL,
   
   tags TEXT,
-  references JSON,
+  references_json JSON,
   metadata JSON,
   
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

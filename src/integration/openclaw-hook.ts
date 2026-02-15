@@ -131,11 +131,17 @@ export class OpenClawInstrumentationMiddleware {
    */
   async logDelegation(
     sessionId: string,
-    parentActivityId: string,
+    parentActivityId: string | undefined,
     fromActor: { type: string; id: string },
     toAgent: { id: string; role?: string }
   ): Promise<string> {
-    return this.logger.logDelegation(sessionId, parentActivityId, fromActor, toAgent);
+    return this.logger.logDelegation(
+      sessionId,
+      parentActivityId,
+      fromActor,
+      toAgent.id,
+      `Delegated to agent ${toAgent.id}`
+    );
   }
 
   /**
@@ -144,11 +150,11 @@ export class OpenClawInstrumentationMiddleware {
    */
   async logAgentSpawn(
     sessionId: string,
-    parentActivityId: string,
+    parentActivityId: string | undefined,
     agentId: string,
     role?: string
   ): Promise<string> {
-    return this.logger.logAgentSpawn(sessionId, parentActivityId, agentId, role);
+    return this.logger.logAgentSpawn(sessionId, parentActivityId, agentId, role || '');
   }
 
   /**
@@ -179,12 +185,12 @@ export class EventBasedActivityLogger {
   /**
    * Handle tool execution start event
    */
-  onToolStart(
+  async onToolStart(
     toolName: string,
     params: Record<string, any>,
     sessionId: string,
     actor: any
-  ): string {
+  ): Promise<string> {
     return this.logger.logToolStart(sessionId, actor, toolName, params, `Calling ${toolName}`);
   }
 
@@ -214,15 +220,21 @@ export class EventBasedActivityLogger {
   /**
    * Handle agent delegation event
    */
-  onDelegation(sessionId: string, parentActivityId: string, fromActor: any, toAgent: any) {
-    return this.logger.logDelegation(sessionId, parentActivityId, fromActor, toAgent);
+  async onDelegation(sessionId: string, parentActivityId: string | undefined, fromActor: any, toAgent: any): Promise<string> {
+    return this.logger.logDelegation(
+      sessionId,
+      parentActivityId,
+      fromActor,
+      toAgent.id || toAgent,
+      `Delegated to ${toAgent.id || toAgent}`
+    );
   }
 
   /**
    * Handle agent spawn event
    */
-  onAgentSpawn(sessionId: string, parentActivityId: string, agentId: string, role?: string) {
-    return this.logger.logAgentSpawn(sessionId, parentActivityId, agentId, role);
+  async onAgentSpawn(sessionId: string, parentActivityId: string | undefined, agentId: string, role?: string): Promise<string> {
+    return this.logger.logAgentSpawn(sessionId, parentActivityId, agentId, role || '');
   }
 }
 

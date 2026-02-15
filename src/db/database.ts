@@ -71,7 +71,7 @@ export class Database {
         id, session_id, parent_activity_id,
         timestamp, actor_type, actor_id, actor_role, actor_session_label,
         action_type, tool_name, description, details,
-        status, tags, references, metadata
+        status, tags, references_json, metadata
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
@@ -373,7 +373,7 @@ export class Database {
             usd: row.cost_usd,
           }
         : undefined,
-      references: row.references ? JSON.parse(row.references) : undefined,
+      references: row.references_json ? JSON.parse(row.references_json) : undefined,
       tags: row.tags ? row.tags.split(',') : undefined,
       metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
       createdAt: row.created_at,

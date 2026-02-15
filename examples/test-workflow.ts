@@ -38,21 +38,15 @@ async function runTestWorkflow() {
   await logger.logUserRequest(sessionId, 'ben', 'Build a React dashboard for activity tracking');
   await sleep(100);
 
-  // Orchestrator decision
+  // Orchestrator decision - log as API call
   console.log('📝 [3/9] Logging orchestrator decision...');
-  const orchestratorActivityId = await logger.log({
+  const orchestratorActivityId = await logger.logApiCall(
     sessionId,
-    actor: {
-      type: 'orchestrator',
-      id: orchestratorId,
-    },
-    actionType: 'decision',
-    description: 'Orchestrator decided to delegate to Engineer subagent',
-    details: {
-      decision: 'delegate',
-      reasoning: 'Task requires React development expertise',
-    },
-  });
+    { type: 'orchestrator', id: orchestratorId },
+    'orchestrator/decide',
+    'POST',
+    200
+  );
   await sleep(100);
 
   // Subagent delegation
