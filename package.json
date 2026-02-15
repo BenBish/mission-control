@@ -11,6 +11,8 @@
     "api": "node --loader ts-node/esm src/api/server.ts",
     "db:migrate": "node --loader ts-node/esm src/db/migrations.ts",
     "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
     "lint": "eslint src --ext .ts"
   },
   "keywords": [
