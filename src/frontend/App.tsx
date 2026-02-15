@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { Activity } from '../types/activity';
 import { ActivityFeed } from './pages/ActivityFeed';
 import { CostBreakdown } from './pages/CostBreakdown';
 import { ActivityDetail } from './pages/ActivityDetail';
@@ -11,14 +12,9 @@ import './styles/App.css';
 
 export type Page = 'feed' | 'costs' | 'detail';
 
-export interface SelectedActivity {
-  id: string;
-  [key: string]: any;
-}
-
 export const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<Page>('feed');
-  const [selectedActivity, setSelectedActivity] = useState<SelectedActivity | null>(null);
+  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [isConnected, setIsConnected] = useState(false);
 
   // Health check on mount
@@ -38,7 +34,7 @@ export const App: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const handleActivityClick = (activity: SelectedActivity) => {
+  const handleActivityClick = (activity: Activity) => {
     setSelectedActivity(activity);
     setCurrentPage('detail');
   };
