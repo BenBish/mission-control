@@ -43,6 +43,10 @@ export class ActivityFeedServer {
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
 
+    // Serve static frontend files
+    const publicPath = './public';
+    this.app.use(express.static(publicPath));
+
     // Request logging
     this.app.use((req, res, next) => {
       console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
@@ -68,6 +72,20 @@ export class ActivityFeedServer {
     this.app.locals.logger = this.logger;
     this.app.locals.db = this.db;
 
+    // Setup real-time event broadcasting
+    this.logger.on('activity:created', (activity) => {
+      if (this.app.locals.broadcastActivity) {
+        this.app.locals.broadcastActivity(activity);
+      }
+    });
+
+    this.logger.on('activity:updated', (activity) => {
+      if (this.app.locals.broadcastActivity) {
+        this.app.locals.broadcastActivity(activity);
+      }
+    });
+
+    console.log('✓ Real-time event broadcasting enabled');
     console.log('✓ Server initialized');
   }
 

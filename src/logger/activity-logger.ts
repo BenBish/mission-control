@@ -117,6 +117,12 @@ export class ActivityLogger extends EventEmitter {
 
     this.pendingActivities.delete(activityId);
 
+    // Fetch updated activity and emit events
+    const updatedActivity = await this.db.getActivity(activityId);
+    if (updatedActivity) {
+      this.emit('activity:updated', updatedActivity);
+    }
+
     // Emit completion event
     this.emit('activity:complete', { id: activityId, status });
   }
@@ -141,6 +147,12 @@ export class ActivityLogger extends EventEmitter {
         },
       },
     });
+
+    // Fetch updated activity and emit event
+    const updatedActivity = await this.db.getActivity(activityId);
+    if (updatedActivity) {
+      this.emit('activity:updated', updatedActivity);
+    }
 
     // Emit cost event for dashboard
     this.emit('activity:cost', {

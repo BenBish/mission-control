@@ -7,6 +7,9 @@ import { Express, Request, Response } from 'express';
 import { ActivityLogger } from '../logger/activity-logger.js';
 import { ActivityFilter, Activity } from '../types/activity.js';
 
+// Store active SSE clients
+const sseClients: Set<Response> = new Set();
+
 export function setupRoutes(app: Express, logger: ActivityLogger) {
   // ============================================================================
   // ACTIVITY ENDPOINTS
@@ -300,6 +303,64 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
     });
   });
 
+  // ============================================================================
+  // REAL-TIME STREAMING ENDPOINTS
+  // ============================================================================
+
+  /**
+   * GET /api/stream
+   * Server-Sent Events endpoint for real-time activity updates
+   */
+  app.get('/api/stream', (req: Request, res: Response) => {
+    // Set SSE headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+
+    // Send initial connection message
+    res.write(':connected\n\n');
+
+    // Add to active clients
+    sseClients.add(res);
+    console.log(`[SSE] Client connected. Active clients: ${sseClients.size}`);
+
+    // Clean up on disconnect
+    req.on('close', () => {
+      sseClients.delete(res);
+      console.log(`[SSE] Client disconnected. Active clients: ${sseClients.size}`);
+    });
+
+    // Keep connection alive with heartbeat every 30s
+    const heartbeatInterval = setInterval(() => {
+      if (!res.writableEnded) {
+        res.write(':heartbeat\n\n');
+      } else {
+        clearInterval(heartbeatInterval);
+      }
+    }, 30000);
+  });
+
+  // ============================================================================
+  // UTILITY: Broadcast activity to SSE clients
+  // ============================================================================
+
+  /**
+   * Internal function to broadcast new activities to connected clients
+   */
+  app.locals.broadcastActivity = (activity: Activity) => {
+    const message = `data: ${JSON.stringify(activity)}\nevent: activity\n\n`;
+    
+    // Send to all connected SSE clients
+    for (const client of sseClients) {
+      if (!client.writableEnded) {
+        client.write(message);
+      } else {
+        sseClients.delete(client);
+      }
+    }
+  };
+
   /**
    * GET /api/pending-activities
    * Get all pending (in-progress) activities
@@ -316,6 +377,32 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
       res.status(500).json({
         success: false,
         error: error.message,
+      });
+    }
+  });
+
+  // ============================================================================
+  // SPA FALLBACK ROUTE (must be last)
+  // ============================================================================
+
+  /**
+   * Serve index.html for all non-API routes (SPA routing)
+   */
+  app.get('*', (req: Request, res: Response) => {
+    // Don't serve index.html for API routes
+    if (!req.path.startsWith('/api')) {
+      res.sendFile('public/index.html', { root: '.' }, (err) => {
+        if (err) {
+          res.status(404).json({
+            success: false,
+            error: 'Not found',
+          });
+        }
+      });
+    } else {
+      res.status(404).json({
+        success: false,
+        error: 'API endpoint not found',
       });
     }
   });
