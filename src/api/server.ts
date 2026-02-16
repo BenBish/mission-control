@@ -44,8 +44,8 @@ export class ActivityFeedServer {
    */
   private setupMiddleware(): void {
     this.app.use(cors());
-    this.app.use(express.json());
-    this.app.use(express.urlencoded({ extended: true }));
+    this.app.use(express.json({ limit: '5mb' }));
+    this.app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
     // Serve static frontend files (Vite build output)
     const publicPath = './dist-vite';

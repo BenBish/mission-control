@@ -54,6 +54,87 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
   });
 
   /**
+   * POST /api/activities
+   * Create new activities (received from OpenClaw plugins)
+   */
+  app.post('/api/activities', async (req: Request, res: Response) => {
+    try {
+      const { activities } = req.body;
+      if (!activities || !Array.isArray(activities)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid request: expected { activities: [...] }',
+        });
+      }
+
+      const db = (logger as any).db;
+      const created = [];
+
+      for (const activity of activities) {
+        // Map plugin activity type to database actionType
+        const actionTypeMap: Record<string, string> = {
+          'tool_execution': 'tool_call',
+          'message_received': 'message',
+          'message_sent': 'message',
+          'agent_run': 'decision',
+          'session_start': 'session_start',
+          'session_end': 'session_end',
+          'model_usage': 'api_call',
+          'session_state': 'event',
+          'queue_event': 'event',
+        };
+
+        // Map plugin activity type to actor type
+        const actorTypeMap: Record<string, string> = {
+          'session_start': 'orchestrator',
+          'session_end': 'orchestrator',
+          'agent_run': 'subagent',
+        };
+
+        // Determine the correct actor type based on activity type
+        let actorType = actorTypeMap[activity.type] || 'subagent';
+        if (activity.type.startsWith('session')) {
+          actorType = 'orchestrator';
+        }
+
+        // Transform incoming activity to CreateActivityInput format
+        const dbActivity = {
+          sessionId: activity.sessionId || activity.sessionKey || 'unknown-session',
+          timestamp: activity.timestamp || new Date().toISOString(),
+          actor: {
+            id: activity.agentId || 'unknown',
+            type: actorType as 'orchestrator' | 'subagent' | 'user' | 'system',
+          },
+          actionType: (actionTypeMap[activity.type] || 'event') as 'tool_call' | 'delegation' | 'api_call' | 'decision' | 'message' | 'event' | 'user_request' | 'agent_spawn' | 'session_start' | 'session_end',
+          toolName: activity.toolName,
+          description: `${activity.type} - ${activity.toolName || activity.sessionId || activity.sessionKey || 'N/A'}`,
+          details: activity,
+          status: activity.error ? 'failure' : (activity.success === false ? 'failure' : 'success'),
+        };
+
+        const createdActivity = await db.createActivity(dbActivity);
+        created.push(createdActivity);
+
+        // Broadcast to SSE clients
+        if (app.locals.broadcastActivity) {
+          app.locals.broadcastActivity(dbActivity);
+        }
+      }
+
+      res.json({
+        success: true,
+        count: created.length,
+        activities: created,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  /**
    * GET /api/activities/:id
    * Get a specific activity by ID
    */
