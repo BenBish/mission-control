@@ -294,6 +294,8 @@ export class EventBasedActivityLogger {
     durationMs: number,
     metadata?: Record<string, any>
   ) {
+    const status = error ? 'failure' : 'success';
+    
     if (error) {
       await this.logger.logToolEnd(activityId, 'failure', result, undefined, error.message, durationMs);
     } else {
@@ -301,9 +303,10 @@ export class EventBasedActivityLogger {
       await this.logger.logToolEnd(activityId, 'success', result, output, undefined, durationMs);
     }
 
-    // Handle tokens if provided in metadata
+    // Handle tokens if provided in metadata (with proper status)
     if (metadata?.tokens) {
-      await this.logger.logToolWithTokens(activityId, metadata.tokens);
+      const tokenStatus = error ? 'failure' : 'success';
+      await this.logger.logToolWithTokens(activityId, metadata.tokens, tokenStatus);
     }
   }
 

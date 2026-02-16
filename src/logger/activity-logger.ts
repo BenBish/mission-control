@@ -29,6 +29,7 @@ export class ActivityLogger extends EventEmitter {
       },
       actionType: 'session_start',
       description: `Session started: ${sessionId}`,
+      status: 'success',
     });
 
     await this.db.createSession(sessionId);

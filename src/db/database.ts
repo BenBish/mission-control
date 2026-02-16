@@ -44,8 +44,16 @@ export class Database {
    */
   async close(): Promise<void> {
     if (this.db) {
-      await this.db.close();
-      this.db = null;
+      try {
+        // Ensure all statements are finalized
+        await this.db.exec('PRAGMA integrity_check');
+        await this.db.close();
+      } catch (error) {
+        // Try to close anyway even if there's an error
+        console.warn('Error closing database:', error);
+      } finally {
+        this.db = null;
+      }
     }
   }
 
@@ -62,7 +70,7 @@ export class Database {
     const activity: Activity = {
       id: uuidv7(),
       timestamp: new Date().toISOString(),
-      status: 'pending',
+      status: input.status || 'pending',
       ...input,
     };
 

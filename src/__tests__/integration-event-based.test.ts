@@ -25,6 +25,7 @@ describe('Integration: Event-Based Pattern', () => {
 
     // Create event emitter to simulate OpenClaw
     eventEmitter = new EventEmitter();
+    eventEmitter.setMaxListeners(50); // Prevent max listener warnings
 
     // Initialize event-based logger
     eventLogger = new EventBasedActivityLogger(logger);
@@ -36,7 +37,14 @@ describe('Integration: Event-Based Pattern', () => {
     });
   });
 
+  afterEach(() => {
+    // Clear all listeners between tests to prevent cross-contamination
+    eventEmitter.removeAllListeners();
+  });
+
   afterAll(async () => {
+    eventEmitter.removeAllListeners();
+    logger.removeAllListeners();
     await db.close();
   });
 
@@ -47,13 +55,13 @@ describe('Integration: Event-Based Pattern', () => {
 
       let activityId: string;
 
-      // Hook into events for logging
-      eventEmitter.on('tool:start', async (toolName, params, context) => {
+      // Hook into events for logging (use once to prevent pollution)
+      const toolStartHandler = async (toolName: string, params: any, context: any) => {
         activityId = await eventLogger.onToolStart(toolName, params, context.sessionId, context.actor);
         context.activityId = activityId;
-      });
+      };
 
-      eventEmitter.on('tool:end', async (result, error, context) => {
+      const toolEndHandler = async (result: any, error: any, context: any) => {
         await eventLogger.onToolEnd(
           context.activityId,
           result,
@@ -61,7 +69,10 @@ describe('Integration: Event-Based Pattern', () => {
           context.durationMs,
           context.metadata
         );
-      });
+      };
+
+      eventEmitter.once('tool:start', toolStartHandler);
+      eventEmitter.once('tool:end', toolEndHandler);
 
       // Wait for activity creation
       logger.once('activity:created', (activity) => {
@@ -89,6 +100,24 @@ describe('Integration: Event-Based Pattern', () => {
 
     let capturedActivityId = '';
 
+    // Set up event handlers first
+    const toolStartHandler = async (toolName: string, params: any, context: any) => {
+      const id = await eventLogger.onToolStart(toolName, params, context.sessionId, context.actor);
+      context.activityId = id;
+    };
+
+    const toolEndHandler = async (result: any, error: any, context: any) => {
+      // Ensure metadata is passed through properly
+      if (context.metadata) {
+        await eventLogger.onToolEnd(context.activityId, result, error, context.durationMs, context.metadata);
+      } else {
+        await eventLogger.onToolEnd(context.activityId, result, error, context.durationMs);
+      }
+    };
+
+    eventEmitter.once('tool:start', toolStartHandler);
+    eventEmitter.once('tool:end', toolEndHandler);
+
     // Track activity creation
     const activityCreatedPromise = new Promise<void>((resolve) => {
       logger.once('activity:created', (activity) => {
@@ -97,18 +126,20 @@ describe('Integration: Event-Based Pattern', () => {
       });
     });
 
-    // Hook events
-    eventEmitter.on('tool:start', async (toolName, params, context) => {
-      const id = await eventLogger.onToolStart(toolName, params, context.sessionId, context.actor);
-      context.activityId = id;
+    // Track activity update completion
+    const activityUpdatedPromise = new Promise<void>((resolve) => {
+      const updateHandler = (activity: any) => {
+        // Only process updates for our activity
+        if (activity.id === capturedActivityId) {
+          logger.removeListener('activity:updated', updateHandler);
+          resolve();
+        }
+      };
+      logger.on('activity:updated', updateHandler);
     });
 
-    eventEmitter.on('tool:end', async (result, error, context) => {
-      await eventLogger.onToolEnd(context.activityId, result, error, context.durationMs, context.metadata);
-    });
-
-    // Emit tool execution
-    const context: any = { sessionId, actor, durationMs: 250, activityId: undefined };
+    // Emit tool execution with metadata setup
+    const context: any = { sessionId, actor, durationMs: 250, activityId: undefined, metadata: undefined };
     eventEmitter.emit('tool:start', 'web_search', { query: 'test' }, context);
 
     await activityCreatedPromise;
@@ -128,8 +159,11 @@ describe('Integration: Event-Based Pattern', () => {
     context.metadata = { tokens: { inputTokens: 100, outputTokens: 200, totalTokens: 300 } };
     eventEmitter.emit('tool:end', mockResult, null, context);
 
-    // Wait a bit for processing
-    await new Promise((r) => setTimeout(r, 100));
+    // Wait for activity update to complete
+    await activityUpdatedPromise;
+    
+    // Give database a moment to fully persist
+    await new Promise((r) => setTimeout(r, 50));
 
     // Verify activity was updated
     const activity = await logger.getActivity(capturedActivityId);
@@ -152,21 +186,29 @@ describe('Integration: Event-Based Pattern', () => {
     });
 
     const activityUpdatedPromise = new Promise<void>((resolve) => {
-      logger.once('activity:updated', (activity) => {
-        expect(activity.status).toBe('success');
-        resolve();
-      });
+      const updateHandler = (activity: any) => {
+        // Only process updates for our activity
+        if (activity.id === capturedActivityId) {
+          expect(activity.status).toBe('success');
+          logger.removeListener('activity:updated', updateHandler);
+          resolve();
+        }
+      };
+      logger.on('activity:updated', updateHandler);
     });
 
     // Hook events
-    eventEmitter.on('tool:start', async (toolName, params, context) => {
+    const toolStartHandler = async (toolName: string, params: any, context: any) => {
       const id = await eventLogger.onToolStart(toolName, params, context.sessionId, context.actor);
       context.activityId = id;
-    });
+    };
 
-    eventEmitter.on('tool:end', async (result, error, context) => {
+    const toolEndHandler = async (result: any, error: any, context: any) => {
       await eventLogger.onToolEnd(context.activityId, result, error, context.durationMs);
-    });
+    };
+
+    eventEmitter.once('tool:start', toolStartHandler);
+    eventEmitter.once('tool:end', toolEndHandler);
 
     // Emit tool execution
     const context = { sessionId, actor, durationMs: 100, activityId: undefined as any };
@@ -188,36 +230,38 @@ describe('Integration: Event-Based Pattern', () => {
 
     let capturedActivityId = '';
 
-    const activityCreatedPromise = new Promise<void>((resolve) => {
-      logger.once('activity:created', () => {
-        resolve();
-      });
-    });
-
-    const activityUpdatedPromise = new Promise<void>((resolve) => {
-      logger.once('activity:updated', (activity) => {
-        expect(activity.status).toBe('failure');
-        resolve();
-      });
-    });
-
-    // Hook events
-    eventEmitter.on('tool:start', async (toolName, params, context) => {
+    // Set up event handlers first - without intermediate promises
+    const toolStartHandler = async (toolName: string, params: any, context: any) => {
       const id = await eventLogger.onToolStart(toolName, params, context.sessionId, context.actor);
       context.activityId = id;
       capturedActivityId = id;
-    });
+    };
 
-    eventEmitter.on('tool:end', async (result, error, context) => {
+    const toolEndHandler = async (result: any, error: any, context: any) => {
       await eventLogger.onToolEnd(context.activityId, result, error, context.durationMs);
+    };
+
+    eventEmitter.once('tool:start', toolStartHandler);
+    eventEmitter.once('tool:end', toolEndHandler);
+
+    const activityUpdatedPromise = new Promise<void>((resolve) => {
+      const updateHandler = (activity: any) => {
+        // Only process updates for our activity
+        if (activity.id === capturedActivityId) {
+          expect(activity.status).toBe('failure');
+          logger.removeListener('activity:updated', updateHandler);
+          resolve();
+        }
+      };
+      logger.on('activity:updated', updateHandler);
     });
 
     // Emit tool execution
-    const context = { sessionId, actor, durationMs: 150, activityId: undefined as any };
+    const context: any = { sessionId, actor, durationMs: 150, activityId: undefined };
     eventEmitter.emit('tool:start', 'read', { file_path: '/nonexistent/file' }, context);
 
-    await activityCreatedPromise;
-    await new Promise((r) => setTimeout(r, 50));
+    // Wait briefly for activity creation
+    await new Promise((r) => setTimeout(r, 100));
 
     const error = new Error('File not found');
     eventEmitter.emit('tool:end', null, error, context);
@@ -243,9 +287,11 @@ describe('Integration: Event-Based Pattern', () => {
       });
     });
 
-    eventEmitter.on('agent:delegation', async (fromActor, toAgent, context) => {
+    const delegationHandler = async (fromActor: any, toAgent: any, context: any) => {
       await eventLogger.onDelegation(context.sessionId, context.parentActivityId, fromActor, toAgent);
-    });
+    };
+
+    eventEmitter.once('agent:delegation', delegationHandler);
 
     // Emit delegation
     const context = { sessionId, parentActivityId: undefined };
@@ -266,9 +312,11 @@ describe('Integration: Event-Based Pattern', () => {
       });
     });
 
-    eventEmitter.on('agent:spawn', async (agentId, role, context) => {
+    const spawnHandler = async (agentId: string, role: string, context: any) => {
       await eventLogger.onAgentSpawn(context.sessionId, context.parentActivityId, agentId, role);
-    });
+    };
+
+    eventEmitter.once('agent:spawn', spawnHandler);
 
     const context = { sessionId, parentActivityId: undefined };
     eventEmitter.emit('agent:spawn', 'subagent-005', 'Engineer', context);
@@ -283,39 +331,52 @@ describe('Integration: Event-Based Pattern', () => {
     const activities: string[] = [];
     let toolsCompleted = 0;
 
-    logger.on('activity:created', (activity) => {
+    const activityCreatedHandler = (activity: any) => {
       if (activity.actionType === 'tool_call') {
         activities.push(activity.id);
       }
-    });
+    };
 
-    logger.on('activity:updated', () => {
+    const activityUpdatedHandler = () => {
       toolsCompleted++;
-    });
+    };
+
+    logger.on('activity:created', activityCreatedHandler);
+    logger.on('activity:updated', activityUpdatedHandler);
 
     // Hook events
-    eventEmitter.on('tool:start', async (toolName, params, context) => {
+    const toolStartHandler = async (toolName: string, params: any, context: any) => {
       const id = await eventLogger.onToolStart(toolName, params, context.sessionId, context.actor);
       context.activityId = id;
-    });
+    };
 
-    eventEmitter.on('tool:end', async (result, error, context) => {
+    const toolEndHandler = async (result: any, error: any, context: any) => {
       await eventLogger.onToolEnd(context.activityId, result, error, context.durationMs);
-    });
+    };
 
-    // Execute 3 tools
+    eventEmitter.on('tool:start', toolStartHandler);
+    eventEmitter.on('tool:end', toolEndHandler);
+
+    // Execute 3 tools sequentially
+    const tools = ['read', 'web_search', 'exec'];
     for (let i = 0; i < 3; i++) {
       const context = { sessionId, actor, durationMs: 100, activityId: undefined as any };
-      const tools = ['read', 'web_search', 'exec'];
       eventEmitter.emit('tool:start', tools[i], { test: true }, context);
-      await new Promise((r) => setTimeout(r, 50));
+      await new Promise((r) => setTimeout(r, 75));
       eventEmitter.emit('tool:end', 'result', null, context);
-      await new Promise((r) => setTimeout(r, 50));
+      await new Promise((r) => setTimeout(r, 75));
     }
 
-    await new Promise((r) => setTimeout(r, 200));
+    // Wait a bit longer for final processing
+    await new Promise((r) => setTimeout(r, 300));
 
     expect(activities.length).toBeGreaterThanOrEqual(3);
     expect(toolsCompleted).toBeGreaterThanOrEqual(3);
+
+    // Clean up event listeners
+    logger.removeListener('activity:created', activityCreatedHandler);
+    logger.removeListener('activity:updated', activityUpdatedHandler);
+    eventEmitter.removeListener('tool:start', toolStartHandler);
+    eventEmitter.removeListener('tool:end', toolEndHandler);
   });
 });

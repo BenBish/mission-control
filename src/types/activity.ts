@@ -93,6 +93,7 @@ export interface CreateActivityInput {
   toolName?: string;
   description: string;
   details?: Record<string, any>;
+  status?: ActivityStatus;
   tags?: string[];
   references?: ActivityReferences;
   metadata?: Record<string, any>;

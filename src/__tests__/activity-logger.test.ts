@@ -390,10 +390,16 @@ describe('ActivityLogger', () => {
     test('should emit activity:created event', (done) => {
       const sessionId = 'test:session:016';
 
-      logger.once('activity:created', (activity) => {
-        expect(activity.actionType).toBe('tool_call');
-        done();
-      });
+      // Use on with a filter since session_start will also emit activity:created
+      const handler = (activity: any) => {
+        if (activity.actionType === 'tool_call') {
+          logger.removeListener('activity:created', handler);
+          expect(activity.actionType).toBe('tool_call');
+          done();
+        }
+      };
+
+      logger.on('activity:created', handler);
 
       logger.logSessionStart(sessionId).then(() => {
         logger.logToolStart(
@@ -414,16 +420,15 @@ describe('ActivityLogger', () => {
         done();
       });
 
-      logger.logSessionStart(sessionId).then(() => {
-        logger.logToolStart(
+      logger.logSessionStart(sessionId).then(async () => {
+        const id = await logger.logToolStart(
           sessionId,
           { type: 'subagent', id: 'agent:001' },
           'exec',
           {},
           'Complete test'
-        ).then((id) => {
-          logger.logToolEnd(id, 'success', {}, '', undefined, 100);
-        });
+        );
+        await logger.logToolEnd(id, 'success', {}, '', undefined, 100);
       });
     });
   });

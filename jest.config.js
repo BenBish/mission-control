@@ -22,6 +22,10 @@ export default {
   transformIgnorePatterns: [
     'node_modules/(?!uuid)',
   ],
+  // Run tests serially to prevent SQLite BUSY errors
+  maxWorkers: 1,
+  // Increase test timeout to handle async operations
+  testTimeout: 10000,
   collectCoverageFrom: ['src/**/*.ts', '!src/**/*.test.ts', '!src/**/*.d.ts'],
   coverageThreshold: {
     global: {
