@@ -7,9 +7,13 @@ import express, { Express } from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
 import { Database } from '../db/database.js';
 import { ActivityLogger } from '../logger/activity-logger.js';
 import { setupRoutes } from './routes.js';
+
+// Load environment variables from .env file
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -43,8 +47,8 @@ export class ActivityFeedServer {
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
 
-    // Serve static frontend files
-    const publicPath = './public';
+    // Serve static frontend files (Vite build output)
+    const publicPath = './dist-vite';
     this.app.use(express.static(publicPath));
 
     // Request logging

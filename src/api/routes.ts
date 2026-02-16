@@ -391,7 +391,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
   app.get('*', (req: Request, res: Response) => {
     // Don't serve index.html for API routes
     if (!req.path.startsWith('/api')) {
-      res.sendFile('public/index.html', { root: '.' }, (err) => {
+      res.sendFile('dist-vite/index.html', { root: '.' }, (err) => {
         if (err) {
           res.status(404).json({
             success: false,
