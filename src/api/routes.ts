@@ -5,7 +5,8 @@
 
 import { Express, Request, Response } from 'express';
 import { ActivityLogger } from '../logger/activity-logger.js';
-import { ActivityFilter, Activity } from '../types/activity.js';
+import { ActivityFilter, Activity, TokenInfo, CostInfo } from '../types/activity.js';
+import { calculateCost } from '../types/pricing.js';
 
 // Store active SSE clients
 const sseClients: Set<Response> = new Set();
@@ -97,6 +98,26 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
           actorType = 'orchestrator';
         }
 
+        // Extract model and tokens from activity
+        const model = activity.model || activity.details?.model;
+        const tokens: TokenInfo | undefined = activity.tokens ? {
+          inputTokens: activity.tokens.input || 0,
+          outputTokens: activity.tokens.output || 0,
+          totalTokens: activity.tokens.total || (activity.tokens.input || 0) + (activity.tokens.output || 0),
+          model,
+        } : undefined;
+
+        // Calculate cost if tokens provided
+        let cost: CostInfo | undefined;
+        if (activity.costUsd !== undefined) {
+          cost = { usd: activity.costUsd };
+        } else if (tokens && model) {
+          const calculatedCost = calculateCost(model, tokens.inputTokens, tokens.outputTokens);
+          if (calculatedCost > 0) {
+            cost = { usd: calculatedCost };
+          }
+        }
+
         // Transform incoming activity to CreateActivityInput format
         const dbActivity = {
           sessionId: activity.sessionId || activity.sessionKey || 'unknown-session',
@@ -113,11 +134,28 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         };
 
         const createdActivity = await db.createActivity(dbActivity);
+
+        // Update with tokens and cost if available
+        if (tokens || cost) {
+          await db.updateActivity(createdActivity.id, {
+            tokens,
+            cost,
+          });
+          // Update the created activity object for response
+          if (tokens) createdActivity.tokens = tokens;
+          if (cost) createdActivity.cost = cost;
+        }
+
         created.push(createdActivity);
 
         // Broadcast to SSE clients
         if (app.locals.broadcastActivity) {
-          app.locals.broadcastActivity(dbActivity);
+          app.locals.broadcastActivity({
+            ...dbActivity,
+            id: createdActivity.id,
+            tokens,
+            cost,
+          } as Activity);
         }
       }
 
@@ -125,6 +163,62 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         success: true,
         count: created.length,
         activities: created,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  /**
+   * POST /api/activities/backfill
+   * Calculate costs for existing activities with tokens but no cost
+   */
+  app.post('/api/activities/backfill', async (req: Request, res: Response) => {
+    try {
+      const db = (logger as any).db;
+      
+      // Get all activities with tokens but no cost
+      const activities = await db.getActivities({ limit: 100000 });
+      const activitiesToUpdate = activities.filter((a: Activity) => 
+        a.tokens && 
+        a.tokens.totalTokens > 0 && 
+        (!a.cost || a.cost.usd === 0)
+      );
+
+      let updatedCount = 0;
+      let totalCostAdded = 0;
+
+      for (const activity of activitiesToUpdate) {
+        if (!activity.tokens) continue;
+
+        const model = activity.tokens.model || activity.metadata?.model || 'default';
+        const calculatedCost = calculateCost(
+          model,
+          activity.tokens.inputTokens,
+          activity.tokens.outputTokens
+        );
+
+        if (calculatedCost > 0) {
+          await db.updateActivity(activity.id, {
+            cost: { usd: calculatedCost },
+            tokens: {
+              ...activity.tokens,
+              model,
+            },
+          });
+          updatedCount++;
+          totalCostAdded += calculatedCost;
+        }
+      }
+
+      res.json({
+        success: true,
+        updated: updatedCount,
+        totalCostAdded,
+        message: `Updated ${updatedCount} activities with calculated costs`,
       });
     } catch (error: any) {
       res.status(500).json({
