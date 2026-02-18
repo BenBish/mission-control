@@ -113,6 +113,43 @@ CREATE TABLE IF NOT EXISTS activity_logs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_activity_logs_activity ON activity_logs(activity_id);
+
+-- LLM generations extracted from OpenClaw session JSONL logs
+CREATE TABLE IF NOT EXISTS llm_generations (
+  id TEXT PRIMARY KEY,
+  session_log_file TEXT NOT NULL,
+  session_log_msg_id TEXT NOT NULL,
+  agent_id TEXT NOT NULL,
+  timestamp DATETIME NOT NULL,
+  model TEXT NOT NULL,
+  provider TEXT,
+  stop_reason TEXT,
+  input_tokens INTEGER DEFAULT 0,
+  output_tokens INTEGER DEFAULT 0,
+  cache_read_tokens INTEGER DEFAULT 0,
+  cache_write_tokens INTEGER DEFAULT 0,
+  total_tokens INTEGER DEFAULT 0,
+  cost_input REAL DEFAULT 0,
+  cost_output REAL DEFAULT 0,
+  cost_cache_read REAL DEFAULT 0,
+  cost_total REAL DEFAULT 0,
+  linked_activity_id TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(session_log_file, session_log_msg_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_llm_generations_timestamp ON llm_generations(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_llm_generations_agent ON llm_generations(agent_id);
+CREATE INDEX IF NOT EXISTS idx_llm_generations_model ON llm_generations(model);
+CREATE INDEX IF NOT EXISTS idx_llm_generations_linked ON llm_generations(linked_activity_id);
+
+-- Tracks incremental scan progress per session log file
+CREATE TABLE IF NOT EXISTS scan_state (
+  file_path TEXT PRIMARY KEY,
+  last_offset INTEGER DEFAULT 0,
+  last_scanned_at DATETIME,
+  file_size INTEGER DEFAULT 0
+);
 `;
 
 /**

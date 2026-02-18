@@ -388,6 +388,238 @@ export class Database {
     };
   }
 
+  // ============================================================================
+  // LLM GENERATION OPERATIONS
+  // ============================================================================
+
+  /**
+   * Upsert an LLM generation record (from session log scanning)
+   */
+  async upsertGeneration(gen: {
+    id: string;
+    sessionLogFile: string;
+    sessionLogMsgId: string;
+    agentId: string;
+    timestamp: string;
+    model: string;
+    provider?: string;
+    stopReason?: string;
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadTokens: number;
+    cacheWriteTokens: number;
+    totalTokens: number;
+    costInput: number;
+    costOutput: number;
+    costCacheRead: number;
+    costTotal: number;
+  }): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    await this.db.run(
+      `INSERT INTO llm_generations (
+        id, session_log_file, session_log_msg_id, agent_id, timestamp,
+        model, provider, stop_reason,
+        input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, total_tokens,
+        cost_input, cost_output, cost_cache_read, cost_total
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(session_log_file, session_log_msg_id) DO UPDATE SET
+        cost_total = excluded.cost_total,
+        total_tokens = excluded.total_tokens`,
+      gen.id, gen.sessionLogFile, gen.sessionLogMsgId, gen.agentId, gen.timestamp,
+      gen.model, gen.provider ?? null, gen.stopReason ?? null,
+      gen.inputTokens, gen.outputTokens, gen.cacheReadTokens, gen.cacheWriteTokens, gen.totalTokens,
+      gen.costInput, gen.costOutput, gen.costCacheRead, gen.costTotal
+    );
+  }
+
+  /**
+   * Get LLM generations with optional filters
+   */
+  async getGenerations(filter: {
+    agentId?: string;
+    model?: string;
+    startTime?: string;
+    endTime?: string;
+    unlinkedOnly?: boolean;
+    limit?: number;
+    offset?: number;
+  } = {}): Promise<any[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    let sql = 'SELECT * FROM llm_generations WHERE 1=1';
+    const values: any[] = [];
+
+    if (filter.agentId) {
+      sql += ' AND agent_id = ?';
+      values.push(filter.agentId);
+    }
+    if (filter.model) {
+      sql += ' AND model = ?';
+      values.push(filter.model);
+    }
+    if (filter.startTime) {
+      sql += ' AND timestamp >= ?';
+      values.push(filter.startTime);
+    }
+    if (filter.endTime) {
+      sql += ' AND timestamp <= ?';
+      values.push(filter.endTime);
+    }
+    if (filter.unlinkedOnly) {
+      sql += ' AND linked_activity_id IS NULL';
+    }
+
+    sql += ' ORDER BY timestamp DESC';
+
+    if (filter.limit) {
+      sql += ' LIMIT ?';
+      values.push(filter.limit);
+    }
+    if (filter.offset) {
+      sql += ' OFFSET ?';
+      values.push(filter.offset);
+    }
+
+    return this.db.all(sql, ...values);
+  }
+
+  /**
+   * Link a generation to an activity
+   */
+  async linkGeneration(generationId: string, activityId: string): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+    await this.db.run(
+      'UPDATE llm_generations SET linked_activity_id = ? WHERE id = ?',
+      activityId, generationId
+    );
+  }
+
+  /**
+   * Get cost summary aggregated by agent and model
+   */
+  async getGenerationSummary(filter: {
+    startTime?: string;
+    endTime?: string;
+  } = {}): Promise<{
+    totalCost: number;
+    totalGenerations: number;
+    totalInputTokens: number;
+    totalOutputTokens: number;
+    totalCacheReadTokens: number;
+    byAgent: Record<string, { cost: number; generations: number; tokens: number }>;
+    byModel: Record<string, { cost: number; generations: number; tokens: number }>;
+  }> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    let where = 'WHERE 1=1';
+    const values: any[] = [];
+    if (filter.startTime) {
+      where += ' AND timestamp >= ?';
+      values.push(filter.startTime);
+    }
+    if (filter.endTime) {
+      where += ' AND timestamp <= ?';
+      values.push(filter.endTime);
+    }
+
+    const totals = await this.db.get<any>(
+      `SELECT
+        COALESCE(SUM(cost_total), 0) as total_cost,
+        COUNT(*) as total_generations,
+        COALESCE(SUM(input_tokens), 0) as total_input_tokens,
+        COALESCE(SUM(output_tokens), 0) as total_output_tokens,
+        COALESCE(SUM(cache_read_tokens), 0) as total_cache_read_tokens
+      FROM llm_generations ${where}`,
+      ...values
+    );
+
+    const byAgent = await this.db.all<any[]>(
+      `SELECT agent_id,
+        SUM(cost_total) as cost,
+        COUNT(*) as generations,
+        SUM(total_tokens) as tokens
+      FROM llm_generations ${where}
+      GROUP BY agent_id ORDER BY cost DESC`,
+      ...values
+    );
+
+    const byModel = await this.db.all<any[]>(
+      `SELECT model,
+        SUM(cost_total) as cost,
+        COUNT(*) as generations,
+        SUM(total_tokens) as tokens
+      FROM llm_generations ${where}
+      GROUP BY model ORDER BY cost DESC`,
+      ...values
+    );
+
+    const agentMap: Record<string, { cost: number; generations: number; tokens: number }> = {};
+    for (const row of byAgent) {
+      agentMap[row.agent_id] = { cost: row.cost, generations: row.generations, tokens: row.tokens };
+    }
+
+    const modelMap: Record<string, { cost: number; generations: number; tokens: number }> = {};
+    for (const row of byModel) {
+      modelMap[row.model] = { cost: row.cost, generations: row.generations, tokens: row.tokens };
+    }
+
+    return {
+      totalCost: totals.total_cost,
+      totalGenerations: totals.total_generations,
+      totalInputTokens: totals.total_input_tokens,
+      totalOutputTokens: totals.total_output_tokens,
+      totalCacheReadTokens: totals.total_cache_read_tokens,
+      byAgent: agentMap,
+      byModel: modelMap,
+    };
+  }
+
+  // ============================================================================
+  // SCAN STATE OPERATIONS
+  // ============================================================================
+
+  /**
+   * Get scan state for a file
+   */
+  async getScanState(filePath: string): Promise<{ lastOffset: number; fileSize: number; lastScannedAt: string | null } | null> {
+    if (!this.db) throw new Error('Database not initialized');
+    const row = await this.db.get<any>(
+      'SELECT last_offset, file_size, last_scanned_at FROM scan_state WHERE file_path = ?',
+      filePath
+    );
+    if (!row) return null;
+    return { lastOffset: row.last_offset, fileSize: row.file_size, lastScannedAt: row.last_scanned_at };
+  }
+
+  /**
+   * Update scan state for a file
+   */
+  async updateScanState(filePath: string, offset: number, fileSize: number): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+    await this.db.run(
+      `INSERT INTO scan_state (file_path, last_offset, file_size, last_scanned_at)
+       VALUES (?, ?, ?, datetime('now'))
+       ON CONFLICT(file_path) DO UPDATE SET
+         last_offset = excluded.last_offset,
+         file_size = excluded.file_size,
+         last_scanned_at = excluded.last_scanned_at`,
+      filePath, offset, fileSize
+    );
+  }
+
+  /**
+   * Reset all scan state (for full rescan)
+   */
+  async resetScanState(): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+    await this.db.run('DELETE FROM scan_state');
+  }
+
+  // ============================================================================
+  // HELPER METHODS
+  // ============================================================================
+
   /**
    * Clear all activities (for testing)
    */
@@ -396,6 +628,8 @@ export class Database {
     await this.db.run('DELETE FROM activities');
     await this.db.run('DELETE FROM sessions');
     await this.db.run('DELETE FROM cost_summaries');
+    await this.db.run('DELETE FROM llm_generations');
+    await this.db.run('DELETE FROM scan_state');
   }
 
   /**
