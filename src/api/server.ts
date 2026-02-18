@@ -11,6 +11,9 @@ import dotenv from 'dotenv';
 import { Database } from '../db/database.js';
 import { ActivityLogger } from '../logger/activity-logger.js';
 import { setupRoutes } from './routes.js';
+import { SessionLogScanner } from '../services/session-log-scanner.js';
+import { CostLinker } from '../services/cost-linker.js';
+import { initializePricing } from '../types/pricing.js';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -29,6 +32,8 @@ export class ActivityFeedServer {
   private db: Database;
   private logger: ActivityLogger;
   private config: ServerConfig;
+  private scanner: SessionLogScanner | null = null;
+  private costLinker: CostLinker | null = null;
 
   constructor(config: ServerConfig) {
     this.config = config;
@@ -90,6 +95,32 @@ export class ActivityFeedServer {
     });
 
     console.log('✓ Real-time event broadcasting enabled');
+
+    // Initialize pricing (OpenRouter API with static fallback)
+    await initializePricing();
+    console.log('✓ Pricing service initialized');
+
+    // Start session log scanner and cost linker
+    this.costLinker = new CostLinker(this.db);
+    this.scanner = new SessionLogScanner(this.db);
+
+    // After each scan, run the cost linker
+    const originalScan = this.scanner.scan.bind(this.scanner);
+    this.scanner.scan = async () => {
+      const result = await originalScan();
+      if (result.newGenerations > 0 && this.costLinker) {
+        await this.costLinker.link();
+      }
+      return result;
+    };
+
+    this.scanner.start();
+    console.log('✓ Session log scanner started');
+
+    // Expose scanner and linker for route handlers
+    this.app.locals.scanner = this.scanner;
+    this.app.locals.costLinker = this.costLinker;
+
     console.log('✓ Server initialized');
   }
 
@@ -128,6 +159,9 @@ export class ActivityFeedServer {
    */
   async stop(): Promise<void> {
     console.log('Shutting down...');
+    if (this.scanner) {
+      this.scanner.stop();
+    }
     await this.db.close();
     console.log('✓ Stopped');
   }

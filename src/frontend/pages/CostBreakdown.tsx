@@ -1,14 +1,13 @@
 /**
  * Cost Breakdown Page
- * Visualize costs by actor, tool, and time period
+ * Visualize costs by actor, model, and time period
+ * Includes scanner status and backfill controls
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   BarChart,
   Bar,
-  LineChart,
-  Line,
   PieChart,
   Pie,
   Cell,
@@ -16,7 +15,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
 } from 'recharts';
 import '../styles/CostBreakdown.css';
@@ -27,6 +25,15 @@ interface CostReport {
   activityCount: number;
   actorCosts: Record<string, { cost: number; tokens: number; actions: number }>;
   toolCosts: Record<string, { cost: number; count: number }>;
+  generationSummary?: {
+    totalCost: number;
+    totalGenerations: number;
+    totalInputTokens: number;
+    totalOutputTokens: number;
+    totalCacheReadTokens: number;
+    byAgent: Record<string, { cost: number; generations: number; tokens: number }>;
+    byModel: Record<string, { cost: number; generations: number; tokens: number }>;
+  };
 }
 
 interface SessionSummary {
@@ -44,48 +51,102 @@ interface SessionSummary {
   topTools: Array<{ name: string; count: number; cost: number }>;
 }
 
-const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7c7c', '#a4de6c', '#d084d0'];
+interface ScannerStatus {
+  scanner: {
+    running: boolean;
+    lastScanTime: string | null;
+    lastResult: {
+      filesScanned: number;
+      newGenerations: number;
+      totalCost: number;
+      errors: string[];
+    } | null;
+  };
+  pricing: {
+    source: 'api' | 'static';
+    lastFetch: string | null;
+    modelCount: number;
+  };
+  generations: {
+    total: number;
+    totalCost: number;
+  };
+}
+
+const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7c7c', '#a4de6c', '#d084d0', '#ff8042', '#00C49F'];
 
 export const CostBreakdown: React.FC = () => {
   const [costReport, setCostReport] = useState<CostReport | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
+  const [scannerStatus, setScannerStatus] = useState<ScannerStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isBackfilling, setIsBackfilling] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch cost report
-  useEffect(() => {
-    const fetchCostReport = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const response = await fetch('/api/cost-report');
-        if (!response.ok) throw new Error('Failed to fetch cost report');
-        const data = await response.json();
-        setCostReport(data);
+  const fetchData = useCallback(async () => {
+    setError(null);
+    try {
+      const [costRes, statusRes] = await Promise.all([
+        fetch('/api/cost-report'),
+        fetch('/api/cost/status'),
+      ]);
 
-        // Try to get session from query params or use first available session
-        const params = new URLSearchParams(window.location.search);
-        const sessionId = params.get('sessionId');
-        if (sessionId) {
-          setSessionId(sessionId);
-          const summaryResponse = await fetch(`/api/sessions/${sessionId}`);
-          if (summaryResponse.ok) {
-            const summary = await summaryResponse.json();
-            setSessionSummary(summary.summary);
-          }
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Unknown error');
-      } finally {
-        setIsLoading(false);
+      if (costRes.ok) {
+        setCostReport(await costRes.json());
       }
-    };
+      if (statusRes.ok) {
+        setScannerStatus(await statusRes.json());
+      }
 
-    fetchCostReport();
-    const interval = setInterval(fetchCostReport, 10000); // Refresh every 10s
-    return () => clearInterval(interval);
+      const params = new URLSearchParams(window.location.search);
+      const sid = params.get('sessionId');
+      if (sid) {
+        setSessionId(sid);
+        const summaryRes = await fetch(`/api/sessions/${sid}`);
+        if (summaryRes.ok) {
+          const summary = await summaryRes.json();
+          setSessionSummary(summary.summary);
+        }
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchData();
+    const interval = setInterval(fetchData, 10000);
+    return () => clearInterval(interval);
+  }, [fetchData]);
+
+  const handleBackfill = async () => {
+    setIsBackfilling(true);
+    try {
+      const res = await fetch('/api/cost/backfill', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        await fetchData();
+      } else {
+        setError(data.error || 'Backfill failed');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Backfill request failed');
+    } finally {
+      setIsBackfilling(false);
+    }
+  };
+
+  const handleScan = async () => {
+    try {
+      await fetch('/api/cost/scan', { method: 'POST' });
+      await fetchData();
+    } catch {
+      // Silent failure for manual scan
+    }
+  };
 
   if (isLoading) {
     return <div className="loading-container">Loading cost data...</div>;
@@ -99,7 +160,11 @@ export const CostBreakdown: React.FC = () => {
     return <div className="empty-state">No cost data available</div>;
   }
 
-  // Prepare data for charts
+  const genSummary = costReport.generationSummary;
+  const totalCost = genSummary?.totalCost ?? costReport.totalCost;
+  const totalGenerations = genSummary?.totalGenerations ?? 0;
+
+  // Prepare chart data
   const actorChartData = Object.entries(costReport.actorCosts).map(([actorId, data]) => ({
     name: actorId,
     cost: data.cost,
@@ -121,26 +186,98 @@ export const CostBreakdown: React.FC = () => {
     value: data.cost,
   }));
 
+  // Model cost data from generation summary
+  const modelChartData = genSummary
+    ? Object.entries(genSummary.byModel)
+        .sort((a, b) => b[1].cost - a[1].cost)
+        .map(([model, data]) => ({
+          name: model.split('/').pop() || model,
+          fullName: model,
+          cost: data.cost,
+          generations: data.generations,
+          tokens: data.tokens,
+        }))
+    : [];
+
+  // Agent cost data from generation summary
+  const agentGenData = genSummary
+    ? Object.entries(genSummary.byAgent)
+        .sort((a, b) => b[1].cost - a[1].cost)
+        .map(([agent, data]) => ({
+          name: agent,
+          cost: data.cost,
+          generations: data.generations,
+          tokens: data.tokens,
+        }))
+    : [];
+
+  // Cache savings calculation
+  const cacheReadTokens = genSummary?.totalCacheReadTokens ?? 0;
+  const totalInputTokens = genSummary?.totalInputTokens ?? 0;
+  const cacheHitRate = totalInputTokens > 0
+    ? (cacheReadTokens / (totalInputTokens + cacheReadTokens) * 100)
+    : 0;
+
   return (
     <div className="cost-breakdown">
+      {/* Scanner Status Banner */}
+      {scannerStatus && (
+        <div className="scanner-status">
+          <div className="scanner-info">
+            <span className={`status-dot ${scannerStatus.scanner.running ? 'running' : 'stopped'}`} />
+            <span>
+              Scanner {scannerStatus.scanner.running ? 'active' : 'stopped'}
+              {scannerStatus.scanner.lastScanTime && (
+                <> &middot; Last scan: {new Date(scannerStatus.scanner.lastScanTime).toLocaleTimeString()}</>
+              )}
+              {scannerStatus.generations.total > 0 && (
+                <> &middot; {scannerStatus.generations.total} generations tracked</>
+              )}
+              &middot; Pricing: {scannerStatus.pricing.source} ({scannerStatus.pricing.modelCount} models)
+            </span>
+          </div>
+          <div className="scanner-actions">
+            <button onClick={handleScan} className="btn-secondary" title="Run incremental scan">
+              Scan Now
+            </button>
+            <button
+              onClick={handleBackfill}
+              disabled={isBackfilling}
+              className="btn-primary"
+              title="Full rescan of all session logs"
+            >
+              {isBackfilling ? 'Backfilling...' : 'Run Backfill'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Summary Cards */}
       <div className="summary-cards">
         <div className="card">
           <div className="card-label">Total Cost</div>
-          <div className="card-value">${costReport.totalCost.toFixed(4)}</div>
-          <div className="card-detail">{costReport.totalTokens.toLocaleString()} tokens</div>
+          <div className="card-value">${totalCost.toFixed(4)}</div>
+          <div className="card-detail">
+            {totalGenerations > 0
+              ? `${totalGenerations} LLM generations`
+              : `${costReport.totalTokens.toLocaleString()} tokens`
+            }
+          </div>
         </div>
         <div className="card">
           <div className="card-label">Activities</div>
           <div className="card-value">{costReport.activityCount}</div>
           <div className="card-detail">
-            ${(costReport.totalCost / costReport.activityCount).toFixed(6)} per activity
+            {costReport.activityCount > 0
+              ? `$${(totalCost / Math.max(costReport.activityCount, 1)).toFixed(6)} avg`
+              : 'No activities yet'
+            }
           </div>
         </div>
         <div className="card">
-          <div className="card-label">Actors</div>
-          <div className="card-value">{Object.keys(costReport.actorCosts).length}</div>
-          <div className="card-detail">{Object.keys(costReport.toolCosts).length} tools</div>
+          <div className="card-label">Cache Savings</div>
+          <div className="card-value">{cacheHitRate.toFixed(1)}%</div>
+          <div className="card-detail">{cacheReadTokens.toLocaleString()} cached tokens</div>
         </div>
         {sessionSummary && (
           <div className="card">
@@ -153,37 +290,55 @@ export const CostBreakdown: React.FC = () => {
 
       {/* Charts Section */}
       <div className="charts-grid">
-        {/* Cost by Actor */}
-        {actorChartData.length > 0 && (
+        {/* Cost by Model (from generation summary) */}
+        {modelChartData.length > 0 && (
           <div className="chart-container">
-            <h3>Cost by Actor</h3>
+            <h3>Cost by Model</h3>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={actorChartData}>
+              <BarChart data={modelChartData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
                 <YAxis label={{ value: 'Cost ($)', angle: -90, position: 'insideLeft' }} />
-                <Tooltip formatter={(value) => `$${Number(value).toFixed(4)}`} />
+                <Tooltip
+                  formatter={(value: any) => `$${Number(value).toFixed(4)}`}
+                  labelFormatter={(label: any) => {
+                    const item = modelChartData.find(d => d.name === label);
+                    return item?.fullName ?? label;
+                  }}
+                />
                 <Bar dataKey="cost" fill="#8884d8" />
               </BarChart>
             </ResponsiveContainer>
           </div>
         )}
 
-        {/* Cost by Tool (Top 10) */}
-        {toolChartData.length > 0 && (
+        {/* Cost by Agent (from generation summary) */}
+        {agentGenData.length > 0 && (
           <div className="chart-container">
-            <h3>Cost by Tool (Top 10)</h3>
+            <h3>Cost by Agent (from logs)</h3>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart
-                data={toolChartData}
-                layout="vertical"
-                margin={{ top: 5, right: 30, left: 150 }}
-              >
+              <BarChart data={agentGenData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" label={{ value: 'Cost ($)', position: 'insideBottomRight', offset: -5 }} />
-                <YAxis dataKey="name" type="category" width={140} />
-                <Tooltip formatter={(value) => `$${Number(value).toFixed(4)}`} />
+                <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
+                <YAxis label={{ value: 'Cost ($)', angle: -90, position: 'insideLeft' }} />
+                <Tooltip formatter={(value: any) => `$${Number(value).toFixed(4)}`} />
                 <Bar dataKey="cost" fill="#82ca9d" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+
+        {/* Cost by Actor (from activities) */}
+        {actorChartData.length > 0 && (
+          <div className="chart-container">
+            <h3>Cost by Actor (activities)</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={actorChartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
+                <YAxis label={{ value: 'Cost ($)', angle: -90, position: 'insideLeft' }} />
+                <Tooltip formatter={(value: any) => `$${Number(value).toFixed(4)}`} />
+                <Bar dataKey="cost" fill="#ffc658" />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -209,24 +364,8 @@ export const CostBreakdown: React.FC = () => {
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value) => `$${Number(value).toFixed(4)}`} />
+                <Tooltip formatter={(value: any) => `$${Number(value).toFixed(4)}`} />
               </PieChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-
-        {/* Action Count by Tool */}
-        {toolChartData.length > 0 && (
-          <div className="chart-container">
-            <h3>Action Count by Tool</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={toolChartData.slice(0, 8)}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
-                <YAxis label={{ value: 'Count', angle: -90, position: 'insideLeft' }} />
-                <Tooltip />
-                <Bar dataKey="count" fill="#ffc658" />
-              </BarChart>
             </ResponsiveContainer>
           </div>
         )}
@@ -234,6 +373,35 @@ export const CostBreakdown: React.FC = () => {
 
       {/* Detailed Tables */}
       <div className="tables-section">
+        {/* Model Costs Table (from generations) */}
+        {modelChartData.length > 0 && (
+          <div className="table-container">
+            <h3>Model Costs Detail</h3>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Model</th>
+                  <th>Generations</th>
+                  <th>Total Cost</th>
+                  <th>Tokens</th>
+                  <th>Cost/Gen</th>
+                </tr>
+              </thead>
+              <tbody>
+                {modelChartData.map((row) => (
+                  <tr key={row.fullName}>
+                    <td title={row.fullName}>{row.name}</td>
+                    <td>{row.generations}</td>
+                    <td>${row.cost.toFixed(4)}</td>
+                    <td>{row.tokens.toLocaleString()}</td>
+                    <td>${(row.cost / row.generations).toFixed(6)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
         {/* Actor Details Table */}
         {actorChartData.length > 0 && (
           <div className="table-container">

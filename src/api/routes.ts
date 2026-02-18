@@ -6,7 +6,9 @@
 import { Express, Request, Response } from 'express';
 import { ActivityLogger } from '../logger/activity-logger.js';
 import { ActivityFilter, Activity, TokenInfo, CostInfo } from '../types/activity.js';
-import { calculateCost } from '../types/pricing.js';
+import { calculateCost, getPricingStatus } from '../types/pricing.js';
+import type { SessionLogScanner } from '../services/session-log-scanner.js';
+import type { CostLinker } from '../services/cost-linker.js';
 
 // Store active SSE clients
 const sseClients: Set<Response> = new Set();
@@ -412,13 +414,22 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         }
       }
 
+      // Include LLM generation data if available
+      let generationSummary = null;
+      try {
+        generationSummary = await db.getGenerationSummary();
+      } catch {
+        // Generation tables may not exist yet
+      }
+
       res.json({
         success: true,
-        totalCost,
-        totalTokens,
+        totalCost: generationSummary ? generationSummary.totalCost : totalCost,
+        totalTokens: generationSummary ? generationSummary.totalInputTokens + generationSummary.totalOutputTokens : totalTokens,
         activityCount: activities.length,
         actorCosts,
         toolCosts,
+        generationSummary,
       });
     } catch (error: any) {
       res.status(500).json({
@@ -459,6 +470,134 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         success: false,
         error: error.message,
       });
+    }
+  });
+
+  // ============================================================================
+  // COST / LLM GENERATION ENDPOINTS
+  // ============================================================================
+
+  /**
+   * POST /api/cost/scan
+   * Trigger an immediate incremental scan of session logs
+   */
+  app.post('/api/cost/scan', async (req: Request, res: Response) => {
+    try {
+      const scanner = app.locals.scanner as SessionLogScanner | undefined;
+      if (!scanner) {
+        return res.status(503).json({ success: false, error: 'Scanner not initialized' });
+      }
+
+      const result = await scanner.scan();
+      // Also run linker after scan
+      const costLinker = app.locals.costLinker as CostLinker | undefined;
+      if (costLinker && result.newGenerations > 0) {
+        await costLinker.link();
+      }
+
+      res.json({ success: true, ...result });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  /**
+   * POST /api/cost/backfill
+   * Full historical scan + link — resets scan state and re-reads all JSONL files
+   */
+  app.post('/api/cost/backfill', async (req: Request, res: Response) => {
+    try {
+      const scanner = app.locals.scanner as SessionLogScanner | undefined;
+      const costLinker = app.locals.costLinker as CostLinker | undefined;
+      if (!scanner) {
+        return res.status(503).json({ success: false, error: 'Scanner not initialized' });
+      }
+
+      const scanResult = await scanner.fullScan();
+      let linkResult = null;
+      if (costLinker) {
+        linkResult = await costLinker.link();
+      }
+
+      res.json({
+        success: true,
+        scan: scanResult,
+        link: linkResult,
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  /**
+   * GET /api/cost/generations
+   * List LLM generations with optional filters
+   */
+  app.get('/api/cost/generations', async (req: Request, res: Response) => {
+    try {
+      const db = (logger as any).db;
+      const generations = await db.getGenerations({
+        agentId: req.query.agentId as string | undefined,
+        model: req.query.model as string | undefined,
+        startTime: req.query.startTime as string | undefined,
+        endTime: req.query.endTime as string | undefined,
+        unlinkedOnly: req.query.unlinkedOnly === 'true',
+        limit: req.query.limit ? parseInt(req.query.limit as string) : 100,
+        offset: req.query.offset ? parseInt(req.query.offset as string) : 0,
+      });
+
+      res.json({
+        success: true,
+        count: generations.length,
+        generations,
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  /**
+   * GET /api/cost/summary
+   * Aggregated cost by agent, model, and totals
+   */
+  app.get('/api/cost/summary', async (req: Request, res: Response) => {
+    try {
+      const db = (logger as any).db;
+      const summary = await db.getGenerationSummary({
+        startTime: req.query.startTime as string | undefined,
+        endTime: req.query.endTime as string | undefined,
+      });
+
+      res.json({ success: true, ...summary });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  /**
+   * GET /api/cost/status
+   * Scanner health: last scan time, pricing cache age, generation count
+   */
+  app.get('/api/cost/status', async (req: Request, res: Response) => {
+    try {
+      const scanner = app.locals.scanner as SessionLogScanner | undefined;
+      const db = (logger as any).db;
+
+      const scannerStatus = scanner?.getStatus() ?? { running: false, lastScanTime: null, lastResult: null };
+      const pricingStatus = getPricingStatus();
+      const summary = await db.getGenerationSummary();
+
+      res.json({
+        success: true,
+        scanner: scannerStatus,
+        pricing: pricingStatus,
+        generations: {
+          total: summary.totalGenerations,
+          totalCost: summary.totalCost,
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
     }
   });
 
