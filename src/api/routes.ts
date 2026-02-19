@@ -125,7 +125,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
           sessionId: activity.sessionId || activity.sessionKey || 'unknown-session',
           timestamp: activity.timestamp || new Date().toISOString(),
           actor: {
-            id: activity.agentId || 'unknown',
+            id: activity.agentId || activity.actor?.id || 'unknown',
             type: actorType as 'orchestrator' | 'subagent' | 'user' | 'system',
           },
           actionType: (actionTypeMap[activity.type] || 'event') as 'tool_call' | 'delegation' | 'api_call' | 'decision' | 'message' | 'event' | 'user_request' | 'agent_spawn' | 'session_start' | 'session_end',
