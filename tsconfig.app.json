@@ -28,5 +28,18 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src"]
+  "include": [
+    "src/app/**/*.ts",
+    "src/app/**/*.tsx",
+    "src/components/**/*.ts",
+    "src/components/**/*.tsx",
+    "src/lib/**/*.ts",
+    "src/lib/**/*.tsx",
+    "src/pages/**/*.ts",
+    "src/pages/**/*.tsx",
+    "src/styles/**/*.ts",
+    "src/styles/**/*.tsx",
+    "src/types/activity.ts",
+    "src/main.tsx"
+  ]
 }

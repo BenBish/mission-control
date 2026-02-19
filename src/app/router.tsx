@@ -5,6 +5,9 @@ import { Loading } from "@/components/_shared/Loading";
 
 // Lazy load pages
 const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
+const ActivityFeed = lazy(() => import("@/pages/ActivityFeed"));
+const ActivityDetail = lazy(() => import("@/pages/ActivityDetail"));
+const CostBreakdown = lazy(() => import("@/pages/CostBreakdown"));
 
 function withSuspense(Component: React.ComponentType) {
   return (
@@ -22,6 +25,18 @@ export const router = createBrowserRouter([
       {
         index: true,
         element: withSuspense(DashboardPage),
+      },
+      {
+        path: "activities",
+        element: withSuspense(ActivityFeed),
+      },
+      {
+        path: "activities/:id",
+        element: withSuspense(ActivityDetail),
+      },
+      {
+        path: "costs",
+        element: withSuspense(CostBreakdown),
       },
       {
         path: "users",
