@@ -3,7 +3,7 @@
  * Handles all database operations with proper error handling
  */
 
-import * as sqlite3 from 'sqlite3';
+import sqlite3 from 'sqlite3';
 import { open, Database as SqliteDatabase } from 'sqlite';
 import { getSQLStatements } from './schema.js';
 import { Activity, CreateActivityInput, UpdateActivityInput, ActivityFilter, SessionSummary } from '../types/activity.js';
