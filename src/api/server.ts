@@ -13,6 +13,7 @@ import { ActivityLogger } from '../logger/activity-logger.js';
 import { setupRoutes } from './routes.js';
 import { SessionLogScanner } from '../services/session-log-scanner.js';
 import { CostLinker } from '../services/cost-linker.js';
+import { initializePricing } from '../types/pricing.js';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -94,6 +95,10 @@ export class ActivityFeedServer {
     });
 
     console.log('✓ Real-time event broadcasting enabled');
+
+    // Initialize pricing (OpenRouter API with static fallback)
+    await initializePricing();
+    console.log('✓ Pricing service initialized');
 
     // Start session log scanner and cost linker
     this.costLinker = new CostLinker(this.db);

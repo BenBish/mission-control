@@ -6,6 +6,7 @@
 import { Express, Request, Response } from 'express';
 import { ActivityLogger } from '../logger/activity-logger.js';
 import { ActivityFilter, Activity, TokenInfo, CostInfo } from '../types/activity.js';
+import { calculateCost, getPricingStatus } from '../types/pricing.js';
 import type { SessionLogScanner } from '../services/session-log-scanner.js';
 import type { CostLinker } from '../services/cost-linker.js';
 
@@ -108,10 +109,15 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
           model,
         } : undefined;
 
-        // Use provided cost if available
+        // Calculate cost if tokens provided
         let cost: CostInfo | undefined;
         if (activity.costUsd !== undefined) {
           cost = { usd: activity.costUsd };
+        } else if (tokens && model) {
+          const calculatedCost = calculateCost(model, tokens.inputTokens, tokens.outputTokens);
+          if (calculatedCost > 0) {
+            cost = { usd: calculatedCost };
+          }
         }
 
         // Transform incoming activity to CreateActivityInput format
@@ -170,15 +176,51 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
 
   /**
    * POST /api/activities/backfill
-   * Backfill endpoint - cost calculation disabled (pricing module removed)
+   * Calculate costs for existing activities with tokens but no cost
    */
   app.post('/api/activities/backfill', async (req: Request, res: Response) => {
     try {
+      const db = (logger as any).db;
+      
+      // Get all activities with tokens but no cost
+      const activities = await db.getActivities({ limit: 100000 });
+      const activitiesToUpdate = activities.filter((a: Activity) => 
+        a.tokens && 
+        a.tokens.totalTokens > 0 && 
+        (!a.cost || a.cost.usd === 0)
+      );
+
+      let updatedCount = 0;
+      let totalCostAdded = 0;
+
+      for (const activity of activitiesToUpdate) {
+        if (!activity.tokens) continue;
+
+        const model = activity.tokens.model || activity.metadata?.model || 'default';
+        const calculatedCost = calculateCost(
+          model,
+          activity.tokens.inputTokens,
+          activity.tokens.outputTokens
+        );
+
+        if (calculatedCost > 0) {
+          await db.updateActivity(activity.id, {
+            cost: { usd: calculatedCost },
+            tokens: {
+              ...activity.tokens,
+              model,
+            },
+          });
+          updatedCount++;
+          totalCostAdded += calculatedCost;
+        }
+      }
+
       res.json({
         success: true,
-        updated: 0,
-        totalCostAdded: 0,
-        message: 'Cost backfill disabled - pricing module removed',
+        updated: updatedCount,
+        totalCostAdded,
+        message: `Updated ${updatedCount} activities with calculated costs`,
       });
     } catch (error: any) {
       res.status(500).json({
@@ -534,7 +576,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
 
   /**
    * GET /api/cost/status
-   * Scanner health: last scan time, generation count
+   * Scanner health: last scan time, pricing cache age, generation count
    */
   app.get('/api/cost/status', async (req: Request, res: Response) => {
     try {
@@ -542,11 +584,13 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
       const db = (logger as any).db;
 
       const scannerStatus = scanner?.getStatus() ?? { running: false, lastScanTime: null, lastResult: null };
+      const pricingStatus = getPricingStatus();
       const summary = await db.getGenerationSummary();
 
       res.json({
         success: true,
         scanner: scannerStatus,
+        pricing: pricingStatus,
         generations: {
           total: summary.totalGenerations,
           totalCost: summary.totalCost,
