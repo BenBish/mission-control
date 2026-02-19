@@ -5,8 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:bun": "bun --hot vite",
     "build": "tsc -b && vite build",
+    "build:bun": "bun run tsc -b && bun run vite build",
     "lint": "eslint .",
+    "lint:bun": "bun run eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
