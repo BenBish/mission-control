@@ -63,8 +63,8 @@ export default function DashboardPage() {
       try {
         // Fetch stats and recent activities in parallel
         const [statsRes, activitiesRes] = await Promise.all([
-          fetch("http://localhost:3001/api/stats"),
-          fetch("http://localhost:3001/api/activities?limit=5"),
+          fetch("/api/stats"),
+          fetch("/api/activities?limit=5"),
         ]);
 
         if (!statsRes.ok) {
@@ -412,7 +412,7 @@ export default function DashboardPage() {
               <Button
                 variant="outline"
                 className="justify-start h-auto py-3 px-4 group"
-                onClick={() => window.open("http://localhost:3001/api/stream", "_blank")}
+                onClick={() => window.open("/api/stream", "_blank")}
               >
                 <div className="p-2 rounded-md bg-amber-500/10 mr-3 group-hover:bg-amber-500/20 transition-colors">
                   <ActivityIcon className="h-4 w-4 text-amber-600 dark:text-amber-400" />

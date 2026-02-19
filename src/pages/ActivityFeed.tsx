@@ -25,7 +25,7 @@ export default function ActivityFeed() {
       setIsLoading(true);
       setError(null);
       try {
-        const response = await fetch("http://localhost:3001/api/activities?limit=100");
+        const response = await fetch("/api/activities?limit=100");
         if (!response.ok) {
           throw new Error(`Failed to fetch activities: ${response.statusText}`);
         }

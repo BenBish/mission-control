@@ -45,7 +45,7 @@ export default function CostBreakdown() {
   const fetchCostStats = async () => {
     setIsLoading(true); setError(null);
     try {
-      const response = await fetch("http://localhost:3001/api/cost-report");
+      const response = await fetch("/api/cost-report");
       if (!response.ok) throw new Error(`Failed: ${response.statusText}`);
       const data: CostStats = await response.json();
       if (data.success) setCostStats(data);
