@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
-import { Menu, Moon, Sun, LayoutDashboard, Settings, Users } from "lucide-react";
+import { Menu, Moon, Sun, LayoutDashboard, Settings, Users, List, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
@@ -8,6 +8,8 @@ import { useTheme } from "@/app/providers";
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
+  { to: "/activities", icon: List, label: "Activities" },
+  { to: "/costs", icon: DollarSign, label: "Cost Breakdown" },
   { to: "/users", icon: Users, label: "Users" },
   { to: "/settings", icon: Settings, label: "Settings" },
 ];
