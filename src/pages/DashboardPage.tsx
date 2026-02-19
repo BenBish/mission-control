@@ -25,7 +25,8 @@ import {
 interface StatsResponse {
   success: boolean;
   stats: {
-    totalActivities: number;
+    activities: number;
+    sessions: number;
     successCount: number;
     failureCount: number;
     successRate: number;
@@ -164,7 +165,7 @@ export default function DashboardPage() {
     ? [
         {
           title: "Total Activities",
-          value: stats.totalActivities?.toLocaleString() || "0",
+          value: stats.activities?.toLocaleString() || "0",
           description: `${stats.successCount || 0} successful, ${stats.failureCount || 0} failed`,
           icon: ActivityIcon,
           color: "text-blue-600 dark:text-blue-400",

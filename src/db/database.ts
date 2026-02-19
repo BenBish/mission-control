@@ -368,15 +368,15 @@ export class Database {
       details: row.details ? JSON.parse(row.details) : undefined,
       status: row.status,
       result: row.result ? JSON.parse(row.result) : undefined,
-      tokens: row.input_tokens
+      tokens: row.input_tokens != null || row.output_tokens != null
         ? {
-            inputTokens: row.input_tokens,
-            outputTokens: row.output_tokens,
-            totalTokens: row.total_tokens,
+            inputTokens: row.input_tokens || 0,
+            outputTokens: row.output_tokens || 0,
+            totalTokens: row.total_tokens || 0,
             model: row.model,
           }
         : undefined,
-      cost: row.cost_usd
+      cost: row.cost_usd != null
         ? {
             usd: row.cost_usd,
           }
