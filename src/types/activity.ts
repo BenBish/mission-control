@@ -60,7 +60,7 @@ export interface Activity {
   actionType: ActionType;
   toolName?: string;
   description: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 
   // Outcome
   status: ActivityStatus;
@@ -75,7 +75,7 @@ export interface Activity {
 
   // Metadata
   tags?: string[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 
   // Timestamps
   createdAt?: string; // ISO8601
@@ -92,11 +92,11 @@ export interface CreateActivityInput {
   actionType: ActionType;
   toolName?: string;
   description: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
   status?: ActivityStatus;
   tags?: string[];
   references?: ActivityReferences;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
