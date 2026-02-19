@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/_shared/PageHeader";
 import { Loading } from "@/components/_shared/Loading";
 import type { Activity } from "@/types/activity";
-import { List, ArrowRight, AlertCircle, Calendar } from "lucide-react";
+import { List, ArrowRight, AlertCircle, CheckCircle2, XCircle, Clock, BarChart3 } from "lucide-react";
 
 interface ActivitiesResponse {
   success: boolean;
@@ -68,15 +68,35 @@ export default function ActivityFeed() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "success":
-        return <Badge variant="success" className="capitalize">{status}</Badge>;
+        return (
+          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800 capitalize">
+            <CheckCircle2 className="h-3 w-3 mr-1" />
+            {status}
+          </Badge>
+        );
       case "failure":
-        return <Badge variant="destructive" className="capitalize">{status}</Badge>;
+        return (
+          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-800 capitalize">
+            <XCircle className="h-3 w-3 mr-1" />
+            {status}
+          </Badge>
+        );
       case "pending":
-        return <Badge variant="warning" className="capitalize">{status}</Badge>;
+        return (
+          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800 capitalize">
+            <Clock className="h-3 w-3 mr-1" />
+            {status}
+          </Badge>
+        );
       case "partial":
-        return <Badge variant="info" className="capitalize">{status}</Badge>;
+        return (
+          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-800 capitalize">
+            <BarChart3 className="h-3 w-3 mr-1" />
+            {status}
+          </Badge>
+        );
       default:
-        return <Badge variant="secondary" className="capitalize">{status}</Badge>;
+        return <Badge variant="outline" className="capitalize">{status}</Badge>;
     }
   };
 
@@ -171,10 +191,7 @@ export default function ActivityFeed() {
                       onClick={() => handleRowClick(activity.id)}
                     >
                       <td className="py-3 px-4 text-sm whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span className="tabular-nums">{formatTimestamp(activity.timestamp)}</span>
-                        </div>
+                        <span className="tabular-nums text-muted-foreground">{formatTimestamp(activity.timestamp)}</span>
                       </td>
                       <td className="py-3 px-4 text-sm">
                         <div className="flex flex-col">
