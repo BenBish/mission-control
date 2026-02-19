@@ -2,10 +2,11 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/_shared/PageHeader";
 import { Loading } from "@/components/_shared/Loading";
 import type { Activity } from "@/types/activity";
-import { List, ArrowRight, AlertCircle } from "lucide-react";
+import { List, ArrowRight, AlertCircle, Calendar } from "lucide-react";
 
 interface ActivitiesResponse {
   success: boolean;
@@ -45,7 +46,18 @@ export default function ActivityFeed() {
   }, []);
 
   const formatTimestamp = (timestamp: string) => {
-    return new Date(timestamp).toLocaleString();
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
   };
 
   const formatCost = (cost?: { usd: number }) => {
@@ -53,18 +65,18 @@ export default function ActivityFeed() {
     return `$${cost.usd.toFixed(4)}`;
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusBadge = (status: string) => {
     switch (status) {
       case "success":
-        return "text-green-600 bg-green-50 dark:bg-green-950";
+        return <Badge variant="success" className="capitalize">{status}</Badge>;
       case "failure":
-        return "text-red-600 bg-red-50 dark:bg-red-950";
+        return <Badge variant="destructive" className="capitalize">{status}</Badge>;
       case "pending":
-        return "text-amber-600 bg-amber-50 dark:bg-amber-950";
+        return <Badge variant="warning" className="capitalize">{status}</Badge>;
       case "partial":
-        return "text-blue-600 bg-blue-50 dark:bg-blue-950";
+        return <Badge variant="info" className="capitalize">{status}</Badge>;
       default:
-        return "text-gray-600 bg-gray-50 dark:bg-gray-950";
+        return <Badge variant="secondary" className="capitalize">{status}</Badge>;
     }
   };
 
@@ -111,79 +123,97 @@ export default function ActivityFeed() {
         description="View all system activities and events"
       />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <List className="h-5 w-5" />
-            Recent Activities
-          </CardTitle>
-          <CardDescription>
-            {activities.length} activities found
-          </CardDescription>
+      <Card className="shadow-sm">
+        <CardHeader className="pb-4 border-b">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <div className="p-1.5 rounded-md bg-primary/10">
+                  <List className="h-4 w-4 text-primary" />
+                </div>
+                Recent Activities
+              </CardTitle>
+              <CardDescription>
+                <Badge variant="outline" className="font-normal">
+                  {activities.length} activities found
+                </Badge>
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0 px-0">
           {activities.length === 0 ? (
-            <p className="text-center text-sm text-muted-foreground py-8">
+            <p className="text-center text-sm text-muted-foreground py-12">
               No activities found. Activities will appear here when the system processes events.
             </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-2 text-sm font-medium text-muted-foreground">Time</th>
-                    <th className="text-left py-3 px-2 text-sm font-medium text-muted-foreground">Actor</th>
-                    <th className="text-left py-3 px-2 text-sm font-medium text-muted-foreground">Action</th>
-                    <th className="text-left py-3 px-2 text-sm font-medium text-muted-foreground">Tool</th>
-                    <th className="text-left py-3 px-2 text-sm font-medium text-muted-foreground">Status</th>
-                    <th className="text-right py-3 px-2 text-sm font-medium text-muted-foreground">Tokens</th>
-                    <th className="text-right py-3 px-2 text-sm font-medium text-muted-foreground">Cost</th>
-                    <th className="text-right py-3 px-2 text-sm font-medium text-muted-foreground"></th>
+                  <tr className="border-b bg-muted/50">
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Time</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actor</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Action</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tool</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+                    <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tokens</th>
+                    <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cost</th>
+                    <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider"></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {activities.map((activity) => (
+                  {activities.map((activity, index) => (
                     <tr
                       key={activity.id}
-                      className="border-b last:border-0 hover:bg-muted/50 cursor-pointer transition-colors"
+                      className={`border-b last:border-0 hover:bg-muted/60 cursor-pointer transition-colors ${
+                        index % 2 === 1 ? "bg-muted/20" : ""
+                      }`}
                       onClick={() => handleRowClick(activity.id)}
                     >
-                      <td className="py-3 px-2 text-sm whitespace-nowrap">
-                        {formatTimestamp(activity.timestamp)}
+                      <td className="py-3 px-4 text-sm whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span className="tabular-nums">{formatTimestamp(activity.timestamp)}</span>
+                        </div>
                       </td>
-                      <td className="py-3 px-2 text-sm">
-                        <span className="inline-flex items-center gap-1">
-                          <span className="text-xs text-muted-foreground">{activity.actor.type}:</span>
+                      <td className="py-3 px-4 text-sm">
+                        <div className="flex flex-col">
                           <span className="font-medium truncate max-w-[120px]">{activity.actor.id}</span>
-                        </span>
+                          <span className="text-xs text-muted-foreground">{activity.actor.type}</span>
+                        </div>
                       </td>
-                      <td className="py-3 px-2 text-sm">
-                        <span className="inline-flex items-center rounded-md bg-secondary px-2 py-0.5 text-xs font-medium">
+                      <td className="py-3 px-4 text-sm">
+                        <Badge variant="secondary" className="font-medium">
                           {activity.actionType}
-                        </span>
+                        </Badge>
                       </td>
-                      <td className="py-3 px-2 text-sm text-muted-foreground">
-                        {activity.toolName || "—"}
+                      <td className="py-3 px-4 text-sm text-muted-foreground">
+                        {activity.toolName ? (
+                          <span className="font-mono text-xs">{activity.toolName}</span>
+                        ) : (
+                          <span className="text-muted-foreground/50">—</span>
+                        )}
                       </td>
-                      <td className="py-3 px-2 text-sm">
-                        <span
-                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${getStatusColor(
-                            activity.status
-                          )}`}
-                        >
-                          {activity.status}
-                        </span>
+                      <td className="py-3 px-4 text-sm">
+                        {getStatusBadge(activity.status)}
                       </td>
-                      <td className="py-3 px-2 text-sm text-right">
-                        {activity.tokens?.totalTokens?.toLocaleString() || "—"}
+                      <td className="py-3 px-4 text-sm text-right tabular-nums">
+                        {activity.tokens?.totalTokens?.toLocaleString() || (
+                          <span className="text-muted-foreground/50">—</span>
+                        )}
                       </td>
-                      <td className="py-3 px-2 text-sm text-right font-medium">
-                        {formatCost(activity.cost)}
+                      <td className="py-3 px-4 text-sm text-right font-medium tabular-nums">
+                        {activity.cost ? (
+                          formatCost(activity.cost)
+                        ) : (
+                          <span className="text-muted-foreground/50">—</span>
+                        )}
                       </td>
-                      <td className="py-3 px-2 text-right">
+                      <td className="py-3 px-4 text-right">
                         <Button
                           variant="ghost"
                           size="sm"
+                          className="opacity-0 group-hover:opacity-100 hover:opacity-100"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleRowClick(activity.id);

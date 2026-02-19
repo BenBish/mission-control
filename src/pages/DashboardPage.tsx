@@ -2,8 +2,10 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/_shared/PageHeader";
 import { Loading } from "@/components/_shared/Loading";
+import { Separator } from "@/components/ui/separator";
 import type { Activity } from "@/types/activity";
 import {
   Activity as ActivityIcon,
@@ -13,6 +15,11 @@ import {
   List,
   ArrowRight,
   AlertCircle,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  BarChart3,
+  Zap,
 } from "lucide-react";
 
 interface StatsResponse {
@@ -38,7 +45,8 @@ interface StatCard {
   value: string;
   description: string;
   icon: typeof ActivityIcon;
-  trend?: "up" | "down" | "neutral";
+  color: string;
+  bgColor: string;
 }
 
 export default function DashboardPage() {
