@@ -18,6 +18,10 @@ const sseClients: Set<Response> = new Set();
 // Validation regex for safe IDs (alphanumeric and hyphens only)
 const VALID_ID_REGEX = /^[a-z0-9-]+$/i;
 
+// Default limits for activity queries
+const DEFAULT_ACTIVITY_LIMIT = 100;
+const MAX_ACTIVITY_LIMIT = 100000;
+
 export function setupRoutes(app: Express, logger: ActivityLogger) {
   // ============================================================================
   // ACTIVITY ENDPOINTS
@@ -188,7 +192,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
       const db = logger.getDatabase();
       
       // Get all activities with tokens but no cost
-      const activities = await db.getActivities({ limit: 100000 });
+      const activities = await db.getActivities({ limit: MAX_ACTIVITY_LIMIT });
       const activitiesToUpdate = activities.filter((a: Activity) => 
         a.tokens && 
         a.tokens.totalTokens > 0 && 
@@ -389,7 +393,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
   app.get('/api/cost-report', async (req: Request, res: Response) => {
     try {
       const db = logger.getDatabase();
-      const activities = await db.getActivities({ limit: 100000 });
+      const activities = await db.getActivities({ limit: MAX_ACTIVITY_LIMIT });
 
       let totalCost = 0;
       let totalTokens = 0;
