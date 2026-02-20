@@ -696,6 +696,209 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
   });
 
   // ============================================================================
+  // SKILLS ENDPOINTS
+  // ============================================================================
+
+  /**
+   * Seed sample skills data (only if empty)
+   */
+  async function seedSkillsIfEmpty(db: any) {
+    const internalDb = db.db;
+    const existing = await internalDb.get('SELECT COUNT(*) as count FROM skills');
+    if (existing.count > 0) return;
+
+    const skills = [
+      { id: 'skill-1', name: 'File Operations', description: 'Read, write, and manage files in the workspace', category: 'Tools', location: 'filesystem' },
+      { id: 'skill-2', name: 'Web Search', description: 'Search the web for information using Brave API', category: 'Tools', location: 'external' },
+      { id: 'skill-3', name: 'Web Fetch', description: 'Fetch and extract content from URLs', category: 'Tools', location: 'external' },
+      { id: 'skill-4', name: 'Code Execution', description: 'Execute shell commands and scripts', category: 'Tools', location: 'sandbox' },
+      { id: 'skill-5', name: 'Browser Control', description: 'Control web browsers for automation', category: 'Tools', location: 'browser' },
+      { id: 'skill-6', name: 'Message Sending', description: 'Send messages via channels like Telegram', category: 'Communication', location: 'telegram' },
+      { id: 'skill-7', name: 'Node Management', description: 'Discover and control paired nodes', category: 'Management', location: 'nodes' },
+      { id: 'skill-8', name: 'TTS Conversion', description: 'Convert text to speech for audio output', category: 'Media', location: 'audio' },
+      { id: 'skill-9', name: 'Canvas Control', description: 'Control node canvases for presentation', category: 'Media', location: 'canvas' },
+      { id: 'skill-10', name: 'Subagent Management', description: 'Spawn and manage sub-agents for complex tasks', category: 'Management', location: 'orchestrator' },
+    ];
+
+    const agentSkills = [
+      { id: 'as-1', agentId: 'orchestrator', skillId: 'skill-1' },
+      { id: 'as-2', agentId: 'orchestrator', skillId: 'skill-10' },
+      { id: 'as-3', agentId: 'engineer-1', skillId: 'skill-1' },
+      { id: 'as-4', agentId: 'engineer-1', skillId: 'skill-4' },
+      { id: 'as-5', agentId: 'engineer-2', skillId: 'skill-1' },
+      { id: 'as-6', agentId: 'engineer-2', skillId: 'skill-4' },
+      { id: 'as-7', agentId: 'researcher', skillId: 'skill-2' },
+      { id: 'as-8', agentId: 'researcher', skillId: 'skill-3' },
+      { id: 'as-9', agentId: 'communicator', skillId: 'skill-6' },
+      { id: 'as-10', agentId: 'communicator', skillId: 'skill-8' },
+    ];
+
+    for (const skill of skills) {
+      await internalDb.run(
+        'INSERT INTO skills (id, name, description, category, location) VALUES (?, ?, ?, ?, ?)',
+        skill.id, skill.name, skill.description, skill.category, skill.location
+      );
+    }
+
+    for (const as of agentSkills) {
+      await internalDb.run(
+        'INSERT INTO agent_skills (id, agent_id, skill_id) VALUES (?, ?, ?)',
+        as.id, as.agentId, as.skillId
+      );
+    }
+
+    console.log('[Skills] Seeded sample skills data');
+  }
+
+  /**
+   * GET /api/skills
+   * Get all skills with optional filtering and search
+   */
+  app.get('/api/skills', async (req: Request, res: Response) => {
+    try {
+      const db = (logger as any).db;
+      const internalDb = db.db;
+      const category = req.query.category as string | undefined;
+      const search = req.query.search as string | undefined;
+
+      // Seed data if empty
+      await seedSkillsIfEmpty(db);
+
+      // Build query
+      let sql = `
+        SELECT s.*, GROUP_CONCAT(as2.agent_id) as agent_ids
+        FROM skills s
+        LEFT JOIN agent_skills as2 ON s.id = as2.skill_id
+        WHERE 1=1
+      `;
+      const params: any[] = [];
+
+      if (category && category !== 'all') {
+        sql += ' AND s.category = ?';
+        params.push(category);
+      }
+
+      if (search) {
+        sql += ' AND (s.name LIKE ? OR s.description LIKE ?)';
+        params.push(`%${search}%`, `%${search}%`);
+      }
+
+      sql += ' GROUP BY s.id ORDER BY s.category, s.name';
+
+      const rows = await internalDb.all(sql, ...params);
+
+      // Get unique categories
+      const categoryRows = await internalDb.all('SELECT DISTINCT category FROM skills ORDER BY category');
+      const categories = categoryRows.map((r: any) => r.category);
+
+      const skills = rows.map((row: any) => ({
+        id: row.id,
+        name: row.name,
+        description: row.description,
+        category: row.category,
+        location: row.location,
+        agentIds: row.agent_ids ? row.agent_ids.split(',') : [],
+      }));
+
+      res.json({
+        success: true,
+        skills,
+        categories,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  /**
+   * GET /api/agents/:id/skills
+   * Get skills accessible to a specific agent
+   */
+  app.get('/api/agents/:id/skills', async (req: Request, res: Response) => {
+    try {
+      const db = (logger as any).db;
+      const internalDb = db.db;
+      const agentId = req.params.id;
+
+      const rows = await internalDb.all(`
+        SELECT s.*, GROUP_CONCAT(as2.agent_id) as agent_ids
+        FROM skills s
+        INNER JOIN agent_skills as2 ON s.id = as2.skill_id
+        WHERE as2.agent_id = ?
+        GROUP BY s.id
+        ORDER BY s.category, s.name
+      `, agentId);
+
+      const skills = rows.map((row: any) => ({
+        id: row.id,
+        name: row.name,
+        description: row.description,
+        category: row.category,
+        location: row.location,
+        agentIds: row.agent_ids ? row.agent_ids.split(',') : [],
+      }));
+
+      res.json({
+        success: true,
+        agentId,
+        skills,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  /**
+   * GET /api/skills/:id
+   * Get a specific skill by ID
+   */
+  app.get('/api/skills/:id', async (req: Request, res: Response) => {
+    try {
+      const db = (logger as any).db;
+      const internalDb = db.db;
+      const skillId = req.params.id;
+
+      const row = await internalDb.get(`
+        SELECT s.*, GROUP_CONCAT(as2.agent_id) as agent_ids
+        FROM skills s
+        LEFT JOIN agent_skills as2 ON s.id = as2.skill_id
+        WHERE s.id = ?
+        GROUP BY s.id
+      `, skillId);
+
+      if (!row) {
+        return res.status(404).json({
+          success: false,
+          error: 'Skill not found',
+        });
+      }
+
+      res.json({
+        success: true,
+        skill: {
+          id: row.id,
+          name: row.name,
+          description: row.description,
+          category: row.category,
+          location: row.location,
+          agentIds: row.agent_ids ? row.agent_ids.split(',') : [],
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  // ============================================================================
   // SPA FALLBACK ROUTE (must be last)
   // ============================================================================
 
