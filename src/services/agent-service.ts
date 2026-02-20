@@ -12,7 +12,8 @@ import { Database } from '../db/database.js';
 import { ActivityFilter } from '../types/activity.js';
 
 // Base paths for agents - use AGENT_PATHS env var (colon-separated) or defaults with os.homedir()
-const AGENT_BASE_PATHS = process.env.AGENT_PATHS?.split(':').filter(Boolean) || [
+// Resolved lazily so env vars set at runtime (e.g. in tests) are respected.
+const DEFAULT_AGENT_PATHS = [
   path.join(os.homedir(), '.openclaw-team', 'agents'),
   path.join(os.homedir(), '.openclaw-team', 'workspace-engineer'),
   path.join(os.homedir(), '.openclaw-team', 'workspace-solutions-architect'),
@@ -22,6 +23,10 @@ const AGENT_BASE_PATHS = process.env.AGENT_PATHS?.split(':').filter(Boolean) || 
   path.join(os.homedir(), '.openclaw-team', 'workspace-project-manager'),
   path.join(os.homedir(), '.openclaw-team', 'workspace'),
 ];
+
+function getAgentBasePaths(): string[] {
+  return process.env.AGENT_PATHS?.split(':').filter(Boolean) || DEFAULT_AGENT_PATHS;
+}
 
 export class AgentService {
   private db: Database | null = null;
@@ -43,7 +48,7 @@ export class AgentService {
     const agents: Agent[] = [];
     const processedPaths = new Set<string>();
 
-    for (const basePath of AGENT_BASE_PATHS) {
+    for (const basePath of getAgentBasePaths()) {
       if (!fs.existsSync(basePath)) continue;
 
       // Look for SOUL.md files
@@ -96,7 +101,7 @@ export class AgentService {
    * Get raw SOUL.md content for an agent
    */
   async readAgentSoul(id: string): Promise<string | null> {
-    for (const basePath of AGENT_BASE_PATHS) {
+    for (const basePath of getAgentBasePaths()) {
       if (!fs.existsSync(basePath)) continue;
 
       const soulFiles = await glob('**/SOUL.md', { cwd: basePath, absolute: true });

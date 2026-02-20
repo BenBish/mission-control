@@ -10,12 +10,14 @@ import { glob } from 'glob';
 import { Skill, SkillConfig, PermissionsMatrix, Agent } from '../types/agents.js';
 import { AgentService } from './agent-service.js';
 
-// Possible skill locations
-const SKILL_BASE_PATHS = [
-  process.env.SKILL_PATH || path.join(os.homedir(), '.local/share/openclaw/skills'),
-  '/usr/share/openclaw/skills',
-  '/opt/openclaw/skills',
-];
+// Possible skill locations — resolved lazily so env vars set at runtime are respected.
+function getSkillBasePaths(): string[] {
+  return [
+    process.env.SKILL_PATH || path.join(os.homedir(), '.local/share/openclaw/skills'),
+    '/usr/share/openclaw/skills',
+    '/opt/openclaw/skills',
+  ];
+}
 
 export class SkillsService {
   private agentService: AgentService;
@@ -31,7 +33,7 @@ export class SkillsService {
     const skills: Skill[] = [];
     const processedDirs = new Set<string>();
 
-    for (const basePath of SKILL_BASE_PATHS) {
+    for (const basePath of getSkillBasePaths()) {
       if (!fs.existsSync(basePath)) continue;
 
       // Look for SKILL.md files
