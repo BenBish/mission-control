@@ -15,6 +15,9 @@ import { SkillsService } from '../services/skills-service.js';
 // Store active SSE clients
 const sseClients: Set<Response> = new Set();
 
+// Validation regex for safe IDs (alphanumeric and hyphens only)
+const VALID_ID_REGEX = /^[a-z0-9-]+$/i;
+
 export function setupRoutes(app: Express, logger: ActivityLogger) {
   // ============================================================================
   // ACTIVITY ENDPOINTS
@@ -737,7 +740,11 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
    */
   app.get('/api/agents/:id', async (req: Request, res: Response) => {
     try {
-      const agent = await agentService.readAgent(req.params.id);
+      const id = req.params.id;
+      if (!VALID_ID_REGEX.test(id)) {
+        return res.status(400).json({ success: false, error: 'Invalid agent ID' });
+      }
+      const agent = await agentService.readAgent(id);
       if (!agent) {
         return res.status(404).json({
           success: false,
@@ -763,7 +770,11 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
    */
   app.get('/api/agents/:id/soul', async (req: Request, res: Response) => {
     try {
-      const soul = await agentService.readAgentSoul(req.params.id);
+      const id = req.params.id;
+      if (!VALID_ID_REGEX.test(id)) {
+        return res.status(400).json({ success: false, error: 'Invalid agent ID' });
+      }
+      const soul = await agentService.readAgentSoul(id);
       if (soul === null) {
         return res.status(404).json({
           success: false,
@@ -789,8 +800,12 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
    */
   app.get('/api/agents/:id/activity', async (req: Request, res: Response) => {
     try {
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
-      const activities = await agentService.getAgentActivity(req.params.id, limit);
+      const id = req.params.id;
+      if (!VALID_ID_REGEX.test(id)) {
+        return res.status(400).json({ success: false, error: 'Invalid agent ID' });
+      }
+      const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 50));
+      const activities = await agentService.getAgentActivity(id, limit);
       
       res.json({
         success: true,
@@ -811,7 +826,11 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
    */
   app.get('/api/agents/:id/skills', async (req: Request, res: Response) => {
     try {
-      const agent = await agentService.readAgent(req.params.id);
+      const id = req.params.id;
+      if (!VALID_ID_REGEX.test(id)) {
+        return res.status(400).json({ success: false, error: 'Invalid agent ID' });
+      }
+      const agent = await agentService.readAgent(id);
       if (!agent) {
         return res.status(404).json({
           success: false,
@@ -864,7 +883,11 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
    */
   app.get('/api/skills/:id', async (req: Request, res: Response) => {
     try {
-      const skill = await skillsService.readSkill(req.params.id);
+      const id = req.params.id;
+      if (!VALID_ID_REGEX.test(id)) {
+        return res.status(400).json({ success: false, error: 'Invalid skill ID' });
+      }
+      const skill = await skillsService.readSkill(id);
       if (!skill) {
         return res.status(404).json({
           success: false,

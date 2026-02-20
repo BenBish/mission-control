@@ -5,21 +5,22 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 import { glob } from 'glob';
 import { Agent, AgentConfig, SoulMetadata, AgentActivity } from '../types/agents.js';
 import { Database } from '../db/database.js';
 import { ActivityFilter } from '../types/activity.js';
 
-// Base paths for agents
-const AGENT_BASE_PATHS = [
-  path.join(process.env.HOME || '/home/ben', '.openclaw-team', 'agents'),
-  path.join(process.env.HOME || '/home/ben', '.openclaw-team', 'workspace-engineer'),
-  path.join(process.env.HOME || '/home/ben', '.openclaw-team', 'workspace-solutions-architect'),
-  path.join(process.env.HOME || '/home/ben', '.openclaw-team', 'workspace-code-reviewer'),
-  path.join(process.env.HOME || '/home/ben', '.openclaw-team', 'workspace-manual-tester'),
-  path.join(process.env.HOME || '/home/ben', '.openclaw-team', 'workspace-engineer-2'),
-  path.join(process.env.HOME || '/home/ben', '.openclaw-team', 'workspace-project-manager'),
-  path.join(process.env.HOME || '/home/ben', '.openclaw-team', 'workspace'),
+// Base paths for agents - use AGENT_PATHS env var (colon-separated) or defaults with os.homedir()
+const AGENT_BASE_PATHS = process.env.AGENT_PATHS?.split(':').filter(Boolean) || [
+  path.join(os.homedir(), '.openclaw-team', 'agents'),
+  path.join(os.homedir(), '.openclaw-team', 'workspace-engineer'),
+  path.join(os.homedir(), '.openclaw-team', 'workspace-solutions-architect'),
+  path.join(os.homedir(), '.openclaw-team', 'workspace-code-reviewer'),
+  path.join(os.homedir(), '.openclaw-team', 'workspace-manual-tester'),
+  path.join(os.homedir(), '.openclaw-team', 'workspace-engineer-2'),
+  path.join(os.homedir(), '.openclaw-team', 'workspace-project-manager'),
+  path.join(os.homedir(), '.openclaw-team', 'workspace'),
 ];
 
 export class AgentService {

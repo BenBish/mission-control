@@ -86,14 +86,10 @@ export class SkillsService {
     for (const agent of agents) {
       const agentRow: boolean[] = [];
       for (const skill of skills) {
-        // Agent has access if:
-        // 1. Agent's allowedSkills is undefined/empty (all access) OR
-        // 2. Agent's allowedSkills includes this skill's ID
-        const hasAccess = !agent.skills || 
-                          agent.skills.length === 0 || 
-                          agent.skills.includes(skill.id) ||
-                          agent.skills.includes(skill.name);
-        agentRow.push(hasAccess);
+        // Agent has access only if allowedSkills explicitly includes this skill's ID or name
+        // Empty or undefined skills = NO access (explicit denial)
+        const hasAccess = agent.skills?.includes(skill.id) || agent.skills?.includes(skill.name);
+        agentRow.push(!!hasAccess);
       }
       matrix.push(agentRow);
     }
