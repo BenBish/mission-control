@@ -3,7 +3,8 @@
  * Reads and parses agent SOUL.md files and configuration
  */
 
-import * as fs from 'fs';
+import * as fs from 'fs/promises';
+import { existsSync } from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { glob } from 'glob';
@@ -11,7 +12,7 @@ import { Agent, AgentConfig, SoulMetadata, AgentActivity } from '../types/agents
 import { Database } from '../db/database.js';
 import { ActivityFilter } from '../types/activity.js';
 
-// Base paths for agents - use AGENT_PATHS env var (colon-separated) or defaults with os.homedir()
+// Base paths for agents - use AGENT_PATHS env var or defaults with os.homedir()
 // Resolved lazily so env vars set at runtime (e.g. in tests) are respected.
 const DEFAULT_AGENT_PATHS = [
   path.join(os.homedir(), '.openclaw-team', 'agents'),
@@ -25,11 +26,22 @@ const DEFAULT_AGENT_PATHS = [
 ];
 
 function getAgentBasePaths(): string[] {
-  return process.env.AGENT_PATHS?.split(':').filter(Boolean) || DEFAULT_AGENT_PATHS;
+  return process.env.AGENT_PATHS?.split(path.delimiter).filter(Boolean) || DEFAULT_AGENT_PATHS;
+}
+
+// Cache TTL in milliseconds
+const CACHE_TTL_MS = 30_000;
+
+interface CacheEntry<T> {
+  data: T;
+  expiry: number;
 }
 
 export class AgentService {
   private db: Database | null = null;
+  private agentsCache: CacheEntry<Agent[]> | null = null;
+  // Map from agent ID to SOUL.md file path, populated when agents are read
+  private soulPathCache: CacheEntry<Map<string, string>> | null = null;
 
   constructor(db?: Database) {
     if (db) {
@@ -42,34 +54,39 @@ export class AgentService {
   }
 
   /**
-   * Read all agents from the filesystem
+   * Read all agents from the filesystem (cached with 30s TTL)
    */
   async readAgents(): Promise<Agent[]> {
+    if (this.agentsCache && Date.now() < this.agentsCache.expiry) {
+      return this.agentsCache.data;
+    }
+
     const agents: Agent[] = [];
     const processedPaths = new Set<string>();
+    const soulPaths = new Map<string, string>();
 
     for (const basePath of getAgentBasePaths()) {
-      if (!fs.existsSync(basePath)) continue;
+      if (!existsSync(basePath)) continue;
 
-      // Look for SOUL.md files
-      const soulFiles = await glob('**/SOUL.md', { cwd: basePath, absolute: true });
-      
+      const soulFiles = await glob('**/SOUL.md', {
+        cwd: basePath,
+        absolute: true,
+        ignore: ['**/node_modules/**', '**/.git/**'],
+      });
+
       for (const soulFile of soulFiles) {
-        // Avoid processing the same path twice (handles symlinks or overlaps)
         if (processedPaths.has(soulFile)) continue;
         processedPaths.add(soulFile);
 
         try {
-          const content = fs.readFileSync(soulFile, 'utf-8');
+          const content = await fs.readFile(soulFile, 'utf-8');
           const metadata = this.parseSOULMarkdown(content);
-          
-          // Extract agent ID from path
-          const soulDir = path.dirname(soulFile);
-          const parentDir = path.basename(soulDir);
-          const agentId = this.extractAgentId(soulFile, basePath);
 
-          // Try to read agent.json for additional config
+          const soulDir = path.dirname(soulFile);
+          const agentId = this.extractAgentId(soulFile, basePath);
           const agentConfig = await this.readAgentConfig(soulDir);
+
+          soulPaths.set(agentId, soulFile);
 
           agents.push({
             id: agentId,
@@ -86,6 +103,10 @@ export class AgentService {
       }
     }
 
+    const expiry = Date.now() + CACHE_TTL_MS;
+    this.agentsCache = { data: agents, expiry };
+    this.soulPathCache = { data: soulPaths, expiry };
+
     return agents;
   }
 
@@ -101,24 +122,21 @@ export class AgentService {
    * Get raw SOUL.md content for an agent
    */
   async readAgentSoul(id: string): Promise<string | null> {
-    for (const basePath of getAgentBasePaths()) {
-      if (!fs.existsSync(basePath)) continue;
+    // Ensure cache is populated
+    await this.readAgents();
 
-      const soulFiles = await glob('**/SOUL.md', { cwd: basePath, absolute: true });
-      
-      for (const soulFile of soulFiles) {
-        const agentId = this.extractAgentId(soulFile, basePath);
-        
-        if (agentId === id) {
-          try {
-            return fs.readFileSync(soulFile, 'utf-8');
-          } catch (err) {
-            console.warn(`[AgentService] Failed to read ${soulFile}:`, err);
-            return null;
-          }
+    if (this.soulPathCache && Date.now() < this.soulPathCache.expiry) {
+      const soulFile = this.soulPathCache.data.get(id);
+      if (soulFile) {
+        try {
+          return await fs.readFile(soulFile, 'utf-8');
+        } catch (err) {
+          console.warn(`[AgentService] Failed to read ${soulFile}:`, err);
+          return null;
         }
       }
     }
+
     return null;
   }
 
@@ -180,14 +198,13 @@ export class AgentService {
     }
 
     try {
-      // Get activities for this agent (filter by actor ID containing the agent ID)
       const filter: ActivityFilter = {
         actorId: id,
         limit,
       };
 
       const activities = await this.db.getActivities(filter);
-      
+
       return activities.map(a => ({
         id: a.id,
         sessionId: a.sessionId,
@@ -206,7 +223,7 @@ export class AgentService {
   }
 
   /**
-   * Get skills accessible to a specific agent
+   * Get skills accessible to a specific agent (from pre-loaded agent data)
    */
   async getAgentSkills(id: string): Promise<string[]> {
     const agent = await this.readAgent(id);
@@ -221,10 +238,10 @@ export class AgentService {
    */
   private async readAgentConfig(agentDir: string): Promise<AgentConfig | null> {
     const configPath = path.join(agentDir, 'agent.json');
-    
-    if (fs.existsSync(configPath)) {
+
+    if (existsSync(configPath)) {
       try {
-        const content = fs.readFileSync(configPath, 'utf-8');
+        const content = await fs.readFile(configPath, 'utf-8');
         return JSON.parse(content);
       } catch (err) {
         console.warn(`[AgentService] Failed to parse ${configPath}:`, err);
@@ -237,24 +254,19 @@ export class AgentService {
    * Extract agent ID from SOUL.md path
    */
   private extractAgentId(soulFilePath: string, basePath: string): string {
-    // Get the path relative to the base
     const relativePath = path.relative(basePath, soulFilePath);
     const parts = relativePath.split(path.sep);
-    
-    // The agent ID is typically the first directory component
-    // e.g., workspace-engineer/SOUL.md -> workspace-engineer
-    // or agents/engineer/SOUL.md -> engineer
-    
+
     // Handle SOUL.md directly in base path (e.g., /agents/SOUL.md)
     if (parts[0] === 'SOUL.md') {
       return path.basename(basePath);
     }
-    
+
     if (parts[0] === 'workspace') {
       // For workspace/SOUL.md, the agent is the parent of workspace
       return parts[1] || path.basename(path.dirname(basePath));
     }
-    
+
     return parts[0] || 'unknown';
   }
 
@@ -263,7 +275,6 @@ export class AgentService {
    */
   private guessNameFromPath(soulFilePath: string): string {
     const parts = soulFilePath.split(path.sep);
-    // Look for workspace-* pattern
     for (let i = parts.length - 1; i >= 0; i--) {
       if (parts[i].startsWith('workspace-')) {
         return parts[i].replace('workspace-', '').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());

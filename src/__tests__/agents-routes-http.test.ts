@@ -290,7 +290,13 @@ describe('GET /api/skills', () => {
     expect(github).toBeDefined();
     expect(github.name).toBeDefined();
     expect(github.description).toContain('pull requests');
-    expect(github.location).toContain('github');
+  });
+
+  test('skills should not expose filesystem location', async () => {
+    const { body } = await api('/api/skills');
+    for (const skill of body.skills) {
+      expect(skill.location).toBeUndefined();
+    }
   });
 });
 
@@ -304,6 +310,7 @@ describe('GET /api/skills/:id', () => {
     expect(status).toBe(200);
     expect(body.success).toBe(true);
     expect(body.skill.id).toBe('github');
+    expect(body.skill.location).toBeUndefined();
   });
 
   test('should return 404 for non-existent skill', async () => {

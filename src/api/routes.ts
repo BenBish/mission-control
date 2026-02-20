@@ -45,7 +45,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
       const activities = await logger.getActivity('') || [];
       
       // Fetch activities from database
-      const db = (logger as any).db;
+      const db = logger.getDatabase();
       const results = await db.getActivities(filter);
 
       res.json({
@@ -75,7 +75,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         });
       }
 
-      const db = (logger as any).db;
+      const db = logger.getDatabase();
       const created = [];
 
       for (const activity of activities) {
@@ -185,7 +185,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
    */
   app.post('/api/activities/backfill', async (req: Request, res: Response) => {
     try {
-      const db = (logger as any).db;
+      const db = logger.getDatabase();
       
       // Get all activities with tokens but no cost
       const activities = await db.getActivities({ limit: 100000 });
@@ -276,7 +276,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
       }
 
       // Get all activities and filter (simple implementation)
-      const db = (logger as any).db;
+      const db = logger.getDatabase();
       const activities = await db.getActivities({ limit: 1000 });
       const filtered = activities.filter(
         (a: Activity) =>
@@ -388,7 +388,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
    */
   app.get('/api/cost-report', async (req: Request, res: Response) => {
     try {
-      const db = (logger as any).db;
+      const db = logger.getDatabase();
       const activities = await db.getActivities({ limit: 100000 });
 
       let totalCost = 0;
@@ -450,7 +450,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
    */
   app.get('/api/stats', async (req: Request, res: Response) => {
     try {
-      const db = (logger as any).db;
+      const db = logger.getDatabase();
       const stats = await db.getStats();
       const activities = await db.getActivities({ limit: 1000 });
 
@@ -540,7 +540,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
    */
   app.get('/api/cost/generations', async (req: Request, res: Response) => {
     try {
-      const db = (logger as any).db;
+      const db = logger.getDatabase();
       const generations = await db.getGenerations({
         agentId: req.query.agentId as string | undefined,
         model: req.query.model as string | undefined,
@@ -567,7 +567,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
    */
   app.get('/api/cost/summary', async (req: Request, res: Response) => {
     try {
-      const db = (logger as any).db;
+      const db = logger.getDatabase();
       const summary = await db.getGenerationSummary({
         startTime: req.query.startTime as string | undefined,
         endTime: req.query.endTime as string | undefined,
@@ -586,7 +586,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
   app.get('/api/cost/status', async (req: Request, res: Response) => {
     try {
       const scanner = app.locals.scanner as SessionLogScanner | undefined;
-      const db = (logger as any).db;
+      const db = logger.getDatabase();
 
       const scannerStatus = scanner?.getStatus() ?? { running: false, lastScanTime: null, lastResult: null };
       const pricingStatus = getPricingStatus();
@@ -708,7 +708,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
    * Initialize services
    */
   const agentService = new AgentService();
-  const db = (logger as any).db;
+  const db = logger.getDatabase();
   if (db) {
     agentService.setDatabase(db);
   }
@@ -838,8 +838,8 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         });
       }
 
-      const skills = await agentService.getAgentSkills(req.params.id);
-      
+      const skills = agent.skills || [];
+
       res.json({
         success: true,
         count: skills.length,
@@ -864,10 +864,12 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
   app.get('/api/skills', async (req: Request, res: Response) => {
     try {
       const skills = await skillsService.readSkills();
+      // Strip internal-only fields (location contains absolute filesystem paths)
+      const sanitized = skills.map(({ location, ...rest }) => rest);
       res.json({
         success: true,
-        count: skills.length,
-        skills,
+        count: sanitized.length,
+        skills: sanitized,
       });
     } catch (error: any) {
       res.status(500).json({
@@ -895,9 +897,11 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         });
       }
 
+      // Strip internal-only fields (location contains absolute filesystem paths)
+      const { location, ...sanitized } = skill;
       res.json({
         success: true,
-        skill,
+        skill: sanitized,
       });
     } catch (error: any) {
       res.status(500).json({

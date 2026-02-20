@@ -18,6 +18,13 @@ export class ActivityLogger extends EventEmitter {
   }
 
   /**
+   * Get the underlying database instance
+   */
+  getDatabase(): Database {
+    return this.db;
+  }
+
+  /**
    * Log start of a session
    */
   async logSessionStart(sessionId: string): Promise<string> {
