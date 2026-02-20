@@ -4,6 +4,7 @@
  */
 
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import { glob } from 'glob';
 import { Skill, SkillConfig, PermissionsMatrix, Agent } from '../types/agents.js';
@@ -11,8 +12,9 @@ import { AgentService } from './agent-service.js';
 
 // Possible skill locations
 const SKILL_BASE_PATHS = [
-  path.join(process.env.HOME || '/home/ben', '.local', 'share', 'openclaw', 'skills'),
-  path.join(process.env.HOME || '/home/ben', '.openclaw-team', 'skills'),
+  process.env.SKILL_PATH || path.join(os.homedir(), '.local/share/openclaw/skills'),
+  '/usr/share/openclaw/skills',
+  '/opt/openclaw/skills',
 ];
 
 export class SkillsService {
