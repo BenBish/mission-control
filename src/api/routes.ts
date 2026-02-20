@@ -9,6 +9,8 @@ import { ActivityFilter, Activity, TokenInfo, CostInfo } from '../types/activity
 import { calculateCost, getPricingStatus } from '../types/pricing.js';
 import type { SessionLogScanner } from '../services/session-log-scanner.js';
 import type { CostLinker } from '../services/cost-linker.js';
+import { AgentService } from '../services/agent-service.js';
+import { SkillsService } from '../services/skills-service.js';
 
 // Store active SSE clients
 const sseClients: Set<Response> = new Set();
@@ -686,6 +688,218 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         success: true,
         count: pending.length,
         activities: pending,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  // ============================================================================
+  // AGENT ENDPOINTS
+  // ============================================================================
+
+  /**
+   * Initialize services
+   */
+  const agentService = new AgentService();
+  const db = (logger as any).db;
+  if (db) {
+    agentService.setDatabase(db);
+  }
+  const skillsService = new SkillsService(agentService);
+
+  /**
+   * GET /api/agents
+   * List all agents with metadata
+   */
+  app.get('/api/agents', async (req: Request, res: Response) => {
+    try {
+      const agents = await agentService.readAgents();
+      res.json({
+        success: true,
+        count: agents.length,
+        agents,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  /**
+   * GET /api/agents/:id
+   * Get agent details
+   */
+  app.get('/api/agents/:id', async (req: Request, res: Response) => {
+    try {
+      const agent = await agentService.readAgent(req.params.id);
+      if (!agent) {
+        return res.status(404).json({
+          success: false,
+          error: 'Agent not found',
+        });
+      }
+
+      res.json({
+        success: true,
+        agent,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  /**
+   * GET /api/agents/:id/soul
+   * Get raw SOUL.md content
+   */
+  app.get('/api/agents/:id/soul', async (req: Request, res: Response) => {
+    try {
+      const soul = await agentService.readAgentSoul(req.params.id);
+      if (soul === null) {
+        return res.status(404).json({
+          success: false,
+          error: 'Agent SOUL.md not found',
+        });
+      }
+
+      res.json({
+        success: true,
+        content: soul,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  /**
+   * GET /api/agents/:id/activity
+   * Get agent's recent activities
+   */
+  app.get('/api/agents/:id/activity', async (req: Request, res: Response) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const activities = await agentService.getAgentActivity(req.params.id, limit);
+      
+      res.json({
+        success: true,
+        count: activities.length,
+        activities,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  /**
+   * GET /api/agents/:id/skills
+   * Get skills accessible to agent
+   */
+  app.get('/api/agents/:id/skills', async (req: Request, res: Response) => {
+    try {
+      const agent = await agentService.readAgent(req.params.id);
+      if (!agent) {
+        return res.status(404).json({
+          success: false,
+          error: 'Agent not found',
+        });
+      }
+
+      const skills = await agentService.getAgentSkills(req.params.id);
+      
+      res.json({
+        success: true,
+        count: skills.length,
+        skills,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  // ============================================================================
+  // SKILLS ENDPOINTS
+  // ============================================================================
+
+  /**
+   * GET /api/skills
+   * List all skills
+   */
+  app.get('/api/skills', async (req: Request, res: Response) => {
+    try {
+      const skills = await skillsService.readSkills();
+      res.json({
+        success: true,
+        count: skills.length,
+        skills,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  /**
+   * GET /api/skills/:id
+   * Get skill details
+   */
+  app.get('/api/skills/:id', async (req: Request, res: Response) => {
+    try {
+      const skill = await skillsService.readSkill(req.params.id);
+      if (!skill) {
+        return res.status(404).json({
+          success: false,
+          error: 'Skill not found',
+        });
+      }
+
+      res.json({
+        success: true,
+        skill,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  // ============================================================================
+  // PERMISSIONS ENDPOINTS
+  // ============================================================================
+
+  /**
+   * GET /api/permissions/matrix
+   * Get agent × skill access matrix
+   */
+  app.get('/api/permissions/matrix', async (req: Request, res: Response) => {
+    try {
+      const matrix = await skillsService.getPermissionsMatrix();
+      res.json({
+        success: true,
+        agents: matrix.agents,
+        skills: matrix.skills,
+        matrix: matrix.matrix,
       });
     } catch (error: any) {
       res.status(500).json({
