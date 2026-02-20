@@ -113,8 +113,9 @@ async function refreshApiPricing(apiKey: string): Promise<void> {
     apiPricingCache = newCache;
     apiPricingLastFetch = new Date();
     console.log(`[Pricing] Updated pricing for ${Object.keys(newCache).length / 2} models from OpenRouter API`);
-  } catch (err: any) {
-    console.warn(`[Pricing] Failed to fetch from OpenRouter API: ${err.message}`);
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.warn(`[Pricing] Failed to fetch from OpenRouter API: ${errorMessage}`);
   }
 }
 
