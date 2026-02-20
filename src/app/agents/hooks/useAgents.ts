@@ -58,30 +58,46 @@ export function useAgent(id: string): UseAgentResult {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const abortController = new AbortController();
+    let isMounted = true;
+
     const fetchAgent = async () => {
       setIsLoading(true);
       setError(null);
       try {
-        const response = await fetch(`/api/agents/${id}`);
+        const response = await fetch(`/api/agents/${id}`, {
+          signal: abortController.signal,
+        });
         if (!response.ok) {
           throw new Error(`Failed to fetch agent: ${response.statusText}`);
         }
         const data = await response.json();
-        if (data.success) {
-          setAgent(data.agent);
-        } else {
-          throw new Error(data.error || "API returned unsuccessful response");
+        if (isMounted && !abortController.signal.aborted) {
+          if (data.success) {
+            setAgent(data.agent);
+          } else {
+            throw new Error(data.error || "API returned unsuccessful response");
+          }
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error occurred");
+        if (isMounted && !abortController.signal.aborted) {
+          setError(err instanceof Error ? err.message : "Unknown error occurred");
+        }
       } finally {
-        setIsLoading(false);
+        if (isMounted && !abortController.signal.aborted) {
+          setIsLoading(false);
+        }
       }
     };
 
     if (id) {
       fetchAgent();
     }
+
+    return () => {
+      isMounted = false;
+      abortController.abort();
+    };
   }, [id]);
 
   return {
