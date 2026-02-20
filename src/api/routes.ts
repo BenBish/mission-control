@@ -823,6 +823,20 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
       const internalDb = db.db;
       const agentId = req.params.id;
 
+      // Validate agent ID format (basic check for non-empty string)
+      if (!agentId || typeof agentId !== 'string' || agentId.trim() === '') {
+        return res.status(400).json({ error: 'Invalid agent ID' });
+      }
+
+      // Check if agent exists by checking agent_skills table
+      const agentCheck = await internalDb.get(`
+        SELECT DISTINCT agent_id FROM agent_skills WHERE agent_id = ?
+      `, agentId);
+
+      if (!agentCheck) {
+        return res.status(404).json({ error: 'Agent not found' });
+      }
+
       const rows = await internalDb.all(`
         SELECT s.*, GROUP_CONCAT(as2.agent_id) as agent_ids
         FROM skills s
