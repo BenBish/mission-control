@@ -16,6 +16,7 @@ import * as os from 'os';
 let fixtureDir: string;
 let agentsDir: string;
 let skillsDir: string;
+let dbPath: string;
 let server: ReturnType<ReturnType<typeof express>['listen']>;
 let baseUrl: string;
 let db: Database;
@@ -87,8 +88,9 @@ beforeAll(async () => {
   process.env.AGENT_PATHS = agentsDir;
   process.env.SKILL_PATH = skillsDir;
 
-  // Set up database, logger, express app
-  db = new Database('./test-data/routes-http-test.db');
+  // Set up database in temp dir, logger, express app
+  dbPath = path.join(fixtureDir, 'test.db');
+  db = new Database(dbPath);
   await db.initialize();
 
   logger = new ActivityLogger(db);

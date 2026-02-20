@@ -154,11 +154,14 @@ export class AgentService {
       metadata.role = roleMatch[1].trim();
     }
 
-    // Extract model (look for model references)
-    const modelPatterns = [
-      /model[:\s]+([^\n,]+)/i,
-      /using\s+([^\n]+model)/i,
-      /model[:\s]+`([^`]+)`/,
+    // Extract model — try structured formats first, then fallback
+    const modelPatterns: RegExp[] = [
+      // "Model: `openrouter/...`" on its own line
+      /^model[:\s]+`([^`]+)`/im,
+      // "Model: openrouter/..." on its own line
+      /^model[:\s]+([^\n,]+)/im,
+      // "## Model" heading followed by value on next non-blank line
+      /^##\s*Model\s*\n+([^\n#]+)/im,
     ];
     for (const pattern of modelPatterns) {
       const match = content.match(pattern);
