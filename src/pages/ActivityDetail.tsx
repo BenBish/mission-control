@@ -31,7 +31,7 @@ export default function ActivityDetail() {
       if (!id) { setError("No activity ID provided"); setIsLoading(false); return; }
       setIsLoading(true); setError(null);
       try {
-        const response = await fetch(`""/api/activities/${id}`);
+        const response = await fetch(`/api/activities/${id}`);
         if (!response.ok) { if (response.status === 404) throw new Error("Activity not found"); throw new Error(`Failed: ${response.statusText}`); }
         const data: ActivityResponse = await response.json();
         if (data.success) setActivity(data.activity);

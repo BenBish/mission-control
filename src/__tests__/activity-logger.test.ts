@@ -5,8 +5,8 @@
 
 import { Database } from '../db/database.js';
 import { ActivityLogger } from '../logger/activity-logger.js';
-import fs from 'fs';
-import path from 'path';
+import * as fs from 'fs';
+import * as path from 'path';
 
 const TEST_DB_PATH = './test-data/test.db';
 

@@ -6,7 +6,7 @@
 
 import { EventEmitter } from 'events';
 import { Database } from '../db/database.js';
-import { Activity, CreateActivityInput, UpdateActivityInput, TokenInfo } from '../types/activity.js';
+import { Activity, Actor, CreateActivityInput, TokenInfo } from '../types/activity.js';
 import { calculateCost } from '../types/pricing.js';
 
 export class ActivityLogger extends EventEmitter {
@@ -49,7 +49,6 @@ export class ActivityLogger extends EventEmitter {
    * Log end of a session
    */
   async logSessionEnd(sessionId: string): Promise<string> {
-    const startTime = this.sessionStarts.get(sessionId);
     const endTime = new Date().toISOString();
 
     const activity = await this.log({
@@ -74,9 +73,9 @@ export class ActivityLogger extends EventEmitter {
    */
   async logToolStart(
     sessionId: string,
-    actor: any,
+    actor: Actor,
     toolName: string,
-    details: Record<string, any>,
+    details: Record<string, unknown>,
     description: string
   ): Promise<string> {
     const activity = await this.log({
@@ -98,7 +97,7 @@ export class ActivityLogger extends EventEmitter {
   async logToolEnd(
     activityId: string,
     status: 'success' | 'failure' | 'partial',
-    result: any,
+    result: unknown,
     output?: string,
     error?: string,
     durationMs?: number
@@ -146,6 +145,7 @@ export class ActivityLogger extends EventEmitter {
     const cost = calculateCost(tokens.model, tokens.inputTokens, tokens.outputTokens);
 
     await this.db.updateActivity(activityId, {
+      status,
       tokens,
       cost: {
         usd: cost,
@@ -176,7 +176,7 @@ export class ActivityLogger extends EventEmitter {
   async logDelegation(
     sessionId: string,
     parentActivityId: string | undefined,
-    actor: any,
+    actor: Actor,
     targetAgent: string,
     description: string
   ): Promise<string> {
@@ -242,7 +242,7 @@ export class ActivityLogger extends EventEmitter {
    */
   async logApiCall(
     sessionId: string,
-    actor: any,
+    actor: Actor,
     endpoint: string,
     method: string,
     statusCode?: number
@@ -263,7 +263,7 @@ export class ActivityLogger extends EventEmitter {
    */
   async logMessage(
     sessionId: string,
-    actor: any,
+    actor: Actor,
     target: string,
     message: string
   ): Promise<string> {

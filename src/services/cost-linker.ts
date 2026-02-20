@@ -9,6 +9,28 @@
  */
 
 import { Database } from '../db/database.js';
+import { Activity } from '../types/activity.js';
+
+interface Generation {
+  id: string;
+  session_log_file: string;
+  session_log_msg_id: string;
+  agent_id: string;
+  timestamp: string;
+  model: string;
+  provider?: string;
+  stop_reason?: string;
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
+  total_tokens: number;
+  cost_input: number;
+  cost_output: number;
+  cost_cache_read: number;
+  cost_total: number;
+  linked_activity_id?: string;
+}
 
 export interface LinkResult {
   linked: number;
@@ -51,8 +73,9 @@ export class CostLinker {
       if (result.linked > 0) {
         console.log(`[CostLinker] Linked ${result.linked} generations, updated ${result.activitiesUpdated} activities ($${result.totalCostAttributed.toFixed(4)})`);
       }
-    } catch (err: any) {
-      console.error('[CostLinker] Error:', err.message);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      console.error('[CostLinker] Error:', errorMessage);
     }
 
     return result;
@@ -61,7 +84,7 @@ export class CostLinker {
   /**
    * Find the best matching activity for a generation.
    */
-  private async findMatchingActivity(gen: any): Promise<string | null> {
+  private async findMatchingActivity(gen: Generation): Promise<string | null> {
     // Strategy 1: Match by session file UUID to activity sessionId
     const sessionUuid = this.extractSessionUuid(gen.session_log_file);
 
@@ -92,7 +115,7 @@ export class CostLinker {
   /**
    * Find the activity closest in time to the generation timestamp.
    */
-  private findClosestByTimestamp(activities: any[], genTimeMs: number, maxDeltaMs?: number): string | null {
+  private findClosestByTimestamp(activities: Activity[], genTimeMs: number, maxDeltaMs?: number): string | null {
     let best: { id: string; delta: number } | null = null;
 
     for (const activity of activities) {
@@ -134,7 +157,7 @@ export class CostLinker {
   private async updateActivityCosts(): Promise<{ activitiesUpdated: number; totalCostAttributed: number }> {
     // Get all linked generations grouped by activity
     const generations = await this.db.getGenerations({ limit: 10000 });
-    const linkedByActivity = new Map<string, any[]>();
+    const linkedByActivity = new Map<string, Generation[]>();
 
     for (const gen of generations) {
       if (!gen.linked_activity_id) continue;
@@ -147,10 +170,10 @@ export class CostLinker {
     let totalCostAttributed = 0;
 
     for (const [activityId, gens] of linkedByActivity) {
-      const totalCost = gens.reduce((sum: number, g: any) => sum + (g.cost_total || 0), 0);
-      const totalInput = gens.reduce((sum: number, g: any) => sum + (g.input_tokens || 0), 0);
-      const totalOutput = gens.reduce((sum: number, g: any) => sum + (g.output_tokens || 0), 0);
-      const totalTokens = gens.reduce((sum: number, g: any) => sum + (g.total_tokens || 0), 0);
+      const totalCost = gens.reduce((sum: number, g: Generation) => sum + (g.cost_total || 0), 0);
+      const totalInput = gens.reduce((sum: number, g: Generation) => sum + (g.input_tokens || 0), 0);
+      const totalOutput = gens.reduce((sum: number, g: Generation) => sum + (g.output_tokens || 0), 0);
+      const totalTokens = gens.reduce((sum: number, g: Generation) => sum + (g.total_tokens || 0), 0);
       const model = gens[0]?.model;
 
       if (totalCost > 0) {
