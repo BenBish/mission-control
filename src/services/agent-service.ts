@@ -240,6 +240,11 @@ export class AgentService {
     // e.g., workspace-engineer/SOUL.md -> workspace-engineer
     // or agents/engineer/SOUL.md -> engineer
     
+    // Handle SOUL.md directly in base path (e.g., /agents/SOUL.md)
+    if (parts[0] === 'SOUL.md') {
+      return path.basename(basePath);
+    }
+    
     if (parts[0] === 'workspace') {
       // For workspace/SOUL.md, the agent is the parent of workspace
       return parts[1] || path.basename(path.dirname(basePath));
