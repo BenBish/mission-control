@@ -13,6 +13,12 @@ import { Database } from '../db/database.js';
 const DEFAULT_SESSIONS_GLOB = `${process.env.HOME}/.openclaw-team/agents/*/sessions/*.jsonl`;
 const DEFAULT_SCAN_INTERVAL_MS = 30_000;
 
+interface JSONLContentItem {
+  type: string;
+  text?: string;
+  [key: string]: unknown;
+}
+
 interface JSONLAssistantMessage {
   type: 'message';
   id: string;
@@ -20,7 +26,7 @@ interface JSONLAssistantMessage {
   timestamp: string;
   message: {
     role: string;
-    content: any[];
+    content: JSONLContentItem[];
     api?: string;
     provider?: string;
     model?: string;
@@ -127,16 +133,18 @@ export class SessionLogScanner {
           result.filesScanned++;
           result.newGenerations += fileResult.newGenerations;
           result.totalCost += fileResult.totalCost;
-        } catch (err: any) {
-          result.errors.push(`${filePath}: ${err.message}`);
+        } catch (err: unknown) {
+          const errorMessage = err instanceof Error ? err.message : String(err);
+          result.errors.push(`${filePath}: ${errorMessage}`);
         }
       }
 
       if (result.newGenerations > 0) {
         console.log(`[Scanner] Found ${result.newGenerations} new generations ($${result.totalCost.toFixed(4)}) across ${result.filesScanned} files`);
       }
-    } catch (err: any) {
-      result.errors.push(`Glob error: ${err.message}`);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      result.errors.push(`Glob error: ${errorMessage}`);
     } finally {
       this.scanning = false;
       this.lastScanResult = result;
