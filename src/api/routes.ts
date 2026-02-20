@@ -9,9 +9,14 @@ import { ActivityFilter, Activity, TokenInfo, CostInfo } from '../types/activity
 import { calculateCost, getPricingStatus } from '../types/pricing.js';
 import type { SessionLogScanner } from '../services/session-log-scanner.js';
 import type { CostLinker } from '../services/cost-linker.js';
+import { AgentService } from '../services/agent-service.js';
+import { SkillsService } from '../services/skills-service.js';
 
 // Store active SSE clients
 const sseClients: Set<Response> = new Set();
+
+// Validation regex for safe IDs (alphanumeric and hyphens only)
+const VALID_ID_REGEX = /^[a-z0-9-]+$/i;
 
 export function setupRoutes(app: Express, logger: ActivityLogger) {
   // ============================================================================
@@ -40,7 +45,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
       const activities = await logger.getActivity('') || [];
       
       // Fetch activities from database
-      const db = (logger as any).db;
+      const db = logger.getDatabase();
       const results = await db.getActivities(filter);
 
       res.json({
@@ -70,7 +75,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         });
       }
 
-      const db = (logger as any).db;
+      const db = logger.getDatabase();
       const created = [];
 
       for (const activity of activities) {
@@ -180,7 +185,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
    */
   app.post('/api/activities/backfill', async (req: Request, res: Response) => {
     try {
-      const db = (logger as any).db;
+      const db = logger.getDatabase();
       
       // Get all activities with tokens but no cost
       const activities = await db.getActivities({ limit: 100000 });
@@ -271,7 +276,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
       }
 
       // Get all activities and filter (simple implementation)
-      const db = (logger as any).db;
+      const db = logger.getDatabase();
       const activities = await db.getActivities({ limit: 1000 });
       const filtered = activities.filter(
         (a: Activity) =>
@@ -383,7 +388,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
    */
   app.get('/api/cost-report', async (req: Request, res: Response) => {
     try {
-      const db = (logger as any).db;
+      const db = logger.getDatabase();
       const activities = await db.getActivities({ limit: 100000 });
 
       let totalCost = 0;
@@ -445,7 +450,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
    */
   app.get('/api/stats', async (req: Request, res: Response) => {
     try {
-      const db = (logger as any).db;
+      const db = logger.getDatabase();
       const stats = await db.getStats();
       const activities = await db.getActivities({ limit: 1000 });
 
@@ -535,7 +540,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
    */
   app.get('/api/cost/generations', async (req: Request, res: Response) => {
     try {
-      const db = (logger as any).db;
+      const db = logger.getDatabase();
       const generations = await db.getGenerations({
         agentId: req.query.agentId as string | undefined,
         model: req.query.model as string | undefined,
@@ -562,7 +567,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
    */
   app.get('/api/cost/summary', async (req: Request, res: Response) => {
     try {
-      const db = (logger as any).db;
+      const db = logger.getDatabase();
       const summary = await db.getGenerationSummary({
         startTime: req.query.startTime as string | undefined,
         endTime: req.query.endTime as string | undefined,
@@ -581,7 +586,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
   app.get('/api/cost/status', async (req: Request, res: Response) => {
     try {
       const scanner = app.locals.scanner as SessionLogScanner | undefined;
-      const db = (logger as any).db;
+      const db = logger.getDatabase();
 
       const scannerStatus = scanner?.getStatus() ?? { running: false, lastScanTime: null, lastResult: null };
       const pricingStatus = getPricingStatus();
@@ -686,6 +691,242 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         success: true,
         count: pending.length,
         activities: pending,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  // ============================================================================
+  // AGENT ENDPOINTS
+  // ============================================================================
+
+  /**
+   * Initialize services
+   */
+  const agentService = new AgentService();
+  const db = logger.getDatabase();
+  if (db) {
+    agentService.setDatabase(db);
+  }
+  const skillsService = new SkillsService(agentService);
+
+  /**
+   * GET /api/agents
+   * List all agents with metadata
+   */
+  app.get('/api/agents', async (req: Request, res: Response) => {
+    try {
+      const agents = await agentService.readAgents();
+      res.json({
+        success: true,
+        count: agents.length,
+        agents,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  /**
+   * GET /api/agents/:id
+   * Get agent details
+   */
+  app.get('/api/agents/:id', async (req: Request, res: Response) => {
+    try {
+      const id = req.params.id;
+      if (!VALID_ID_REGEX.test(id)) {
+        return res.status(400).json({ success: false, error: 'Invalid agent ID' });
+      }
+      const agent = await agentService.readAgent(id);
+      if (!agent) {
+        return res.status(404).json({
+          success: false,
+          error: 'Agent not found',
+        });
+      }
+
+      res.json({
+        success: true,
+        agent,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  /**
+   * GET /api/agents/:id/soul
+   * Get raw SOUL.md content
+   */
+  app.get('/api/agents/:id/soul', async (req: Request, res: Response) => {
+    try {
+      const id = req.params.id;
+      if (!VALID_ID_REGEX.test(id)) {
+        return res.status(400).json({ success: false, error: 'Invalid agent ID' });
+      }
+      const soul = await agentService.readAgentSoul(id);
+      if (soul === null) {
+        return res.status(404).json({
+          success: false,
+          error: 'Agent SOUL.md not found',
+        });
+      }
+
+      res.json({
+        success: true,
+        content: soul,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  /**
+   * GET /api/agents/:id/activity
+   * Get agent's recent activities
+   */
+  app.get('/api/agents/:id/activity', async (req: Request, res: Response) => {
+    try {
+      const id = req.params.id;
+      if (!VALID_ID_REGEX.test(id)) {
+        return res.status(400).json({ success: false, error: 'Invalid agent ID' });
+      }
+      const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 50));
+      const activities = await agentService.getAgentActivity(id, limit);
+      
+      res.json({
+        success: true,
+        count: activities.length,
+        activities,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  /**
+   * GET /api/agents/:id/skills
+   * Get skills accessible to agent
+   */
+  app.get('/api/agents/:id/skills', async (req: Request, res: Response) => {
+    try {
+      const id = req.params.id;
+      if (!VALID_ID_REGEX.test(id)) {
+        return res.status(400).json({ success: false, error: 'Invalid agent ID' });
+      }
+      const agent = await agentService.readAgent(id);
+      if (!agent) {
+        return res.status(404).json({
+          success: false,
+          error: 'Agent not found',
+        });
+      }
+
+      const skills = agent.skills || [];
+
+      res.json({
+        success: true,
+        count: skills.length,
+        skills,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  // ============================================================================
+  // SKILLS ENDPOINTS
+  // ============================================================================
+
+  /**
+   * GET /api/skills
+   * List all skills
+   */
+  app.get('/api/skills', async (req: Request, res: Response) => {
+    try {
+      const skills = await skillsService.readSkills();
+      // Strip internal-only fields (location contains absolute filesystem paths)
+      const sanitized = skills.map(({ location, ...rest }) => rest);
+      res.json({
+        success: true,
+        count: sanitized.length,
+        skills: sanitized,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  /**
+   * GET /api/skills/:id
+   * Get skill details
+   */
+  app.get('/api/skills/:id', async (req: Request, res: Response) => {
+    try {
+      const id = req.params.id;
+      if (!VALID_ID_REGEX.test(id)) {
+        return res.status(400).json({ success: false, error: 'Invalid skill ID' });
+      }
+      const skill = await skillsService.readSkill(id);
+      if (!skill) {
+        return res.status(404).json({
+          success: false,
+          error: 'Skill not found',
+        });
+      }
+
+      // Strip internal-only fields (location contains absolute filesystem paths)
+      const { location, ...sanitized } = skill;
+      res.json({
+        success: true,
+        skill: sanitized,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  // ============================================================================
+  // PERMISSIONS ENDPOINTS
+  // ============================================================================
+
+  /**
+   * GET /api/permissions/matrix
+   * Get agent × skill access matrix
+   */
+  app.get('/api/permissions/matrix', async (req: Request, res: Response) => {
+    try {
+      const matrix = await skillsService.getPermissionsMatrix();
+      res.json({
+        success: true,
+        agents: matrix.agents,
+        skills: matrix.skills,
+        matrix: matrix.matrix,
       });
     } catch (error: any) {
       res.status(500).json({
