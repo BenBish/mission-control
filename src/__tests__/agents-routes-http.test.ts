@@ -149,7 +149,7 @@ describe('GET /api/agents', () => {
     expect(ids).toContain('reviewer');
   });
 
-  test('agents should have expected shape', async () => {
+  test('agents should have expected shape with activity stats', async () => {
     const { body } = await api('/api/agents');
     const engineer = body.agents.find((a: any) => a.id === 'engineer');
     expect(engineer).toBeDefined();
@@ -157,6 +157,49 @@ describe('GET /api/agents', () => {
     expect(engineer.model).toContain('sonnet');
     expect(engineer.gitAuthorName).toBe('Test Engineer');
     expect(engineer.gitAuthorEmail).toBe('engineer@test.local');
+    // Activity stats should be present with defaults (no activity seeded yet)
+    expect(engineer.status).toBe('offline');
+    expect(engineer.lastActive).toBe('');
+    expect(engineer.sessionCount).toBe(0);
+    expect(engineer.totalCost).toBe(0);
+    expect(engineer.totalTokens).toBe(0);
+  });
+
+  test('agents should reflect seeded activity stats', async () => {
+    // Seed activity data for the engineer agent
+    const now = new Date();
+    await db.createActivity({
+      sessionId: 'test-session-1',
+      timestamp: new Date(now.getTime() - 2 * 60 * 1000).toISOString(), // 2 min ago
+      actor: { id: 'engineer', type: 'subagent' },
+      actionType: 'tool_call',
+      description: 'test activity 1',
+      status: 'success',
+    });
+    await db.createActivity({
+      sessionId: 'test-session-2',
+      timestamp: new Date(now.getTime() - 3 * 60 * 1000).toISOString(), // 3 min ago
+      actor: { id: 'engineer', type: 'subagent' },
+      actionType: 'tool_call',
+      description: 'test activity 2',
+      status: 'success',
+    });
+
+    // Update one activity with cost/tokens
+    const activities = await db.getActivities({ actorId: 'engineer', limit: 1 });
+    await db.updateActivity(activities[0].id, {
+      cost: { usd: 0.05 },
+      tokens: { inputTokens: 100, outputTokens: 50, totalTokens: 150 },
+    });
+
+    const { body } = await api('/api/agents');
+    const engineer = body.agents.find((a: any) => a.id === 'engineer');
+    expect(engineer).toBeDefined();
+    expect(engineer.status).toBe('online'); // activity within last 5 min
+    expect(engineer.lastActive).toBeTruthy();
+    expect(engineer.sessionCount).toBe(2);
+    expect(engineer.totalCost).toBeGreaterThan(0);
+    expect(engineer.totalTokens).toBeGreaterThan(0);
   });
 });
 

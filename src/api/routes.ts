@@ -11,12 +11,17 @@ import type { SessionLogScanner } from '../services/session-log-scanner.js';
 import type { CostLinker } from '../services/cost-linker.js';
 import { AgentService } from '../services/agent-service.js';
 import { SkillsService } from '../services/skills-service.js';
+import type { Agent, AgentStats } from '../types/agents.js';
 
 // Store active SSE clients
 const sseClients: Set<Response> = new Set();
 
 // Validation regex for safe IDs (alphanumeric and hyphens only)
 const VALID_ID_REGEX = /^[a-z0-9-]+$/i;
+
+// Default limits for activity queries
+const DEFAULT_ACTIVITY_LIMIT = 100;
+const MAX_ACTIVITY_LIMIT = 100000;
 
 export function setupRoutes(app: Express, logger: ActivityLogger) {
   // ============================================================================
@@ -188,7 +193,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
       const db = logger.getDatabase();
       
       // Get all activities with tokens but no cost
-      const activities = await db.getActivities({ limit: 100000 });
+      const activities = await db.getActivities({ limit: MAX_ACTIVITY_LIMIT });
       const activitiesToUpdate = activities.filter((a: Activity) => 
         a.tokens && 
         a.tokens.totalTokens > 0 && 
@@ -389,7 +394,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
   app.get('/api/cost-report', async (req: Request, res: Response) => {
     try {
       const db = logger.getDatabase();
-      const activities = await db.getActivities({ limit: 100000 });
+      const activities = await db.getActivities({ limit: MAX_ACTIVITY_LIMIT });
 
       let totalCost = 0;
       let totalTokens = 0;
@@ -715,16 +720,59 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
   const skillsService = new SkillsService(agentService);
 
   /**
+   * Derive agent status from activity stats
+   */
+  function deriveStatus(stats: AgentStats | undefined): Agent['status'] {
+    if (!stats || !stats.lastActive) return 'offline';
+    if (stats.pendingCount > 0) return 'busy';
+    const lastActiveMs = new Date(stats.lastActive).getTime();
+    const now = Date.now();
+    const fiveMin = 5 * 60 * 1000;
+    const twentyFourHours = 24 * 60 * 60 * 1000;
+    if (now - lastActiveMs < fiveMin) return 'online';
+    if (now - lastActiveMs < twentyFourHours) return 'idle';
+    return 'offline';
+  }
+
+  /**
+   * Map agent filesystem ID to activity actor_id.
+   * Agent IDs come from directory names (e.g. "workspace-engineer", "workspace"),
+   * while activity actor_ids use short names (e.g. "engineer", "main").
+   */
+  function toActorId(agentId: string): string {
+    if (agentId === 'workspace') return 'main';
+    if (agentId.startsWith('workspace-')) return agentId.slice('workspace-'.length);
+    return agentId;
+  }
+
+  /**
+   * Enrich an agent with activity stats
+   */
+  function enrichAgent(agent: Agent, statsMap: Map<string, AgentStats>): Agent {
+    const stats = statsMap.get(agent.id) ?? statsMap.get(toActorId(agent.id));
+    return {
+      ...agent,
+      status: deriveStatus(stats),
+      lastActive: stats?.lastActive ?? '',
+      sessionCount: stats?.sessionCount ?? 0,
+      totalCost: stats?.totalCost ?? 0,
+      totalTokens: stats?.totalTokens ?? 0,
+    };
+  }
+
+  /**
    * GET /api/agents
    * List all agents with metadata
    */
   app.get('/api/agents', async (req: Request, res: Response) => {
     try {
       const agents = await agentService.readAgents();
+      const statsMap = await db.getAgentStats();
+      const enriched = agents.map((a) => enrichAgent(a, statsMap));
       res.json({
         success: true,
-        count: agents.length,
-        agents,
+        count: enriched.length,
+        agents: enriched,
       });
     } catch (error: any) {
       res.status(500).json({
@@ -752,9 +800,10 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         });
       }
 
+      const statsMap = await db.getAgentStats();
       res.json({
         success: true,
-        agent,
+        agent: enrichAgent(agent, statsMap),
       });
     } catch (error: any) {
       res.status(500).json({

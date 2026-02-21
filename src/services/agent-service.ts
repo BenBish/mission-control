@@ -148,10 +148,17 @@ export class AgentService {
       role: '',
     };
 
-    // Extract role (usually in a heading like "## Role" followed by content)
-    const roleMatch = content.match(/##\s*Role\s*\n+([^\n#]+)/i);
-    if (roleMatch) {
-      metadata.role = roleMatch[1].trim();
+    // Extract role — prefer the tagline after the em-dash in the intro
+    // ("You are the **Engineer** — you turn designs into working code."),
+    // fall back to ## Role paragraph content.
+    const taglineMatch = content.match(/You are (?:the )?\*\*[^*]+\*\*\s*[-–—]\s*([^\n.]+)/i);
+    if (taglineMatch) {
+      metadata.role = taglineMatch[1].trim();
+    } else {
+      const roleHeadingMatch = content.match(/##\s*Role\s*\n+([^\n#]+)/i);
+      if (roleHeadingMatch) {
+        metadata.role = roleHeadingMatch[1].trim();
+      }
     }
 
     // Extract model — try structured formats first, then fallback

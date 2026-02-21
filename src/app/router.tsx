@@ -8,6 +8,7 @@ const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
 const ActivityFeed = lazy(() => import("@/pages/ActivityFeed"));
 const ActivityDetail = lazy(() => import("@/pages/ActivityDetail"));
 const CostBreakdown = lazy(() => import("@/pages/CostBreakdown"));
+const AgentsPage = lazy(() => import("@/app/agents/page"));
 
 function withSuspense(Component: React.ComponentType) {
   return (
@@ -37,6 +38,10 @@ export const router = createBrowserRouter([
       {
         path: "costs",
         element: withSuspense(CostBreakdown),
+      },
+      {
+        path: "agents",
+        element: withSuspense(AgentsPage),
       },
       {
         path: "users",
