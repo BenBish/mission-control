@@ -7,6 +7,7 @@ import sqlite3 from 'sqlite3';
 import { open, Database as SqliteDatabase } from 'sqlite';
 import { getSQLStatements } from './schema.js';
 import { Activity, CreateActivityInput, UpdateActivityInput, ActivityFilter, SessionSummary } from '../types/activity.js';
+import { AgentStats } from '../types/agents.js';
 import { v7 as uuidv7 } from 'uuid';
 
 export class Database {
@@ -339,6 +340,41 @@ export class Database {
       topTools,
       events: [],
     };
+  }
+
+  // ============================================================================
+  // AGENT STATS
+  // ============================================================================
+
+  /**
+   * Get aggregated activity stats per agent
+   */
+  async getAgentStats(): Promise<Map<string, AgentStats>> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const rows = await this.db.all<any[]>(`
+      SELECT
+        actor_id,
+        MAX(timestamp) as last_active,
+        COUNT(DISTINCT session_id) as session_count,
+        COALESCE(SUM(cost_usd), 0) as total_cost,
+        COALESCE(SUM(total_tokens), 0) as total_tokens,
+        SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending_count
+      FROM activities
+      GROUP BY actor_id
+    `);
+
+    const map = new Map<string, AgentStats>();
+    for (const row of rows) {
+      map.set(row.actor_id, {
+        lastActive: row.last_active,
+        sessionCount: row.session_count,
+        totalCost: row.total_cost,
+        totalTokens: row.total_tokens,
+        pendingCount: row.pending_count,
+      });
+    }
+    return map;
   }
 
   // ============================================================================

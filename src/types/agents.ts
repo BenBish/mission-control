@@ -11,6 +11,19 @@ export interface Agent {
   gitAuthorName?: string;
   gitAuthorEmail?: string;
   skills: string[];
+  status?: 'online' | 'offline' | 'busy' | 'idle';
+  lastActive?: string;
+  sessionCount?: number;
+  totalCost?: number;
+  totalTokens?: number;
+}
+
+export interface AgentStats {
+  lastActive: string | null;
+  sessionCount: number;
+  totalCost: number;
+  totalTokens: number;
+  pendingCount: number;
 }
 
 export interface AgentConfig {

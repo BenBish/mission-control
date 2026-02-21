@@ -95,21 +95,21 @@ export function AgentCard({ agent }: AgentCardProps) {
       onClick={handleClick}
     >
       <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 dark:bg-primary/20 group-hover:bg-primary/20 dark:group-hover:bg-primary/30 transition-colors">
-              <Bot className="h-5 w-5 text-primary" />
-            </div>
-            <div>
+        <div className="flex gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 dark:bg-primary/20 group-hover:bg-primary/20 dark:group-hover:bg-primary/30 transition-colors">
+            <Bot className="h-5 w-5 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between">
               <CardTitle className="text-base font-semibold group-hover:text-primary transition-colors">
                 {agent.name}
               </CardTitle>
-              <Badge variant={getRoleBadgeVariant(agent.role)} className="mt-1 text-xs">
-                {agent.role}
-              </Badge>
+              <div className="shrink-0">{getStatusBadge(agent.status)}</div>
             </div>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {agent.role.charAt(0).toUpperCase() + agent.role.slice(1)}
+            </p>
           </div>
-          {getStatusBadge(agent.status)}
         </div>
       </CardHeader>
       <CardContent className="pt-0">
