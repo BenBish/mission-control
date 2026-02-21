@@ -175,7 +175,7 @@ describe('ActivityLogger', () => {
       const activity = await logger.getActivity(activityId);
       expect(activity?.tokens?.totalTokens).toBe(150);
       expect(activity?.cost?.usd).toBeGreaterThan(0);
-      expect(activity?.cost?.usd).toBeLessThan(0.1); // Haiku pricing: ~$0.09 for 150 tokens
+      expect(activity?.cost?.usd).toBeLessThan(0.10); // Should be cheap (haiku pricing)
     });
 
     test('should calculate cost correctly for different models', async () => {

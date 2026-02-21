@@ -150,34 +150,6 @@ CREATE TABLE IF NOT EXISTS scan_state (
   last_scanned_at DATETIME,
   file_size INTEGER DEFAULT 0
 );
-
--- Skills table for agent capabilities
-CREATE TABLE IF NOT EXISTS skills (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL UNIQUE,
-  description TEXT NOT NULL,
-  category TEXT NOT NULL,
-  location TEXT,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX IF NOT EXISTS idx_skills_category ON skills(category);
-CREATE INDEX IF NOT EXISTS idx_skills_name ON skills(name);
-
--- Agent-Skill mapping (many-to-many)
-CREATE TABLE IF NOT EXISTS agent_skills (
-  id TEXT PRIMARY KEY,
-  agent_id TEXT NOT NULL,
-  skill_id TEXT NOT NULL,
-  proficiency TEXT DEFAULT 'standard',
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (skill_id) REFERENCES skills(id),
-  UNIQUE(agent_id, skill_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_agent_skills_agent ON agent_skills(agent_id);
-CREATE INDEX IF NOT EXISTS idx_agent_skills_skill ON agent_skills(skill_id);
 `;
 
 /**

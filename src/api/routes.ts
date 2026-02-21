@@ -9,9 +9,19 @@ import { ActivityFilter, Activity, TokenInfo, CostInfo } from '../types/activity
 import { calculateCost, getPricingStatus } from '../types/pricing.js';
 import type { SessionLogScanner } from '../services/session-log-scanner.js';
 import type { CostLinker } from '../services/cost-linker.js';
+import { AgentService } from '../services/agent-service.js';
+import { SkillsService } from '../services/skills-service.js';
+import type { Agent, AgentStats } from '../types/agents.js';
 
 // Store active SSE clients
 const sseClients: Set<Response> = new Set();
+
+// Validation regex for safe IDs (alphanumeric and hyphens only)
+const VALID_ID_REGEX = /^[a-z0-9-]+$/i;
+
+// Default limits for activity queries
+const DEFAULT_ACTIVITY_LIMIT = 100;
+const MAX_ACTIVITY_LIMIT = 100000;
 
 export function setupRoutes(app: Express, logger: ActivityLogger) {
   // ============================================================================
@@ -40,7 +50,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
       const activities = await logger.getActivity('') || [];
       
       // Fetch activities from database
-      const db = (logger as any).db;
+      const db = logger.getDatabase();
       const results = await db.getActivities(filter);
 
       res.json({
@@ -70,7 +80,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         });
       }
 
-      const db = (logger as any).db;
+      const db = logger.getDatabase();
       const created = [];
 
       for (const activity of activities) {
@@ -180,10 +190,10 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
    */
   app.post('/api/activities/backfill', async (req: Request, res: Response) => {
     try {
-      const db = (logger as any).db;
+      const db = logger.getDatabase();
       
       // Get all activities with tokens but no cost
-      const activities = await db.getActivities({ limit: 100000 });
+      const activities = await db.getActivities({ limit: MAX_ACTIVITY_LIMIT });
       const activitiesToUpdate = activities.filter((a: Activity) => 
         a.tokens && 
         a.tokens.totalTokens > 0 && 
@@ -271,7 +281,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
       }
 
       // Get all activities and filter (simple implementation)
-      const db = (logger as any).db;
+      const db = logger.getDatabase();
       const activities = await db.getActivities({ limit: 1000 });
       const filtered = activities.filter(
         (a: Activity) =>
@@ -383,8 +393,8 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
    */
   app.get('/api/cost-report', async (req: Request, res: Response) => {
     try {
-      const db = (logger as any).db;
-      const activities = await db.getActivities({ limit: 100000 });
+      const db = logger.getDatabase();
+      const activities = await db.getActivities({ limit: MAX_ACTIVITY_LIMIT });
 
       let totalCost = 0;
       let totalTokens = 0;
@@ -445,7 +455,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
    */
   app.get('/api/stats', async (req: Request, res: Response) => {
     try {
-      const db = (logger as any).db;
+      const db = logger.getDatabase();
       const stats = await db.getStats();
       const activities = await db.getActivities({ limit: 1000 });
 
@@ -535,7 +545,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
    */
   app.get('/api/cost/generations', async (req: Request, res: Response) => {
     try {
-      const db = (logger as any).db;
+      const db = logger.getDatabase();
       const generations = await db.getGenerations({
         agentId: req.query.agentId as string | undefined,
         model: req.query.model as string | undefined,
@@ -562,7 +572,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
    */
   app.get('/api/cost/summary', async (req: Request, res: Response) => {
     try {
-      const db = (logger as any).db;
+      const db = logger.getDatabase();
       const summary = await db.getGenerationSummary({
         startTime: req.query.startTime as string | undefined,
         endTime: req.query.endTime as string | undefined,
@@ -581,7 +591,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
   app.get('/api/cost/status', async (req: Request, res: Response) => {
     try {
       const scanner = app.locals.scanner as SessionLogScanner | undefined;
-      const db = (logger as any).db;
+      const db = logger.getDatabase();
 
       const scannerStatus = scanner?.getStatus() ?? { running: false, lastScanTime: null, lastResult: null };
       const pricingStatus = getPricingStatus();
@@ -696,114 +706,160 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
   });
 
   // ============================================================================
-  // SKILLS ENDPOINTS
+  // AGENT ENDPOINTS
   // ============================================================================
 
   /**
-   * Seed sample skills data (only if empty)
+   * Initialize services
    */
-  async function seedSkillsIfEmpty(db: any) {
-    const internalDb = db.db;
-    const existing = await internalDb.get('SELECT COUNT(*) as count FROM skills');
-    if (existing.count > 0) return;
+  const agentService = new AgentService();
+  const db = logger.getDatabase();
+  if (db) {
+    agentService.setDatabase(db);
+  }
+  const skillsService = new SkillsService(agentService);
 
-    const skills = [
-      { id: 'skill-1', name: 'File Operations', description: 'Read, write, and manage files in the workspace', category: 'Tools', location: 'filesystem' },
-      { id: 'skill-2', name: 'Web Search', description: 'Search the web for information using Brave API', category: 'Tools', location: 'external' },
-      { id: 'skill-3', name: 'Web Fetch', description: 'Fetch and extract content from URLs', category: 'Tools', location: 'external' },
-      { id: 'skill-4', name: 'Code Execution', description: 'Execute shell commands and scripts', category: 'Tools', location: 'sandbox' },
-      { id: 'skill-5', name: 'Browser Control', description: 'Control web browsers for automation', category: 'Tools', location: 'browser' },
-      { id: 'skill-6', name: 'Message Sending', description: 'Send messages via channels like Telegram', category: 'Communication', location: 'telegram' },
-      { id: 'skill-7', name: 'Node Management', description: 'Discover and control paired nodes', category: 'Management', location: 'nodes' },
-      { id: 'skill-8', name: 'TTS Conversion', description: 'Convert text to speech for audio output', category: 'Media', location: 'audio' },
-      { id: 'skill-9', name: 'Canvas Control', description: 'Control node canvases for presentation', category: 'Media', location: 'canvas' },
-      { id: 'skill-10', name: 'Subagent Management', description: 'Spawn and manage sub-agents for complex tasks', category: 'Management', location: 'orchestrator' },
-    ];
-
-    const agentSkills = [
-      { id: 'as-1', agentId: 'orchestrator', skillId: 'skill-1' },
-      { id: 'as-2', agentId: 'orchestrator', skillId: 'skill-10' },
-      { id: 'as-3', agentId: 'engineer-1', skillId: 'skill-1' },
-      { id: 'as-4', agentId: 'engineer-1', skillId: 'skill-4' },
-      { id: 'as-5', agentId: 'engineer-2', skillId: 'skill-1' },
-      { id: 'as-6', agentId: 'engineer-2', skillId: 'skill-4' },
-      { id: 'as-7', agentId: 'researcher', skillId: 'skill-2' },
-      { id: 'as-8', agentId: 'researcher', skillId: 'skill-3' },
-      { id: 'as-9', agentId: 'communicator', skillId: 'skill-6' },
-      { id: 'as-10', agentId: 'communicator', skillId: 'skill-8' },
-    ];
-
-    for (const skill of skills) {
-      await internalDb.run(
-        'INSERT INTO skills (id, name, description, category, location) VALUES (?, ?, ?, ?, ?)',
-        skill.id, skill.name, skill.description, skill.category, skill.location
-      );
-    }
-
-    for (const as of agentSkills) {
-      await internalDb.run(
-        'INSERT INTO agent_skills (id, agent_id, skill_id) VALUES (?, ?, ?)',
-        as.id, as.agentId, as.skillId
-      );
-    }
-
-    console.log('[Skills] Seeded sample skills data');
+  /**
+   * Derive agent status from activity stats
+   */
+  function deriveStatus(stats: AgentStats | undefined): Agent['status'] {
+    if (!stats || !stats.lastActive) return 'offline';
+    if (stats.pendingCount > 0) return 'busy';
+    const lastActiveMs = new Date(stats.lastActive).getTime();
+    const now = Date.now();
+    const fiveMin = 5 * 60 * 1000;
+    const twentyFourHours = 24 * 60 * 60 * 1000;
+    if (now - lastActiveMs < fiveMin) return 'online';
+    if (now - lastActiveMs < twentyFourHours) return 'idle';
+    return 'offline';
   }
 
   /**
-   * GET /api/skills
-   * Get all skills with optional filtering and search
+   * Map agent filesystem ID to activity actor_id.
+   * Agent IDs come from directory names (e.g. "workspace-engineer", "workspace"),
+   * while activity actor_ids use short names (e.g. "engineer", "main").
    */
-  app.get('/api/skills', async (req: Request, res: Response) => {
+  function toActorId(agentId: string): string {
+    if (agentId === 'workspace') return 'main';
+    if (agentId.startsWith('workspace-')) return agentId.slice('workspace-'.length);
+    return agentId;
+  }
+
+  /**
+   * Enrich an agent with activity stats
+   */
+  function enrichAgent(agent: Agent, statsMap: Map<string, AgentStats>): Agent {
+    const stats = statsMap.get(agent.id) ?? statsMap.get(toActorId(agent.id));
+    return {
+      ...agent,
+      status: deriveStatus(stats),
+      lastActive: stats?.lastActive ?? '',
+      sessionCount: stats?.sessionCount ?? 0,
+      totalCost: stats?.totalCost ?? 0,
+      totalTokens: stats?.totalTokens ?? 0,
+    };
+  }
+
+  /**
+   * GET /api/agents
+   * List all agents with metadata
+   */
+  app.get('/api/agents', async (req: Request, res: Response) => {
     try {
-      const db = (logger as any).db;
-      const internalDb = db.db;
-      const category = req.query.category as string | undefined;
-      const search = req.query.search as string | undefined;
+      const agents = await agentService.readAgents();
+      const statsMap = await db.getAgentStats();
+      const enriched = agents.map((a) => enrichAgent(a, statsMap));
+      res.json({
+        success: true,
+        count: enriched.length,
+        agents: enriched,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
 
-      // Seed data if empty
-      await seedSkillsIfEmpty(db);
-
-      // Build query
-      let sql = `
-        SELECT s.*, GROUP_CONCAT(as2.agent_id) as agent_ids
-        FROM skills s
-        LEFT JOIN agent_skills as2 ON s.id = as2.skill_id
-        WHERE 1=1
-      `;
-      const params: any[] = [];
-
-      if (category && category !== 'all') {
-        sql += ' AND s.category = ?';
-        params.push(category);
+  /**
+   * GET /api/agents/:id
+   * Get agent details
+   */
+  app.get('/api/agents/:id', async (req: Request, res: Response) => {
+    try {
+      const id = req.params.id;
+      if (!VALID_ID_REGEX.test(id)) {
+        return res.status(400).json({ success: false, error: 'Invalid agent ID' });
+      }
+      const agent = await agentService.readAgent(id);
+      if (!agent) {
+        return res.status(404).json({
+          success: false,
+          error: 'Agent not found',
+        });
       }
 
-      if (search) {
-        sql += ' AND (s.name LIKE ? OR s.description LIKE ?)';
-        params.push(`%${search}%`, `%${search}%`);
+      const statsMap = await db.getAgentStats();
+      res.json({
+        success: true,
+        agent: enrichAgent(agent, statsMap),
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  /**
+   * GET /api/agents/:id/soul
+   * Get raw SOUL.md content
+   */
+  app.get('/api/agents/:id/soul', async (req: Request, res: Response) => {
+    try {
+      const id = req.params.id;
+      if (!VALID_ID_REGEX.test(id)) {
+        return res.status(400).json({ success: false, error: 'Invalid agent ID' });
       }
-
-      sql += ' GROUP BY s.id ORDER BY s.category, s.name';
-
-      const rows = await internalDb.all(sql, ...params);
-
-      // Get unique categories
-      const categoryRows = await internalDb.all('SELECT DISTINCT category FROM skills ORDER BY category');
-      const categories = categoryRows.map((r: any) => r.category);
-
-      const skills = rows.map((row: any) => ({
-        id: row.id,
-        name: row.name,
-        description: row.description,
-        category: row.category,
-        location: row.location,
-        agentIds: row.agent_ids ? row.agent_ids.split(',') : [],
-      }));
+      const soul = await agentService.readAgentSoul(id);
+      if (soul === null) {
+        return res.status(404).json({
+          success: false,
+          error: 'Agent SOUL.md not found',
+        });
+      }
 
       res.json({
         success: true,
-        skills,
-        categories,
+        content: soul,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  /**
+   * GET /api/agents/:id/activity
+   * Get agent's recent activities
+   */
+  app.get('/api/agents/:id/activity', async (req: Request, res: Response) => {
+    try {
+      const id = req.params.id;
+      if (!VALID_ID_REGEX.test(id)) {
+        return res.status(400).json({ success: false, error: 'Invalid agent ID' });
+      }
+      const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 50));
+      const activities = await agentService.getAgentActivity(id, limit);
+      
+      res.json({
+        success: true,
+        count: activities.length,
+        activities,
       });
     } catch (error: any) {
       res.status(500).json({
@@ -815,50 +871,54 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
 
   /**
    * GET /api/agents/:id/skills
-   * Get skills accessible to a specific agent
+   * Get skills accessible to agent
    */
   app.get('/api/agents/:id/skills', async (req: Request, res: Response) => {
     try {
-      const db = (logger as any).db;
-      const internalDb = db.db;
-      const agentId = req.params.id;
-
-      // Validate agent ID format (basic check for non-empty string)
-      if (!agentId || typeof agentId !== 'string' || agentId.trim() === '') {
-        return res.status(400).json({ error: 'Invalid agent ID' });
+      const id = req.params.id;
+      if (!VALID_ID_REGEX.test(id)) {
+        return res.status(400).json({ success: false, error: 'Invalid agent ID' });
+      }
+      const agent = await agentService.readAgent(id);
+      if (!agent) {
+        return res.status(404).json({
+          success: false,
+          error: 'Agent not found',
+        });
       }
 
-      // Check if agent exists by checking agent_skills table
-      const agentCheck = await internalDb.get(`
-        SELECT DISTINCT agent_id FROM agent_skills WHERE agent_id = ?
-      `, agentId);
-
-      if (!agentCheck) {
-        return res.status(404).json({ error: 'Agent not found' });
-      }
-
-      const rows = await internalDb.all(`
-        SELECT s.*, GROUP_CONCAT(as2.agent_id) as agent_ids
-        FROM skills s
-        INNER JOIN agent_skills as2 ON s.id = as2.skill_id
-        WHERE as2.agent_id = ?
-        GROUP BY s.id
-        ORDER BY s.category, s.name
-      `, agentId);
-
-      const skills = rows.map((row: any) => ({
-        id: row.id,
-        name: row.name,
-        description: row.description,
-        category: row.category,
-        location: row.location,
-        agentIds: row.agent_ids ? row.agent_ids.split(',') : [],
-      }));
+      const skills = agent.skills || [];
 
       res.json({
         success: true,
-        agentId,
+        count: skills.length,
         skills,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  // ============================================================================
+  // SKILLS ENDPOINTS
+  // ============================================================================
+
+  /**
+   * GET /api/skills
+   * List all skills
+   */
+  app.get('/api/skills', async (req: Request, res: Response) => {
+    try {
+      const skills = await skillsService.readSkills();
+      // Strip internal-only fields (location contains absolute filesystem paths)
+      const sanitized = skills.map(({ location, ...rest }) => rest);
+      res.json({
+        success: true,
+        count: sanitized.length,
+        skills: sanitized,
       });
     } catch (error: any) {
       res.status(500).json({
@@ -870,39 +930,52 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
 
   /**
    * GET /api/skills/:id
-   * Get a specific skill by ID
+   * Get skill details
    */
   app.get('/api/skills/:id', async (req: Request, res: Response) => {
     try {
-      const db = (logger as any).db;
-      const internalDb = db.db;
-      const skillId = req.params.id;
-
-      const row = await internalDb.get(`
-        SELECT s.*, GROUP_CONCAT(as2.agent_id) as agent_ids
-        FROM skills s
-        LEFT JOIN agent_skills as2 ON s.id = as2.skill_id
-        WHERE s.id = ?
-        GROUP BY s.id
-      `, skillId);
-
-      if (!row) {
+      const id = req.params.id;
+      if (!VALID_ID_REGEX.test(id)) {
+        return res.status(400).json({ success: false, error: 'Invalid skill ID' });
+      }
+      const skill = await skillsService.readSkill(id);
+      if (!skill) {
         return res.status(404).json({
           success: false,
           error: 'Skill not found',
         });
       }
 
+      // Strip internal-only fields (location contains absolute filesystem paths)
+      const { location, ...sanitized } = skill;
       res.json({
         success: true,
-        skill: {
-          id: row.id,
-          name: row.name,
-          description: row.description,
-          category: row.category,
-          location: row.location,
-          agentIds: row.agent_ids ? row.agent_ids.split(',') : [],
-        },
+        skill: sanitized,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  // ============================================================================
+  // PERMISSIONS ENDPOINTS
+  // ============================================================================
+
+  /**
+   * GET /api/permissions/matrix
+   * Get agent × skill access matrix
+   */
+  app.get('/api/permissions/matrix', async (req: Request, res: Response) => {
+    try {
+      const matrix = await skillsService.getPermissionsMatrix();
+      res.json({
+        success: true,
+        agents: matrix.agents,
+        skills: matrix.skills,
+        matrix: matrix.matrix,
       });
     } catch (error: any) {
       res.status(500).json({
