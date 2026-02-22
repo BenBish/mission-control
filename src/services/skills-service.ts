@@ -17,11 +17,28 @@ function getSkillBasePaths(): string[] {
   if (process.env.SKILL_PATH) {
     return [process.env.SKILL_PATH];
   }
-  return [
+  
+  // Try to find npm package installation path
+  let npmSkillsPath = '';
+  try {
+    const npmPath = require.resolve('@orcateam/openclaw-skills');
+    npmSkillsPath = path.dirname(npmPath);
+  } catch (err) {
+    // npm package not found, that's ok - we'll use fallback paths
+  }
+  
+  const paths = [
     path.join(os.homedir(), '.local/share/openclaw/skills'),
     '/usr/share/openclaw/skills',
     '/opt/openclaw/skills',
   ];
+  
+  // Insert npm package path if found
+  if (npmSkillsPath) {
+    paths.unshift(npmSkillsPath);
+  }
+  
+  return paths;
 }
 
 // Cache TTL in milliseconds
@@ -70,6 +87,7 @@ export class SkillsService {
           const content = await fs.readFile(skillFile, 'utf-8');
           const skillId = this.extractSkillId(skillFile, basePath);
           const description = this.parseSkillDescription(content);
+          const category = this.parseSkillCategory(content);
 
           const config = await this.readSkillConfig(skillDir);
 
@@ -78,6 +96,7 @@ export class SkillsService {
             name: config?.name || this.guessNameFromPath(skillFile),
             description: description || config?.description || '',
             location: skillDir,
+            category,
           });
         } catch (err) {
           console.warn(`[SkillsService] Failed to parse ${skillFile}:`, err);
@@ -123,10 +142,14 @@ export class SkillsService {
   }
 
   /**
-   * Parse SKILL.md to extract description
+   * Parse SKILL.md to extract description, stripping YAML frontmatter
    */
   private parseSkillDescription(content: string): string {
-    const lines = content.split('\n');
+    // Strip YAML frontmatter block (--- ... ---)
+    const frontmatterRegex = /^---[\s\S]*?---\n/;
+    const cleanContent = content.replace(frontmatterRegex, '');
+    
+    const lines = cleanContent.split('\n');
     let inDescription = false;
     const descriptionLines: string[] = [];
 
@@ -152,6 +175,18 @@ export class SkillsService {
     }
 
     return descriptionLines.join(' ').trim();
+  }
+
+  /**
+   * Parse category from YAML frontmatter
+   */
+  private parseSkillCategory(content: string): string | undefined {
+    const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    if (!frontmatterMatch) return undefined;
+    
+    const frontmatter = frontmatterMatch[1];
+    const categoryMatch = frontmatter.match(/^category:\s*(.+)$/m);
+    return categoryMatch ? categoryMatch[1].trim() : undefined;
   }
 
   /**

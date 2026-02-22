@@ -41,6 +41,8 @@ export interface Skill {
   name: string;
   description: string;
   location: string;
+  agents?: Agent[];
+  category?: string;
 }
 
 export interface SkillConfig {
