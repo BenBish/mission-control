@@ -17,11 +17,28 @@ function getSkillBasePaths(): string[] {
   if (process.env.SKILL_PATH) {
     return [process.env.SKILL_PATH];
   }
-  return [
+  
+  // Try to find npm package installation path
+  let npmSkillsPath = '';
+  try {
+    const npmPath = require.resolve('@orcateam/openclaw-skills');
+    npmSkillsPath = path.dirname(npmPath);
+  } catch (err) {
+    // npm package not found, that's ok - we'll use fallback paths
+  }
+  
+  const paths = [
     path.join(os.homedir(), '.local/share/openclaw/skills'),
     '/usr/share/openclaw/skills',
     '/opt/openclaw/skills',
   ];
+  
+  // Insert npm package path if found
+  if (npmSkillsPath) {
+    paths.unshift(npmSkillsPath);
+  }
+  
+  return paths;
 }
 
 // Cache TTL in milliseconds
@@ -70,6 +87,7 @@ export class SkillsService {
           const content = await fs.readFile(skillFile, 'utf-8');
           const skillId = this.extractSkillId(skillFile, basePath);
           const description = this.parseSkillDescription(content);
+          const category = this.parseSkillCategory(content);
 
           const config = await this.readSkillConfig(skillDir);
 
@@ -78,6 +96,7 @@ export class SkillsService {
             name: config?.name || this.guessNameFromPath(skillFile),
             description: description || config?.description || '',
             location: skillDir,
+            category,
           });
         } catch (err) {
           console.warn(`[SkillsService] Failed to parse ${skillFile}:`, err);
@@ -123,35 +142,64 @@ export class SkillsService {
   }
 
   /**
-   * Parse SKILL.md to extract description
+   * Parse SKILL.md to extract description, stripping YAML frontmatter
+   * Falls back to YAML frontmatter description field if body parsing returns empty
    */
   private parseSkillDescription(content: string): string {
-    const lines = content.split('\n');
-    let inDescription = false;
-    const descriptionLines: string[] = [];
+    // Strip YAML frontmatter block (--- ... ---) for body parsing
+    const frontmatterRegex = /^---[\s\S]*?---\n/;
+    const cleanContent = content.replace(frontmatterRegex, '');
+    
+    // Split and filter out empty lines to handle leading newlines after frontmatter strip
+    const lines = cleanContent.split('\n').filter(line => line.trim().length > 0);
+    
+    let descriptionLines: string[] = [];
+    let startIndex = 0;
 
-    for (let i = 0; i < lines.length; i++) {
+    // Skip the first heading (if it exists)
+    if (lines.length > 0 && lines[0].trim().startsWith('#')) {
+      startIndex = 1;
+    }
+
+    // Extract description lines until we hit another heading
+    for (let i = startIndex; i < lines.length; i++) {
       const line = lines[i].trim();
 
-      if (i === 0 && line.startsWith('#')) {
-        continue;
-      }
-
-      if (i > 0 && line === '') {
-        inDescription = true;
-        continue;
-      }
-
-      if (line.startsWith('##') || line.startsWith('#')) {
+      // Stop at next heading
+      if (line.startsWith('#')) {
         break;
       }
 
-      if (inDescription || (!line.startsWith('#') && !line.startsWith('```'))) {
+      // Skip code block markers
+      if (!line.startsWith('```')) {
         descriptionLines.push(line);
       }
     }
 
-    return descriptionLines.join(' ').trim();
+    const bodyDescription = descriptionLines.join(' ').trim();
+    if (bodyDescription.length > 0) {
+      return bodyDescription;
+    }
+
+    // Fallback: extract description from YAML frontmatter
+    const frontmatterMatch = content.match(/^---[\s\S]*?description:\s*["']?(.*?)["']?\s*\n/);
+    if (frontmatterMatch?.[1]) {
+      return frontmatterMatch[1].trim();
+    }
+
+    return '';
+  }
+
+  /**
+   * Parse category from YAML frontmatter
+   */
+  private parseSkillCategory(content: string): string | undefined {
+    const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    if (!frontmatterMatch) return undefined;
+    
+    const frontmatter = frontmatterMatch[1];
+    const categoryMatch = frontmatter.match(/^category:\s*(.+)$/m);
+    return categoryMatch ? categoryMatch[1].trim() : undefined;
   }
 
   /**
