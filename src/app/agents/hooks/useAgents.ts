@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import type { Agent, AgentsResponse } from "@/types/agent";
+import type { Agent, AgentDetail, AgentsResponse } from "@/types/agent";
 
 interface UseAgentsResult {
   agents: Agent[];
@@ -47,13 +47,13 @@ export function useAgents(): UseAgentsResult {
 }
 
 interface UseAgentResult {
-  agent: Agent | null;
+  agent: AgentDetail | null;
   isLoading: boolean;
   error: string | null;
 }
 
 export function useAgent(id: string): UseAgentResult {
-  const [agent, setAgent] = useState<Agent | null>(null);
+  const [agent, setAgent] = useState<AgentDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 

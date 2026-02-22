@@ -14,8 +14,29 @@ export interface Agent {
   totalTokens: number;
 }
 
+export interface AgentDetail extends Agent {
+  soulMarkdown?: string;
+  config?: {
+    workspace?: string;
+    model?: string;
+    gitConfig?: {
+      author?: string;
+      email?: string;
+    };
+    identity?: {
+      name?: string;
+      emoji?: string;
+    };
+  };
+}
+
 export interface AgentsResponse {
   success: boolean;
   count: number;
   agents: Agent[];
+}
+
+export interface AgentDetailResponse {
+  success: boolean;
+  agent: AgentDetail;
 }
