@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
 import { useParams } from "react-router-dom";
-import { Loading } from "@/components/ui/loading";
+import { Loading } from "@/components/_shared/Loading";
 
 const CronJobsList = lazy(() =>
   import("./components/CronJobsList").then((m) => ({

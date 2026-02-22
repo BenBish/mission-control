@@ -1,9 +1,7 @@
-import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Clock, AlertCircle } from "lucide-react";
-import { CronJob } from "@/types/cron";
 import { useCronJobs } from "../hooks/useCronJobs";
 
 export function CronJobsList() {

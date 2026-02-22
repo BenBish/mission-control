@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { CronJob, RunHistory, CronMutationResponse } from "@/types/cron";
+import type { CronJob, RunHistory } from "@/types/cron";
 
 export function useCronJobs() {
   const [jobs, setJobs] = useState<CronJob[]>([]);
