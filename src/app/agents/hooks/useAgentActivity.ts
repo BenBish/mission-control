@@ -76,6 +76,9 @@ export function useAgentActivity(agentId: string | null): UseAgentActivityResult
   }, [agentId]);
 
   useEffect(() => {
+    // Initialize AbortController for fetch cancellation
+    abortControllerRef.current = new AbortController();
+
     // Initial fetch
     fetchActivities();
 

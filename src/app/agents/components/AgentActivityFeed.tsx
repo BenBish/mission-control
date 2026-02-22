@@ -49,9 +49,12 @@ export function AgentActivityFeed({
   // Auto-scroll to bottom when new activities arrive
   useEffect(() => {
     if (autoScroll && feedContainerRef.current) {
-      feedContainerRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
+      feedContainerRef.current.scrollTo({
+        top: feedContainerRef.current.scrollHeight,
+        behavior: "smooth",
+      });
     }
-  }, [activities, autoScroll]);
+  }, [activities]);
 
   const getStatusIcon = (status: Activity["status"]) => {
     switch (status) {
