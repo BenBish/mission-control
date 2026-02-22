@@ -10,6 +10,8 @@ const ActivityDetail = lazy(() => import("@/pages/ActivityDetail"));
 const CostBreakdown = lazy(() => import("@/pages/CostBreakdown"));
 const AgentsPage = lazy(() => import("@/app/agents/page"));
 const AgentDetail = lazy(() => import("@/app/agents/pages/AgentDetail"));
+const SkillsPage = lazy(() => import("@/app/skills/page"));
+const CronPage = lazy(() => import("@/app/cron/page").then((m) => ({ default: m.CronPage })));
 
 function withSuspense(Component: React.ComponentType) {
   return (
@@ -47,6 +49,14 @@ export const router = createBrowserRouter([
       {
         path: "agents/:id",
         element: withSuspense(AgentDetail),
+      },
+      {
+        path: "cron",
+        element: withSuspense(CronPage),
+      },
+      {
+        path: "cron/:jobId",
+        element: withSuspense(CronPage),
       },
       {
         path: "users",

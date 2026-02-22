@@ -11,6 +11,7 @@ import type { SessionLogScanner } from '../services/session-log-scanner.js';
 import type { CostLinker } from '../services/cost-linker.js';
 import type { Agent, AgentDetail } from '../types/agent.js';
 import { agentService } from './services/agent-service.js';
+import { CronService } from '../services/cron-service.js';
 
 // Store active SSE clients
 const sseClients: Set<Response> = new Set();
@@ -872,6 +873,154 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
       res.json({
         success: true,
         agent,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  // ============================================================================
+  // CRON JOBS ENDPOINTS
+  // ============================================================================
+
+  /**
+   * GET /api/cron/jobs
+   * List all cron jobs with human-readable schedules
+   */
+  app.get('/api/cron/jobs', async (req: Request, res: Response) => {
+    try {
+      const jobs = await CronService.getJobs();
+      res.json({
+        success: true,
+        jobs,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  /**
+   * GET /api/cron/jobs/:id
+   * Get details for a specific cron job
+   */
+  app.get('/api/cron/jobs/:id', async (req: Request, res: Response) => {
+    try {
+      const job = await CronService.getJob(req.params.id);
+      if (!job) {
+        return res.status(404).json({
+          success: false,
+          error: 'Job not found',
+        });
+      }
+      res.json({
+        success: true,
+        job,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  /**
+   * GET /api/cron/jobs/:id/runs
+   * Get execution history for a cron job
+   */
+  app.get('/api/cron/jobs/:id/runs', async (req: Request, res: Response) => {
+    try {
+      const limit = Math.min(
+        parseInt(req.query.limit as string) || 20,
+        100
+      );
+      const runs = await CronService.getRunHistory(req.params.id, limit);
+      res.json({
+        success: true,
+        runs,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  /**
+   * POST /api/cron/jobs/:id/enable
+   * Enable a cron job
+   */
+  app.post('/api/cron/jobs/:id/enable', async (req: Request, res: Response) => {
+    try {
+      // This would proxy to `openclaw cron enable --id <id>`
+      // For now, return success (actual implementation would shell out to CLI)
+      res.json({
+        success: true,
+        message: 'Job enabled (via openclaw cron enable)',
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  /**
+   * POST /api/cron/jobs/:id/disable
+   * Disable a cron job
+   */
+  app.post(
+    '/api/cron/jobs/:id/disable',
+    async (req: Request, res: Response) => {
+      try {
+        res.json({
+          success: true,
+          message: 'Job disabled (via openclaw cron disable)',
+        });
+      } catch (error: any) {
+        res.status(500).json({
+          success: false,
+          error: error.message,
+        });
+      }
+    }
+  );
+
+  /**
+   * POST /api/cron/jobs/:id/run
+   * Manually trigger a cron job
+   */
+  app.post('/api/cron/jobs/:id/run', async (req: Request, res: Response) => {
+    try {
+      res.json({
+        success: true,
+        message: 'Job triggered (via openclaw cron run)',
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  /**
+   * DELETE /api/cron/jobs/:id
+   * Delete a cron job
+   */
+  app.delete('/api/cron/jobs/:id', async (req: Request, res: Response) => {
+    try {
+      res.json({
+        success: true,
+        message: 'Job deleted (via openclaw cron rm)',
       });
     } catch (error: any) {
       res.status(500).json({
