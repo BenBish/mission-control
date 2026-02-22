@@ -3,6 +3,19 @@ import type { Activity } from "@/types/activity";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
+/**
+ * Translates workspace-prefixed agent IDs to short IDs used in the database
+ * Examples:
+ * - 'workspace-engineer' → 'engineer'
+ * - 'workspace' → 'main'
+ * - 'engineer' → 'engineer' (pass-through)
+ */
+function toActorId(id: string): string {
+  if (id === 'workspace') return 'main';
+  if (id.startsWith('workspace-')) return id.slice('workspace-'.length);
+  return id;
+}
+
 interface CurrentActivityIndicatorProps {
   agentId: string;
   agentName?: string;
@@ -32,8 +45,9 @@ export function CurrentActivityIndicator({
     // Fetch the most recent activity for this agent
     const fetchLatestActivity = async () => {
       try {
+        const actorId = toActorId(agentId);
         const response = await fetch(
-          `/api/activities?actorId=${encodeURIComponent(agentId)}&limit=1`
+          `/api/activities?actorId=${encodeURIComponent(actorId)}&limit=1`
         );
         if (response.ok) {
           const data = await response.json();
@@ -65,7 +79,7 @@ export function CurrentActivityIndicator({
           const activity: Activity = JSON.parse(event.data);
 
           // Only process activities from this agent
-          if (activity.actor.id !== agentId) {
+          if (activity.actor.id !== toActorId(agentId)) {
             return;
           }
 
