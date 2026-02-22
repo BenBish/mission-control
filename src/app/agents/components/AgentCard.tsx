@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { Agent } from "@/types/agent";
 import { Bot, Clock, Zap, DollarSign, Hash } from "lucide-react";
+import { CurrentActivityIndicator } from "./CurrentActivityIndicator";
 
 interface AgentCardProps {
   agent: Agent;
@@ -95,9 +96,12 @@ export function AgentCard({ agent }: AgentCardProps) {
               </CardTitle>
               <div className="shrink-0">{getStatusBadge(agent.status)}</div>
             </div>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {agent.role.charAt(0).toUpperCase() + agent.role.slice(1)}
-            </p>
+            <div className="mt-0.5 flex items-center gap-2">
+              <p className="text-xs text-muted-foreground">
+                {agent.role.charAt(0).toUpperCase() + agent.role.slice(1)}
+              </p>
+              <CurrentActivityIndicator agentId={agent.id} agentName={agent.name} compact={true} />
+            </div>
           </div>
         </div>
       </CardHeader>
