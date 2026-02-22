@@ -14,8 +14,12 @@ interface CronJobDetailProps {
 export function CronJobDetail({ jobId }: CronJobDetailProps) {
   const navigate = useNavigate();
   const { job, isLoading, error } = useCronJobDetail(jobId);
-  const { runs, isLoadingRuns, errorRuns } = useCronMutations(jobId);
+  const { runs, isLoadingRuns, errorRuns, runNow, deleteJob } = useCronMutations(jobId);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isRunning, setIsRunning] = useState(false);
+  const [runError, setRunError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   if (isLoading) {
     return (
@@ -171,19 +175,44 @@ export function CronJobDetail({ jobId }: CronJobDetailProps) {
       </Card>
 
       {/* Actions */}
-      <div className="flex gap-3">
-        <Button variant="default" className="gap-2">
-          <Play className="h-4 w-4" />
-          Run Now
-        </Button>
-        <Button
-          variant="destructive"
-          onClick={() => setShowDeleteConfirm(true)}
-          className="gap-2"
-        >
-          <Trash2 className="h-4 w-4" />
-          Delete
-        </Button>
+      <div className="space-y-2">
+        <div className="flex gap-3">
+          <Button
+            variant="default"
+            className="gap-2"
+            disabled={isRunning}
+            onClick={async () => {
+              setIsRunning(true);
+              setRunError(null);
+              try {
+                const ok = await runNow();
+                if (!ok) setRunError("Failed to trigger job");
+              } catch (err) {
+                setRunError(err instanceof Error ? err.message : "Unknown error");
+              } finally {
+                setIsRunning(false);
+              }
+            }}
+          >
+            <Play className="h-4 w-4" />
+            {isRunning ? "Running…" : "Run Now"}
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={() => setShowDeleteConfirm(true)}
+            className="gap-2"
+            disabled={isDeleting}
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete
+          </Button>
+        </div>
+        {runError && (
+          <p className="text-sm text-red-600 dark:text-red-400">{runError}</p>
+        )}
+        {deleteError && (
+          <p className="text-sm text-red-600 dark:text-red-400">{deleteError}</p>
+        )}
       </div>
 
       {/* Delete Confirmation */}
@@ -197,12 +226,27 @@ export function CronJobDetail({ jobId }: CronJobDetailProps) {
             <div className="flex gap-3">
               <Button
                 variant="destructive"
-                onClick={() => {
-                  // TODO: Call delete mutation
-                  navigate("/cron");
+                disabled={isDeleting}
+                onClick={async () => {
+                  setIsDeleting(true);
+                  setDeleteError(null);
+                  try {
+                    const ok = await deleteJob();
+                    if (ok) {
+                      navigate("/cron");
+                    } else {
+                      setDeleteError("Failed to delete job");
+                      setShowDeleteConfirm(false);
+                    }
+                  } catch (err) {
+                    setDeleteError(err instanceof Error ? err.message : "Unknown error");
+                    setShowDeleteConfirm(false);
+                  } finally {
+                    setIsDeleting(false);
+                  }
                 }}
               >
-                Delete
+                {isDeleting ? "Deleting…" : "Delete"}
               </Button>
               <Button
                 variant="outline"

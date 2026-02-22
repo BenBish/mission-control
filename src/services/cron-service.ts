@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import cronstrue from "cronstrue";
 import { CronJob, RunHistory } from "@/types/cron";
 
 interface CachedJobs {
@@ -43,7 +44,7 @@ export class CronService {
       return enriched;
     } catch (error) {
       console.error("Error reading cron jobs:", error);
-      return [];
+      throw error;
     }
   }
 
@@ -105,20 +106,11 @@ export class CronService {
   }
 
   static formatCronExpression(expr: string, tz?: string): string {
-    // Simple cron formatter
-    const parts = expr.split(" ");
-    if (parts.length < 5) return expr;
-
-    const [minute, hour, day, month, dow] = parts;
-
-    let result = "";
-    if (hour === "*" && minute === "*") result = "Every minute";
-    else if (hour === "*") result = `Every hour at :${minute.padStart(2, "0")}`;
-    else if (minute === "0")
-      result = `Daily at ${hour}:00${tz ? ` ${tz}` : ""}`;
-    else result = `At ${hour}:${minute}${tz ? ` ${tz}` : ""}`;
-
-    return result;
+    try {
+      return cronstrue.toString(expr) + (tz ? ` ${tz}` : "");
+    } catch {
+      return expr; // fallback to raw expression
+    }
   }
 
   static formatIntervalSchedule(ms: number): string {

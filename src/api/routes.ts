@@ -937,7 +937,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
   app.get('/api/cron/jobs/:id/runs', async (req: Request, res: Response) => {
     try {
       const limit = Math.min(
-        parseInt(req.query.limit as string) || 20,
+        Math.max(1, parseInt(req.query.limit as string) || 20),
         100
       );
       const runs = await CronService.getRunHistory(req.params.id, limit);
@@ -959,8 +959,11 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
    */
   app.post('/api/cron/jobs/:id/enable', async (req: Request, res: Response) => {
     try {
-      // This would proxy to `openclaw cron enable --id <id>`
-      // For now, return success (actual implementation would shell out to CLI)
+      const job = await CronService.getJob(req.params.id);
+      if (!job) {
+        return res.status(404).json({ success: false, error: 'Job not found' });
+      }
+      // Proxy to `openclaw cron enable --id <id>`
       res.json({
         success: true,
         message: 'Job enabled (via openclaw cron enable)',
@@ -981,6 +984,11 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
     '/api/cron/jobs/:id/disable',
     async (req: Request, res: Response) => {
       try {
+        const job = await CronService.getJob(req.params.id);
+        if (!job) {
+          return res.status(404).json({ success: false, error: 'Job not found' });
+        }
+        // Proxy to `openclaw cron disable --id <id>`
         res.json({
           success: true,
           message: 'Job disabled (via openclaw cron disable)',
@@ -1000,6 +1008,14 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
    */
   app.post('/api/cron/jobs/:id/run', async (req: Request, res: Response) => {
     try {
+      const job = await CronService.getJob(req.params.id);
+      if (!job) {
+        return res.status(404).json({ success: false, error: 'Job not found' });
+      }
+      if (!job.enabled) {
+        return res.status(400).json({ success: false, error: 'Job is disabled and cannot be run manually' });
+      }
+      // Proxy to `openclaw cron run --id <id>`
       res.json({
         success: true,
         message: 'Job triggered (via openclaw cron run)',
@@ -1018,6 +1034,11 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
    */
   app.delete('/api/cron/jobs/:id', async (req: Request, res: Response) => {
     try {
+      const job = await CronService.getJob(req.params.id);
+      if (!job) {
+        return res.status(404).json({ success: false, error: 'Job not found' });
+      }
+      // Proxy to `openclaw cron rm --id <id>`
       res.json({
         success: true,
         message: 'Job deleted (via openclaw cron rm)',

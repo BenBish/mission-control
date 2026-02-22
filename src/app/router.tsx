@@ -51,6 +51,10 @@ export const router = createBrowserRouter([
         element: withSuspense(AgentDetail),
       },
       {
+        path: "skills",
+        element: withSuspense(SkillsPage),
+      },
+      {
         path: "cron",
         element: withSuspense(CronPage),
       },
