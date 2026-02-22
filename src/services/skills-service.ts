@@ -143,22 +143,21 @@ export class SkillsService {
 
   /**
    * Parse SKILL.md to extract description, stripping YAML frontmatter
+   * Falls back to YAML frontmatter description field if body parsing returns empty
    */
   private parseSkillDescription(content: string): string {
-    // Strip YAML frontmatter block (--- ... ---)
+    // Strip YAML frontmatter block (--- ... ---) for body parsing
     const frontmatterRegex = /^---[\s\S]*?---\n/;
     const cleanContent = content.replace(frontmatterRegex, '');
     
     // Split and filter out empty lines to handle leading newlines after frontmatter strip
     const lines = cleanContent.split('\n').filter(line => line.trim().length > 0);
     
-    if (lines.length === 0) return '';
-
     let descriptionLines: string[] = [];
     let startIndex = 0;
 
     // Skip the first heading (if it exists)
-    if (lines[0].trim().startsWith('#')) {
+    if (lines.length > 0 && lines[0].trim().startsWith('#')) {
       startIndex = 1;
     }
 
@@ -177,7 +176,18 @@ export class SkillsService {
       }
     }
 
-    return descriptionLines.join(' ').trim();
+    const bodyDescription = descriptionLines.join(' ').trim();
+    if (bodyDescription.length > 0) {
+      return bodyDescription;
+    }
+
+    // Fallback: extract description from YAML frontmatter
+    const frontmatterMatch = content.match(/^---[\s\S]*?description:\s*["']?(.*?)["']?\s*\n/);
+    if (frontmatterMatch?.[1]) {
+      return frontmatterMatch[1].trim();
+    }
+
+    return '';
   }
 
   /**
