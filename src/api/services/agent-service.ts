@@ -5,6 +5,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
+import os from 'os';
 
 interface OpenClawConfig {
   agents: {
@@ -39,8 +40,14 @@ interface AgentMetadata {
 }
 
 class AgentService {
-  private openClawConfigPath = '/home/ben/.openclaw-team/openclaw.json';
+  private openClawConfigPath: string;
   private configCache: Map<string, AgentMetadata> = new Map();
+
+  constructor() {
+    // Use process.env.HOME or os.homedir() to get user home directory
+    const homeDir = process.env.HOME || os.homedir();
+    this.openClawConfigPath = path.join(homeDir, '.openclaw-team', 'openclaw.json');
+  }
 
   /**
    * Load OpenClaw configuration
@@ -158,4 +165,7 @@ class AgentService {
   }
 }
 
-export const agentService = new AgentService();
+// Create singleton instance
+const agentService = new AgentService();
+
+export { agentService };

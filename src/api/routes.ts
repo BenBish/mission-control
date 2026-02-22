@@ -21,6 +21,28 @@ const MAX_ACTIVITY_LIMIT = 100000;
 
 export function setupRoutes(app: Express, logger: ActivityLogger) {
   // ============================================================================
+  // HELPER FUNCTIONS
+  // ============================================================================
+
+  /**
+   * Compute agent status based on last activity time and action count
+   * Used consistently across both /api/agents and /api/agents/:id endpoints
+   */
+  function computeAgentStatus(
+    lastActiveDate: Date,
+    actionCount: number
+  ): Agent['status'] {
+    const now = new Date();
+    const diffMs = now.getTime() - lastActiveDate.getTime();
+    const diffMins = diffMs / 60000;
+
+    if (diffMins < 5) return 'online';
+    if (diffMins < 30) return 'idle';
+    if (actionCount > 0) return 'busy';
+    return 'offline';
+  }
+
+  // ============================================================================
   // ACTIVITY ENDPOINTS
   // ============================================================================
 
@@ -716,14 +738,14 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
       // Get unique agents from activities
       const activities = await db.getActivities({ limit: 10000 });
       
-      // Group activities by actor
+      // Build agent stats in a single O(n) pass
       const agentMap = new Map<string, {
         id: string;
         name: string;
         role: string;
         model: string;
         lastActive: string;
-        sessionCount: number;
+        sessions: Set<string>;
         totalCost: number;
         totalTokens: number;
         actionCount: number;
@@ -739,7 +761,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
             role: activity.actor.type || 'subagent',
             model: activity.tokens?.model || 'unknown',
             lastActive: activity.timestamp,
-            sessionCount: new Set([activity.sessionId]).size,
+            sessions: new Set<string>(),
             totalCost: 0,
             totalTokens: 0,
             actionCount: 0,
@@ -750,6 +772,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         agent.totalCost += activity.cost?.usd || 0;
         agent.totalTokens += activity.tokens?.totalTokens || 0;
         agent.actionCount++;
+        agent.sessions.add(activity.sessionId);
         
         if (activity.tokens?.model && activity.tokens.model !== 'unknown') {
           agent.model = activity.tokens.model;
@@ -760,29 +783,10 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         }
       }
 
-      // Get unique sessions per agent
-      for (const activity of activities) {
-        const agent = agentMap.get(activity.actor.id);
-        if (agent) {
-          agent.sessionCount = new Set(
-            activities
-              .filter(a => a.actor.id === activity.actor.id)
-              .map(a => a.sessionId)
-          ).size;
-        }
-      }
-
-      // Determine status based on recency
-      const now = new Date();
+      // Build final agent list with computed status
       const agents: Agent[] = Array.from(agentMap.values()).map(agent => {
         const lastActiveDate = new Date(agent.lastActive);
-        const diffMs = now.getTime() - lastActiveDate.getTime();
-        const diffMins = diffMs / 60000;
-        
-        let status: Agent['status'] = 'offline';
-        if (diffMins < 5) status = 'online';
-        else if (diffMins < 30) status = 'idle';
-        else if (agent.actionCount > 0) status = 'busy';
+        const status = computeAgentStatus(lastActiveDate, agent.actionCount);
 
         return {
           id: agent.id,
@@ -791,7 +795,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
           model: agent.model,
           status,
           lastActive: agent.lastActive,
-          sessionCount: agent.sessionCount,
+          sessionCount: agent.sessions.size,
           totalCost: agent.totalCost,
           totalTokens: agent.totalTokens,
         };
@@ -838,14 +842,9 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         new Date(a.timestamp) > new Date(latest.timestamp) ? a : latest
       );
 
-      const now = new Date();
       const lastActiveDate = new Date(lastActivity.timestamp);
-      const diffMins = (now.getTime() - lastActiveDate.getTime()) / 60000;
-      
-      let status: Agent['status'] = 'offline';
-      if (diffMins < 5) status = 'online';
-      else if (diffMins < 30) status = 'idle';
-      else status = 'busy';
+      const actionCount = agentActivities.length;
+      const status = computeAgentStatus(lastActiveDate, actionCount);
 
       const agent: AgentDetail = {
         id: agentId,

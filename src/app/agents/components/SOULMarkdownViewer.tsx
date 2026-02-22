@@ -15,9 +15,23 @@ export function SOULMarkdownViewer({ markdown }: SOULMarkdownViewerProps) {
         components={{
           code(props) {
             const { children, className } = props;
+            
+            // Check if this is a code block (has language class) or inline code
+            // Code blocks have className like "language-xyz", inline code does not
             const match = /language-(\w+)/.exec(className || "");
-            const language = match ? match[1] : "text";
+            const isCodeBlock = Boolean(match);
+            
+            // If it's inline code, use simple styling
+            if (!isCodeBlock) {
+              return (
+                <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono text-foreground">
+                  {children}
+                </code>
+              );
+            }
 
+            // Otherwise, it's a code block - use syntax highlighter
+            const language = match ? match[1] : "text";
             return (
               <SyntaxHighlighter
                 language={language}

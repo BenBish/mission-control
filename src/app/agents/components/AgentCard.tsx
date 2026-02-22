@@ -78,17 +78,6 @@ export function AgentCard({ agent }: AgentCardProps) {
     }
   };
 
-  const getRoleBadgeVariant = (role: string): "default" | "secondary" | "outline" => {
-    switch (role) {
-      case "orchestrator":
-        return "default";
-      case "subagent":
-        return "secondary";
-      default:
-        return "outline";
-    }
-  };
-
   return (
     <Card
       className="cursor-pointer transition-all duration-200 hover:shadow-md hover:border-primary/30 dark:hover:border-primary/50 group"
