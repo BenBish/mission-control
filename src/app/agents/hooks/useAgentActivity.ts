@@ -1,5 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { Activity } from "@/types/activity";
+import { toActorId } from "@/lib/agent-utils";
+import { useActivityStream } from "@/app/agents/context/ActivityStreamContext";
+
+/** Maximum number of activities kept in memory (prevents unbounded growth). */
+const MAX_ACTIVITIES = 100;
 
 interface UseAgentActivityResult {
   activities: Activity[];
@@ -10,29 +15,19 @@ interface UseAgentActivityResult {
 }
 
 /**
- * Translates workspace-prefixed agent IDs to short IDs used in the database
- * Examples:
- * - 'workspace-engineer' → 'engineer'
- * - 'workspace' → 'main'
- * - 'engineer' → 'engineer' (pass-through)
- */
-function toActorId(id: string): string {
-  if (id === 'workspace') return 'main';
-  if (id.startsWith('workspace-')) return id.slice('workspace-'.length);
-  return id;
-}
-
-/**
- * Hook to fetch and subscribe to real-time activity for an agent
- * Combines initial fetch with SSE subscription for live updates
+ * Hook to fetch and subscribe to real-time activity for an agent.
+ *
+ * Uses the shared ActivityStreamContext (single SSE connection) rather than
+ * opening a new EventSource per component, avoiding the browser's 6-connection
+ * limit when many AgentCards are rendered simultaneously.
  */
 export function useAgentActivity(agentId: string | null): UseAgentActivityResult {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isSubscribed, setIsSubscribed] = useState(false);
-  const eventSourceRef = useRef<EventSource | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  const actorId = agentId ? toActorId(agentId) : null;
 
   const fetchActivities = useCallback(async () => {
     if (!agentId) {
@@ -45,9 +40,8 @@ export function useAgentActivity(agentId: string | null): UseAgentActivityResult
     setError(null);
 
     try {
-      const actorId = toActorId(agentId);
       const response = await fetch(
-        `/api/activities?actorId=${encodeURIComponent(actorId)}&limit=50`,
+        `/api/activities?actorId=${encodeURIComponent(actorId!)}&limit=50`,
         { signal: abortControllerRef.current?.signal }
       );
 
@@ -57,11 +51,13 @@ export function useAgentActivity(agentId: string | null): UseAgentActivityResult
 
       const data = await response.json();
       if (data.success && Array.isArray(data.activities)) {
-        // Sort by timestamp descending (most recent first)
-        const sorted = [...data.activities].sort(
-          (a, b) =>
-            new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-        );
+        // Sort by timestamp descending (newest first) and apply memory cap
+        const sorted = [...data.activities]
+          .sort(
+            (a, b) =>
+              new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          )
+          .slice(0, MAX_ACTIVITIES);
         setActivities(sorted);
       } else {
         throw new Error("API returned invalid response");
@@ -73,87 +69,46 @@ export function useAgentActivity(agentId: string | null): UseAgentActivityResult
     } finally {
       setIsLoading(false);
     }
-  }, [agentId]);
+  }, [agentId, actorId]);
+
+  // Receive activities from the shared SSE stream
+  const handleActivity = useCallback(
+    (activity: Activity) => {
+      setActivities((prev) => {
+        // Update existing or prepend new, then enforce memory cap
+        const exists = prev.some((a) => a.id === activity.id);
+        const updated = exists
+          ? prev.map((a) => (a.id === activity.id ? activity : a))
+          : [activity, ...prev];
+
+        // Keep sorted newest-first and cap at MAX_ACTIVITIES
+        return updated
+          .sort(
+            (a, b) =>
+              new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          )
+          .slice(0, MAX_ACTIVITIES);
+      });
+    },
+    [] // no deps — setActivities is stable
+  );
+
+  const { connected } = useActivityStream(actorId, handleActivity);
 
   useEffect(() => {
-    // Initialize AbortController for fetch cancellation
     abortControllerRef.current = new AbortController();
-
-    // Initial fetch
     fetchActivities();
 
-    if (!agentId) {
-      return;
-    }
-
-    // Subscribe to SSE for real-time updates
-    try {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-      }
-
-      const eventSource = new EventSource("/api/stream");
-      eventSourceRef.current = eventSource;
-      setIsSubscribed(true);
-
-      eventSource.addEventListener("activity", (event) => {
-        try {
-          const activity: Activity = JSON.parse(event.data);
-
-          // Only process activities from this agent
-          if (activity.actor.id === toActorId(agentId)) {
-            setActivities((prev) => {
-              // Check if activity already exists
-              const exists = prev.some((a) => a.id === activity.id);
-              if (exists) {
-                // Update existing activity
-                return prev
-                  .map((a) => (a.id === activity.id ? activity : a))
-                  .sort(
-                    (a, b) =>
-                      new Date(b.timestamp).getTime() -
-                      new Date(a.timestamp).getTime()
-                  );
-              } else {
-                // Add new activity and keep sorted
-                return [activity, ...prev].sort(
-                  (a, b) =>
-                    new Date(b.timestamp).getTime() -
-                    new Date(a.timestamp).getTime()
-                );
-              }
-            });
-          }
-        } catch (err) {
-          console.error("Error parsing SSE activity:", err);
-        }
-      });
-
-      eventSource.addEventListener("error", () => {
-        console.error("SSE connection error");
-        setIsSubscribed(false);
-      });
-    } catch (err) {
-      console.error("Failed to subscribe to SSE:", err);
-      setIsSubscribed(false);
-    }
-
     return () => {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-        eventSourceRef.current = null;
-      }
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
+      abortControllerRef.current?.abort();
     };
-  }, [agentId, fetchActivities]);
+  }, [fetchActivities]);
 
   return {
     activities,
     isLoading,
     error,
-    isSubscribed,
+    isSubscribed: connected,
     refetch: fetchActivities,
   };
 }

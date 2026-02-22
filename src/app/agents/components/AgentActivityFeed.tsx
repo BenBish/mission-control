@@ -38,23 +38,23 @@ export function AgentActivityFeed({
   const feedContainerRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
 
-  // Detect when user scrolls up (disable auto-scroll) or down (enable auto-scroll)
+  // Feed is sorted newest-first, so "top" = newest entry.
+  // Re-enable auto-scroll when the user scrolls back to the top.
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const container = e.currentTarget;
-    const isAtBottom =
-      container.scrollHeight - container.scrollTop - container.clientHeight < 100;
-    setAutoScroll(isAtBottom);
+    const isAtTop = container.scrollTop < 100;
+    setAutoScroll(isAtTop);
   };
 
-  // Auto-scroll to bottom when new activities arrive
+  // Auto-scroll to top (newest activity) when new activities arrive
   useEffect(() => {
     if (autoScroll && feedContainerRef.current) {
       feedContainerRef.current.scrollTo({
-        top: feedContainerRef.current.scrollHeight,
+        top: 0,
         behavior: "smooth",
       });
     }
-  }, [activities]);
+  }, [activities, autoScroll]);
 
   const getStatusIcon = (status: Activity["status"]) => {
     switch (status) {
