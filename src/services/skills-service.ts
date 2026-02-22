@@ -149,27 +149,30 @@ export class SkillsService {
     const frontmatterRegex = /^---[\s\S]*?---\n/;
     const cleanContent = content.replace(frontmatterRegex, '');
     
-    const lines = cleanContent.split('\n');
-    let inDescription = false;
-    const descriptionLines: string[] = [];
+    // Split and filter out empty lines to handle leading newlines after frontmatter strip
+    const lines = cleanContent.split('\n').filter(line => line.trim().length > 0);
+    
+    if (lines.length === 0) return '';
 
-    for (let i = 0; i < lines.length; i++) {
+    let descriptionLines: string[] = [];
+    let startIndex = 0;
+
+    // Skip the first heading (if it exists)
+    if (lines[0].trim().startsWith('#')) {
+      startIndex = 1;
+    }
+
+    // Extract description lines until we hit another heading
+    for (let i = startIndex; i < lines.length; i++) {
       const line = lines[i].trim();
 
-      if (i === 0 && line.startsWith('#')) {
-        continue;
-      }
-
-      if (i > 0 && line === '') {
-        inDescription = true;
-        continue;
-      }
-
-      if (line.startsWith('##') || line.startsWith('#')) {
+      // Stop at next heading
+      if (line.startsWith('#')) {
         break;
       }
 
-      if (inDescription || (!line.startsWith('#') && !line.startsWith('```'))) {
+      // Skip code block markers
+      if (!line.startsWith('```')) {
         descriptionLines.push(line);
       }
     }
