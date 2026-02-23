@@ -11,6 +11,8 @@ import type { SessionLogScanner } from '../services/session-log-scanner.js';
 import type { CostLinker } from '../services/cost-linker.js';
 import type { Agent, AgentDetail } from '../types/agent.js';
 import { agentService } from './services/agent-service.js';
+import { AgentService } from '../services/agent-service.js';
+import { SkillsService } from '../services/skills-service.js';
 import { CronService } from '../services/cron-service.js';
 
 // Store active SSE clients
@@ -728,23 +730,31 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
   // AGENTS ENDPOINTS
   // ============================================================================
 
+  // ID validation regex: only allow alphanumeric, hyphens, underscores
+  const VALID_ID_RE = /^[a-zA-Z0-9_-]+$/;
+
+  function isValidId(id: string): boolean {
+    return VALID_ID_RE.test(id) && !id.includes(' ');
+  }
+
+  // Create services for filesystem-based agent/skill discovery
+  const fsAgentService = new AgentService(logger.getDatabase());
+  const fsSkillsService = new SkillsService(fsAgentService);
+
   /**
    * GET /api/agents
-   * Get all agents with their stats
+   * Get all agents from filesystem, merged with activity stats from DB
    */
   app.get('/api/agents', async (req: Request, res: Response) => {
     try {
       const db = logger.getDatabase();
-      
-      // Get unique agents from activities
+      const fsAgents = await fsAgentService.readAgents();
+
+      // Get all activities for stats merging
       const activities = await db.getActivities({ limit: 10000 });
-      
-      // Build agent stats in a single O(n) pass
-      const agentMap = new Map<string, {
-        id: string;
-        name: string;
-        role: string;
-        model: string;
+
+      // Build activity stats map keyed by actor ID
+      const statsMap = new Map<string, {
         lastActive: string;
         sessions: Set<string>;
         totalCost: number;
@@ -754,13 +764,8 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
 
       for (const activity of activities) {
         const actorId = activity.actor.id;
-        
-        if (!agentMap.has(actorId)) {
-          agentMap.set(actorId, {
-            id: actorId,
-            name: actorId,
-            role: activity.actor.type || 'subagent',
-            model: activity.tokens?.model || 'unknown',
+        if (!statsMap.has(actorId)) {
+          statsMap.set(actorId, {
             lastActive: activity.timestamp,
             sessions: new Set<string>(),
             totalCost: 0,
@@ -768,37 +773,37 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
             actionCount: 0,
           });
         }
-
-        const agent = agentMap.get(actorId)!;
-        agent.totalCost += activity.cost?.usd || 0;
-        agent.totalTokens += activity.tokens?.totalTokens || 0;
-        agent.actionCount++;
-        agent.sessions.add(activity.sessionId);
-        
-        if (activity.tokens?.model && activity.tokens.model !== 'unknown') {
-          agent.model = activity.tokens.model;
-        }
-        
-        if (new Date(activity.timestamp) > new Date(agent.lastActive)) {
-          agent.lastActive = activity.timestamp;
+        const stats = statsMap.get(actorId)!;
+        stats.totalCost += activity.cost?.usd || 0;
+        stats.totalTokens += activity.tokens?.totalTokens || 0;
+        stats.actionCount++;
+        stats.sessions.add(activity.sessionId);
+        if (new Date(activity.timestamp) > new Date(stats.lastActive)) {
+          stats.lastActive = activity.timestamp;
         }
       }
 
-      // Build final agent list with computed status
-      const agents: Agent[] = Array.from(agentMap.values()).map(agent => {
-        const lastActiveDate = new Date(agent.lastActive);
-        const status = computeAgentStatus(lastActiveDate, agent.actionCount);
+      // Merge filesystem agents with activity stats
+      const agents = fsAgents.map(agent => {
+        const stats = statsMap.get(agent.id);
+        const lastActive = stats?.lastActive || '';
+        const actionCount = stats?.actionCount || 0;
+        const status = lastActive
+          ? computeAgentStatus(new Date(lastActive), actionCount)
+          : 'offline' as const;
 
         return {
           id: agent.id,
           name: agent.name,
           role: agent.role,
           model: agent.model,
+          gitAuthorName: agent.gitAuthorName,
+          gitAuthorEmail: agent.gitAuthorEmail,
           status,
-          lastActive: agent.lastActive,
-          sessionCount: agent.sessions.size,
-          totalCost: agent.totalCost,
-          totalTokens: agent.totalTokens,
+          lastActive,
+          sessionCount: stats?.sessions.size || 0,
+          totalCost: stats?.totalCost || 0,
+          totalTokens: stats?.totalTokens || 0,
         };
       });
 
@@ -821,58 +826,266 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
    */
   app.get('/api/agents/:id', async (req: Request, res: Response) => {
     try {
-      const db = logger.getDatabase();
       const agentId = req.params.id;
-      
-      const activities = await db.getActivities({ limit: 10000 });
-      const agentActivities = activities.filter((a: any) => a.actor.id === agentId);
-      
-      if (agentActivities.length === 0) {
+
+      if (!isValidId(agentId)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid agent ID',
+        });
+      }
+
+      const agent = await fsAgentService.readAgent(agentId);
+      if (!agent) {
         return res.status(404).json({
           success: false,
           error: 'Agent not found',
         });
       }
 
-      // Calculate agent stats
-      const sessions = new Set(agentActivities.map((a: any) => a.sessionId));
-      const totalCost = agentActivities.reduce((sum: number, a: any) => sum + (a.cost?.usd || 0), 0);
-      const totalTokens = agentActivities.reduce((sum: number, a: any) => sum + (a.tokens?.totalTokens || 0), 0);
-      
-      const lastActivity = agentActivities.reduce((latest: any, a: any) => 
-        new Date(a.timestamp) > new Date(latest.timestamp) ? a : latest
-      );
+      // Get activity stats from DB
+      const db = logger.getDatabase();
+      const activities = await db.getActivities({ actorId: agentId, limit: 10000 });
+      const sessions = new Set(activities.map((a: any) => a.sessionId));
+      const totalCost = activities.reduce((sum: number, a: any) => sum + (a.cost?.usd || 0), 0);
+      const totalTokens = activities.reduce((sum: number, a: any) => sum + (a.tokens?.totalTokens || 0), 0);
 
-      const lastActiveDate = new Date(lastActivity.timestamp);
-      const actionCount = agentActivities.length;
-      const status = computeAgentStatus(lastActiveDate, actionCount);
+      let lastActive = '';
+      let status: 'online' | 'offline' | 'busy' | 'idle' = 'offline';
+      if (activities.length > 0) {
+        const lastActivity = activities.reduce((latest: any, a: any) =>
+          new Date(a.timestamp) > new Date(latest.timestamp) ? a : latest
+        );
+        lastActive = lastActivity.timestamp;
+        status = computeAgentStatus(new Date(lastActive), activities.length);
+      }
 
-      const agent: AgentDetail = {
-        id: agentId,
-        name: agentId,
-        role: lastActivity.actor.type || 'subagent',
-        model: lastActivity.tokens?.model || 'unknown',
+      const result: any = {
+        id: agent.id,
+        name: agent.name,
+        role: agent.role,
+        model: agent.model,
+        gitAuthorName: agent.gitAuthorName,
+        gitAuthorEmail: agent.gitAuthorEmail,
         status,
-        lastActive: lastActivity.timestamp,
+        lastActive,
         sessionCount: sessions.size,
         totalCost,
         totalTokens,
       };
 
-      // Fetch agent metadata (SOUL.md and config)
+      // Fetch SOUL.md and config metadata
       const metadata = await agentService.getAgentMetadata(agentId);
       if (metadata) {
-        if (metadata.soulMarkdown) {
-          agent.soulMarkdown = metadata.soulMarkdown;
-        }
-        if (metadata.config) {
-          agent.config = metadata.config;
-        }
+        if (metadata.soulMarkdown) result.soulMarkdown = metadata.soulMarkdown;
+        if (metadata.config) result.config = metadata.config;
       }
 
       res.json({
         success: true,
-        agent,
+        agent: result,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  /**
+   * GET /api/agents/:id/soul
+   * Get raw SOUL.md content for an agent
+   */
+  app.get('/api/agents/:id/soul', async (req: Request, res: Response) => {
+    try {
+      const agentId = req.params.id;
+
+      if (!isValidId(agentId)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid agent ID',
+        });
+      }
+
+      const content = await fsAgentService.readAgentSoul(agentId);
+      if (!content) {
+        return res.status(404).json({
+          success: false,
+          error: 'Agent or SOUL.md not found',
+        });
+      }
+
+      res.json({
+        success: true,
+        content,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  /**
+   * GET /api/agents/:id/activity
+   * Get activity records for a specific agent
+   */
+  app.get('/api/agents/:id/activity', async (req: Request, res: Response) => {
+    try {
+      const agentId = req.params.id;
+
+      if (!isValidId(agentId)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid agent ID',
+        });
+      }
+
+      const limit = req.query.limit
+        ? Math.min(Math.max(1, parseInt(req.query.limit as string)), MAX_ACTIVITY_LIMIT)
+        : DEFAULT_ACTIVITY_LIMIT;
+
+      const activities = await fsAgentService.getAgentActivity(agentId, limit);
+
+      res.json({
+        success: true,
+        count: activities.length,
+        activities,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  /**
+   * GET /api/agents/:id/skills
+   * Get skills accessible to a specific agent
+   */
+  app.get('/api/agents/:id/skills', async (req: Request, res: Response) => {
+    try {
+      const agentId = req.params.id;
+
+      if (!isValidId(agentId)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid agent ID',
+        });
+      }
+
+      const agent = await fsAgentService.readAgent(agentId);
+      if (!agent) {
+        return res.status(404).json({
+          success: false,
+          error: 'Agent not found',
+        });
+      }
+
+      const skillIds = await fsAgentService.getAgentSkills(agentId);
+
+      res.json({
+        success: true,
+        count: skillIds.length,
+        skills: skillIds,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  // ============================================================================
+  // SKILLS ENDPOINTS
+  // ============================================================================
+
+  /**
+   * GET /api/skills
+   * Get all skills (filesystem-based discovery)
+   */
+  app.get('/api/skills', async (req: Request, res: Response) => {
+    try {
+      const skills = await fsSkillsService.readSkills();
+
+      // Strip filesystem location from response
+      const sanitized = skills.map(({ location, ...rest }) => rest);
+
+      res.json({
+        success: true,
+        count: sanitized.length,
+        skills: sanitized,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  /**
+   * GET /api/skills/:id
+   * Get a specific skill by ID
+   */
+  app.get('/api/skills/:id', async (req: Request, res: Response) => {
+    try {
+      const skillId = req.params.id;
+
+      if (!isValidId(skillId)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid skill ID',
+        });
+      }
+
+      const skill = await fsSkillsService.readSkill(skillId);
+      if (!skill) {
+        return res.status(404).json({
+          success: false,
+          error: 'Skill not found',
+        });
+      }
+
+      // Strip location
+      const { location, ...sanitized } = skill;
+
+      res.json({
+        success: true,
+        skill: sanitized,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  // ============================================================================
+  // PERMISSIONS ENDPOINTS
+  // ============================================================================
+
+  /**
+   * GET /api/permissions/matrix
+   * Get agents × skills permissions matrix
+   */
+  app.get('/api/permissions/matrix', async (req: Request, res: Response) => {
+    try {
+      const result = await fsSkillsService.getPermissionsMatrix();
+
+      // Strip location from skills in the response
+      const sanitizedSkills = result.skills.map(({ location, ...rest }) => rest);
+
+      res.json({
+        success: true,
+        agents: result.agents,
+        skills: sanitizedSkills,
+        matrix: result.matrix,
       });
     } catch (error: any) {
       res.status(500).json({

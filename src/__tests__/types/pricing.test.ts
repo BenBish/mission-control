@@ -126,7 +126,8 @@ describe('Pricing', () => {
     test('should return without error when no API key', async () => {
       delete process.env.OPENROUTER_API_KEY;
 
-      await expect(initializePricing()).resolves.not.toThrow();
+      // Should resolve without throwing
+      await initializePricing();
     });
 
     test('should fetch pricing from OpenRouter API', async () => {
@@ -163,15 +164,15 @@ describe('Pricing', () => {
         status: 500,
       });
 
-      // Should not throw
-      await expect(initializePricing('test-api-key')).resolves.not.toThrow();
+      // Should resolve without throwing
+      await initializePricing('test-api-key');
     });
 
     test('should handle network error gracefully', async () => {
       (global.fetch as jest.Mock).mockRejectedValueOnce(new Error('Network error'));
 
-      // Should not throw
-      await expect(initializePricing('test-api-key')).resolves.not.toThrow();
+      // Should resolve without throwing
+      await initializePricing('test-api-key');
     });
   });
 
