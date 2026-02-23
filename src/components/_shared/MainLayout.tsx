@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { Menu, Moon, Sun, LayoutDashboard, Settings, Users, List, DollarSign, Zap, Bot, Wrench, Clock } from "lucide-react";
+import { Menu, Moon, Sun, LayoutDashboard, Settings, Users, List, DollarSign, Zap, Bot, Wrench, Clock, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useTheme } from "@/app/providers";
@@ -12,6 +12,7 @@ const navItems = [
   { to: "/agents", icon: Bot, label: "Agents" },
   { to: "/costs", icon: DollarSign, label: "Cost Breakdown" },
   { to: "/skills", icon: Wrench, label: "Skills" },
+  { to: "/permissions", icon: Shield, label: "Permissions" },
   { to: "/cron", icon: Clock, label: "Cron Jobs" },
   { to: "/users", icon: Users, label: "Users" },
   { to: "/settings", icon: Settings, label: "Settings" },
