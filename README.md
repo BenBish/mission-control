@@ -85,7 +85,7 @@ dist/            # Build output
 
 Both lockfiles are committed for compatibility during the migration period:
 
-- `bun.lockb` — Bun lockfile (primary)
+- `bun.lock` — Bun lockfile (primary)
 - `package-lock.json` — npm lockfile (kept for CI/CD until Phase 4)
 
 ## ESLint Configuration

@@ -21,7 +21,7 @@ bun --version   # Should show 1.0+
 ### 2. Clone and Install
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/BenBish/mission-control.git
 cd mission-control
 bun install
 ```
