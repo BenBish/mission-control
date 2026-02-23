@@ -1,11 +1,13 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useAgent } from "../hooks/useAgents";
+import { useAgentActivity } from "../hooks/useAgentActivity";
 import { PageHeader } from "@/components/_shared/PageHeader";
 import { Loading } from "@/components/_shared/Loading";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { SOULMarkdownViewer } from "../components/SOULMarkdownViewer";
+import { AgentActivityFeed } from "../components/AgentActivityFeed";
 import { AlertCircle, ArrowLeft, Bot, Clock, DollarSign, Hash, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -13,6 +15,13 @@ export default function AgentDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { agent, isLoading, error } = useAgent(id || "");
+  const { 
+    activities, 
+    isLoading: activitiesLoading,
+    error: activitiesError,
+    isSubscribed,
+    refetch: refetchActivities
+  } = useAgentActivity(id || null);
 
   if (!id) {
     return (
@@ -191,8 +200,9 @@ export default function AgentDetail() {
       </Card>
 
       {/* Tabs */}
-      <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3">
+      <Tabs defaultValue="activity" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="activity">Activity Feed</TabsTrigger>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="soul" disabled={!agent.soulMarkdown}>
             SOUL.md
@@ -201,6 +211,18 @@ export default function AgentDetail() {
             Configuration
           </TabsTrigger>
         </TabsList>
+
+        {/* Activity Feed Tab */}
+        <TabsContent value="activity">
+          <AgentActivityFeed
+            activities={activities}
+            isLoading={activitiesLoading}
+            error={activitiesError}
+            isSubscribed={isSubscribed}
+            onRefresh={refetchActivities}
+            agentName={agent?.name}
+          />
+        </TabsContent>
 
         {/* Overview Tab */}
         <TabsContent value="overview">

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import type { Agent, AgentDetail, AgentsResponse } from "@/types/agent";
+import type { Agent, AgentDetail, AgentsResponse, AgentDetailResponse } from "@/types/agent";
 
 interface UseAgentsResult {
   agents: Agent[];
@@ -71,12 +71,12 @@ export function useAgent(id: string): UseAgentResult {
         if (!response.ok) {
           throw new Error(`Failed to fetch agent: ${response.statusText}`);
         }
-        const data = await response.json();
+        const data: AgentDetailResponse = await response.json();
         if (isMounted && !abortController.signal.aborted) {
           if (data.success) {
             setAgent(data.agent);
           } else {
-            throw new Error(data.error || "API returned unsuccessful response");
+            throw new Error("API returned unsuccessful response");
           }
         }
       } catch (err) {
