@@ -5,11 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "bun --hot vite",
-    "dev:npm": "vite",
     "build": "bun run tsc -b && bun run vite build",
-    "build:npm": "tsc -b && vite build",
     "lint": "bun run eslint .",
-    "lint:npm": "eslint .",
     "preview": "vite preview",
     "api": "tsx src/api/server.ts",
     "start": "node dist/index.js",

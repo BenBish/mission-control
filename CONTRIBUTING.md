@@ -35,25 +35,6 @@ bun run lint      # Run linter
 bun run test      # Run tests
 ```
 
-## Migrating from npm
-
-If you were previously using npm, here's how to switch:
-
-1. **Install Bun** (see above)
-2. **Run `bun install`** — this uses `package.json` just like npm, but installs much faster
-3. **Use `bun run` instead of `npm run`** — all scripts work the same way
-4. **Key changes:**
-   - `npm install` → `bun install`
-   - `npm run dev` → `bun run dev`
-   - `npm run build` → `bun run build`
-   - `npm run lint` → `bun run lint`
-
-### What about npm?
-
-npm fallback scripts (`dev:npm`, `build:npm`, `lint:npm`) are available for CI/CD compatibility. These will be removed once CI migrates to Bun (Phase 4 of ORC-10).
-
-Do **not** remove `package-lock.json` — it's still needed for CI/CD.
-
 ## Code Style
 
 - Follow existing codebase patterns and naming conventions

@@ -4,12 +4,11 @@ A React + TypeScript + Vite application for managing team workflows.
 
 ## Package Manager
 
-This project uses **Bun** as the primary package manager and runtime. npm fallback scripts are available for CI/CD compatibility (until CI migrates to Bun).
+This project uses **Bun** as the package manager and runtime.
 
 ### Prerequisites
 
-- [Bun](https://bun.sh) 1.0+ (primary)
-- Node.js 20+ (only needed for npm fallback scripts)
+- [Bun](https://bun.sh) 1.0+
 
 ### Install Bun
 
@@ -50,16 +49,6 @@ The development server will start at `http://localhost:5173`.
 | `bun run test:watch` | Run tests in watch mode |
 | `bun run test:coverage` | Run tests with coverage |
 
-### npm Fallback Scripts
-
-These are kept for CI/CD compatibility and will be removed once CI migrates to Bun:
-
-| Script | Description |
-|--------|-------------|
-| `bun run dev:npm` | Start dev server (npm/Vite only) |
-| `bun run build:npm` | Build with npm toolchain |
-| `bun run lint:npm` | Run ESLint without Bun |
-
 ## Building for Production
 
 ```bash
@@ -81,12 +70,9 @@ public/          # Static assets
 dist/            # Build output
 ```
 
-## Lockfiles
+## Lockfile
 
-Both lockfiles are committed for compatibility during the migration period:
-
-- `bun.lock` — Bun lockfile (primary)
-- `package-lock.json` — npm lockfile (kept for CI/CD until Phase 4)
+- `bun.lock` — Bun lockfile (committed to source control)
 
 ## ESLint Configuration
 
