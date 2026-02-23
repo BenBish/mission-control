@@ -4,7 +4,7 @@
  * and maps it to the frontend PermissionsMatrixData type.
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import type {
   PermissionsMatrixData,
   PermissionsMatrixResponse,
@@ -21,6 +21,7 @@ export function usePermissionsMatrix(): UsePermissionsMatrixReturn {
   const [data, setData] = useState<PermissionsMatrixData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const fetchMatrix = useCallback(async (signal?: AbortSignal) => {
     setIsLoading(true);
@@ -66,8 +67,17 @@ export function usePermissionsMatrix(): UsePermissionsMatrixReturn {
     }
   }, []);
 
+  const refetch = useCallback(() => {
+    // Abort any in-flight request before starting a new one
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    fetchMatrix(controller.signal);
+  }, [fetchMatrix]);
+
   useEffect(() => {
     const controller = new AbortController();
+    abortControllerRef.current = controller;
     fetchMatrix(controller.signal);
     return () => controller.abort();
   }, [fetchMatrix]);
@@ -76,6 +86,6 @@ export function usePermissionsMatrix(): UsePermissionsMatrixReturn {
     data,
     isLoading,
     error,
-    refetch: fetchMatrix,
+    refetch,
   };
 }

@@ -12,6 +12,7 @@ import type { CostLinker } from '../services/cost-linker.js';
 import type { Agent, AgentDetail } from '../types/agent.js';
 import { agentService } from './services/agent-service.js';
 import { CronService } from '../services/cron-service.js';
+import { SkillsService } from '../services/skills-service.js';
 
 // Store active SSE clients
 const sseClients: Set<Response> = new Set();
@@ -715,6 +716,30 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         success: true,
         count: pending.length,
         activities: pending,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  // ============================================================================
+  // PERMISSIONS ENDPOINTS
+  // ============================================================================
+
+  /**
+   * GET /api/permissions/matrix
+   * Get the agent × skill permissions matrix
+   */
+  app.get('/api/permissions/matrix', async (req: Request, res: Response) => {
+    try {
+      const skillsService = new SkillsService();
+      const matrix = await skillsService.getPermissionsMatrix();
+      res.json({
+        success: true,
+        ...matrix,
       });
     } catch (error: any) {
       res.status(500).json({

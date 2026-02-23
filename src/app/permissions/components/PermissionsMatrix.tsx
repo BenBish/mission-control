@@ -132,7 +132,7 @@ export function PermissionsMatrix({ data }: PermissionsMatrixProps) {
                     key={skill.id}
                     className="sticky top-0 z-20 bg-card border-b border-r px-2 py-3 font-medium cursor-pointer hover:text-primary hover:underline"
                     scope="col"
-                    onClick={() => navigate("/skills")}
+                    onClick={() => navigate(`/skills/${skill.id}`)}
                     title={skill.description || skill.name}
                   >
                     <span
