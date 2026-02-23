@@ -2,31 +2,16 @@
 
 A React + TypeScript + Vite application for managing team workflows.
 
-## Package Manager Support
+## Package Manager
 
-This project supports both **npm** (default) and **Bun** (faster). You can use either interchangeably.
+This project uses **Bun** as the primary package manager and runtime. npm fallback scripts are available for CI/CD compatibility (until CI migrates to Bun).
 
-### Using npm (Default)
+### Prerequisites
 
-```bash
-# Install dependencies
-npm install
+- [Bun](https://bun.sh) 1.0+ (primary)
+- Node.js 20+ (only needed for npm fallback scripts)
 
-# Start development server
-npm run dev
-
-# Build for production
-npm run build
-
-# Run linter
-npm run lint
-```
-
-### Using Bun (Recommended for Speed)
-
-[Bun](https://bun.sh) is a fast all-in-one JavaScript runtime & package manager. Install times are typically 3-5x faster than npm.
-
-#### Install Bun
+### Install Bun
 
 ```bash
 curl -fsSL https://bun.sh/install | bash
@@ -34,68 +19,51 @@ curl -fsSL https://bun.sh/install | bash
 
 Restart your terminal or run `source ~/.bashrc` (or `~/.zshrc`) to add Bun to your PATH.
 
-#### Using Bun with this project
+## Quick Start
 
 ```bash
-# Install dependencies (much faster!)
+# Install dependencies
 bun install
 
-# Start development server with hot reload
-bun run dev:bun
+# Start development server (with hot reload)
+bun run dev
 
 # Build for production
-bun run build:bun
+bun run build
 
 # Run linter
-bun run lint:bun
-```
-
-#### Bun Scripts Available
-
-| Script | Description |
-|--------|-------------|
-| `bun run dev:bun` | Start dev server with Bun's hot reload |
-| `bun run build:bun` | Build with Bun runtime |
-| `bun run lint:bun` | Run ESLint with Bun |
-
-### Hybrid Workflow
-
-The project maintains compatibility with both package managers:
-
-- `package-lock.json` - npm lockfile (committed)
-- `bun.lockb` - Bun lockfile (committed)
-
-Both lockfiles are kept in sync. Team members can choose their preferred package manager.
-
-## Development
-
-### Prerequisites
-
-- Node.js 20+ (for npm)
-- OR Bun 1.0+ (for Bun)
-
-### Quick Start
-
-```bash
-# Using npm
-npm install
-npm run dev
-
-# OR using Bun
-bun install
-bun run dev:bun
+bun run lint
 ```
 
 The development server will start at `http://localhost:5173`.
 
+## Available Scripts
+
+| Script | Description |
+|--------|-------------|
+| `bun run dev` | Start dev server with Bun's hot reload |
+| `bun run build` | Build with Bun runtime |
+| `bun run lint` | Run ESLint with Bun |
+| `bun run preview` | Preview production build |
+| `bun run api` | Start API server |
+| `bun run test` | Run tests |
+| `bun run test:watch` | Run tests in watch mode |
+| `bun run test:coverage` | Run tests with coverage |
+
+### npm Fallback Scripts
+
+These are kept for CI/CD compatibility and will be removed once CI migrates to Bun:
+
+| Script | Description |
+|--------|-------------|
+| `bun run dev:npm` | Start dev server (npm/Vite only) |
+| `bun run build:npm` | Build with npm toolchain |
+| `bun run lint:npm` | Run ESLint without Bun |
+
 ## Building for Production
 
 ```bash
-# Using npm
-npm run build
-
-# Using Bun (faster)
-bun run build:bun
+bun run build
 ```
 
 Output is generated in the `dist/` directory.
@@ -112,6 +80,13 @@ src/
 public/          # Static assets
 dist/            # Build output
 ```
+
+## Lockfiles
+
+Both lockfiles are committed for compatibility during the migration period:
+
+- `bun.lockb` — Bun lockfile (primary)
+- `package-lock.json` — npm lockfile (kept for CI/CD until Phase 4)
 
 ## ESLint Configuration
 
