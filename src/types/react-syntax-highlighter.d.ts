@@ -1,17 +1,17 @@
-declare module 'react-syntax-highlighter' {
-  import { ReactNode } from 'react';
-  
+declare module "react-syntax-highlighter" {
+  import { ComponentType } from "react";
+
   interface PrismProps {
     children: string;
     language?: string;
-    style?: Record<string, any>;
-    [key: string]: any;
+    style?: Record<string, unknown>;
+    [key: string]: unknown;
   }
-  
-  export const Prism: React.ComponentType<PrismProps>;
+
+  export const Prism: ComponentType<PrismProps>;
 }
 
-declare module 'react-syntax-highlighter/dist/esm/styles/prism' {
-  export const oneDark: Record<string, any>;
-  [key: string]: Record<string, any>;
+declare module "react-syntax-highlighter/dist/esm/styles/prism" {
+  const oneDark: Record<string, unknown>;
+  export { oneDark };
 }

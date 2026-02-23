@@ -21,7 +21,9 @@ interface UseAgentActivityResult {
  * opening a new EventSource per component, avoiding the browser's 6-connection
  * limit when many AgentCards are rendered simultaneously.
  */
-export function useAgentActivity(agentId: string | null): UseAgentActivityResult {
+export function useAgentActivity(
+  agentId: string | null,
+): UseAgentActivityResult {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +44,7 @@ export function useAgentActivity(agentId: string | null): UseAgentActivityResult
     try {
       const response = await fetch(
         `/api/activities?actorId=${encodeURIComponent(actorId!)}&limit=50`,
-        { signal: abortControllerRef.current?.signal }
+        { signal: abortControllerRef.current?.signal },
       );
 
       if (!response.ok) {
@@ -55,7 +57,7 @@ export function useAgentActivity(agentId: string | null): UseAgentActivityResult
         const sorted = [...data.activities]
           .sort(
             (a, b) =>
-              new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+              new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
           )
           .slice(0, MAX_ACTIVITIES);
         setActivities(sorted);
@@ -85,12 +87,12 @@ export function useAgentActivity(agentId: string | null): UseAgentActivityResult
         return updated
           .sort(
             (a, b) =>
-              new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+              new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
           )
           .slice(0, MAX_ACTIVITIES);
       });
     },
-    [] // no deps — setActivities is stable
+    [], // no deps — setActivities is stable
   );
 
   const { connected } = useActivityStream(actorId, handleActivity);

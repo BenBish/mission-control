@@ -16,5 +16,5 @@ createRoot(document.getElementById("root")!).render(
         </ActivityStreamProvider>
       </ThemeProvider>
     </ErrorBoundary>
-  </StrictMode>
+  </StrictMode>,
 );

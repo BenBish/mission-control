@@ -11,7 +11,7 @@ export interface Agent {
   gitAuthorName?: string;
   gitAuthorEmail?: string;
   skills: string[];
-  status?: 'online' | 'offline' | 'busy' | 'idle';
+  status?: "online" | "offline" | "busy" | "idle";
   lastActive?: string;
   sessionCount?: number;
   totalCost?: number;

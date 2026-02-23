@@ -1,7 +1,5 @@
 import ReactMarkdown from "react-markdown";
-// @ts-ignore
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-// @ts-ignore
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import remarkGfm from "remark-gfm";
 
@@ -17,12 +15,12 @@ export function SOULMarkdownViewer({ markdown }: SOULMarkdownViewerProps) {
         components={{
           code(props) {
             const { children, className } = props;
-            
+
             // Check if this is a code block (has language class) or inline code
             // Code blocks have className like "language-xyz", inline code does not
             const match = /language-(\w+)/.exec(className || "");
             const isCodeBlock = Boolean(match);
-            
+
             // If it's inline code, use simple styling
             if (!isCodeBlock) {
               return (

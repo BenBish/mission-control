@@ -156,7 +156,7 @@ CREATE TABLE IF NOT EXISTS scan_state (
  * Split SQL into individual statements for execution
  */
 export function getSQLStatements(): string[] {
-  return SCHEMA_SQL.split(';')
+  return SCHEMA_SQL.split(";")
     .map((stmt) => stmt.trim())
     .filter((stmt) => stmt.length > 0);
 }

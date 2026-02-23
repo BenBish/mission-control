@@ -13,7 +13,8 @@ interface CronJobDetailProps {
 export function CronJobDetail({ jobId }: CronJobDetailProps) {
   const navigate = useNavigate();
   const { job, isLoading, error } = useCronJobDetail(jobId);
-  const { runs, isLoadingRuns, errorRuns, runNow, deleteJob } = useCronMutations(jobId);
+  const { runs, isLoadingRuns, errorRuns, runNow, deleteJob } =
+    useCronMutations(jobId);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
@@ -155,7 +156,9 @@ export function CronJobDetail({ jobId }: CronJobDetailProps) {
                     </p>
                   </div>
                   <Badge
-                    variant={run.status === "success" ? "default" : "destructive"}
+                    variant={
+                      run.status === "success" ? "default" : "destructive"
+                    }
                     className={
                       run.status === "success"
                         ? "bg-green-100 text-green-900 dark:bg-green-950/30 dark:text-green-400"
@@ -187,7 +190,9 @@ export function CronJobDetail({ jobId }: CronJobDetailProps) {
                 const ok = await runNow();
                 if (!ok) setRunError("Failed to trigger job");
               } catch (err) {
-                setRunError(err instanceof Error ? err.message : "Unknown error");
+                setRunError(
+                  err instanceof Error ? err.message : "Unknown error",
+                );
               } finally {
                 setIsRunning(false);
               }
@@ -210,7 +215,9 @@ export function CronJobDetail({ jobId }: CronJobDetailProps) {
           <p className="text-sm text-red-600 dark:text-red-400">{runError}</p>
         )}
         {deleteError && (
-          <p className="text-sm text-red-600 dark:text-red-400">{deleteError}</p>
+          <p className="text-sm text-red-600 dark:text-red-400">
+            {deleteError}
+          </p>
         )}
       </div>
 
@@ -238,7 +245,9 @@ export function CronJobDetail({ jobId }: CronJobDetailProps) {
                       setShowDeleteConfirm(false);
                     }
                   } catch (err) {
-                    setDeleteError(err instanceof Error ? err.message : "Unknown error");
+                    setDeleteError(
+                      err instanceof Error ? err.message : "Unknown error",
+                    );
                     setShowDeleteConfirm(false);
                   } finally {
                     setIsDeleting(false);

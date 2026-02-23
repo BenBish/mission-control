@@ -52,12 +52,17 @@ export function useSkills(): UseSkillsReturn {
       // Merge agent access data if permissions endpoint is available
       if (permissionsRes.ok) {
         try {
-          const permissionsData: PermissionsMatrixResponse = await permissionsRes.json();
-          
-          if (permissionsData.success && permissionsData.matrix && permissionsData.agents) {
+          const permissionsData: PermissionsMatrixResponse =
+            await permissionsRes.json();
+
+          if (
+            permissionsData.success &&
+            permissionsData.matrix &&
+            permissionsData.agents
+          ) {
             // Create a map of skill IDs to agent lists
             const skillAgentsMap = new Map<string, Agent[]>();
-            
+
             // Iterate through permissions matrix to find which agents have access to each skill
             permissionsData.skills.forEach((skill, skillIndex) => {
               const agentsWithAccess: Agent[] = [];
@@ -68,15 +73,18 @@ export function useSkills(): UseSkillsReturn {
               });
               skillAgentsMap.set(skill.id, agentsWithAccess);
             });
-            
+
             // Merge agent data into skills
-            skillsWithAgents = skillsData.skills.map(skill => ({
+            skillsWithAgents = skillsData.skills.map((skill) => ({
               ...skill,
               agents: skillAgentsMap.get(skill.id) || [],
             }));
           }
         } catch (permErr) {
-          console.warn("[useSkills] Failed to fetch or merge permissions matrix:", permErr);
+          console.warn(
+            "[useSkills] Failed to fetch or merge permissions matrix:",
+            permErr,
+          );
           // Continue with skills only if permissions fetch fails
         }
       }

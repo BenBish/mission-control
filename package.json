@@ -13,7 +13,9 @@
     "db:migrate": "tsx src/db/migrations.ts",
     "test": "bun test",
     "test:watch": "bun test --watch",
-    "test:coverage": "bun test --coverage"
+    "test:coverage": "bun test --coverage",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,css}\"",
+    "ci": "eslint . && prettier --check \"src/**/*.{ts,tsx,js,jsx,css}\" && tsc --noEmit && bun test"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",

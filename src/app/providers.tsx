@@ -1,4 +1,10 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
 
 type Theme = "light" | "dark" | "system";
 
@@ -15,9 +21,9 @@ interface ThemeProviderProps {
   defaultTheme?: Theme;
 }
 
-export function ThemeProvider({ 
-  children, 
-  defaultTheme = "system" 
+export function ThemeProvider({
+  children,
+  defaultTheme = "system",
 }: ThemeProviderProps) {
   const [theme, setTheme] = useState<Theme>(() => {
     // Check localStorage first
@@ -30,9 +36,9 @@ export function ThemeProvider({
 
   useEffect(() => {
     const root = window.document.documentElement;
-    
+
     root.classList.remove("light", "dark");
-    
+
     if (theme === "system") {
       const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
         .matches
@@ -42,7 +48,7 @@ export function ThemeProvider({
     } else {
       root.classList.add(theme);
     }
-    
+
     localStorage.setItem("theme", theme);
   }, [theme]);
 
@@ -50,13 +56,13 @@ export function ThemeProvider({
   useEffect(() => {
     if (theme === "system") {
       const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-      
+
       const handleChange = () => {
         const root = window.document.documentElement;
         root.classList.remove("light", "dark");
         root.classList.add(mediaQuery.matches ? "dark" : "light");
       };
-      
+
       mediaQuery.addEventListener("change", handleChange);
       return () => mediaQuery.removeEventListener("change", handleChange);
     }
@@ -77,9 +83,7 @@ export function ThemeProvider({
   };
 
   return (
-    <ThemeContext.Provider value={value}>
-      {children}
-    </ThemeContext.Provider>
+    <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
   );
 }
 

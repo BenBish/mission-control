@@ -3,12 +3,18 @@
  * Handles all database operations with proper error handling
  */
 
-import sqlite3 from 'sqlite3';
-import { open, Database as SqliteDatabase } from 'sqlite';
-import { getSQLStatements } from './schema.js';
-import { Activity, CreateActivityInput, UpdateActivityInput, ActivityFilter, SessionSummary } from '../types/activity.js';
-import { AgentStats } from '../types/agents.js';
-import { v7 as uuidv7 } from 'uuid';
+import sqlite3 from "sqlite3";
+import { open, Database as SqliteDatabase } from "sqlite";
+import { getSQLStatements } from "./schema.js";
+import {
+  Activity,
+  CreateActivityInput,
+  UpdateActivityInput,
+  ActivityFilter,
+  SessionSummary,
+} from "../types/activity.js";
+import { AgentStats } from "../types/agents.js";
+import { v7 as uuidv7 } from "uuid";
 
 export class Database {
   private db: SqliteDatabase | null = null;
@@ -32,7 +38,7 @@ export class Database {
    * Run all schema migrations
    */
   private async migrate(): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db) throw new Error("Database not initialized");
 
     const statements = getSQLStatements();
     for (const stmt of statements) {
@@ -47,11 +53,11 @@ export class Database {
     if (this.db) {
       try {
         // Ensure all statements are finalized
-        await this.db.exec('PRAGMA integrity_check');
+        await this.db.exec("PRAGMA integrity_check");
         await this.db.close();
       } catch (error) {
         // Try to close anyway even if there's an error
-        console.warn('Error closing database:', error);
+        console.warn("Error closing database:", error);
       } finally {
         this.db = null;
       }
@@ -66,12 +72,12 @@ export class Database {
    * Create a new activity record
    */
   async createActivity(input: CreateActivityInput): Promise<Activity> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db) throw new Error("Database not initialized");
 
     const activity: Activity = {
       id: uuidv7(),
       timestamp: new Date().toISOString(),
-      status: input.status || 'pending',
+      status: input.status || "pending",
       ...input,
     };
 
@@ -98,9 +104,9 @@ export class Database {
       activity.description,
       activity.details ? JSON.stringify(activity.details) : null,
       activity.status,
-      activity.tags ? activity.tags.join(',') : null,
+      activity.tags ? activity.tags.join(",") : null,
       activity.references ? JSON.stringify(activity.references) : null,
-      activity.metadata ? JSON.stringify(activity.metadata) : null
+      activity.metadata ? JSON.stringify(activity.metadata) : null,
     );
 
     return activity;
@@ -110,45 +116,47 @@ export class Database {
    * Update an existing activity record
    */
   async updateActivity(id: string, input: UpdateActivityInput): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db) throw new Error("Database not initialized");
 
     const updates: string[] = [];
     const values: any[] = [];
 
     if (input.status !== undefined) {
-      updates.push('status = ?');
+      updates.push("status = ?");
       values.push(input.status);
     }
     if (input.completedAt !== undefined) {
-      updates.push('completed_at = ?');
+      updates.push("completed_at = ?");
       values.push(input.completedAt);
     }
     if (input.durationMs !== undefined) {
-      updates.push('duration_ms = ?');
+      updates.push("duration_ms = ?");
       values.push(input.durationMs);
     }
     if (input.result !== undefined) {
-      updates.push('result = ?');
+      updates.push("result = ?");
       values.push(JSON.stringify(input.result));
     }
     if (input.tokens !== undefined) {
-      updates.push('input_tokens = ?, output_tokens = ?, total_tokens = ?, model = ?');
+      updates.push(
+        "input_tokens = ?, output_tokens = ?, total_tokens = ?, model = ?",
+      );
       values.push(
         input.tokens.inputTokens,
         input.tokens.outputTokens,
         input.tokens.totalTokens,
-        input.tokens.model ?? null
+        input.tokens.model ?? null,
       );
     }
     if (input.cost !== undefined) {
-      updates.push('cost_usd = ?');
+      updates.push("cost_usd = ?");
       values.push(input.cost.usd);
     }
 
     if (updates.length === 0) return;
 
     values.push(id);
-    const sql = `UPDATE activities SET ${updates.join(', ')} WHERE id = ?`;
+    const sql = `UPDATE activities SET ${updates.join(", ")} WHERE id = ?`;
     await this.db.run(sql, ...values);
   }
 
@@ -156,11 +164,11 @@ export class Database {
    * Get activity by ID
    */
   async getActivity(id: string): Promise<Activity | null> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db) throw new Error("Database not initialized");
 
     const row = await this.db.get<any>(
-      'SELECT * FROM activities WHERE id = ?',
-      id
+      "SELECT * FROM activities WHERE id = ?",
+      id,
     );
 
     return row ? this.parseActivityRow(row) : null;
@@ -170,52 +178,52 @@ export class Database {
    * Get activities with optional filtering and pagination
    */
   async getActivities(filter: ActivityFilter = {}): Promise<Activity[]> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db) throw new Error("Database not initialized");
 
-    let sql = 'SELECT * FROM activities WHERE 1=1';
+    let sql = "SELECT * FROM activities WHERE 1=1";
     const values: any[] = [];
 
     if (filter.sessionId) {
-      sql += ' AND session_id = ?';
+      sql += " AND session_id = ?";
       values.push(filter.sessionId);
     }
     if (filter.actorId) {
-      sql += ' AND actor_id = ?';
+      sql += " AND actor_id = ?";
       values.push(filter.actorId);
     }
     if (filter.actorType) {
-      sql += ' AND actor_type = ?';
+      sql += " AND actor_type = ?";
       values.push(filter.actorType);
     }
     if (filter.actionType) {
-      sql += ' AND action_type = ?';
+      sql += " AND action_type = ?";
       values.push(filter.actionType);
     }
     if (filter.toolName) {
-      sql += ' AND tool_name = ?';
+      sql += " AND tool_name = ?";
       values.push(filter.toolName);
     }
     if (filter.status) {
-      sql += ' AND status = ?';
+      sql += " AND status = ?";
       values.push(filter.status);
     }
     if (filter.startTime) {
-      sql += ' AND timestamp >= ?';
+      sql += " AND timestamp >= ?";
       values.push(filter.startTime);
     }
     if (filter.endTime) {
-      sql += ' AND timestamp <= ?';
+      sql += " AND timestamp <= ?";
       values.push(filter.endTime);
     }
 
-    sql += ' ORDER BY timestamp DESC';
+    sql += " ORDER BY timestamp DESC";
 
     if (filter.limit) {
-      sql += ' LIMIT ?';
+      sql += " LIMIT ?";
       values.push(filter.limit);
     }
     if (filter.offset) {
-      sql += ' OFFSET ?';
+      sql += " OFFSET ?";
       values.push(filter.offset);
     }
 
@@ -238,12 +246,12 @@ export class Database {
    * Create a new session
    */
   async createSession(sessionId: string): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db) throw new Error("Database not initialized");
 
     await this.db.run(
       `INSERT OR IGNORE INTO sessions (id, start_time) VALUES (?, ?)`,
       sessionId,
-      new Date().toISOString()
+      new Date().toISOString(),
     );
   }
 
@@ -251,12 +259,12 @@ export class Database {
    * Update session (mark as ended)
    */
   async updateSession(sessionId: string, endTime: string): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db) throw new Error("Database not initialized");
 
     await this.db.run(
       `UPDATE sessions SET end_time = ? WHERE id = ?`,
       endTime,
-      sessionId
+      sessionId,
     );
   }
 
@@ -264,11 +272,11 @@ export class Database {
    * Get session summary with computed statistics
    */
   async getSessionSummary(sessionId: string): Promise<SessionSummary | null> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db) throw new Error("Database not initialized");
 
     const session = await this.db.get<any>(
-      'SELECT * FROM sessions WHERE id = ?',
-      sessionId
+      "SELECT * FROM sessions WHERE id = ?",
+      sessionId,
     );
 
     if (!session) return null;
@@ -277,13 +285,24 @@ export class Database {
     const activities = await this.getSessionActivities(sessionId);
 
     // Compute statistics
-    const successCount = activities.filter((a) => a.status === 'success').length;
-    const failureCount = activities.filter((a) => a.status === 'failure').length;
-    const totalTokens = activities.reduce((sum, a) => sum + (a.tokens?.totalTokens || 0), 0);
-    const totalCost = activities.reduce((sum, a) => sum + (a.cost?.usd || 0), 0);
+    const successCount = activities.filter(
+      (a) => a.status === "success",
+    ).length;
+    const failureCount = activities.filter(
+      (a) => a.status === "failure",
+    ).length;
+    const totalTokens = activities.reduce(
+      (sum, a) => sum + (a.tokens?.totalTokens || 0),
+      0,
+    );
+    const totalCost = activities.reduce(
+      (sum, a) => sum + (a.cost?.usd || 0),
+      0,
+    );
     const avgDuration =
       activities.length > 0
-        ? activities.reduce((sum, a) => sum + (a.durationMs || 0), 0) / activities.length
+        ? activities.reduce((sum, a) => sum + (a.durationMs || 0), 0) /
+          activities.length
         : 0;
 
     // Group by actor
@@ -299,7 +318,7 @@ export class Database {
         };
       }
       actors[activity.actor.id].actionsCount++;
-      if (activity.status === 'success') {
+      if (activity.status === "success") {
         actors[activity.actor.id].successCount++;
       }
       actors[activity.actor.id].tokensUsed += activity.tokens?.totalTokens || 0;
@@ -331,7 +350,8 @@ export class Database {
         totalActions: activities.length,
         successCount,
         failureCount,
-        successRate: activities.length > 0 ? (successCount / activities.length) * 100 : 0,
+        successRate:
+          activities.length > 0 ? (successCount / activities.length) * 100 : 0,
         totalTokens,
         totalCost,
         avgActionDuration: avgDuration,
@@ -350,7 +370,7 @@ export class Database {
    * Get aggregated activity stats per agent
    */
   async getAgentStats(): Promise<Map<string, AgentStats>> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db) throw new Error("Database not initialized");
 
     const rows = await this.db.all<any[]>(`
       SELECT
@@ -404,21 +424,25 @@ export class Database {
       details: row.details ? JSON.parse(row.details) : undefined,
       status: row.status,
       result: row.result ? JSON.parse(row.result) : undefined,
-      tokens: row.input_tokens != null || row.output_tokens != null
-        ? {
-            inputTokens: row.input_tokens || 0,
-            outputTokens: row.output_tokens || 0,
-            totalTokens: row.total_tokens || 0,
-            model: row.model,
-          }
+      tokens:
+        row.input_tokens != null || row.output_tokens != null
+          ? {
+              inputTokens: row.input_tokens || 0,
+              outputTokens: row.output_tokens || 0,
+              totalTokens: row.total_tokens || 0,
+              model: row.model,
+            }
+          : undefined,
+      cost:
+        row.cost_usd != null
+          ? {
+              usd: row.cost_usd,
+            }
+          : undefined,
+      references: row.references_json
+        ? JSON.parse(row.references_json)
         : undefined,
-      cost: row.cost_usd != null
-        ? {
-            usd: row.cost_usd,
-          }
-        : undefined,
-      references: row.references_json ? JSON.parse(row.references_json) : undefined,
-      tags: row.tags ? row.tags.split(',') : undefined,
+      tags: row.tags ? row.tags.split(",") : undefined,
       metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
       createdAt: row.created_at,
     };
@@ -450,7 +474,7 @@ export class Database {
     costCacheRead: number;
     costTotal: number;
   }): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db) throw new Error("Database not initialized");
 
     await this.db.run(
       `INSERT INTO llm_generations (
@@ -462,58 +486,73 @@ export class Database {
       ON CONFLICT(session_log_file, session_log_msg_id) DO UPDATE SET
         cost_total = excluded.cost_total,
         total_tokens = excluded.total_tokens`,
-      gen.id, gen.sessionLogFile, gen.sessionLogMsgId, gen.agentId, gen.timestamp,
-      gen.model, gen.provider ?? null, gen.stopReason ?? null,
-      gen.inputTokens, gen.outputTokens, gen.cacheReadTokens, gen.cacheWriteTokens, gen.totalTokens,
-      gen.costInput, gen.costOutput, gen.costCacheRead, gen.costTotal
+      gen.id,
+      gen.sessionLogFile,
+      gen.sessionLogMsgId,
+      gen.agentId,
+      gen.timestamp,
+      gen.model,
+      gen.provider ?? null,
+      gen.stopReason ?? null,
+      gen.inputTokens,
+      gen.outputTokens,
+      gen.cacheReadTokens,
+      gen.cacheWriteTokens,
+      gen.totalTokens,
+      gen.costInput,
+      gen.costOutput,
+      gen.costCacheRead,
+      gen.costTotal,
     );
   }
 
   /**
    * Get LLM generations with optional filters
    */
-  async getGenerations(filter: {
-    agentId?: string;
-    model?: string;
-    startTime?: string;
-    endTime?: string;
-    unlinkedOnly?: boolean;
-    limit?: number;
-    offset?: number;
-  } = {}): Promise<any[]> {
-    if (!this.db) throw new Error('Database not initialized');
+  async getGenerations(
+    filter: {
+      agentId?: string;
+      model?: string;
+      startTime?: string;
+      endTime?: string;
+      unlinkedOnly?: boolean;
+      limit?: number;
+      offset?: number;
+    } = {},
+  ): Promise<any[]> {
+    if (!this.db) throw new Error("Database not initialized");
 
-    let sql = 'SELECT * FROM llm_generations WHERE 1=1';
+    let sql = "SELECT * FROM llm_generations WHERE 1=1";
     const values: any[] = [];
 
     if (filter.agentId) {
-      sql += ' AND agent_id = ?';
+      sql += " AND agent_id = ?";
       values.push(filter.agentId);
     }
     if (filter.model) {
-      sql += ' AND model = ?';
+      sql += " AND model = ?";
       values.push(filter.model);
     }
     if (filter.startTime) {
-      sql += ' AND timestamp >= ?';
+      sql += " AND timestamp >= ?";
       values.push(filter.startTime);
     }
     if (filter.endTime) {
-      sql += ' AND timestamp <= ?';
+      sql += " AND timestamp <= ?";
       values.push(filter.endTime);
     }
     if (filter.unlinkedOnly) {
-      sql += ' AND linked_activity_id IS NULL';
+      sql += " AND linked_activity_id IS NULL";
     }
 
-    sql += ' ORDER BY timestamp DESC';
+    sql += " ORDER BY timestamp DESC";
 
     if (filter.limit) {
-      sql += ' LIMIT ?';
+      sql += " LIMIT ?";
       values.push(filter.limit);
     }
     if (filter.offset) {
-      sql += ' OFFSET ?';
+      sql += " OFFSET ?";
       values.push(filter.offset);
     }
 
@@ -523,39 +562,51 @@ export class Database {
   /**
    * Link a generation to an activity
    */
-  async linkGeneration(generationId: string, activityId: string): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
+  async linkGeneration(
+    generationId: string,
+    activityId: string,
+  ): Promise<void> {
+    if (!this.db) throw new Error("Database not initialized");
     await this.db.run(
-      'UPDATE llm_generations SET linked_activity_id = ? WHERE id = ?',
-      activityId, generationId
+      "UPDATE llm_generations SET linked_activity_id = ? WHERE id = ?",
+      activityId,
+      generationId,
     );
   }
 
   /**
    * Get cost summary aggregated by agent and model
    */
-  async getGenerationSummary(filter: {
-    startTime?: string;
-    endTime?: string;
-  } = {}): Promise<{
+  async getGenerationSummary(
+    filter: {
+      startTime?: string;
+      endTime?: string;
+    } = {},
+  ): Promise<{
     totalCost: number;
     totalGenerations: number;
     totalInputTokens: number;
     totalOutputTokens: number;
     totalCacheReadTokens: number;
-    byAgent: Record<string, { cost: number; generations: number; tokens: number }>;
-    byModel: Record<string, { cost: number; generations: number; tokens: number }>;
+    byAgent: Record<
+      string,
+      { cost: number; generations: number; tokens: number }
+    >;
+    byModel: Record<
+      string,
+      { cost: number; generations: number; tokens: number }
+    >;
   }> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db) throw new Error("Database not initialized");
 
-    let where = 'WHERE 1=1';
+    let where = "WHERE 1=1";
     const values: any[] = [];
     if (filter.startTime) {
-      where += ' AND timestamp >= ?';
+      where += " AND timestamp >= ?";
       values.push(filter.startTime);
     }
     if (filter.endTime) {
-      where += ' AND timestamp <= ?';
+      where += " AND timestamp <= ?";
       values.push(filter.endTime);
     }
 
@@ -567,7 +618,7 @@ export class Database {
         COALESCE(SUM(output_tokens), 0) as total_output_tokens,
         COALESCE(SUM(cache_read_tokens), 0) as total_cache_read_tokens
       FROM llm_generations ${where}`,
-      ...values
+      ...values,
     );
 
     const byAgent = await this.db.all<any[]>(
@@ -577,7 +628,7 @@ export class Database {
         SUM(total_tokens) as tokens
       FROM llm_generations ${where}
       GROUP BY agent_id ORDER BY cost DESC`,
-      ...values
+      ...values,
     );
 
     const byModel = await this.db.all<any[]>(
@@ -587,17 +638,31 @@ export class Database {
         SUM(total_tokens) as tokens
       FROM llm_generations ${where}
       GROUP BY model ORDER BY cost DESC`,
-      ...values
+      ...values,
     );
 
-    const agentMap: Record<string, { cost: number; generations: number; tokens: number }> = {};
+    const agentMap: Record<
+      string,
+      { cost: number; generations: number; tokens: number }
+    > = {};
     for (const row of byAgent) {
-      agentMap[row.agent_id] = { cost: row.cost, generations: row.generations, tokens: row.tokens };
+      agentMap[row.agent_id] = {
+        cost: row.cost,
+        generations: row.generations,
+        tokens: row.tokens,
+      };
     }
 
-    const modelMap: Record<string, { cost: number; generations: number; tokens: number }> = {};
+    const modelMap: Record<
+      string,
+      { cost: number; generations: number; tokens: number }
+    > = {};
     for (const row of byModel) {
-      modelMap[row.model] = { cost: row.cost, generations: row.generations, tokens: row.tokens };
+      modelMap[row.model] = {
+        cost: row.cost,
+        generations: row.generations,
+        tokens: row.tokens,
+      };
     }
 
     return {
@@ -618,21 +683,33 @@ export class Database {
   /**
    * Get scan state for a file
    */
-  async getScanState(filePath: string): Promise<{ lastOffset: number; fileSize: number; lastScannedAt: string | null } | null> {
-    if (!this.db) throw new Error('Database not initialized');
+  async getScanState(filePath: string): Promise<{
+    lastOffset: number;
+    fileSize: number;
+    lastScannedAt: string | null;
+  } | null> {
+    if (!this.db) throw new Error("Database not initialized");
     const row = await this.db.get<any>(
-      'SELECT last_offset, file_size, last_scanned_at FROM scan_state WHERE file_path = ?',
-      filePath
+      "SELECT last_offset, file_size, last_scanned_at FROM scan_state WHERE file_path = ?",
+      filePath,
     );
     if (!row) return null;
-    return { lastOffset: row.last_offset, fileSize: row.file_size, lastScannedAt: row.last_scanned_at };
+    return {
+      lastOffset: row.last_offset,
+      fileSize: row.file_size,
+      lastScannedAt: row.last_scanned_at,
+    };
   }
 
   /**
    * Update scan state for a file
    */
-  async updateScanState(filePath: string, offset: number, fileSize: number): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
+  async updateScanState(
+    filePath: string,
+    offset: number,
+    fileSize: number,
+  ): Promise<void> {
+    if (!this.db) throw new Error("Database not initialized");
     await this.db.run(
       `INSERT INTO scan_state (file_path, last_offset, file_size, last_scanned_at)
        VALUES (?, ?, ?, datetime('now'))
@@ -640,7 +717,9 @@ export class Database {
          last_offset = excluded.last_offset,
          file_size = excluded.file_size,
          last_scanned_at = excluded.last_scanned_at`,
-      filePath, offset, fileSize
+      filePath,
+      offset,
+      fileSize,
     );
   }
 
@@ -648,8 +727,8 @@ export class Database {
    * Reset all scan state (for full rescan)
    */
   async resetScanState(): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
-    await this.db.run('DELETE FROM scan_state');
+    if (!this.db) throw new Error("Database not initialized");
+    await this.db.run("DELETE FROM scan_state");
   }
 
   // ============================================================================
@@ -660,25 +739,25 @@ export class Database {
    * Clear all activities (for testing)
    */
   async clear(): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
-    await this.db.run('DELETE FROM activities');
-    await this.db.run('DELETE FROM sessions');
-    await this.db.run('DELETE FROM cost_summaries');
-    await this.db.run('DELETE FROM llm_generations');
-    await this.db.run('DELETE FROM scan_state');
+    if (!this.db) throw new Error("Database not initialized");
+    await this.db.run("DELETE FROM activities");
+    await this.db.run("DELETE FROM sessions");
+    await this.db.run("DELETE FROM cost_summaries");
+    await this.db.run("DELETE FROM llm_generations");
+    await this.db.run("DELETE FROM scan_state");
   }
 
   /**
    * Get database statistics
    */
   async getStats(): Promise<{ activities: number; sessions: number }> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db) throw new Error("Database not initialized");
 
     const activities = await this.db.get<{ count: number }>(
-      'SELECT COUNT(*) as count FROM activities'
+      "SELECT COUNT(*) as count FROM activities",
     );
     const sessions = await this.db.get<{ count: number }>(
-      'SELECT COUNT(*) as count FROM sessions'
+      "SELECT COUNT(*) as count FROM sessions",
     );
 
     return {

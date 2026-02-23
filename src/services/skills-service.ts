@@ -3,13 +3,13 @@
  * Reads and parses skill SKILL.md files and generates permissions matrix
  */
 
-import * as fs from 'fs/promises';
-import { existsSync } from 'fs';
-import * as os from 'os';
-import * as path from 'path';
-import { glob } from 'glob';
-import { Skill, SkillConfig, PermissionsMatrix, Agent } from '../types/agents.js';
-import { AgentService } from './agent-service.js';
+import * as fs from "fs/promises";
+import { existsSync } from "fs";
+import * as os from "os";
+import * as path from "path";
+import { glob } from "glob";
+import { Skill, SkillConfig, PermissionsMatrix } from "../types/agents.js";
+import { AgentService } from "./agent-service.js";
 
 // Resolved lazily so env vars set at runtime are respected.
 // When SKILL_PATH is set, only that path is used.
@@ -17,27 +17,27 @@ function getSkillBasePaths(): string[] {
   if (process.env.SKILL_PATH) {
     return [process.env.SKILL_PATH];
   }
-  
+
   // Try to find npm package installation path
-  let npmSkillsPath = '';
+  let npmSkillsPath = "";
   try {
-    const npmPath = require.resolve('@orcateam/openclaw-skills');
+    const npmPath = require.resolve("@orcateam/openclaw-skills");
     npmSkillsPath = path.dirname(npmPath);
-  } catch (err) {
+  } catch {
     // npm package not found, that's ok - we'll use fallback paths
   }
-  
+
   const paths = [
-    path.join(os.homedir(), '.local/share/openclaw/skills'),
-    '/usr/share/openclaw/skills',
-    '/opt/openclaw/skills',
+    path.join(os.homedir(), ".local/share/openclaw/skills"),
+    "/usr/share/openclaw/skills",
+    "/opt/openclaw/skills",
   ];
-  
+
   // Insert npm package path if found
   if (npmSkillsPath) {
     paths.unshift(npmSkillsPath);
   }
-  
+
   return paths;
 }
 
@@ -71,10 +71,10 @@ export class SkillsService {
     for (const basePath of getSkillBasePaths()) {
       if (!existsSync(basePath)) continue;
 
-      const skillFiles = await glob('**/SKILL.md', {
+      const skillFiles = await glob("**/SKILL.md", {
         cwd: basePath,
         absolute: true,
-        ignore: ['**/node_modules/**', '**/.git/**'],
+        ignore: ["**/node_modules/**", "**/.git/**"],
       });
 
       for (const skillFile of skillFiles) {
@@ -84,7 +84,7 @@ export class SkillsService {
         processedDirs.add(skillDir);
 
         try {
-          const content = await fs.readFile(skillFile, 'utf-8');
+          const content = await fs.readFile(skillFile, "utf-8");
           const skillId = this.extractSkillId(skillFile, basePath);
           const description = this.parseSkillDescription(content);
           const category = this.parseSkillCategory(content);
@@ -94,7 +94,7 @@ export class SkillsService {
           skills.push({
             id: skillId,
             name: config?.name || this.guessNameFromPath(skillFile),
-            description: description || config?.description || '',
+            description: description || config?.description || "",
             location: skillDir,
             category,
           });
@@ -113,7 +113,7 @@ export class SkillsService {
    */
   async readSkill(id: string): Promise<Skill | null> {
     const skills = await this.readSkills();
-    return skills.find(s => s.id === id) || null;
+    return skills.find((s) => s.id === id) || null;
   }
 
   /**
@@ -128,7 +128,9 @@ export class SkillsService {
     for (const agent of agents) {
       const agentRow: boolean[] = [];
       for (const skill of skills) {
-        const hasAccess = agent.skills?.includes(skill.id) || agent.skills?.includes(skill.name);
+        const hasAccess =
+          agent.skills?.includes(skill.id) ||
+          agent.skills?.includes(skill.name);
         agentRow.push(!!hasAccess);
       }
       matrix.push(agentRow);
@@ -148,16 +150,18 @@ export class SkillsService {
   private parseSkillDescription(content: string): string {
     // Strip YAML frontmatter block (--- ... ---) for body parsing
     const frontmatterRegex = /^---[\s\S]*?---\n/;
-    const cleanContent = content.replace(frontmatterRegex, '');
-    
+    const cleanContent = content.replace(frontmatterRegex, "");
+
     // Split and filter out empty lines to handle leading newlines after frontmatter strip
-    const lines = cleanContent.split('\n').filter(line => line.trim().length > 0);
-    
-    let descriptionLines: string[] = [];
+    const lines = cleanContent
+      .split("\n")
+      .filter((line) => line.trim().length > 0);
+
+    const descriptionLines: string[] = [];
     let startIndex = 0;
 
     // Skip the first heading (if it exists)
-    if (lines.length > 0 && lines[0].trim().startsWith('#')) {
+    if (lines.length > 0 && lines[0].trim().startsWith("#")) {
       startIndex = 1;
     }
 
@@ -166,28 +170,30 @@ export class SkillsService {
       const line = lines[i].trim();
 
       // Stop at next heading
-      if (line.startsWith('#')) {
+      if (line.startsWith("#")) {
         break;
       }
 
       // Skip code block markers
-      if (!line.startsWith('```')) {
+      if (!line.startsWith("```")) {
         descriptionLines.push(line);
       }
     }
 
-    const bodyDescription = descriptionLines.join(' ').trim();
+    const bodyDescription = descriptionLines.join(" ").trim();
     if (bodyDescription.length > 0) {
       return bodyDescription;
     }
 
     // Fallback: extract description from YAML frontmatter
-    const frontmatterMatch = content.match(/^---[\s\S]*?description:\s*["']?(.*?)["']?\s*\n/);
+    const frontmatterMatch = content.match(
+      /^---[\s\S]*?description:\s*["']?(.*?)["']?\s*\n/,
+    );
     if (frontmatterMatch?.[1]) {
       return frontmatterMatch[1].trim();
     }
 
-    return '';
+    return "";
   }
 
   /**
@@ -196,7 +202,7 @@ export class SkillsService {
   private parseSkillCategory(content: string): string | undefined {
     const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
     if (!frontmatterMatch) return undefined;
-    
+
     const frontmatter = frontmatterMatch[1];
     const categoryMatch = frontmatter.match(/^category:\s*(.+)$/m);
     return categoryMatch ? categoryMatch[1].trim() : undefined;
@@ -206,11 +212,11 @@ export class SkillsService {
    * Try to read skill.json config file
    */
   private async readSkillConfig(skillDir: string): Promise<SkillConfig | null> {
-    const configPath = path.join(skillDir, 'skill.json');
+    const configPath = path.join(skillDir, "skill.json");
 
     if (existsSync(configPath)) {
       try {
-        const content = await fs.readFile(configPath, 'utf-8');
+        const content = await fs.readFile(configPath, "utf-8");
         return JSON.parse(content);
       } catch (err) {
         console.warn(`[SkillsService] Failed to parse ${configPath}:`, err);
@@ -225,7 +231,7 @@ export class SkillsService {
   private extractSkillId(skillFilePath: string, basePath: string): string {
     const relativePath = path.relative(basePath, skillFilePath);
     const parts = relativePath.split(path.sep);
-    return parts[0] || 'unknown';
+    return parts[0] || "unknown";
   }
 
   /**
@@ -234,10 +240,14 @@ export class SkillsService {
   private guessNameFromPath(skillFilePath: string): string {
     const parts = skillFilePath.split(path.sep);
     for (let i = parts.length - 1; i >= 0; i--) {
-      if (parts[i] === 'SKILL.md') {
-        return parts[i - 1]?.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || 'Unknown Skill';
+      if (parts[i] === "SKILL.md") {
+        return (
+          parts[i - 1]
+            ?.replace(/-/g, " ")
+            .replace(/\b\w/g, (c) => c.toUpperCase()) || "Unknown Skill"
+        );
       }
     }
-    return 'Unknown Skill';
+    return "Unknown Skill";
   }
 }

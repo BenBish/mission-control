@@ -8,8 +8,8 @@
  * 3. Agent ID matching — match generation agent_id to activity actor_id
  */
 
-import { Database } from '../db/database.js';
-import { Activity } from '../types/activity.js';
+import { Database } from "../db/database.js";
+import { Activity } from "../types/activity.js";
 
 interface Generation {
   id: string;
@@ -50,11 +50,18 @@ export class CostLinker {
    * Called after each scanner pass.
    */
   async link(): Promise<LinkResult> {
-    const result: LinkResult = { linked: 0, activitiesUpdated: 0, totalCostAttributed: 0 };
+    const result: LinkResult = {
+      linked: 0,
+      activitiesUpdated: 0,
+      totalCostAttributed: 0,
+    };
 
     try {
       // Get all unlinked generations
-      const unlinked = await this.db.getGenerations({ unlinkedOnly: true, limit: 1000 });
+      const unlinked = await this.db.getGenerations({
+        unlinkedOnly: true,
+        limit: 1000,
+      });
       if (unlinked.length === 0) return result;
 
       for (const gen of unlinked) {
@@ -71,11 +78,13 @@ export class CostLinker {
       result.totalCostAttributed = updated.totalCostAttributed;
 
       if (result.linked > 0) {
-        console.log(`[CostLinker] Linked ${result.linked} generations, updated ${result.activitiesUpdated} activities ($${result.totalCostAttributed.toFixed(4)})`);
+        console.log(
+          `[CostLinker] Linked ${result.linked} generations, updated ${result.activitiesUpdated} activities ($${result.totalCostAttributed.toFixed(4)})`,
+        );
       }
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      console.error('[CostLinker] Error:', errorMessage);
+      console.error("[CostLinker] Error:", errorMessage);
     }
 
     return result;
@@ -100,8 +109,8 @@ export class CostLinker {
 
     // Strategy 2: Session key matching — activity sessionId contains the session UUID
     if (sessionUuid) {
-      const sessionMatches = candidates.filter(a =>
-        a.sessionId.includes(sessionUuid)
+      const sessionMatches = candidates.filter((a) =>
+        a.sessionId.includes(sessionUuid),
       );
       if (sessionMatches.length > 0) {
         return this.findClosestByTimestamp(sessionMatches, genTime);
@@ -115,7 +124,11 @@ export class CostLinker {
   /**
    * Find the activity closest in time to the generation timestamp.
    */
-  private findClosestByTimestamp(activities: Activity[], genTimeMs: number, maxDeltaMs?: number): string | null {
+  private findClosestByTimestamp(
+    activities: Activity[],
+    genTimeMs: number,
+    maxDeltaMs?: number,
+  ): string | null {
     let best: { id: string; delta: number } | null = null;
 
     for (const activity of activities) {
@@ -126,9 +139,12 @@ export class CostLinker {
       if (maxDeltaMs !== undefined && delta > maxDeltaMs) continue;
 
       // Prefer agent_run and decision types as they represent LLM invocations
-      const typeBonus = (activity.actionType === 'decision' || activity.actionType === 'api_call') ? 0 : 1000;
+      const typeBonus =
+        activity.actionType === "decision" || activity.actionType === "api_call"
+          ? 0
+          : 1000;
 
-      if (!best || (delta + typeBonus) < (best.delta)) {
+      if (!best || delta + typeBonus < best.delta) {
         best = { id: activity.id, delta: delta + typeBonus };
       }
     }
@@ -142,9 +158,13 @@ export class CostLinker {
    * e.g. ...sessions/main.jsonl -> null (not a UUID-named file)
    */
   private extractSessionUuid(filePath: string): string | null {
-    const filename = filePath.split('/').pop()?.replace('.jsonl', '') ?? '';
+    const filename = filePath.split("/").pop()?.replace(".jsonl", "") ?? "";
     // UUID pattern
-    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(filename)) {
+    if (
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        filename,
+      )
+    ) {
       return filename;
     }
     return null;
@@ -154,7 +174,10 @@ export class CostLinker {
    * Update activities with aggregated costs from their linked generations.
    * For each activity with linked generations, sum up the generation costs.
    */
-  private async updateActivityCosts(): Promise<{ activitiesUpdated: number; totalCostAttributed: number }> {
+  private async updateActivityCosts(): Promise<{
+    activitiesUpdated: number;
+    totalCostAttributed: number;
+  }> {
     // Get all linked generations grouped by activity
     const generations = await this.db.getGenerations({ limit: 10000 });
     const linkedByActivity = new Map<string, Generation[]>();
@@ -170,10 +193,22 @@ export class CostLinker {
     let totalCostAttributed = 0;
 
     for (const [activityId, gens] of linkedByActivity) {
-      const totalCost = gens.reduce((sum: number, g: Generation) => sum + (g.cost_total || 0), 0);
-      const totalInput = gens.reduce((sum: number, g: Generation) => sum + (g.input_tokens || 0), 0);
-      const totalOutput = gens.reduce((sum: number, g: Generation) => sum + (g.output_tokens || 0), 0);
-      const totalTokens = gens.reduce((sum: number, g: Generation) => sum + (g.total_tokens || 0), 0);
+      const totalCost = gens.reduce(
+        (sum: number, g: Generation) => sum + (g.cost_total || 0),
+        0,
+      );
+      const totalInput = gens.reduce(
+        (sum: number, g: Generation) => sum + (g.input_tokens || 0),
+        0,
+      );
+      const totalOutput = gens.reduce(
+        (sum: number, g: Generation) => sum + (g.output_tokens || 0),
+        0,
+      );
+      const totalTokens = gens.reduce(
+        (sum: number, g: Generation) => sum + (g.total_tokens || 0),
+        0,
+      );
       const model = gens[0]?.model;
 
       if (totalCost > 0) {

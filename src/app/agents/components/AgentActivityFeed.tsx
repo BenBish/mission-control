@@ -59,13 +59,21 @@ export function AgentActivityFeed({
   const getStatusIcon = (status: Activity["status"]) => {
     switch (status) {
       case "success":
-        return <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />;
+        return (
+          <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+        );
       case "failure":
-        return <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />;
+        return (
+          <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+        );
       case "pending":
-        return <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400 animate-spin" />;
+        return (
+          <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400 animate-spin" />
+        );
       case "partial":
-        return <AlertCircle className="h-4 w-4 text-orange-600 dark:text-orange-400" />;
+        return (
+          <AlertCircle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+        );
       default:
         return <Hash className="h-4 w-4 text-muted-foreground" />;
     }
@@ -242,7 +250,10 @@ export function AgentActivityFeed({
                     <p className="font-medium text-sm">
                       {getActionTypeLabel(activity.actionType)}
                       {activity.toolName && (
-                        <span className="text-muted-foreground"> · {activity.toolName}</span>
+                        <span className="text-muted-foreground">
+                          {" "}
+                          · {activity.toolName}
+                        </span>
                       )}
                     </p>
                     <p className="text-sm text-muted-foreground truncate">
@@ -294,11 +305,7 @@ export function AgentActivityFeed({
                 {activity.tags && activity.tags.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1">
                     {activity.tags.map((tag) => (
-                      <Badge
-                        key={tag}
-                        variant="secondary"
-                        className="text-xs"
-                      >
+                      <Badge key={tag} variant="secondary" className="text-xs">
                         {tag}
                       </Badge>
                     ))}

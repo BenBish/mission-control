@@ -2,7 +2,7 @@
  * Skill Types
  */
 
-import type { Agent } from './agents';
+import type { Agent } from "./agents";
 
 export interface Skill {
   id: string;

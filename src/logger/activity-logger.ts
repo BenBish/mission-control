@@ -4,10 +4,15 @@
  * This is the instrumentation layer that captures every action
  */
 
-import { EventEmitter } from 'events';
-import { Database } from '../db/database.js';
-import { Activity, Actor, CreateActivityInput, TokenInfo } from '../types/activity.js';
-import { calculateCost } from '../types/pricing.js';
+import { EventEmitter } from "events";
+import { Database } from "../db/database.js";
+import {
+  Activity,
+  Actor,
+  CreateActivityInput,
+  TokenInfo,
+} from "../types/activity.js";
+import { calculateCost } from "../types/pricing.js";
 
 export class ActivityLogger extends EventEmitter {
   private pendingActivities: Map<string, Activity> = new Map();
@@ -31,12 +36,12 @@ export class ActivityLogger extends EventEmitter {
     const activity = await this.log({
       sessionId,
       actor: {
-        type: 'system',
-        id: 'mission-control',
+        type: "system",
+        id: "mission-control",
       },
-      actionType: 'session_start',
+      actionType: "session_start",
       description: `Session started: ${sessionId}`,
-      status: 'success',
+      status: "success",
     });
 
     await this.db.createSession(sessionId);
@@ -54,10 +59,10 @@ export class ActivityLogger extends EventEmitter {
     const activity = await this.log({
       sessionId,
       actor: {
-        type: 'system',
-        id: 'mission-control',
+        type: "system",
+        id: "mission-control",
       },
-      actionType: 'session_end',
+      actionType: "session_end",
       description: `Session ended: ${sessionId}`,
     });
 
@@ -76,16 +81,16 @@ export class ActivityLogger extends EventEmitter {
     actor: Actor,
     toolName: string,
     details: Record<string, unknown>,
-    description: string
+    description: string,
   ): Promise<string> {
     const activity = await this.log({
       sessionId,
       actor,
-      actionType: 'tool_call',
+      actionType: "tool_call",
       toolName,
       description,
       details,
-      tags: ['tool-execution'],
+      tags: ["tool-execution"],
     });
 
     return activity.id;
@@ -96,11 +101,11 @@ export class ActivityLogger extends EventEmitter {
    */
   async logToolEnd(
     activityId: string,
-    status: 'success' | 'failure' | 'partial',
+    status: "success" | "failure" | "partial",
     result: unknown,
     output?: string,
     error?: string,
-    durationMs?: number
+    durationMs?: number,
   ): Promise<void> {
     const activity = this.pendingActivities.get(activityId);
     if (!activity) {
@@ -109,14 +114,15 @@ export class ActivityLogger extends EventEmitter {
     }
 
     const completedAt = new Date().toISOString();
-    const elapsed = durationMs || Date.now() - new Date(activity.timestamp).getTime();
+    const elapsed =
+      durationMs || Date.now() - new Date(activity.timestamp).getTime();
 
     await this.db.updateActivity(activityId, {
       status,
       completedAt,
       durationMs: elapsed,
       result: {
-        success: status === 'success',
+        success: status === "success",
         output: output?.substring(0, 5000),
         error,
       },
@@ -127,11 +133,11 @@ export class ActivityLogger extends EventEmitter {
     // Fetch updated activity and emit events
     const updatedActivity = await this.db.getActivity(activityId);
     if (updatedActivity) {
-      this.emit('activity:updated', updatedActivity);
+      this.emit("activity:updated", updatedActivity);
     }
 
     // Emit completion event
-    this.emit('activity:complete', { id: activityId, status });
+    this.emit("activity:complete", { id: activityId, status });
   }
 
   /**
@@ -140,9 +146,13 @@ export class ActivityLogger extends EventEmitter {
   async logToolWithTokens(
     activityId: string,
     tokens: TokenInfo,
-    status: 'success' | 'failure' | 'partial' = 'success'
+    status: "success" | "failure" | "partial" = "success",
   ): Promise<void> {
-    const cost = calculateCost(tokens.model, tokens.inputTokens, tokens.outputTokens);
+    const cost = calculateCost(
+      tokens.model,
+      tokens.inputTokens,
+      tokens.outputTokens,
+    );
 
     await this.db.updateActivity(activityId, {
       status,
@@ -159,11 +169,11 @@ export class ActivityLogger extends EventEmitter {
     // Fetch updated activity and emit event
     const updatedActivity = await this.db.getActivity(activityId);
     if (updatedActivity) {
-      this.emit('activity:updated', updatedActivity);
+      this.emit("activity:updated", updatedActivity);
     }
 
     // Emit cost event for dashboard
-    this.emit('activity:cost', {
+    this.emit("activity:cost", {
       id: activityId,
       cost: cost,
       tokens: tokens.totalTokens,
@@ -178,16 +188,16 @@ export class ActivityLogger extends EventEmitter {
     parentActivityId: string | undefined,
     actor: Actor,
     targetAgent: string,
-    description: string
+    description: string,
   ): Promise<string> {
     const activity = await this.log({
       sessionId,
       parentActivityId,
       actor,
-      actionType: 'delegation',
+      actionType: "delegation",
       description: description || `Delegated to ${targetAgent}`,
       details: { targetAgent },
-      tags: ['delegation'],
+      tags: ["delegation"],
     });
     return activity.id;
   }
@@ -199,19 +209,19 @@ export class ActivityLogger extends EventEmitter {
     sessionId: string,
     parentActivityId: string | undefined,
     agentId: string,
-    agentRole: string
+    agentRole: string,
   ): Promise<string> {
     const activity = await this.log({
       sessionId,
       parentActivityId,
       actor: {
-        type: 'system',
-        id: 'mission-control',
+        type: "system",
+        id: "mission-control",
       },
-      actionType: 'agent_spawn',
+      actionType: "agent_spawn",
       description: `Spawned agent: ${agentId} (${agentRole})`,
       details: { agentId, agentRole },
-      tags: ['agent-lifecycle'],
+      tags: ["agent-lifecycle"],
     });
     return activity.id;
   }
@@ -222,17 +232,17 @@ export class ActivityLogger extends EventEmitter {
   async logUserRequest(
     sessionId: string,
     userId: string,
-    request: string
+    request: string,
   ): Promise<string> {
     const activity = await this.log({
       sessionId,
       actor: {
-        type: 'user',
+        type: "user",
         id: userId,
       },
-      actionType: 'user_request',
+      actionType: "user_request",
       description: `User requested: ${request}`,
-      tags: ['user-input'],
+      tags: ["user-input"],
     });
     return activity.id;
   }
@@ -245,15 +255,15 @@ export class ActivityLogger extends EventEmitter {
     actor: Actor,
     endpoint: string,
     method: string,
-    statusCode?: number
+    statusCode?: number,
   ): Promise<string> {
     const activity = await this.log({
       sessionId,
       actor,
-      actionType: 'api_call',
+      actionType: "api_call",
       description: `${method} ${endpoint}`,
       details: { endpoint, method, statusCode },
-      tags: ['api'],
+      tags: ["api"],
     });
     return activity.id;
   }
@@ -265,15 +275,15 @@ export class ActivityLogger extends EventEmitter {
     sessionId: string,
     actor: Actor,
     target: string,
-    message: string
+    message: string,
   ): Promise<string> {
     const activity = await this.log({
       sessionId,
       actor,
-      actionType: 'message',
+      actionType: "message",
       description: `Message to ${target}: ${message.substring(0, 100)}`,
       details: { target, message },
-      tags: ['messaging'],
+      tags: ["messaging"],
     });
     return activity.id;
   }
@@ -286,12 +296,12 @@ export class ActivityLogger extends EventEmitter {
     const activity = await this.db.createActivity(input);
 
     // Track pending activities for later updates
-    if (activity.status === 'pending') {
+    if (activity.status === "pending") {
       this.pendingActivities.set(activity.id, activity);
     }
 
     // Emit creation event for real-time dashboard
-    this.emit('activity:created', activity);
+    this.emit("activity:created", activity);
 
     return activity;
   }

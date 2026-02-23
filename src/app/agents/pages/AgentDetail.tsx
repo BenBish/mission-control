@@ -8,19 +8,27 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { SOULMarkdownViewer } from "../components/SOULMarkdownViewer";
 import { AgentActivityFeed } from "../components/AgentActivityFeed";
-import { AlertCircle, ArrowLeft, Bot, Clock, DollarSign, Hash, Zap } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowLeft,
+  Bot,
+  Clock,
+  DollarSign,
+  Hash,
+  Zap,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 export default function AgentDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { agent, isLoading, error } = useAgent(id || "");
-  const { 
-    activities, 
+  const {
+    activities,
     isLoading: activitiesLoading,
     error: activitiesError,
     isSubscribed,
-    refetch: refetchActivities
+    refetch: refetchActivities,
   } = useAgentActivity(id || null);
 
   if (!id) {
@@ -54,8 +62,12 @@ export default function AgentDetail() {
           <CardContent className="flex items-center gap-3 py-6">
             <AlertCircle className="h-5 w-5 text-destructive" />
             <div>
-              <p className="font-medium text-destructive">Error loading agent</p>
-              <p className="text-sm text-muted-foreground">{error || "Agent not found"}</p>
+              <p className="font-medium text-destructive">
+                Error loading agent
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {error || "Agent not found"}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -151,7 +163,11 @@ export default function AgentDetail() {
               <div>
                 <CardTitle className="text-2xl">{agent.name}</CardTitle>
                 <div className="mt-2 flex items-center gap-2">
-                  <Badge variant={agent.role === "orchestrator" ? "default" : "secondary"}>
+                  <Badge
+                    variant={
+                      agent.role === "orchestrator" ? "default" : "secondary"
+                    }
+                  >
                     {agent.role}
                   </Badge>
                   {getStatusBadge(agent.status)}
@@ -171,7 +187,9 @@ export default function AgentDetail() {
                 <Clock className="h-3.5 w-3.5" />
                 Last Active
               </p>
-              <p className="text-sm font-medium">{formatLastActive(agent.lastActive)}</p>
+              <p className="text-sm font-medium">
+                {formatLastActive(agent.lastActive)}
+              </p>
             </div>
             <div className="space-y-1">
               <p className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -185,14 +203,19 @@ export default function AgentDetail() {
                 <DollarSign className="h-3.5 w-3.5" />
                 Total Cost
               </p>
-              <p className="text-sm font-medium">{formatCost(agent.totalCost)}</p>
+              <p className="text-sm font-medium">
+                {formatCost(agent.totalCost)}
+              </p>
             </div>
           </div>
           <div className="mt-4 border-t pt-4">
             <div className="flex items-center gap-2">
               <Zap className="h-3.5 w-3.5 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">
-                <span className="font-medium">{formatTokens(agent.totalTokens)}</span> tokens total
+                <span className="font-medium">
+                  {formatTokens(agent.totalTokens)}
+                </span>{" "}
+                tokens total
               </span>
             </div>
           </div>
@@ -233,12 +256,16 @@ export default function AgentDetail() {
             <CardContent className="space-y-4">
               <div className="grid gap-4">
                 <div>
-                  <h3 className="text-sm font-semibold text-muted-foreground">Agent ID</h3>
+                  <h3 className="text-sm font-semibold text-muted-foreground">
+                    Agent ID
+                  </h3>
                   <p className="font-mono text-sm">{agent.id}</p>
                 </div>
                 {agent.config?.identity && (
                   <div>
-                    <h3 className="text-sm font-semibold text-muted-foreground">Identity</h3>
+                    <h3 className="text-sm font-semibold text-muted-foreground">
+                      Identity
+                    </h3>
                     <p className="text-sm">
                       {agent.config.identity.emoji} {agent.config.identity.name}
                     </p>
@@ -246,13 +273,17 @@ export default function AgentDetail() {
                 )}
                 {agent.config?.model && (
                   <div>
-                    <h3 className="text-sm font-semibold text-muted-foreground">Configured Model</h3>
+                    <h3 className="text-sm font-semibold text-muted-foreground">
+                      Configured Model
+                    </h3>
                     <p className="font-mono text-sm">{agent.config.model}</p>
                   </div>
                 )}
                 {agent.config?.workspace && (
                   <div>
-                    <h3 className="text-sm font-semibold text-muted-foreground">Workspace</h3>
+                    <h3 className="text-sm font-semibold text-muted-foreground">
+                      Workspace
+                    </h3>
                     <p className="font-mono text-xs text-muted-foreground break-all">
                       {agent.config.workspace}
                     </p>
@@ -260,18 +291,24 @@ export default function AgentDetail() {
                 )}
                 {agent.config?.gitConfig && (
                   <div>
-                    <h3 className="text-sm font-semibold text-muted-foreground">Git Configuration</h3>
+                    <h3 className="text-sm font-semibold text-muted-foreground">
+                      Git Configuration
+                    </h3>
                     <div className="space-y-1 text-sm">
                       {agent.config.gitConfig.author && (
                         <p>
                           <span className="text-muted-foreground">Author:</span>{" "}
-                          <span className="font-mono">{agent.config.gitConfig.author}</span>
+                          <span className="font-mono">
+                            {agent.config.gitConfig.author}
+                          </span>
                         </p>
                       )}
                       {agent.config.gitConfig.email && (
                         <p>
                           <span className="text-muted-foreground">Email:</span>{" "}
-                          <span className="font-mono">{agent.config.gitConfig.email}</span>
+                          <span className="font-mono">
+                            {agent.config.gitConfig.email}
+                          </span>
                         </p>
                       )}
                     </div>
@@ -314,7 +351,9 @@ export default function AgentDetail() {
                   </div>
                 </div>
               ) : (
-                <p className="text-muted-foreground">No configuration data available</p>
+                <p className="text-muted-foreground">
+                  No configuration data available
+                </p>
               )}
             </CardContent>
           </Card>

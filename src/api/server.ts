@@ -3,17 +3,17 @@
  * Main API server for Mission Control Activity Feed
  */
 
-import express, { Express } from 'express';
-import cors from 'cors';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import dotenv from 'dotenv';
-import { Database } from '../db/database.js';
-import { ActivityLogger } from '../logger/activity-logger.js';
-import { setupRoutes } from './routes.js';
-import { SessionLogScanner } from '../services/session-log-scanner.js';
-import { CostLinker } from '../services/cost-linker.js';
-import { initializePricing } from '../types/pricing.js';
+import express, { Express } from "express";
+import cors from "cors";
+import path from "path";
+import { fileURLToPath } from "url";
+import dotenv from "dotenv";
+import { Database } from "../db/database.js";
+import { ActivityLogger } from "../logger/activity-logger.js";
+import { setupRoutes } from "./routes.js";
+import { SessionLogScanner } from "../services/session-log-scanner.js";
+import { CostLinker } from "../services/cost-linker.js";
+import { initializePricing } from "../types/pricing.js";
 
 // Load environment variables from .env file
 dotenv.config();
@@ -49,11 +49,11 @@ export class ActivityFeedServer {
    */
   private setupMiddleware(): void {
     this.app.use(cors());
-    this.app.use(express.json({ limit: '5mb' }));
-    this.app.use(express.urlencoded({ extended: true, limit: '5mb' }));
+    this.app.use(express.json({ limit: "5mb" }));
+    this.app.use(express.urlencoded({ extended: true, limit: "5mb" }));
 
     // Serve static frontend files (Vite build output)
-    const publicPath = './dist-vite';
+    const publicPath = "./dist-vite";
     this.app.use(express.static(publicPath));
 
     // Request logging
@@ -67,7 +67,7 @@ export class ActivityFeedServer {
    * Initialize server (setup database and routes)
    */
   async initialize(): Promise<void> {
-    console.log('🚀 Initializing Activity Feed Server...');
+    console.log("🚀 Initializing Activity Feed Server...");
 
     // Initialize database
     await this.db.initialize();
@@ -75,30 +75,30 @@ export class ActivityFeedServer {
 
     // Setup routes
     setupRoutes(this.app, this.logger);
-    console.log('✓ Routes configured');
+    console.log("✓ Routes configured");
 
     // Make logger accessible to routes via app locals
     this.app.locals.logger = this.logger;
     this.app.locals.db = this.db;
 
     // Setup real-time event broadcasting
-    this.logger.on('activity:created', (activity) => {
+    this.logger.on("activity:created", (activity) => {
       if (this.app.locals.broadcastActivity) {
         this.app.locals.broadcastActivity(activity);
       }
     });
 
-    this.logger.on('activity:updated', (activity) => {
+    this.logger.on("activity:updated", (activity) => {
       if (this.app.locals.broadcastActivity) {
         this.app.locals.broadcastActivity(activity);
       }
     });
 
-    console.log('✓ Real-time event broadcasting enabled');
+    console.log("✓ Real-time event broadcasting enabled");
 
     // Initialize pricing (OpenRouter API with static fallback)
     await initializePricing();
-    console.log('✓ Pricing service initialized');
+    console.log("✓ Pricing service initialized");
 
     // Start session log scanner and cost linker
     this.costLinker = new CostLinker(this.db);
@@ -115,13 +115,13 @@ export class ActivityFeedServer {
     };
 
     this.scanner.start();
-    console.log('✓ Session log scanner started');
+    console.log("✓ Session log scanner started");
 
     // Expose scanner and linker for route handlers
     this.app.locals.scanner = this.scanner;
     this.app.locals.costLinker = this.costLinker;
 
-    console.log('✓ Server initialized');
+    console.log("✓ Server initialized");
   }
 
   /**
@@ -132,8 +132,12 @@ export class ActivityFeedServer {
 
     return new Promise((resolve) => {
       this.app.listen(this.config.port, () => {
-        console.log(`✨ Activity Feed Server running on http://localhost:${this.config.port}`);
-        console.log(`📊 Dashboard: http://localhost:${this.config.port}/dashboard`);
+        console.log(
+          `✨ Activity Feed Server running on http://localhost:${this.config.port}`,
+        );
+        console.log(
+          `📊 Dashboard: http://localhost:${this.config.port}/dashboard`,
+        );
         console.log(`📡 API: http://localhost:${this.config.port}/api`);
         resolve();
       });
@@ -158,12 +162,12 @@ export class ActivityFeedServer {
    * Stop the server gracefully
    */
   async stop(): Promise<void> {
-    console.log('Shutting down...');
+    console.log("Shutting down...");
     if (this.scanner) {
       this.scanner.stop();
     }
     await this.db.close();
-    console.log('✓ Stopped');
+    console.log("✓ Stopped");
   }
 }
 
@@ -172,15 +176,15 @@ export class ActivityFeedServer {
  */
 async function main() {
   const config: ServerConfig = {
-    port: parseInt(process.env.PORT || '3001'),
-    databasePath: process.env.DATABASE_PATH || './data/mission-control.db',
-    nodeEnv: process.env.NODE_ENV || 'development',
+    port: parseInt(process.env.PORT || "3001"),
+    databasePath: process.env.DATABASE_PATH || "./data/mission-control.db",
+    nodeEnv: process.env.NODE_ENV || "development",
   };
 
   const server = new ActivityFeedServer(config);
 
   // Graceful shutdown
-  process.on('SIGINT', async () => {
+  process.on("SIGINT", async () => {
     await server.stop();
     process.exit(0);
   });
@@ -191,7 +195,7 @@ async function main() {
 // Run if executed directly
 if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch((error) => {
-    console.error('Fatal error:', error);
+    console.error("Fatal error:", error);
     process.exit(1);
   });
 }

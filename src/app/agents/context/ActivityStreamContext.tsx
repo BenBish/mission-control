@@ -23,14 +23,19 @@ import type { Activity } from "@/types/activity";
 
 interface ActivityStreamContextValue {
   /** Subscribe to activities for a specific actor. Returns an unsubscribe fn. */
-  subscribe: (actorId: string, handler: (activity: Activity) => void) => () => void;
+  subscribe: (
+    actorId: string,
+    handler: (activity: Activity) => void,
+  ) => () => void;
   /** Whether the SSE connection is currently open */
   connected: boolean;
 }
 
 // ─── Context ─────────────────────────────────────────────────────────────────
 
-const ActivityStreamContext = createContext<ActivityStreamContextValue | null>(null);
+const ActivityStreamContext = createContext<ActivityStreamContextValue | null>(
+  null,
+);
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
@@ -40,15 +45,20 @@ interface ActivityStreamProviderProps {
   children: ReactNode;
 }
 
-export function ActivityStreamProvider({ children }: ActivityStreamProviderProps) {
+export function ActivityStreamProvider({
+  children,
+}: ActivityStreamProviderProps) {
   const [connected, setConnected] = useState(false);
 
   // Map of actorId → Set of handlers
-  const handlersRef = useRef<Map<string, Set<(activity: Activity) => void>>>(new Map());
+  const handlersRef = useRef<Map<string, Set<(activity: Activity) => void>>>(
+    new Map(),
+  );
   const eventSourceRef = useRef<EventSource | null>(null);
   const retryCountRef = useRef(0);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const unmountedRef = useRef(false);
+  const connectRef = useRef<() => void>(() => {});
 
   const connect = useCallback(() => {
     if (unmountedRef.current) return;
@@ -93,18 +103,23 @@ export function ActivityStreamProvider({ children }: ActivityStreamProviderProps
 
       // Exponential backoff retry
       const attempt = retryCountRef.current;
-      const delayMs = BACKOFF_DELAYS_MS[Math.min(attempt, BACKOFF_DELAYS_MS.length - 1)];
+      const delayMs =
+        BACKOFF_DELAYS_MS[Math.min(attempt, BACKOFF_DELAYS_MS.length - 1)];
       retryCountRef.current += 1;
 
       console.warn(
-        `[ActivityStream] SSE error — retrying in ${delayMs / 1000}s (attempt ${attempt + 1})`
+        `[ActivityStream] SSE error — retrying in ${delayMs / 1000}s (attempt ${attempt + 1})`,
       );
 
       retryTimerRef.current = setTimeout(() => {
-        if (!unmountedRef.current) connect();
+        if (!unmountedRef.current) connectRef.current();
       }, delayMs);
     });
   }, []); // stable — no deps that change
+
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
 
   useEffect(() => {
     unmountedRef.current = false;
@@ -141,7 +156,7 @@ export function ActivityStreamProvider({ children }: ActivityStreamProviderProps
         }
       };
     },
-    []
+    [],
   );
 
   return (
@@ -160,14 +175,17 @@ export function ActivityStreamProvider({ children }: ActivityStreamProviderProps
  *                 e.g. 'engineer' not 'workspace-engineer').
  * @param onActivity  Called for each matching activity event.
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function useActivityStream(
   actorId: string | null,
-  onActivity: (activity: Activity) => void
+  onActivity: (activity: Activity) => void,
 ): { connected: boolean } {
   const ctx = useContext(ActivityStreamContext);
 
   if (!ctx) {
-    throw new Error("useActivityStream must be used within <ActivityStreamProvider>");
+    throw new Error(
+      "useActivityStream must be used within <ActivityStreamProvider>",
+    );
   }
 
   const { subscribe, connected } = ctx;

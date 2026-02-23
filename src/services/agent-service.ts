@@ -3,30 +3,38 @@
  * Reads and parses agent SOUL.md files and configuration
  */
 
-import * as fs from 'fs/promises';
-import { existsSync } from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { glob } from 'glob';
-import { Agent, AgentConfig, SoulMetadata, AgentActivity } from '../types/agents.js';
-import { Database } from '../db/database.js';
-import { ActivityFilter } from '../types/activity.js';
+import * as fs from "fs/promises";
+import { existsSync } from "fs";
+import * as path from "path";
+import * as os from "os";
+import { glob } from "glob";
+import {
+  Agent,
+  AgentConfig,
+  SoulMetadata,
+  AgentActivity,
+} from "../types/agents.js";
+import { Database } from "../db/database.js";
+import { ActivityFilter } from "../types/activity.js";
 
 // Base paths for agents - use AGENT_PATHS env var or defaults with os.homedir()
 // Resolved lazily so env vars set at runtime (e.g. in tests) are respected.
 const DEFAULT_AGENT_PATHS = [
-  path.join(os.homedir(), '.openclaw-team', 'agents'),
-  path.join(os.homedir(), '.openclaw-team', 'workspace-engineer'),
-  path.join(os.homedir(), '.openclaw-team', 'workspace-solutions-architect'),
-  path.join(os.homedir(), '.openclaw-team', 'workspace-code-reviewer'),
-  path.join(os.homedir(), '.openclaw-team', 'workspace-manual-tester'),
-  path.join(os.homedir(), '.openclaw-team', 'workspace-engineer-2'),
-  path.join(os.homedir(), '.openclaw-team', 'workspace-project-manager'),
-  path.join(os.homedir(), '.openclaw-team', 'workspace'),
+  path.join(os.homedir(), ".openclaw-team", "agents"),
+  path.join(os.homedir(), ".openclaw-team", "workspace-engineer"),
+  path.join(os.homedir(), ".openclaw-team", "workspace-solutions-architect"),
+  path.join(os.homedir(), ".openclaw-team", "workspace-code-reviewer"),
+  path.join(os.homedir(), ".openclaw-team", "workspace-manual-tester"),
+  path.join(os.homedir(), ".openclaw-team", "workspace-engineer-2"),
+  path.join(os.homedir(), ".openclaw-team", "workspace-project-manager"),
+  path.join(os.homedir(), ".openclaw-team", "workspace"),
 ];
 
 function getAgentBasePaths(): string[] {
-  return process.env.AGENT_PATHS?.split(path.delimiter).filter(Boolean) || DEFAULT_AGENT_PATHS;
+  return (
+    process.env.AGENT_PATHS?.split(path.delimiter).filter(Boolean) ||
+    DEFAULT_AGENT_PATHS
+  );
 }
 
 // Cache TTL in milliseconds
@@ -68,10 +76,10 @@ export class AgentService {
     for (const basePath of getAgentBasePaths()) {
       if (!existsSync(basePath)) continue;
 
-      const soulFiles = await glob('**/SOUL.md', {
+      const soulFiles = await glob("**/SOUL.md", {
         cwd: basePath,
         absolute: true,
-        ignore: ['**/node_modules/**', '**/.git/**'],
+        ignore: ["**/node_modules/**", "**/.git/**"],
       });
 
       for (const soulFile of soulFiles) {
@@ -79,7 +87,7 @@ export class AgentService {
         processedPaths.add(soulFile);
 
         try {
-          const content = await fs.readFile(soulFile, 'utf-8');
+          const content = await fs.readFile(soulFile, "utf-8");
           const metadata = this.parseSOULMarkdown(content);
 
           const soulDir = path.dirname(soulFile);
@@ -90,11 +98,15 @@ export class AgentService {
 
           agents.push({
             id: agentId,
-            name: agentConfig?.name || metadata.name || this.guessNameFromPath(soulFile),
-            role: metadata.role || agentConfig?.role || 'Unknown',
-            model: metadata.model || agentConfig?.model || 'unknown',
+            name:
+              agentConfig?.name ||
+              metadata.name ||
+              this.guessNameFromPath(soulFile),
+            role: metadata.role || agentConfig?.role || "Unknown",
+            model: metadata.model || agentConfig?.model || "unknown",
             gitAuthorName: metadata.gitAuthorName || agentConfig?.gitAuthorName,
-            gitAuthorEmail: metadata.gitAuthorEmail || agentConfig?.gitAuthorEmail,
+            gitAuthorEmail:
+              metadata.gitAuthorEmail || agentConfig?.gitAuthorEmail,
             skills: agentConfig?.allowedSkills || [],
           });
         } catch (err) {
@@ -115,7 +127,7 @@ export class AgentService {
    */
   async readAgent(id: string): Promise<Agent | null> {
     const agents = await this.readAgents();
-    return agents.find(a => a.id === id) || null;
+    return agents.find((a) => a.id === id) || null;
   }
 
   /**
@@ -129,7 +141,7 @@ export class AgentService {
       const soulFile = this.soulPathCache.data.get(id);
       if (soulFile) {
         try {
-          return await fs.readFile(soulFile, 'utf-8');
+          return await fs.readFile(soulFile, "utf-8");
         } catch (err) {
           console.warn(`[AgentService] Failed to read ${soulFile}:`, err);
           return null;
@@ -145,13 +157,15 @@ export class AgentService {
    */
   parseSOULMarkdown(content: string): SoulMetadata {
     const metadata: SoulMetadata = {
-      role: '',
+      role: "",
     };
 
     // Extract role — prefer the tagline after the em-dash in the intro
     // ("You are the **Engineer** — you turn designs into working code."),
     // fall back to ## Role paragraph content.
-    const taglineMatch = content.match(/You are (?:the )?\*\*[^*]+\*\*\s*[-–—]\s*([^\n.]+)/i);
+    const taglineMatch = content.match(
+      /You are (?:the )?\*\*[^*]+\*\*\s*[-–—]\s*([^\n.]+)/i,
+    );
     if (taglineMatch) {
       metadata.role = taglineMatch[1].trim();
     } else {
@@ -201,9 +215,12 @@ export class AgentService {
   /**
    * Get agent activity from the database
    */
-  async getAgentActivity(id: string, limit: number = 50): Promise<AgentActivity[]> {
+  async getAgentActivity(
+    id: string,
+    limit: number = 50,
+  ): Promise<AgentActivity[]> {
     if (!this.db) {
-      console.warn('[AgentService] Database not initialized');
+      console.warn("[AgentService] Database not initialized");
       return [];
     }
 
@@ -215,7 +232,7 @@ export class AgentService {
 
       const activities = await this.db.getActivities(filter);
 
-      return activities.map(a => ({
+      return activities.map((a) => ({
         id: a.id,
         sessionId: a.sessionId,
         timestamp: a.timestamp,
@@ -227,7 +244,7 @@ export class AgentService {
         cost: a.cost,
       }));
     } catch (err) {
-      console.error('[AgentService] Failed to get agent activity:', err);
+      console.error("[AgentService] Failed to get agent activity:", err);
       return [];
     }
   }
@@ -247,11 +264,11 @@ export class AgentService {
    * Try to read agent.json config file from agent directory
    */
   private async readAgentConfig(agentDir: string): Promise<AgentConfig | null> {
-    const configPath = path.join(agentDir, 'agent.json');
+    const configPath = path.join(agentDir, "agent.json");
 
     if (existsSync(configPath)) {
       try {
-        const content = await fs.readFile(configPath, 'utf-8');
+        const content = await fs.readFile(configPath, "utf-8");
         return JSON.parse(content);
       } catch (err) {
         console.warn(`[AgentService] Failed to parse ${configPath}:`, err);
@@ -268,16 +285,16 @@ export class AgentService {
     const parts = relativePath.split(path.sep);
 
     // Handle SOUL.md directly in base path (e.g., /agents/SOUL.md)
-    if (parts[0] === 'SOUL.md') {
+    if (parts[0] === "SOUL.md") {
       return path.basename(basePath);
     }
 
-    if (parts[0] === 'workspace') {
+    if (parts[0] === "workspace") {
       // For workspace/SOUL.md, the agent is the parent of workspace
       return parts[1] || path.basename(path.dirname(basePath));
     }
 
-    return parts[0] || 'unknown';
+    return parts[0] || "unknown";
   }
 
   /**
@@ -286,13 +303,16 @@ export class AgentService {
   private guessNameFromPath(soulFilePath: string): string {
     const parts = soulFilePath.split(path.sep);
     for (let i = parts.length - 1; i >= 0; i--) {
-      if (parts[i].startsWith('workspace-')) {
-        return parts[i].replace('workspace-', '').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+      if (parts[i].startsWith("workspace-")) {
+        return parts[i]
+          .replace("workspace-", "")
+          .replace(/-/g, " ")
+          .replace(/\b\w/g, (c) => c.toUpperCase());
       }
-      if (parts[i] === 'workspace') {
-        return parts[i - 1] || 'Orchestrator';
+      if (parts[i] === "workspace") {
+        return parts[i - 1] || "Orchestrator";
       }
     }
-    return 'Unknown Agent';
+    return "Unknown Agent";
   }
 }

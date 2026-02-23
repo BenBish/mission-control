@@ -349,7 +349,7 @@ To verify the integration is working:
 
 ```bash
 # Start the Activity Feed server
-npm run api
+bun run api
 
 # Run a test session with Activity Logger
 node --loader ts-node/esm examples/basic-usage.ts
