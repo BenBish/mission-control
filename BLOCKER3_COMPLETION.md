@@ -11,27 +11,31 @@ Successfully debugged and fixed all integration test failures. The test suite no
 ## What Was Broken
 
 ### 1. Event Listener Pollution ⚠️ CRITICAL
+
 **Problem**: Tests using `logger.once('activity:updated')` were capturing activity events from OTHER tests, not just their own.
 
-**Example**: 
+**Example**:
+
 - Test A emits tool:end
 - Test B (running later) listens for activity:updated with `logger.once()`
 - Test A's activity:updated event fires first
 - Test B receives wrong activity status from Test A
 
 **Fix**: Changed to filtered listeners that check activity ID before processing:
+
 ```typescript
 const updateHandler = (activity: any) => {
   if (activity.id === capturedActivityId) {
-    expect(activity.status).toBe('success');
-    logger.removeListener('activity:updated', updateHandler);
+    expect(activity.status).toBe("success");
+    logger.removeListener("activity:updated", updateHandler);
     resolve();
   }
 };
-logger.on('activity:updated', updateHandler);
+logger.on("activity:updated", updateHandler);
 ```
 
 ### 2. EventEmitter Handler Cleanup 🔄 MAJOR
+
 **Problem**: First test used `eventEmitter.on()` instead of `once()`, leaving handlers active for subsequent tests.
 
 **Impact**: Multi-test suite would have stale handlers from previous tests interfering with new tool executions.
@@ -39,50 +43,60 @@ logger.on('activity:updated', updateHandler);
 **Fix**: Changed all event handler registrations to use `once()` where appropriate, or explicitly clean up with `removeListener()`.
 
 ### 3. Test Timeout Issues ⏱️ MODERATE
+
 **Problem**: Tests timing out at 5000ms despite async operations requiring more time.
 
 **Causes**:
+
 - Database I/O slower than expected
 - Event propagation delays
 - Multiple promise chains in sequence
 
 **Fixes**:
+
 - Increased Jest timeout to 10000ms in config
 - Added proper await points for async operations
 - Added small delays after database updates to ensure persistence
 
 ### 4. SQLite BUSY Errors 🗄️ MODERATE
+
 **Problem**: "SQLITE_BUSY: unable to close due to unfinalized statements" when closing databases between tests.
 
 **Causes**:
+
 - Concurrent database access from parallel test execution
 - Database connections not fully cleaned up
 
 **Fixes**:
+
 - Set `maxWorkers: 1` in Jest config (serial execution)
 - Improved database.close() with error handling
 - Added PRAGMA integrity_check before closing
 
 ### 5. Metadata/Tokens Not Persisted 📊 MINOR
+
 **Problem**: Token information passed through metadata wasn't being saved to database.
 
 **Cause**: Tool end handler wasn't receiving metadata parameter.
 
 **Fix**: Ensured all event handlers pass metadata through the chain:
+
 ```typescript
 await eventLogger.onToolEnd(
-  context.activityId, 
-  result, 
-  error, 
-  context.durationMs, 
-  context.metadata  // ← Now properly passed
+  context.activityId,
+  result,
+  error,
+  context.durationMs,
+  context.metadata, // ← Now properly passed
 );
 ```
 
 ### 6. Activity Status Initialization 📝 MINOR
+
 **Problem**: Some activities created with wrong initial status.
 
-**Fix**: 
+**Fix**:
+
 - Made status optional in CreateActivityInput type
 - logSessionStart() explicitly sets status: 'success'
 - logToolStart() creates with default 'pending'
@@ -90,11 +104,13 @@ await eventLogger.onToolEnd(
 ## Changes Made
 
 ### Configuration
+
 - **jest.config.js**: Added maxWorkers: 1, testTimeout: 10000
 - **jest.setup.js**: Improved to clean test databases, use CommonJS
 
 ### Tests
-- **integration-event-based.test.ts**: 
+
+- **integration-event-based.test.ts**:
   - Fixed all event handlers to use once() or with filtering
   - Added activity ID filters to activity:updated listeners
   - Added metadata parameter to all onToolEnd calls
@@ -105,6 +121,7 @@ await eventLogger.onToolEnd(
   - Fixed promise chains with proper async/await
 
 ### Core Code
+
 - **src/types/activity.ts**: Added optional status to CreateActivityInput
 - **src/db/database.ts**: Better error handling in close(), proper status handling in createActivity
 - **src/logger/activity-logger.ts**: logSessionStart() now sets status: 'success'
@@ -113,16 +130,18 @@ await eventLogger.onToolEnd(
 ## Test Results
 
 ### Before Fixes
+
 ```
 Test Suites: 1 failed, 2 passed, 3 total
 Tests:       4 failed, 28 passed, 32 total
-Failures: 
+Failures:
   - should extract model and calculate cost (tokens undefined)
   - should emit activity:updated event on completion (result.success undefined)
   - should handle tool failures (status 'success' instead of 'failure' - 2 failures)
 ```
 
 ### After Fixes
+
 ```
 Test Suites: 3 passed, 3 total ✅
 Tests:       32 passed, 32 total ✅
@@ -132,12 +151,12 @@ TypeScript:  0 compilation errors ✅
 
 ## Test Breakdown
 
-| Test Suite | Tests | Status |
-|-----------|-------|--------|
-| integration-event-based.test.ts | 8 | ✅ PASS |
-| integration-middleware.test.ts | 8 | ✅ PASS |
-| activity-logger.test.ts | 16 | ✅ PASS |
-| **TOTAL** | **32** | **✅ PASS** |
+| Test Suite                      | Tests  | Status      |
+| ------------------------------- | ------ | ----------- |
+| integration-event-based.test.ts | 8      | ✅ PASS     |
+| integration-middleware.test.ts  | 8      | ✅ PASS     |
+| activity-logger.test.ts         | 16     | ✅ PASS     |
+| **TOTAL**                       | **32** | **✅ PASS** |
 
 ## Key Learnings
 
@@ -164,6 +183,7 @@ TypeScript:  0 compilation errors ✅
 ## Next Steps
 
 The integration test suite is now fully validated and ready to:
+
 1. Deploy to testing environment
 2. Integrate with real OpenClaw instance
 3. Monitor activity logging in production

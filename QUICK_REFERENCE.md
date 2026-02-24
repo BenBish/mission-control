@@ -2,36 +2,40 @@
 
 **Status:** ✅ 2 FIXED | 🔄 1 IN PROGRESS  
 **Date:** 2026-02-15  
-**Duration:** 3 hours  
+**Duration:** 3 hours
 
 ---
 
 ## TL;DR
 
-| Blocker | Problem | Fix | Status |
-|---------|---------|-----|--------|
-| 1 | Model hardcoded as actor ID → costs 10-100x wrong | Robust 6-tier extraction | ✅ FIXED |
-| 2 | Jest won't run, UUID ESM error | Mock + config | ✅ FIXED |
-| 3 | Integration untested | 2 test suites, 16 scenarios | 🔄 67% |
+| Blocker | Problem                                           | Fix                         | Status   |
+| ------- | ------------------------------------------------- | --------------------------- | -------- |
+| 1       | Model hardcoded as actor ID → costs 10-100x wrong | Robust 6-tier extraction    | ✅ FIXED |
+| 2       | Jest won't run, UUID ESM error                    | Mock + config               | ✅ FIXED |
+| 3       | Integration untested                              | 2 test suites, 16 scenarios | 🔄 67%   |
 
 ---
 
 ## What Was Fixed
 
 ### BLOCKER 1: Model Extraction
+
 **Before:**
+
 ```typescript
-model: context.actor.id  // ❌ Returns "engineer-001", not "claude-3-opus"
+model: context.actor.id; // ❌ Returns "engineer-001", not "claude-3-opus"
 ```
 
 **After:**
+
 ```typescript
-const model = extractModel(context, result);  // ✅ Returns actual model name
+const model = extractModel(context, result); // ✅ Returns actual model name
 ```
 
 **How:** Tries 7 sources in order until finds model name.
 
 ### BLOCKER 2: Jest/ESM UUID
+
 **Before:** Tests crashed with `SyntaxError: Unexpected token 'export'`
 
 **After:** Tests run successfully! ✅
@@ -39,9 +43,11 @@ const model = extractModel(context, result);  // ✅ Returns actual model name
 **How:** Mock UUID in jest.setup.js
 
 ### BLOCKER 3: Integration Testing
+
 **Before:** No tests for OpenClaw integration
 
-**After:** 
+**After:**
+
 - `integration-event-based.test.ts` - 7 tests
 - `integration-middleware.test.ts` - 9 tests
 - Both compile & run ✅
@@ -62,6 +68,7 @@ npm test 2>&1 | grep -E "Test Suites:|Tests:"
 ```
 
 **Expected Output:**
+
 ```
 Test Suites: 3 total
 Tests: 32 total (27 passing)
@@ -72,12 +79,14 @@ Tests: 32 total (27 passing)
 ## Files Changed
 
 ### Code
+
 - `src/integration/openclaw-hook.ts` - Model extraction logic
 - `src/__tests__/integration-*.test.ts` - New test files (2)
 - `jest.config.js` - ESM config
 - `jest.setup.js` - UUID mock (new)
 
 ### Documentation
+
 - `docs/MODEL_EXTRACTION.md` - Complete guide
 - `BLOCKERS_RESOLUTION_REPORT.md` - Detailed breakdown
 - `INTEGRATION_TEST_PLAN.md` - Testing strategy
@@ -88,28 +97,31 @@ Tests: 32 total (27 passing)
 ## How to Use Model Extraction
 
 **Configure at startup:**
+
 ```typescript
 await initializeOpenClawIntegration({
-  databasePath: './data/mission-control.db',
+  databasePath: "./data/mission-control.db",
   modelExtraction: {
-    defaultModel: 'openrouter/anthropic/claude-3-haiku',
+    defaultModel: "openrouter/anthropic/claude-3-haiku",
   },
 });
 ```
 
 **Set during execution:**
+
 ```typescript
-middleware.setExecutionContext(sessionId, actor, 'gpt-4');
+middleware.setExecutionContext(sessionId, actor, "gpt-4");
 const result = await toolExecutor(toolName, params);
 middleware.clearExecutionContext();
 ```
 
 **Custom extractor:**
+
 ```typescript
 configureModelExtraction({
   getModel: (context, result) => {
     return context.session?.model || result.model;
-  }
+  },
 });
 ```
 

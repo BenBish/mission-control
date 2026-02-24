@@ -27,12 +27,14 @@ All endpoints return JSON responses:
 ## Error Handling
 
 HTTP status codes:
+
 - `200` - OK
 - `400` - Bad request (invalid parameters)
 - `404` - Not found (resource doesn't exist)
 - `500` - Server error
 
 Error response:
+
 ```json
 {
   "success": false,
@@ -49,6 +51,7 @@ Error response:
 Get activities with optional filtering and pagination.
 
 **Query Parameters:**
+
 - `sessionId` (string, optional) - Filter by session ID
 - `actorId` (string, optional) - Filter by actor ID
 - `actorType` (string, optional) - Filter by actor type: `orchestrator`, `subagent`, `user`, `system`
@@ -61,11 +64,13 @@ Get activities with optional filtering and pagination.
 - `offset` (integer, optional, default: 0) - Pagination offset
 
 **Example Request:**
+
 ```bash
 curl "http://localhost:3001/api/activities?sessionId=agent:main&status=success&limit=50"
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -107,26 +112,30 @@ curl "http://localhost:3001/api/activities?sessionId=agent:main&status=success&l
 Get a specific activity by ID.
 
 **Path Parameters:**
+
 - `id` (string, required) - Activity ID (UUID v7)
 
 **Example Request:**
+
 ```bash
 curl "http://localhost:3001/api/activities/01ARZ3NDEKTSV4RRFFQ69G5FAV"
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
   "activity": {
     "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
-    "sessionId": "agent:main",
+    "sessionId": "agent:main"
     // ... full activity object
   }
 }
 ```
 
 **Error Response (404):**
+
 ```json
 {
   "success": false,
@@ -141,14 +150,17 @@ curl "http://localhost:3001/api/activities/01ARZ3NDEKTSV4RRFFQ69G5FAV"
 Search activities by description or details.
 
 **Query Parameters:**
+
 - `q` (string, required) - Search query string (case-insensitive)
 
 **Example Request:**
+
 ```bash
 curl "http://localhost:3001/api/activities/search?q=git+status"
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -168,14 +180,17 @@ curl "http://localhost:3001/api/activities/search?q=git+status"
 Get session summary with aggregated statistics.
 
 **Path Parameters:**
+
 - `id` (string, required) - Session ID
 
 **Example Request:**
+
 ```bash
 curl "http://localhost:3001/api/sessions/agent:main"
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -212,7 +227,7 @@ curl "http://localhost:3001/api/sessions/agent:main"
       {
         "name": "exec",
         "count": 12,
-        "cost": 0.0050
+        "cost": 0.005
       },
       {
         "name": "web_search",
@@ -237,14 +252,17 @@ curl "http://localhost:3001/api/sessions/agent:main"
 Get all activities for a specific session.
 
 **Path Parameters:**
+
 - `id` (string, required) - Session ID
 
 **Example Request:**
+
 ```bash
 curl "http://localhost:3001/api/sessions/agent:main/activities"
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -262,14 +280,17 @@ curl "http://localhost:3001/api/sessions/agent:main/activities"
 Get detailed cost breakdown for a session.
 
 **Path Parameters:**
+
 - `id` (string, required) - Session ID
 
 **Example Request:**
+
 ```bash
 curl "http://localhost:3001/api/sessions/agent:main/cost-report"
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -296,7 +317,7 @@ curl "http://localhost:3001/api/sessions/agent:main/cost-report"
     {
       "name": "exec",
       "count": 12,
-      "cost": 0.0050
+      "cost": 0.005
     },
     {
       "name": "web_search",
@@ -316,11 +337,13 @@ curl "http://localhost:3001/api/sessions/agent:main/cost-report"
 Get overall cost aggregation across all sessions.
 
 **Example Request:**
+
 ```bash
 curl "http://localhost:3001/api/cost-report"
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -339,7 +362,7 @@ curl "http://localhost:3001/api/cost-report"
       "actions": 380
     },
     "ben": {
-      "cost": 0.3220,
+      "cost": 0.322,
       "tokens": 24670,
       "actions": 374
     }
@@ -350,7 +373,7 @@ curl "http://localhost:3001/api/cost-report"
       "count": 345
     },
     "web_search": {
-      "cost": 0.3240,
+      "cost": 0.324,
       "count": 128
     },
     "read": {
@@ -372,11 +395,13 @@ curl "http://localhost:3001/api/cost-report"
 Get overall system statistics.
 
 **Example Request:**
+
 ```bash
 curl "http://localhost:3001/api/stats"
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -401,11 +426,13 @@ curl "http://localhost:3001/api/stats"
 Health check endpoint. Always responds with status 200.
 
 **Example Request:**
+
 ```bash
 curl "http://localhost:3001/api/health"
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -421,11 +448,13 @@ curl "http://localhost:3001/api/health"
 Get all activities currently in progress (pending status).
 
 **Example Request:**
+
 ```bash
 curl "http://localhost:3001/api/pending-activities"
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -470,21 +499,25 @@ curl "http://localhost:3001/api/activities?limit=50&offset=50"
 ## Filtering Strategies
 
 ### By Session and Status
+
 ```bash
 curl "http://localhost:3001/api/activities?sessionId=agent:main&status=failure"
 ```
 
 ### By Time Range
+
 ```bash
 curl "http://localhost:3001/api/activities?startTime=2026-02-15T13:00:00Z&endTime=2026-02-15T14:00:00Z"
 ```
 
 ### By Tool
+
 ```bash
 curl "http://localhost:3001/api/activities?toolName=exec"
 ```
 
 ### By Actor
+
 ```bash
 curl "http://localhost:3001/api/activities?actorId=agent:main:subagent:abc123"
 ```
@@ -492,21 +525,25 @@ curl "http://localhost:3001/api/activities?actorId=agent:main:subagent:abc123"
 ## Examples
 
 ### Get all failed activities in current session
+
 ```bash
 curl "http://localhost:3001/api/activities?sessionId=agent:main&status=failure"
 ```
 
 ### Get total cost for engineer subagent
+
 ```bash
 curl "http://localhost:3001/api/sessions/agent:main/cost-report" | jq '.actors[] | select(.name | contains("engineer"))'
 ```
 
 ### Find all web_search activities from last hour
+
 ```bash
 curl "http://localhost:3001/api/activities?toolName=web_search&startTime=$(date -u -d '-1 hour' +%Y-%m-%dT%H:%M:%SZ)"
 ```
 
 ### Track costs by tool
+
 ```bash
 curl "http://localhost:3001/api/cost-report" | jq '.toolCosts | sort_by(.cost) | reverse'
 ```

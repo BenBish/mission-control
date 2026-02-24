@@ -1,6 +1,7 @@
 # Mission Control Architecture
 
 ## Overview
+
 Mission Control is a unified observability platform for tracking AI agent activities, costs, and performance metrics across OpenClaw agent systems.
 
 ## Core Components
@@ -13,6 +14,7 @@ OpenClaw Agents ──▶ Bridge Plugin ──▶ Mission Control API ──▶ 
 ```
 
 ### Data Flow
+
 1. **Agent Execution** → OpenClaw agents execute tools and LLM calls
 2. **Log Capture** → Bridge plugin forwards activities or Scanner reads JSONL logs
 3. **Database Storage** → SQLite stores activities, sessions, and LLM generations
@@ -24,6 +26,7 @@ OpenClaw Agents ──▶ Bridge Plugin ──▶ Mission Control API ──▶ 
 ### API Layer (`src/api/`)
 
 #### File Structure
+
 ```
 src/api/
 ├── server.ts    # Express server, middleware, initialization
@@ -31,6 +34,7 @@ src/api/
 ```
 
 #### Route Organization
+
 ```
 setupRoutes(app, logger)
 ├── Activity Endpoints
@@ -62,20 +66,21 @@ setupRoutes(app, logger)
 The `/api/stream` endpoint provides real-time activity streaming:
 
 ```typescript
-app.get('/api/stream', (req, res) => {
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
+app.get("/api/stream", (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
   sseClients.add(res);
-  
+
   // Heartbeat every 30s
   const heartbeatInterval = setInterval(() => {
-    res.write(':heartbeat\n\n');
+    res.write(":heartbeat\n\n");
   }, 30000);
 });
 ```
 
 **Features:**
+
 - Persistent connections for live dashboard updates
 - Heartbeat messages prevent timeout
 - Activity events broadcast on `activity:created` and `activity:updated`
@@ -91,6 +96,7 @@ app.get('/api/stream', (req, res) => {
 **Purpose:** Incrementally scan OpenClaw session JSONL files to extract LLM generation data with exact costs.
 
 **How It Works:**
+
 1. **File Discovery:** Glob pattern `~/.openclaw-team/agents/*/sessions/*.jsonl`
 2. **Incremental Scanning:** Uses `scan_state` table to track file offsets
 3. **JSONL Parsing:** Reads line-by-line, parses each JSON record
@@ -99,6 +105,7 @@ app.get('/api/stream', (req, res) => {
 6. **Scheduled Execution:** Runs periodically
 
 **Why Critical:**
+
 - Provides exact costs from LLM provider APIs (not estimates)
 - Enables cost attribution to specific agents and models
 - Supports cache hit tracking for optimization analysis
@@ -109,6 +116,7 @@ app.get('/api/stream', (req, res) => {
 **Purpose:** Link LLM generation records to activity records for unified cost attribution.
 
 **Functionality:**
+
 1. Queries unlinked generations from `llm_generations` table
 2. Matches to activities by session ID, timestamp proximity, agent ID
 3. Updates activity records with cost and token information
@@ -125,13 +133,15 @@ app.get('/api/stream', (req, res) => {
 **Purpose:** Core logging interface for recording agent activities.
 
 **Key Capabilities:**
+
 - EventEmitter-based (emits `activity:created`, `activity:updated`)
 - Supports all ActionType values: tool_call, delegation, api_call, decision, message, event, user_request, agent_spawn, session_start/end
 
 **Event Flow:**
+
 ```typescript
-logger.emit('activity:created', activity);
-logger.on('activity:created', (activity) => {
+logger.emit("activity:created", activity);
+logger.on("activity:created", (activity) => {
   app.locals.broadcastActivity(activity);
 });
 ```
@@ -141,6 +151,7 @@ logger.on('activity:created', (activity) => {
 ### Database (`src/db/`)
 
 #### File Structure
+
 ```
 src/db/
 ├── database.ts    # Database class with CRUD operations
@@ -150,15 +161,16 @@ src/db/
 
 #### Key Tables
 
-| Table | Purpose | Key Fields |
-|-------|---------|------------|
-| `activities` | Core activity records | id, session_id, actor_id, action_type, status, tokens, cost_usd |
-| `sessions` | Session metadata | id, start_time, end_time, total_cost_usd |
-| `llm_generations` | Exact LLM costs from logs | model, cost_total, cache_read_tokens |
-| `scan_state` | Incremental scan tracking | file_path, last_offset |
-| `cost_summaries` | Aggregated cost data | session_id, actor_id, summary_date |
+| Table             | Purpose                   | Key Fields                                                      |
+| ----------------- | ------------------------- | --------------------------------------------------------------- |
+| `activities`      | Core activity records     | id, session_id, actor_id, action_type, status, tokens, cost_usd |
+| `sessions`        | Session metadata          | id, start_time, end_time, total_cost_usd                        |
+| `llm_generations` | Exact LLM costs from logs | model, cost_total, cache_read_tokens                            |
+| `scan_state`      | Incremental scan tracking | file_path, last_offset                                          |
+| `cost_summaries`  | Aggregated cost data      | session_id, actor_id, summary_date                              |
 
 #### Schema Snippet
+
 ```sql
 CREATE TABLE activities (
   id TEXT PRIMARY KEY,
@@ -213,6 +225,7 @@ Mission Control uses a **two-tier pricing system**:
 ### Vite App (`src/app/`)
 
 **Stack:**
+
 - React 19 + TypeScript
 - Tailwind CSS 4.x
 - shadcn/ui components
@@ -220,6 +233,7 @@ Mission Control uses a **two-tier pricing system**:
 - Lucide React icons
 
 #### File Structure
+
 ```
 src/
 ├── app/
@@ -241,12 +255,12 @@ src/
 
 #### Key Pages
 
-| Page | Route | Purpose |
-|------|-------|---------|
-| DashboardPage | `/` | Overview stats, recent activity cards, quick actions |
-| ActivityFeed | `/activities` | Tabular list of all activities with filtering |
-| ActivityDetail | `/activities/:id` | Detailed view of single activity |
-| CostBreakdown | `/costs` | Cost analysis by actor, tool, and model |
+| Page           | Route             | Purpose                                              |
+| -------------- | ----------------- | ---------------------------------------------------- |
+| DashboardPage  | `/`               | Overview stats, recent activity cards, quick actions |
+| ActivityFeed   | `/activities`     | Tabular list of all activities with filtering        |
+| ActivityDetail | `/activities/:id` | Detailed view of single activity                     |
+| CostBreakdown  | `/costs`          | Cost analysis by actor, tool, and model              |
 
 #### API Client Integration
 
@@ -269,6 +283,7 @@ const [statsRes, activitiesRes] = await Promise.all([
 ### OpenClaw Session Logs
 
 #### Where Logs Are Stored
+
 ```
 ~/.openclaw-team/
 └── agents/
@@ -284,7 +299,9 @@ const [statsRes, activitiesRes] = await Promise.all([
 ```
 
 #### JSONL Format
+
 Each line is a JSON object:
+
 ```json
 {
   "type": "llm_response",
@@ -305,6 +322,7 @@ Each line is a JSON object:
 ```
 
 #### How Scanner Reads Them
+
 1. Glob finds all `*.jsonl` files
 2. Checks `scan_state` for last offset
 3. Reads new lines since last scan
@@ -317,11 +335,13 @@ Each line is a JSON object:
 ### Mission Control Bridge
 
 #### What Is The Bridge?
+
 The **Mission Control Bridge** is an OpenClaw extension plugin that forwards agent activities to Mission Control in real-time.
 
 **Location:** `~/.openclaw-team/workspace/.openclaw/extensions/mission-control-bridge/`
 
 #### How It Connects
+
 1. OpenClaw loads the Bridge as an extension
 2. Bridge intercepts tool calls and agent events
 3. Transforms events to Mission Control activity format
@@ -329,6 +349,7 @@ The **Mission Control Bridge** is an OpenClaw extension plugin that forwards age
 5. Activities appear in dashboard immediately via SSE
 
 #### Configuration
+
 ```json
 // package.json
 {
@@ -345,28 +366,36 @@ The **Mission Control Bridge** is an OpenClaw extension plugin that forwards age
 ### What Was Cleaned
 
 #### 1. `src/frontend/` (Old React Frontend)
+
 **Why Safe to Delete:**
+
 - Replaced by new Vite + React frontend in `src/app/` and `src/pages/`
 - Old frontend used different build system (likely Create React App)
 - New frontend uses modern stack: Vite, Tailwind 4, shadcn/ui
 - No references to old frontend in active code
 
 #### 2. `src/__tests__/` (Legacy Tests)
+
 **Impact:**
+
 - Jest configuration still exists (`jest.config.js`, `jest.setup.js`)
 - No test files in current codebase
 - Tests need to be rewritten for new architecture
 - Currently no automated testing
 
 #### 3. `src/integration/` (Old Integration)
+
 **What It Did:**
+
 - Contained OpenClaw integration hooks
 - Provided middleware for instrumenting tool calls
 - Three methods: Event-based, Middleware wrapper, Direct hooks
 - Replaced by Bridge plugin architecture
 
-#### 4. `examples/` 
+#### 4. `examples/`
+
 **Purpose:**
+
 - Example workflows demonstrating integration
 - Test files for manual validation
 - Not essential for production
@@ -375,18 +404,19 @@ The **Mission Control Bridge** is an OpenClaw extension plugin that forwards age
 
 #### Essential Files Restored
 
-| File | Why Essential | Dependencies |
-|------|---------------|--------------|
-| `src/api/server.ts` | Main Express server | Database, Logger, Scanner, Linker |
-| `src/api/routes.ts` | All API endpoints | Database, Logger |
-| `src/db/database.ts` | Database operations | sqlite, schema |
-| `src/db/schema.ts` | Table definitions | - |
-| `src/types/activity.ts` | Type definitions | Used by API and frontend |
-| `src/pages/*.tsx` | Dashboard pages | React Router, UI components |
-| `src/app/router.tsx` | Route configuration | All pages |
-| `src/components/ui/*.tsx` | shadcn components | Tailwind, Radix |
+| File                      | Why Essential       | Dependencies                      |
+| ------------------------- | ------------------- | --------------------------------- |
+| `src/api/server.ts`       | Main Express server | Database, Logger, Scanner, Linker |
+| `src/api/routes.ts`       | All API endpoints   | Database, Logger                  |
+| `src/db/database.ts`      | Database operations | sqlite, schema                    |
+| `src/db/schema.ts`        | Table definitions   | -                                 |
+| `src/types/activity.ts`   | Type definitions    | Used by API and frontend          |
+| `src/pages/*.tsx`         | Dashboard pages     | React Router, UI components       |
+| `src/app/router.tsx`      | Route configuration | All pages                         |
+| `src/components/ui/*.tsx` | shadcn components   | Tailwind, Radix                   |
 
 #### Dependencies Between Components
+
 ```
 server.ts
 ├── routes.ts
@@ -489,6 +519,7 @@ router.tsx
 ## Summary
 
 Mission Control is a well-architected observability platform with:
+
 - Clean separation between API, database, and frontend
 - Real-time updates via SSE
 - Comprehensive cost tracking capabilities
@@ -497,6 +528,7 @@ Mission Control is a well-architected observability platform with:
 **Current State:** Core functionality preserved after ORC-8 cleanup, but key services (scanner, linker, logger) need restoration for full cost tracking capabilities.
 
 **Next Priority:**
+
 1. Restore session-log-scanner.ts for exact cost extraction
 2. Restore cost-linker.ts for cost attribution
 3. Restore activity-logger.ts for proper event emission

@@ -12,7 +12,11 @@ interface MatrixCellProps {
   skillName: string;
 }
 
-export function MatrixCell({ hasAccess, agentName, skillName }: MatrixCellProps) {
+export function MatrixCell({
+  hasAccess,
+  agentName,
+  skillName,
+}: MatrixCellProps) {
   const label = hasAccess
     ? `${agentName} has access to ${skillName}`
     : `${agentName} does not have access to ${skillName}`;

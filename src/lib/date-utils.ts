@@ -21,9 +21,7 @@ export function parseDate(value: string | null | undefined): Date | null {
  * Returns "Never" for null / undefined / empty / invalid timestamps,
  * ensuring the UI never displays "Invalid Date".
  */
-export function formatLastActive(
-  timestamp: string | null | undefined,
-): string {
+export function formatLastActive(timestamp: string | null | undefined): string {
   const date = parseDate(timestamp);
   if (!date) return "Never";
 
@@ -49,7 +47,10 @@ export function formatLastActive(
  *
  * Null / empty / invalid dates sort to the bottom (treated as epoch 0).
  */
-export function compareDates(a: string | null | undefined, b: string | null | undefined): number {
+export function compareDates(
+  a: string | null | undefined,
+  b: string | null | undefined,
+): number {
   const dateA = parseDate(a);
   const dateB = parseDate(b);
   const timeA = dateA ? dateA.getTime() : 0;

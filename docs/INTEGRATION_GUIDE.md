@@ -13,13 +13,13 @@ The Activity Logger is designed to be a lightweight, non-invasive middleware tha
 When OpenClaw starts a session, signal the Activity Logger:
 
 ```typescript
-import { Database } from 'mission-control-activity-feed';
-import { ActivityLogger } from 'mission-control-activity-feed';
+import { Database } from "mission-control-activity-feed";
+import { ActivityLogger } from "mission-control-activity-feed";
 
 // In OpenClaw's session initialization code
-const sessionId = 'agent:main:session:' + Date.now();
+const sessionId = "agent:main:session:" + Date.now();
 
-const db = new Database('./data/mission-control.db');
+const db = new Database("./data/mission-control.db");
 await db.initialize();
 const activityLogger = new ActivityLogger(db);
 
@@ -57,14 +57,14 @@ async function executeTool(toolName, params, actor) {
   const activityId = await activityLogger.logToolStart(
     sessionId,
     {
-      type: actor.type,  // 'orchestrator', 'subagent', 'user'
+      type: actor.type, // 'orchestrator', 'subagent', 'user'
       id: actor.id,
       role: actor.role,
-      sessionLabel: actor.sessionLabel
+      sessionLabel: actor.sessionLabel,
     },
     toolName,
-    params,  // Tool parameters
-    `Executing tool: ${toolName}`  // Human-readable description
+    params, // Tool parameters
+    `Executing tool: ${toolName}`, // Human-readable description
   );
 
   const startTime = Date.now();
@@ -74,8 +74,8 @@ async function executeTool(toolName, params, actor) {
     const result = await tools[toolName](params);
 
     // Extract output if available
-    let output = '';
-    if (result && typeof result === 'string') {
+    let output = "";
+    if (result && typeof result === "string") {
       output = result;
     } else if (result && result.output) {
       output = result.output;
@@ -84,20 +84,22 @@ async function executeTool(toolName, params, actor) {
     // Log successful completion
     await activityLogger.logToolEnd(
       activityId,
-      'success',
+      "success",
       { success: true },
       output,
       undefined,
-      Date.now() - startTime
+      Date.now() - startTime,
     );
 
     // Extract and log token information if available
     if (result && result.usage) {
       await activityLogger.logToolWithTokens(activityId, {
-        inputTokens: result.usage.prompt_tokens || result.usage.input_tokens || 0,
-        outputTokens: result.usage.completion_tokens || result.usage.output_tokens || 0,
+        inputTokens:
+          result.usage.prompt_tokens || result.usage.input_tokens || 0,
+        outputTokens:
+          result.usage.completion_tokens || result.usage.output_tokens || 0,
         totalTokens: result.usage.total_tokens || 0,
-        model: result.model || actor.model  // Model name if available
+        model: result.model || actor.model, // Model name if available
       });
     }
 
@@ -106,11 +108,11 @@ async function executeTool(toolName, params, actor) {
     // Log failure
     await activityLogger.logToolEnd(
       activityId,
-      'failure',
+      "failure",
       { success: false },
       undefined,
       error.message,
-      Date.now() - startTime
+      Date.now() - startTime,
     );
 
     throw error;
@@ -127,18 +129,18 @@ When Orchestrator delegates to a subagent:
 async function delegateToSubagent(targetRole, task) {
   const activityLogger = globalThis.activityLogger;
   const sessionId = globalThis.sessionId;
-  const orchestratorId = 'agent:main:main';
+  const orchestratorId = "agent:main:main";
 
   // Log the delegation
   const delegationActivityId = await activityLogger.logDelegation(
     sessionId,
-    undefined,  // parentActivityId
+    undefined, // parentActivityId
     {
-      type: 'orchestrator',
-      id: orchestratorId
+      type: "orchestrator",
+      id: orchestratorId,
     },
     targetRole,
-    `Delegated task to ${targetRole}: ${task.substring(0, 100)}`
+    `Delegated task to ${targetRole}: ${task.substring(0, 100)}`,
   );
 
   // Actually create and run the subagent
@@ -148,9 +150,9 @@ async function delegateToSubagent(targetRole, task) {
   // Log the spawn
   await activityLogger.logAgentSpawn(
     sessionId,
-    delegationActivityId,  // Link to delegation
+    delegationActivityId, // Link to delegation
     subagentId,
-    targetRole
+    targetRole,
   );
 
   // Execute in subagent (with its own activity logging)
@@ -171,11 +173,7 @@ async function handleUserRequest(userId, request) {
   const sessionId = globalThis.sessionId;
 
   // Log the user request
-  await activityLogger.logUserRequest(
-    sessionId,
-    userId,
-    request
-  );
+  await activityLogger.logUserRequest(sessionId, userId, request);
 
   // Process the request as normal
   return processRequest(request);
@@ -207,6 +205,7 @@ async function cleanupSession() {
 Different tools/APIs return token usage in different formats:
 
 ### OpenAI API (OpenRouter)
+
 ```typescript
 // Standard OpenAI format
 {
@@ -219,6 +218,7 @@ Different tools/APIs return token usage in different formats:
 ```
 
 ### Anthropic Claude (OpenRouter)
+
 ```typescript
 // Also standard format
 {
@@ -245,7 +245,7 @@ await activityLogger.logToolWithTokens(activityId, {
   inputTokens: estimateTokens(inputText),
   outputTokens: estimatedTokens,
   totalTokens: estimateTokens(inputText) + estimatedTokens,
-  model: 'local/shell'  // No cost for local tools
+  model: "local/shell", // No cost for local tools
 });
 ```
 
@@ -256,7 +256,7 @@ The Activity Logger is designed to be fault-tolerant. If logging fails, it shoul
 ```typescript
 async function executeTool(toolName, params, actor) {
   const activityLogger = globalThis.activityLogger;
-  
+
   if (!activityLogger) {
     // Graceful fallback - just execute tool
     return tools[toolName](params);
@@ -269,10 +269,14 @@ async function executeTool(toolName, params, actor) {
     // Log start (but catch if it fails)
     try {
       activityId = await activityLogger.logToolStart(
-        sessionId, actor, toolName, params, description
+        sessionId,
+        actor,
+        toolName,
+        params,
+        description,
       );
     } catch (logError) {
-      console.error('Failed to log tool start:', logError);
+      console.error("Failed to log tool start:", logError);
       // Continue anyway - tool execution is more important than logging
     }
 
@@ -283,11 +287,15 @@ async function executeTool(toolName, params, actor) {
     if (activityId) {
       try {
         await activityLogger.logToolEnd(
-          activityId, 'success', {}, output, undefined,
-          Date.now() - startTime
+          activityId,
+          "success",
+          {},
+          output,
+          undefined,
+          Date.now() - startTime,
         );
       } catch (logError) {
-        console.error('Failed to log tool completion:', logError);
+        console.error("Failed to log tool completion:", logError);
       }
     }
 
@@ -297,11 +305,15 @@ async function executeTool(toolName, params, actor) {
     if (activityId) {
       try {
         await activityLogger.logToolEnd(
-          activityId, 'failure', {}, undefined, error.message,
-          Date.now() - startTime
+          activityId,
+          "failure",
+          {},
+          undefined,
+          error.message,
+          Date.now() - startTime,
         );
       } catch (logError) {
-        console.error('Failed to log tool failure:', logError);
+        console.error("Failed to log tool failure:", logError);
       }
     }
 
@@ -339,6 +351,7 @@ The Activity Logger is optimized for minimal overhead:
 - **CPU:** Negligible overhead (~1-2% for typical tool execution)
 
 **Latency Impact:**
+
 - Logging start: ~2ms (async, doesn't block tool execution)
 - Logging completion with tokens: ~5-10ms
 - Total overhead: <50ms for typical tool execution
@@ -396,16 +409,19 @@ curl http://localhost:3001/api/stats
 ## Questions & Troubleshooting
 
 ### "Activities not appearing"
+
 - Verify `activityLogger` is initialized before tool execution
 - Check `sessionId` is set globally
 - Look for errors in console (logging failures are caught and logged)
 
 ### "Costs are zero"
+
 - Verify token counts are being extracted correctly
 - Check model name is in the pricing table (src/types/pricing.ts)
 - Use `calculateCost()` directly to test pricing
 
 ### "Performance degradation"
+
 - Monitor database file size (should grow ~1KB per activity)
 - Check for missing indexes on common queries
 - Consider moving to PostgreSQL for high-volume scenarios

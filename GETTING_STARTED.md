@@ -12,6 +12,7 @@ bun run api
 ```
 
 Output:
+
 ```
 ✨ Activity Feed Server running on http://localhost:3001
 📊 Dashboard: http://localhost:3001/dashboard
@@ -36,6 +37,7 @@ Watch the dashboard update in real-time as activities are logged!
 ## What You'll See
 
 ### Activity Feed Tab
+
 - **Live activity list** with real-time updates
 - **Search** by description, tool name, or actor
 - **Filters** for status, actor type, tool, and date range
@@ -43,6 +45,7 @@ Watch the dashboard update in real-time as activities are logged!
 - Activities show: status, actor, tool, duration, cost, tokens
 
 ### Cost Breakdown Tab
+
 - **Summary cards** showing total cost, activities, success rate
 - **Interactive charts**:
   - Cost by Actor (bar chart)
@@ -53,6 +56,7 @@ Watch the dashboard update in real-time as activities are logged!
 - Auto-refreshes every 10 seconds
 
 ### Activity Detail View
+
 - Full activity metadata
 - Tool inputs and outputs
 - Token counts and cost breakdown
@@ -107,25 +111,30 @@ bun run lint
 ## API Endpoints
 
 ### Activities
+
 - `GET /api/activities?limit=100&offset=0` - List activities
 - `GET /api/activities/:id` - Get activity details
 - `GET /api/activities/search?q=query` - Search activities
 - `GET /api/pending-activities` - In-progress activities
 
 ### Sessions
+
 - `GET /api/sessions/:id` - Session summary
 - `GET /api/sessions/:id/activities` - Session activities
 - `GET /api/sessions/:id/cost-report` - Session costs
 
 ### Reporting
+
 - `GET /api/cost-report` - Overall cost aggregation
 - `GET /api/stats` - System statistics
 
 ### Real-Time
+
 - `GET /api/stream` - Server-Sent Events for real-time updates
 - `GET /api/health` - Server health check
 
 ### Frontend
+
 - `GET /` - React dashboard (SPA)
 
 ## Integration with OpenClaw
@@ -135,11 +144,14 @@ To integrate with your OpenClaw instance, see `docs/OPENCLAW_INTEGRATION.md`.
 Quick summary:
 
 ```typescript
-import { EventBasedActivityLogger, initializeOpenClawIntegration } from './src/integration/openclaw-hook';
+import {
+  EventBasedActivityLogger,
+  initializeOpenClawIntegration,
+} from "./src/integration/openclaw-hook";
 
 // Initialize
 const { logger } = await initializeOpenClawIntegration({
-  databasePath: './data/mission-control.db',
+  databasePath: "./data/mission-control.db",
   enableStreaming: true,
   captureTokens: true,
   captureOutput: true,
@@ -149,13 +161,24 @@ const { logger } = await initializeOpenClawIntegration({
 // Hook into OpenClaw events
 const eventLogger = new EventBasedActivityLogger(logger);
 
-openclawEvents.on('tool:start', (toolName, params, context) => {
-  const activityId = eventLogger.onToolStart(toolName, params, context.sessionId, context.actor);
+openclawEvents.on("tool:start", (toolName, params, context) => {
+  const activityId = eventLogger.onToolStart(
+    toolName,
+    params,
+    context.sessionId,
+    context.actor,
+  );
   context.activityId = activityId;
 });
 
-openclawEvents.on('tool:end', (result, error, context) => {
-  eventLogger.onToolEnd(context.activityId, result, error, context.durationMs, context.metadata);
+openclawEvents.on("tool:end", (result, error, context) => {
+  eventLogger.onToolEnd(
+    context.activityId,
+    result,
+    error,
+    context.durationMs,
+    context.metadata,
+  );
 });
 ```
 
@@ -171,12 +194,15 @@ openclawEvents.on('tool:end', (result, error, context) => {
 ### Dashboard won't load
 
 1. **Check server is running:**
+
    ```bash
    curl http://localhost:3001/api/health
    ```
+
    Should return: `{"success": true, "status": "healthy"}`
 
 2. **Check database exists:**
+
    ```bash
    ls -la data/mission-control.db
    ```
@@ -187,6 +213,7 @@ openclawEvents.on('tool:end', (result, error, context) => {
 ### Activities not appearing
 
 1. **Generate test data:**
+
    ```bash
    node test-workflow-simple.js
    ```
@@ -202,6 +229,7 @@ openclawEvents.on('tool:end', (result, error, context) => {
 ### Costs showing as $0
 
 1. **Verify token extraction:**
+
    ```bash
    curl http://localhost:3001/api/activities | jq '.activities[0].tokens'
    ```
@@ -215,6 +243,7 @@ openclawEvents.on('tool:end', (result, error, context) => {
 ## Data Storage
 
 Activities are stored in SQLite:
+
 - Location: `./data/mission-control.db`
 - Database mode: WAL (Write-Ahead Logging) for concurrency
 - Automatic indexes on common queries
@@ -243,7 +272,7 @@ Update pricing in `src/types/pricing.ts`:
 
 ```typescript
 export const MODEL_PRICING: Record<string, PricingTier> = {
-  'openrouter/anthropic/claude-haiku-4.5': {
+  "openrouter/anthropic/claude-haiku-4.5": {
     inputCostPer1kTokens: 0.0008,
     outputCostPer1kTokens: 0.004,
   },
@@ -254,21 +283,25 @@ export const MODEL_PRICING: Record<string, PricingTier> = {
 ## Next Steps
 
 ### 1. Try the Dashboard
+
 - Start server: `bun run api`
 - Generate data: `node test-workflow-simple.js`
 - Explore: http://localhost:3001
 
 ### 2. Integrate with OpenClaw
+
 - Follow: `docs/OPENCLAW_INTEGRATION.md`
 - Choose integration pattern (event-based, middleware, or hook)
 - Wire up to your tool executor
 
 ### 3. Monitor Real Activities
+
 - Run your OpenClaw workflows
 - Watch activities appear in dashboard in real-time
 - Track costs across different models and agents
 
 ### 4. Analyze and Optimize
+
 - Use cost breakdown to identify expensive tools
 - Find patterns in agent behavior
 - Optimize prompt complexity based on token usage
@@ -276,33 +309,39 @@ export const MODEL_PRICING: Record<string, PricingTier> = {
 ## Files You Might Need to Know About
 
 ### Frontend
+
 - `src/frontend/App.tsx` - Main React component
 - `src/frontend/pages/ActivityFeed.tsx` - Activity list
 - `src/frontend/pages/CostBreakdown.tsx` - Charts and analytics
 - `src/frontend/pages/ActivityDetail.tsx` - Detailed view
 
 ### Integration
+
 - `src/integration/openclaw-hook.ts` - Integration patterns
 - `docs/OPENCLAW_INTEGRATION.md` - Integration guide
 
 ### Backend
+
 - `src/api/server.ts` - Express server
 - `src/api/routes.ts` - API endpoints
 - `src/logger/activity-logger.ts` - Activity logging
 - `src/db/database.ts` - SQLite operations
 
 ### Test Data
+
 - `test-workflow-simple.js` - Generates sample activities
 - `examples/test-workflow.ts` - Full TypeScript example
 
 ## Security Notes
 
 For MVP (current):
+
 - No authentication (local-only)
 - Database stored locally
 - Activities include tool outputs (consider redacting sensitive data)
 
 For production:
+
 - Add authentication layer
 - Implement access control
 - Configure data redaction policies

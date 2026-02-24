@@ -3,7 +3,11 @@
  * Covers the fix for ORC-33: Invalid Date in agent status display.
  */
 import { describe, test, expect } from "bun:test";
-import { parseDate, formatLastActive, compareDates } from "../../lib/date-utils.js";
+import {
+  parseDate,
+  formatLastActive,
+  compareDates,
+} from "../../lib/date-utils.js";
 
 describe("parseDate", () => {
   test("returns null for null", () => {
