@@ -162,7 +162,7 @@ done | awk '{s+=$1} END {printf "$%.4f\n", s}'
 
 ```bash
 jq -r 'select(.message.role == "user") |
-  select(.message.content[]? | .text? // "" | test("\\[cron:|\\[system")) |
+  select(.message.content[]? | .text? // "" | test("System:.*[Cc]ron|\\[cron:|\\[system"; "i")) |
   "\(.timestamp) \(.message.content[0].text[0:100])"' <session>.jsonl
 ```
 
