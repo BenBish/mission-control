@@ -18,6 +18,7 @@ import {
   Zap,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { formatLastActive } from "@/lib/date-utils";
 
 export default function AgentDetail() {
   const { id } = useParams<{ id: string }>();
@@ -74,21 +75,6 @@ export default function AgentDetail() {
       </div>
     );
   }
-
-  const formatLastActive = (timestamp: string) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString();
-  };
 
   const formatCost = (cost: number) => {
     if (cost === 0) return "$0.00";
