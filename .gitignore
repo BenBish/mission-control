@@ -26,6 +26,10 @@ dist-ssr
 *.sln
 *.sw?
 
+# Environment variables
+.env
+.env.*
+
 # Local data symlink
 data
 
