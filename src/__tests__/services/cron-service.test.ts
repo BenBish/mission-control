@@ -2,9 +2,8 @@
  * CronService Tests
  * Tests cron job listing, enrichment, schedule formatting, and cache behavior.
  *
- * Note: JOBS_FILE is computed at module load from process.env.HOME, so we can't
- * redirect it in tests. Tests for getJobs/getJob/getRunHistory use the real
- * filesystem path. The static utility methods are fully testable.
+ * JOBS_FILE path is computed lazily via getJobsFile(), so tests that override
+ * process.env.HOME will see the correct fixture path.
  */
 
 import { describe, test, expect, beforeEach } from "bun:test";
@@ -200,15 +199,11 @@ describe("CronService", () => {
     });
 
     test("should format hours", () => {
-      expect(CronService.formatIntervalSchedule(7200000)).toBe(
-        "Every 2 hours",
-      );
+      expect(CronService.formatIntervalSchedule(7200000)).toBe("Every 2 hours");
     });
 
     test("should format days", () => {
-      expect(CronService.formatIntervalSchedule(86400000)).toBe(
-        "Every 1 days",
-      );
+      expect(CronService.formatIntervalSchedule(86400000)).toBe("Every 1 days");
     });
   });
 
@@ -278,9 +273,7 @@ describe("CronService", () => {
     });
 
     test("should return future time for 'at' schedule (days)", () => {
-      const futureDate = new Date(
-        Date.now() + 3 * 24 * 3600000,
-      ).toISOString();
+      const futureDate = new Date(Date.now() + 3 * 24 * 3600000).toISOString();
       const result = CronService.calculateNextRun({
         kind: "at",
         at: futureDate,

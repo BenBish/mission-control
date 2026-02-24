@@ -4,7 +4,14 @@
  * getGenerationSummary with filters, and scan state operations
  */
 
-import { describe, test, expect, beforeEach, afterEach, afterAll } from "bun:test";
+import {
+  describe,
+  test,
+  expect,
+  beforeEach,
+  afterEach,
+  afterAll,
+} from "bun:test";
 import { Database } from "../../db/database.js";
 import * as fs from "fs";
 

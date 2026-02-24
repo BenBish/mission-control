@@ -3,7 +3,14 @@
  * Covers logApiCall, logMessage, and edge cases in logToolEnd
  */
 
-import { describe, test, expect, beforeAll, afterAll, beforeEach } from "bun:test";
+import {
+  describe,
+  test,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+} from "bun:test";
 import { Database } from "../db/database.js";
 import { ActivityLogger } from "../logger/activity-logger.js";
 import * as fs from "fs";

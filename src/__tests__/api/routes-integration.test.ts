@@ -4,7 +4,14 @@
  * covering activity, session, cost, cron, health, SSE, and error endpoints
  */
 
-import { describe, test, expect, beforeAll, afterAll, beforeEach } from "bun:test";
+import {
+  describe,
+  test,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+} from "bun:test";
 import express from "express";
 import { Database } from "../../db/database.js";
 import { ActivityLogger } from "../../logger/activity-logger.js";
@@ -20,6 +27,7 @@ let baseUrl: string;
 let db: Database;
 let logger: ActivityLogger;
 let app: express.Express;
+const originalHome = process.env.HOME;
 
 beforeAll(async () => {
   fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), "mc-routes-int-"));
@@ -68,8 +76,18 @@ beforeAll(async () => {
   fs.writeFileSync(
     path.join(cronDir, "runs-cron-1.jsonl"),
     [
-      JSON.stringify({ id: "r1", jobId: "cron-1", timestamp: Date.now() - 60000, status: "success" }),
-      JSON.stringify({ id: "r2", jobId: "cron-1", timestamp: Date.now(), status: "success" }),
+      JSON.stringify({
+        id: "r1",
+        jobId: "cron-1",
+        timestamp: Date.now() - 60000,
+        status: "success",
+      }),
+      JSON.stringify({
+        id: "r2",
+        jobId: "cron-1",
+        timestamp: Date.now(),
+        status: "success",
+      }),
     ].join("\n"),
   );
 
@@ -99,6 +117,12 @@ beforeAll(async () => {
 afterAll(async () => {
   delete process.env.AGENT_PATHS;
   delete process.env.SKILL_PATH;
+  // Restore original HOME to avoid leaking test state
+  if (originalHome !== undefined) {
+    process.env.HOME = originalHome;
+  } else {
+    delete process.env.HOME;
+  }
   if (server) server.close();
   logger.removeAllListeners();
   await db.close().catch(() => {});
@@ -545,7 +569,9 @@ describe("GET /api/cost/generations", () => {
     const { body } = await get("/api/cost/generations?agentId=agent-1");
     expect(body.count).toBe(1);
 
-    const { body: body2 } = await get("/api/cost/generations?unlinkedOnly=true");
+    const { body: body2 } = await get(
+      "/api/cost/generations?unlinkedOnly=true",
+    );
     expect(body2.count).toBe(1);
   });
 });
