@@ -9,34 +9,34 @@ Instructions for deploying Mission Control Activity Feed locally and to producti
 1. **Install dependencies:**
    ```bash
    cd ~/Dev/openclaw-mission-control
-   npm install
+   bun install
    ```
 
 2. **Initialize database:**
    ```bash
-   npm run db:migrate
+   bun run db:migrate
    ```
 
 3. **Start the API server:**
    ```bash
-   npm run api
+   bun run api
    ```
 
    Server will start at `http://localhost:3001`
 
 4. **Run tests:**
    ```bash
-   npm test
+   bun test
    ```
 
 ### Development Workflow
 
 ```bash
 # In one terminal - run API server with auto-reload
-npm run api
+bun run api
 
 # In another terminal - run tests in watch mode
-npm test:watch
+bun test:watch
 
 # In third terminal - run example
 node --loader ts-node/esm examples/basic-usage.ts
@@ -57,11 +57,11 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci --only=production
+RUN bun install --only=production
 
 # Copy source and build
 COPY . .
-RUN npm run build
+RUN bun run build
 
 # Create data directory
 RUN mkdir -p /app/data
@@ -74,7 +74,7 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3001/api/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
 
 # Start server
-CMD ["npm", "start"]
+CMD ["bun", "start"]
 ```
 
 Build and run:
@@ -136,7 +136,7 @@ After=network.target
 Type=simple
 User=ben
 WorkingDirectory=/home/ben/Dev/openclaw-mission-control
-ExecStart=/usr/bin/npm start
+ExecStart=/usr/bin/bun start
 Restart=always
 RestartSec=10
 
@@ -348,12 +348,12 @@ find ~/Dev/openclaw-mission-control/data/archives -name "*.gz" -mtime +90 -delet
 
 3. **Install dependencies:**
    ```bash
-   npm install
+   bun install
    ```
 
 4. **Run migrations:**
    ```bash
-   npm run db:migrate
+   bun run db:migrate
    ```
 
 5. **Restart service:**

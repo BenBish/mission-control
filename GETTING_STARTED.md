@@ -8,7 +8,7 @@ This guide will get you up and running with the Mission Control Activity Feed an
 
 ```bash
 cd ~/Dev/openclaw-mission-control
-npm run api
+bun run api
 ```
 
 Output:
@@ -86,22 +86,22 @@ Watch the dashboard update in real-time as activities are logged!
 
 ```bash
 # Start API server with dashboard
-npm run api
+bun run api
 
 # Build TypeScript to JavaScript
-npm run build
+bun run build
 
 # Run test workflow (generates sample data)
 node test-workflow-simple.js
 
 # Run full test suite
-npm test
+bun test
 
 # Run tests in watch mode
-npm run test:watch
+bun run test:watch
 
 # Check code style
-npm run lint
+bun run lint
 ```
 
 ## API Endpoints
@@ -254,7 +254,7 @@ export const MODEL_PRICING: Record<string, PricingTier> = {
 ## Next Steps
 
 ### 1. Try the Dashboard
-- Start server: `npm run api`
+- Start server: `bun run api`
 - Generate data: `node test-workflow-simple.js`
 - Explore: http://localhost:3001
 

@@ -6,13 +6,13 @@ Get Mission Control Activity Feed running in 5 minutes.
 
 ```bash
 cd ~/Dev/openclaw-mission-control
-npm install
+bun install
 ```
 
 ## Run the API Server
 
 ```bash
-npm run api
+bun run api
 ```
 
 Server starts at `http://localhost:3001`
@@ -51,7 +51,7 @@ curl http://localhost:3001/api/stats
 ## Run Tests
 
 ```bash
-npm test
+bun test
 ```
 
 ## Key Files
@@ -147,8 +147,8 @@ kill -9 <PID>
 
 **"Module not found"**
 ```bash
-npm install
-npm run build
+bun install
+bun run build
 ```
 
 **"Database locked"**
@@ -162,7 +162,7 @@ npm run build
 1. Read `docs/INTEGRATION_GUIDE.md` to hook into OpenClaw
 2. Read `README.md` for complete documentation
 3. Explore `docs/API_SPECIFICATION.md` for all endpoints
-4. Run `npm test` to verify everything works
+4. Run `bun test` to verify everything works
 
 ---
 

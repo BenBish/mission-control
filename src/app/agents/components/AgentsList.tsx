@@ -29,14 +29,17 @@ export function AgentsList({ agents }: AgentsListProps) {
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
 
   // Get unique values for filters
-  const uniqueRoles = useMemo(() => 
-    Array.from(new Set(agents.map(a => a.role))),
-    [agents]
+  const uniqueRoles = useMemo(
+    () => Array.from(new Set(agents.map((a) => a.role))),
+    [agents],
   );
-  
-  const uniqueModels = useMemo(() => 
-    Array.from(new Set(agents.map(a => a.model).filter(m => m !== "unknown"))),
-    [agents]
+
+  const uniqueModels = useMemo(
+    () =>
+      Array.from(
+        new Set(agents.map((a) => a.model).filter((m) => m !== "unknown")),
+      ),
+    [agents],
   );
 
   // Filter and sort agents
@@ -46,30 +49,30 @@ export function AgentsList({ agents }: AgentsListProps) {
     // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      result = result.filter(agent => 
-        agent.name.toLowerCase().includes(query)
+      result = result.filter((agent) =>
+        agent.name.toLowerCase().includes(query),
       );
     }
 
     // Role filter
     if (roleFilter !== "all") {
-      result = result.filter(agent => agent.role === roleFilter);
+      result = result.filter((agent) => agent.role === roleFilter);
     }
 
     // Model filter
     if (modelFilter !== "all") {
-      result = result.filter(agent => agent.model === modelFilter);
+      result = result.filter((agent) => agent.model === modelFilter);
     }
 
     // Status filter
     if (statusFilter !== "all") {
-      result = result.filter(agent => agent.status === statusFilter);
+      result = result.filter((agent) => agent.status === statusFilter);
     }
 
     // Sort
     result.sort((a, b) => {
       let comparison = 0;
-      
+
       switch (sortBy) {
         case "name":
           comparison = a.name.localeCompare(b.name);
@@ -78,17 +81,30 @@ export function AgentsList({ agents }: AgentsListProps) {
           comparison = a.role.localeCompare(b.role);
           break;
         case "lastActive":
-          comparison = new Date(a.lastActive).getTime() - new Date(b.lastActive).getTime();
+          comparison =
+            new Date(a.lastActive).getTime() - new Date(b.lastActive).getTime();
           break;
       }
-      
+
       return sortDirection === "asc" ? comparison : -comparison;
     });
 
     return result;
-  }, [agents, searchQuery, roleFilter, modelFilter, statusFilter, sortBy, sortDirection]);
+  }, [
+    agents,
+    searchQuery,
+    roleFilter,
+    modelFilter,
+    statusFilter,
+    sortBy,
+    sortDirection,
+  ]);
 
-  const hasFilters = searchQuery || roleFilter !== "all" || modelFilter !== "all" || statusFilter !== "all";
+  const hasFilters =
+    searchQuery ||
+    roleFilter !== "all" ||
+    modelFilter !== "all" ||
+    statusFilter !== "all";
 
   return (
     <div className="space-y-4">
@@ -113,15 +129,17 @@ export function AgentsList({ agents }: AgentsListProps) {
                 <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">Filters:</span>
               </div>
-              
+
               <Select value={roleFilter} onValueChange={setRoleFilter}>
                 <SelectTrigger className="w-[130px] h-9">
                   <SelectValue placeholder="Role" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Roles</SelectItem>
-                  {uniqueRoles.map(role => (
-                    <SelectItem key={role} value={role}>{role}</SelectItem>
+                  {uniqueRoles.map((role) => (
+                    <SelectItem key={role} value={role}>
+                      {role}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -132,8 +150,10 @@ export function AgentsList({ agents }: AgentsListProps) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Models</SelectItem>
-                  {uniqueModels.map(model => (
-                    <SelectItem key={model} value={model}>{model}</SelectItem>
+                  {uniqueModels.map((model) => (
+                    <SelectItem key={model} value={model}>
+                      {model}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -154,8 +174,8 @@ export function AgentsList({ agents }: AgentsListProps) {
               {/* Sort */}
               <div className="flex items-center gap-2 ml-auto">
                 <span className="text-sm text-muted-foreground">Sort:</span>
-                <Select 
-                  value={sortBy} 
+                <Select
+                  value={sortBy}
                   onValueChange={(value) => setSortBy(value as SortOption)}
                 >
                   <SelectTrigger className="w-[130px] h-9">
@@ -167,10 +187,12 @@ export function AgentsList({ agents }: AgentsListProps) {
                     <SelectItem value="lastActive">Last Active</SelectItem>
                   </SelectContent>
                 </Select>
-                
-                <Select 
-                  value={sortDirection} 
-                  onValueChange={(value) => setSortDirection(value as SortDirection)}
+
+                <Select
+                  value={sortDirection}
+                  onValueChange={(value) =>
+                    setSortDirection(value as SortDirection)
+                  }
                 >
                   <SelectTrigger className="w-[100px] h-9">
                     <SelectValue placeholder="Direction" />
@@ -201,9 +223,7 @@ export function AgentsList({ agents }: AgentsListProps) {
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Users className="h-12 w-12 text-muted-foreground/50 mb-4" />
             <p className="text-muted-foreground">
-              {hasFilters 
-                ? "No agents match your filters" 
-                : "No agents found"}
+              {hasFilters ? "No agents match your filters" : "No agents found"}
             </p>
           </CardContent>
         </Card>

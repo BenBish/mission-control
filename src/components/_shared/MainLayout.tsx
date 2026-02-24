@@ -1,10 +1,23 @@
 import { useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { Menu, Moon, Sun, LayoutDashboard, Settings, Users, List, DollarSign, Zap, Bot, Wrench, Clock, Shield } from "lucide-react";
+import {
+  Menu,
+  Moon,
+  Sun,
+  LayoutDashboard,
+  Settings,
+  Users,
+  List,
+  DollarSign,
+  Zap,
+  Bot,
+  Wrench,
+  Clock,
+  Shield,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useTheme } from "@/app/providers";
-
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
@@ -20,7 +33,7 @@ const navItems = [
 
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const location = useLocation();
-  
+
   return (
     <div className="flex h-full flex-col">
       {/* Logo / Header */}
@@ -29,15 +42,19 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           <Zap className="h-5 w-5 text-primary-foreground" />
         </div>
         <div className="flex flex-col">
-          <span className="font-semibold text-sm tracking-tight">Mission Control</span>
+          <span className="font-semibold text-sm tracking-tight">
+            Mission Control
+          </span>
           <span className="text-xs text-muted-foreground">Orca Dashboard</span>
         </div>
       </div>
-      
+
       {/* Navigation */}
       <nav className="flex-1 space-y-1 p-3">
         {navItems.map((item) => {
-          const isActive = location.pathname === item.to || (item.to !== "/" && location.pathname.startsWith(item.to));
+          const isActive =
+            location.pathname === item.to ||
+            (item.to !== "/" && location.pathname.startsWith(item.to));
           return (
             <NavLink
               key={item.to}
@@ -49,11 +66,13 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                   : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
               }`}
             >
-              <div className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
-                isActive 
-                  ? "bg-primary-foreground/20" 
-                  : "bg-muted group-hover:bg-background"
-              }`}>
+              <div
+                className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
+                  isActive
+                    ? "bg-primary-foreground/20"
+                    : "bg-muted group-hover:bg-background"
+                }`}
+              >
                 <item.icon className="h-4 w-4" />
               </div>
               {item.label}
@@ -64,7 +83,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           );
         })}
       </nav>
-      
+
       {/* Footer */}
       <div className="border-t p-4">
         <div className="flex items-center gap-3 rounded-lg bg-muted/50 px-3 py-2">
@@ -79,8 +98,17 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 function ThemeToggle() {
   const { theme, toggleTheme } = useTheme();
   return (
-    <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-9 w-9 rounded-lg">
-      {theme === "dark" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={toggleTheme}
+      className="h-9 w-9 rounded-lg"
+    >
+      {theme === "dark" ? (
+        <Moon className="h-4 w-4" />
+      ) : (
+        <Sun className="h-4 w-4" />
+      )}
       <span className="sr-only">Toggle theme</span>
     </Button>
   );
@@ -109,7 +137,11 @@ export function MainLayout() {
         <header className="flex h-16 items-center gap-4 border-b bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50 px-4 lg:px-6 sticky top-0 z-30">
           <Sheet>
             <SheetTrigger asChild className="lg:hidden">
-              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 rounded-lg"
+              >
                 <Menu className="h-5 w-5" />
                 <span className="sr-only">Toggle menu</span>
               </Button>
@@ -118,9 +150,9 @@ export function MainLayout() {
               <Sidebar />
             </SheetContent>
           </Sheet>
-          
+
           <div className="flex-1" />
-          
+
           <ThemeToggle />
         </header>
 

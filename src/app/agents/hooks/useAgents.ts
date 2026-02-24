@@ -1,5 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
-import type { Agent, AgentDetail, AgentsResponse, AgentDetailResponse } from "@/types/agent";
+import type {
+  Agent,
+  AgentDetail,
+  AgentsResponse,
+  AgentDetailResponse,
+} from "@/types/agent";
 
 interface UseAgentsResult {
   agents: Agent[];
@@ -81,7 +86,9 @@ export function useAgent(id: string): UseAgentResult {
         }
       } catch (err) {
         if (isMounted && !abortController.signal.aborted) {
-          setError(err instanceof Error ? err.message : "Unknown error occurred");
+          setError(
+            err instanceof Error ? err.message : "Unknown error occurred",
+          );
         }
       } finally {
         if (isMounted && !abortController.signal.aborted) {

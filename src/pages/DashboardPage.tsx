@@ -1,6 +1,12 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/_shared/PageHeader";
@@ -72,7 +78,9 @@ export default function DashboardPage() {
           throw new Error(`Failed to fetch stats: ${statsRes.statusText}`);
         }
         if (!activitiesRes.ok) {
-          throw new Error(`Failed to fetch activities: ${activitiesRes.statusText}`);
+          throw new Error(
+            `Failed to fetch activities: ${activitiesRes.statusText}`,
+          );
         }
 
         const statsData: StatsResponse = await statsRes.json();
@@ -117,28 +125,40 @@ export default function DashboardPage() {
     switch (status) {
       case "success":
         return (
-          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800">
+          <Badge
+            variant="outline"
+            className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800"
+          >
             <CheckCircle2 className="h-3 w-3 mr-1" />
             success
           </Badge>
         );
       case "failure":
         return (
-          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-800">
+          <Badge
+            variant="outline"
+            className="bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-800"
+          >
             <XCircle className="h-3 w-3 mr-1" />
             failure
           </Badge>
         );
       case "pending":
         return (
-          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800">
+          <Badge
+            variant="outline"
+            className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800"
+          >
             <Clock className="h-3 w-3 mr-1" />
             pending
           </Badge>
         );
       case "partial":
         return (
-          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-800">
+          <Badge
+            variant="outline"
+            className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-800"
+          >
             <BarChart3 className="h-3 w-3 mr-1" />
             partial
           </Badge>
@@ -182,7 +202,12 @@ export default function DashboardPage() {
         {
           title: "Success Rate",
           value: `${(stats.successRate || 0).toFixed(1)}%`,
-          description: stats.successRate >= 90 ? "Excellent performance" : stats.successRate >= 70 ? "Good performance" : "Needs attention",
+          description:
+            stats.successRate >= 90
+              ? "Excellent performance"
+              : stats.successRate >= 70
+                ? "Good performance"
+                : "Needs attention",
           icon: TrendingUp,
           color: getSuccessRateColor(stats.successRate || 0),
           bgColor: getSuccessRateBg(stats.successRate || 0),
@@ -254,7 +279,9 @@ export default function DashboardPage() {
           <CardContent className="flex items-center gap-3 py-6">
             <AlertCircle className="h-5 w-5 text-destructive" />
             <div>
-              <p className="font-medium text-destructive">Error loading dashboard</p>
+              <p className="font-medium text-destructive">
+                Error loading dashboard
+              </p>
               <p className="text-sm text-muted-foreground">{error}</p>
             </div>
           </CardContent>
@@ -273,18 +300,27 @@ export default function DashboardPage() {
       {/* Stats Grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {statCards.map((stat) => (
-          <Card key={stat.title} className="shadow-sm hover:shadow-md transition-shadow">
+          <Card
+            key={stat.title}
+            className="shadow-sm hover:shadow-md transition-shadow"
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">{stat.title}</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                {stat.title}
+              </CardTitle>
               <div className={`p-2 rounded-lg ${stat.bgColor}`}>
                 <stat.icon className={`h-4 w-4 ${stat.color}`} />
               </div>
             </CardHeader>
             <CardContent>
-              <div className={`text-3xl font-bold tracking-tight ${stat.title === "Success Rate" ? stat.color : ""}`}>
+              <div
+                className={`text-3xl font-bold tracking-tight ${stat.title === "Success Rate" ? stat.color : ""}`}
+              >
                 {stat.value}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">{stat.description}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {stat.description}
+              </p>
             </CardContent>
           </Card>
         ))}
@@ -331,11 +367,15 @@ export default function DashboardPage() {
                     onClick={() => navigate(`/activities/${activity.id}`)}
                   >
                     <div className="flex items-start gap-3 min-w-0">
-                      <div className={`p-1.5 rounded-md ${
-                        activity.status === "success" ? "bg-emerald-100 dark:bg-emerald-900/30" :
-                        activity.status === "failure" ? "bg-red-100 dark:bg-red-900/30" :
-                        "bg-amber-100 dark:bg-amber-900/30"
-                      }`}>
+                      <div
+                        className={`p-1.5 rounded-md ${
+                          activity.status === "success"
+                            ? "bg-emerald-100 dark:bg-emerald-900/30"
+                            : activity.status === "failure"
+                              ? "bg-red-100 dark:bg-red-900/30"
+                              : "bg-amber-100 dark:bg-amber-900/30"
+                        }`}
+                      >
                         {activity.status === "success" ? (
                           <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                         ) : activity.status === "failure" ? (
@@ -349,9 +389,13 @@ export default function DashboardPage() {
                           {activity.description}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          <span className="capitalize">{activity.actor.type}</span>
+                          <span className="capitalize">
+                            {activity.actor.type}
+                          </span>
                           <span className="mx-1">·</span>
-                          <code className="text-[10px] bg-muted px-1 py-0.5 rounded">{activity.actor.id}</code>
+                          <code className="text-[10px] bg-muted px-1 py-0.5 rounded">
+                            {activity.actor.id}
+                          </code>
                         </p>
                       </div>
                     </div>
@@ -394,7 +438,9 @@ export default function DashboardPage() {
                 </div>
                 <div className="text-left">
                   <p className="font-medium">View Activity Feed</p>
-                  <p className="text-xs text-muted-foreground">Browse all system activities</p>
+                  <p className="text-xs text-muted-foreground">
+                    Browse all system activities
+                  </p>
                 </div>
               </Button>
               <Button
@@ -407,7 +453,9 @@ export default function DashboardPage() {
                 </div>
                 <div className="text-left">
                   <p className="font-medium">View Cost Breakdown</p>
-                  <p className="text-xs text-muted-foreground">Analyze spending by actor & tool</p>
+                  <p className="text-xs text-muted-foreground">
+                    Analyze spending by actor & tool
+                  </p>
                 </div>
               </Button>
               <Button
@@ -420,7 +468,9 @@ export default function DashboardPage() {
                 </div>
                 <div className="text-left">
                   <p className="font-medium">Open Real-time Stream</p>
-                  <p className="text-xs text-muted-foreground">Watch live activity feed</p>
+                  <p className="text-xs text-muted-foreground">
+                    Watch live activity feed
+                  </p>
                 </div>
               </Button>
             </div>

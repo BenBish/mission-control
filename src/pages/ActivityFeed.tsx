@@ -1,12 +1,26 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/_shared/PageHeader";
 import { Loading } from "@/components/_shared/Loading";
 import type { Activity } from "@/types/activity";
-import { List, ArrowRight, AlertCircle, CheckCircle2, XCircle, Clock, BarChart3 } from "lucide-react";
+import {
+  List,
+  ArrowRight,
+  AlertCircle,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  BarChart3,
+} from "lucide-react";
 
 interface ActivitiesResponse {
   success: boolean;
@@ -69,34 +83,50 @@ export default function ActivityFeed() {
     switch (status) {
       case "success":
         return (
-          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800 capitalize">
+          <Badge
+            variant="outline"
+            className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800 capitalize"
+          >
             <CheckCircle2 className="h-3 w-3 mr-1" />
             {status}
           </Badge>
         );
       case "failure":
         return (
-          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-800 capitalize">
+          <Badge
+            variant="outline"
+            className="bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-800 capitalize"
+          >
             <XCircle className="h-3 w-3 mr-1" />
             {status}
           </Badge>
         );
       case "pending":
         return (
-          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800 capitalize">
+          <Badge
+            variant="outline"
+            className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800 capitalize"
+          >
             <Clock className="h-3 w-3 mr-1" />
             {status}
           </Badge>
         );
       case "partial":
         return (
-          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-800 capitalize">
+          <Badge
+            variant="outline"
+            className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-800 capitalize"
+          >
             <BarChart3 className="h-3 w-3 mr-1" />
             {status}
           </Badge>
         );
       default:
-        return <Badge variant="outline" className="capitalize">{status}</Badge>;
+        return (
+          <Badge variant="outline" className="capitalize">
+            {status}
+          </Badge>
+        );
     }
   };
 
@@ -127,7 +157,9 @@ export default function ActivityFeed() {
           <CardContent className="flex items-center gap-3 py-6">
             <AlertCircle className="h-5 w-5 text-destructive" />
             <div>
-              <p className="font-medium text-destructive">Error loading activities</p>
+              <p className="font-medium text-destructive">
+                Error loading activities
+              </p>
               <p className="text-sm text-muted-foreground">{error}</p>
             </div>
           </CardContent>
@@ -164,20 +196,35 @@ export default function ActivityFeed() {
         <CardContent className="pt-0 px-0">
           {activities.length === 0 ? (
             <p className="text-center text-sm text-muted-foreground py-12">
-              No activities found. Activities will appear here when the system processes events.
+              No activities found. Activities will appear here when the system
+              processes events.
             </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b bg-muted/50">
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Time</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actor</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Action</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tool</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
-                    <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tokens</th>
-                    <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cost</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Time
+                    </th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Actor
+                    </th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Action
+                    </th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Tool
+                    </th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Tokens
+                    </th>
+                    <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Cost
+                    </th>
                     <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider"></th>
                   </tr>
                 </thead>
@@ -191,12 +238,18 @@ export default function ActivityFeed() {
                       onClick={() => handleRowClick(activity.id)}
                     >
                       <td className="py-3 px-4 text-sm whitespace-nowrap">
-                        <span className="tabular-nums text-muted-foreground">{formatTimestamp(activity.timestamp)}</span>
+                        <span className="tabular-nums text-muted-foreground">
+                          {formatTimestamp(activity.timestamp)}
+                        </span>
                       </td>
                       <td className="py-3 px-4 text-sm">
                         <div className="flex flex-col">
-                          <span className="font-medium truncate max-w-[120px]">{activity.actor.id}</span>
-                          <span className="text-xs text-muted-foreground">{activity.actor.type}</span>
+                          <span className="font-medium truncate max-w-[120px]">
+                            {activity.actor.id}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {activity.actor.type}
+                          </span>
                         </div>
                       </td>
                       <td className="py-3 px-4 text-sm">
@@ -206,7 +259,9 @@ export default function ActivityFeed() {
                       </td>
                       <td className="py-3 px-4 text-sm text-muted-foreground">
                         {activity.toolName ? (
-                          <span className="font-mono text-xs">{activity.toolName}</span>
+                          <span className="font-mono text-xs">
+                            {activity.toolName}
+                          </span>
                         ) : (
                           <span className="text-muted-foreground/50">—</span>
                         )}

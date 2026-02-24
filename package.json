@@ -4,19 +4,18 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "dev:bun": "bun --hot vite",
-    "build": "tsc -b && vite build",
-    "build:bun": "bun run tsc -b && bun run vite build",
-    "lint": "eslint .",
-    "lint:bun": "bun run eslint .",
+    "dev": "bun --hot vite",
+    "build": "bun run tsc -b && bun run vite build",
+    "lint": "bun run eslint .",
     "preview": "vite preview",
     "api": "tsx src/api/server.ts",
     "start": "node dist/index.js",
     "db:migrate": "tsx src/db/migrations.ts",
-    "test": "jest --no-coverage",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "test:coverage": "bun test --coverage",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,css}\"",
+    "ci": "eslint . && prettier --check \"src/**/*.{ts,tsx,js,jsx,css}\" && tsc --noEmit && bun test"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",

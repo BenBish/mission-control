@@ -100,7 +100,11 @@ export function AgentCard({ agent }: AgentCardProps) {
               <p className="text-xs text-muted-foreground">
                 {agent.role.charAt(0).toUpperCase() + agent.role.slice(1)}
               </p>
-              <CurrentActivityIndicator agentId={agent.id} agentName={agent.name} compact={true} />
+              <CurrentActivityIndicator
+                agentId={agent.id}
+                agentName={agent.name}
+                compact={true}
+              />
             </div>
           </div>
         </div>
@@ -113,7 +117,9 @@ export function AgentCard({ agent }: AgentCardProps) {
           </div>
           <div className="flex items-center gap-2 text-muted-foreground">
             <Clock className="h-3.5 w-3.5" />
-            <span className="text-xs">{formatLastActive(agent.lastActive)}</span>
+            <span className="text-xs">
+              {formatLastActive(agent.lastActive)}
+            </span>
           </div>
           <div className="flex items-center gap-2 text-muted-foreground">
             <Hash className="h-3.5 w-3.5" />
@@ -126,7 +132,10 @@ export function AgentCard({ agent }: AgentCardProps) {
         </div>
         <div className="mt-3 pt-3 border-t">
           <div className="text-xs text-muted-foreground">
-            <span className="font-medium">{formatTokens(agent.totalTokens)}</span> tokens total
+            <span className="font-medium">
+              {formatTokens(agent.totalTokens)}
+            </span>{" "}
+            tokens total
           </div>
         </div>
       </CardContent>

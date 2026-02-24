@@ -31,7 +31,9 @@ export default function AgentsPage() {
           <CardContent className="flex items-center gap-3 py-6">
             <AlertCircle className="h-5 w-5 text-destructive" />
             <div>
-              <p className="font-medium text-destructive">Error loading agents</p>
+              <p className="font-medium text-destructive">
+                Error loading agents
+              </p>
               <p className="text-sm text-muted-foreground">{error}</p>
             </div>
           </CardContent>

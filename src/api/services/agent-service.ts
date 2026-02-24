@@ -3,9 +3,9 @@
  * Handles reading agent configurations and SOUL.md files
  */
 
-import fs from 'fs/promises';
-import path from 'path';
-import os from 'os';
+import fs from "fs/promises";
+import path from "path";
+import os from "os";
 
 interface OpenClawConfig {
   agents: {
@@ -46,7 +46,11 @@ class AgentService {
   constructor() {
     // Use process.env.HOME or os.homedir() to get user home directory
     const homeDir = process.env.HOME || os.homedir();
-    this.openClawConfigPath = path.join(homeDir, '.openclaw-team', 'openclaw.json');
+    this.openClawConfigPath = path.join(
+      homeDir,
+      ".openclaw-team",
+      "openclaw.json",
+    );
   }
 
   /**
@@ -54,10 +58,10 @@ class AgentService {
    */
   private async loadOpenClawConfig(): Promise<OpenClawConfig> {
     try {
-      const configData = await fs.readFile(this.openClawConfigPath, 'utf-8');
+      const configData = await fs.readFile(this.openClawConfigPath, "utf-8");
       return JSON.parse(configData);
     } catch (error) {
-      console.error('Failed to load openclaw.json:', error);
+      console.error("Failed to load openclaw.json:", error);
       return { agents: { list: [] } };
     }
   }
@@ -65,10 +69,12 @@ class AgentService {
   /**
    * Read SOUL.md from agent workspace
    */
-  private async readSOULMarkdown(workspacePath: string): Promise<string | undefined> {
+  private async readSOULMarkdown(
+    workspacePath: string,
+  ): Promise<string | undefined> {
     try {
-      const soulPath = path.join(workspacePath, 'SOUL.md');
-      const content = await fs.readFile(soulPath, 'utf-8');
+      const soulPath = path.join(workspacePath, "SOUL.md");
+      const content = await fs.readFile(soulPath, "utf-8");
       return content;
     } catch (error) {
       console.error(`Failed to read SOUL.md from ${workspacePath}:`, error);
@@ -81,19 +87,19 @@ class AgentService {
    */
   private async parseAgentConfig(
     workspacePath: string,
-    config: OpenClawConfig['agents']['list'][0]
-  ): Promise<AgentMetadata['config']> {
+    config: OpenClawConfig["agents"]["list"][0],
+  ): Promise<AgentMetadata["config"]> {
     try {
       // Try to read AGENTS.md for git config
       let gitConfig = undefined;
       try {
-        const agentsPath = path.join(workspacePath, 'AGENTS.md');
-        const content = await fs.readFile(agentsPath, 'utf-8');
-        
+        const agentsPath = path.join(workspacePath, "AGENTS.md");
+        const content = await fs.readFile(agentsPath, "utf-8");
+
         // Extract GIT_AUTHOR_NAME and GIT_AUTHOR_EMAIL
         const nameMatch = content.match(/GIT_AUTHOR_NAME\s*=\s*(.+)/);
         const emailMatch = content.match(/GIT_AUTHOR_EMAIL\s*=\s*(.+)/);
-        
+
         if (nameMatch || emailMatch) {
           gitConfig = {
             author: nameMatch ? nameMatch[1].trim() : undefined,
@@ -111,7 +117,7 @@ class AgentService {
         identity: config.identity,
       };
     } catch (error) {
-      console.error('Failed to parse agent config:', error);
+      console.error("Failed to parse agent config:", error);
       return {};
     }
   }
@@ -127,8 +133,10 @@ class AgentService {
 
     try {
       const openClawConfig = await this.loadOpenClawConfig();
-      const agentConfig = openClawConfig.agents.list.find(a => a.id === agentId);
-      
+      const agentConfig = openClawConfig.agents.list.find(
+        (a) => a.id === agentId,
+      );
+
       if (!agentConfig || !agentConfig.workspace) {
         return null;
       }
@@ -142,7 +150,10 @@ class AgentService {
       }
 
       // Parse agent config
-      const config = await this.parseAgentConfig(agentConfig.workspace, agentConfig);
+      const config = await this.parseAgentConfig(
+        agentConfig.workspace,
+        agentConfig,
+      );
       if (Object.keys(config).length > 0) {
         metadata.config = config;
       }
@@ -152,7 +163,7 @@ class AgentService {
 
       return Object.keys(metadata).length > 0 ? metadata : null;
     } catch (error) {
-      console.error('Failed to get agent metadata:', error);
+      console.error("Failed to get agent metadata:", error);
       return null;
     }
   }

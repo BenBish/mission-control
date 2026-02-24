@@ -5,12 +5,12 @@ import { Loading } from "@/components/_shared/Loading";
 const CronJobsList = lazy(() =>
   import("./components/CronJobsList").then((m) => ({
     default: m.CronJobsList,
-  }))
+  })),
 );
 const CronJobDetail = lazy(() =>
   import("./components/CronJobDetail").then((m) => ({
     default: m.CronJobDetail,
-  }))
+  })),
 );
 
 export function CronPage() {
@@ -18,11 +18,7 @@ export function CronPage() {
 
   return (
     <Suspense fallback={<Loading />}>
-      {jobId ? (
-        <CronJobDetail jobId={jobId} />
-      ) : (
-        <CronJobsList />
-      )}
+      {jobId ? <CronJobDetail jobId={jobId} /> : <CronJobsList />}
     </Suspense>
   );
 }

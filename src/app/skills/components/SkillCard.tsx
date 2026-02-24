@@ -29,7 +29,7 @@ export function SkillCard({ skill }: SkillCardProps) {
         <p className="text-sm text-muted-foreground line-clamp-2">
           {skill.description}
         </p>
-        
+
         {/* Agent badges */}
         {skill.agents && skill.agents.length > 0 && (
           <div className="pt-2 border-t">

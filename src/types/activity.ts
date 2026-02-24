@@ -3,9 +3,19 @@
  * Implements the data model from MISSION_CONTROL_DESIGN.md
  */
 
-export type ActorType = 'orchestrator' | 'subagent' | 'user' | 'system';
-export type ActionType = 'tool_call' | 'delegation' | 'api_call' | 'decision' | 'message' | 'event' | 'user_request' | 'agent_spawn' | 'session_start' | 'session_end';
-export type ActivityStatus = 'pending' | 'success' | 'failure' | 'partial';
+export type ActorType = "orchestrator" | "subagent" | "user" | "system";
+export type ActionType =
+  | "tool_call"
+  | "delegation"
+  | "api_call"
+  | "decision"
+  | "message"
+  | "event"
+  | "user_request"
+  | "agent_spawn"
+  | "session_start"
+  | "session_end";
+export type ActivityStatus = "pending" | "success" | "failure" | "partial";
 
 export interface Actor {
   type: ActorType;

@@ -54,9 +54,12 @@ export function CurrentActivityIndicator({
       if (statusTimeoutRef.current) {
         clearTimeout(statusTimeoutRef.current);
       }
-      statusTimeoutRef.current = setTimeout(() => {
-        setStatus("offline");
-      }, 5 * 60 * 1000);
+      statusTimeoutRef.current = setTimeout(
+        () => {
+          setStatus("offline");
+        },
+        5 * 60 * 1000,
+      );
     }
   }, []); // no external deps — uses only refs and stable setters
 
@@ -70,7 +73,7 @@ export function CurrentActivityIndicator({
     const fetchLatestActivity = async () => {
       try {
         const response = await fetch(
-          `/api/activities?actorId=${encodeURIComponent(actorId)}&limit=1`
+          `/api/activities?actorId=${encodeURIComponent(actorId)}&limit=1`,
         );
         if (!response.ok || cancelled) return;
         const data = await response.json();
@@ -78,7 +81,10 @@ export function CurrentActivityIndicator({
           applyActivity(data.activities[0]);
         }
       } catch (err) {
-        console.error("[CurrentActivityIndicator] Failed to fetch latest activity:", err);
+        console.error(
+          "[CurrentActivityIndicator] Failed to fetch latest activity:",
+          err,
+        );
       }
     };
 
@@ -102,7 +108,7 @@ export function CurrentActivityIndicator({
             ? "bg-blue-500"
             : status === "busy"
               ? "bg-amber-500 animate-pulse"
-              : "bg-gray-400"
+              : "bg-gray-400",
         )}
         title={`${agentName} is ${status}`}
       />
@@ -140,7 +146,7 @@ export function CurrentActivityIndicator({
             ? "bg-blue-500"
             : status === "busy"
               ? "bg-amber-500 animate-pulse"
-              : "bg-gray-500"
+              : "bg-gray-500",
         )}
       />
       {getStatusLabel()}

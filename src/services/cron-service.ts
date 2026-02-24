@@ -13,7 +13,7 @@ const CACHE_TTL_MS = 5000;
 
 const JOBS_FILE = path.join(
   process.env.HOME || "/home/ben",
-  ".openclaw-team/cron/jobs.json"
+  ".openclaw-team/cron/jobs.json",
 );
 
 export class CronService {
@@ -57,7 +57,7 @@ export class CronService {
     try {
       const runsFile = path.join(
         path.dirname(JOBS_FILE),
-        `runs-${jobId}.jsonl`
+        `runs-${jobId}.jsonl`,
       );
       if (!fs.existsSync(runsFile)) {
         return [];
@@ -94,7 +94,7 @@ export class CronService {
     return enriched;
   }
 
-  static formatSchedule(schedule: any): string {
+  static formatSchedule(schedule: CronJob["schedule"]): string {
     if (schedule.kind === "cron") {
       return this.formatCronExpression(schedule.expr, schedule.tz);
     } else if (schedule.kind === "every") {
@@ -133,7 +133,7 @@ export class CronService {
     }
   }
 
-  static calculateNextRun(schedule: any): string {
+  static calculateNextRun(schedule: CronJob["schedule"]): string {
     if (schedule.kind === "at") {
       try {
         const date = new Date(schedule.at);
