@@ -32,7 +32,7 @@ export function usePermissionsMatrix(): UsePermissionsMatrixReturn {
 
       if (!response.ok) {
         throw new Error(
-          `Failed to fetch permissions matrix: ${response.statusText}`
+          `Failed to fetch permissions matrix: ${response.statusText}`,
         );
       }
 
