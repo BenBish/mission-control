@@ -11,14 +11,16 @@ interface CachedJobs {
 let cachedJobs: CachedJobs | null = null;
 const CACHE_TTL_MS = 5000;
 
-const JOBS_FILE = path.join(
-  process.env.HOME || "/home/ben",
-  ".openclaw-team/cron/jobs.json",
-);
+function getJobsFile(): string {
+  return path.join(
+    process.env.HOME || "/home/ben",
+    ".openclaw-team/cron/jobs.json",
+  );
+}
 
 export class CronService {
   static getJobsFilePath(): string {
-    return JOBS_FILE;
+    return getJobsFile();
   }
 
   static async getJobs(): Promise<CronJob[]> {
@@ -28,11 +30,12 @@ export class CronService {
     }
 
     try {
-      if (!fs.existsSync(JOBS_FILE)) {
+      const jobsFile = getJobsFile();
+      if (!fs.existsSync(jobsFile)) {
         return [];
       }
 
-      const content = fs.readFileSync(JOBS_FILE, "utf-8");
+      const content = fs.readFileSync(jobsFile, "utf-8");
       const raw = JSON.parse(content);
       const jobs: CronJob[] = Array.isArray(raw) ? raw : raw.jobs || [];
 
@@ -56,7 +59,7 @@ export class CronService {
   static async getRunHistory(jobId: string, limit = 20): Promise<RunHistory[]> {
     try {
       const runsFile = path.join(
-        path.dirname(JOBS_FILE),
+        path.dirname(getJobsFile()),
         `runs-${jobId}.jsonl`,
       );
       if (!fs.existsSync(runsFile)) {
