@@ -106,9 +106,10 @@ export function PermissionsMatrix({ data }: PermissionsMatrixProps) {
           />
           {/* Summary stats */}
           <p className="mt-3 text-sm text-muted-foreground">
-            {filteredAgents.length} agent{filteredAgents.length !== 1 ? "s" : ""}{" "}
-            × {filteredSkills.length} skill{filteredSkills.length !== 1 ? "s" : ""}{" "}
-            · {totalGrants} permission{totalGrants !== 1 ? "s" : ""} granted
+            {filteredAgents.length} agent
+            {filteredAgents.length !== 1 ? "s" : ""} × {filteredSkills.length}{" "}
+            skill{filteredSkills.length !== 1 ? "s" : ""} · {totalGrants}{" "}
+            permission{totalGrants !== 1 ? "s" : ""} granted
           </p>
         </CardContent>
       </Card>
@@ -178,7 +179,9 @@ export function PermissionsMatrix({ data }: PermissionsMatrixProps) {
                   {filteredSkills.map((skill) => (
                     <MatrixCell
                       key={`${agent.id}-${skill.id}`}
-                      hasAccess={data.matrix[agent._index]?.[skill._index] ?? false}
+                      hasAccess={
+                        data.matrix[agent._index]?.[skill._index] ?? false
+                      }
                       agentName={agent.name}
                       skillName={skill.name}
                     />
@@ -191,9 +194,7 @@ export function PermissionsMatrix({ data }: PermissionsMatrixProps) {
       </Card>
 
       {/* Legend */}
-      <p className="text-xs text-muted-foreground">
-        ✓ = access granted
-      </p>
+      <p className="text-xs text-muted-foreground">✓ = access granted</p>
     </div>
   );
 }
