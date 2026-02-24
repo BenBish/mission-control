@@ -17,6 +17,8 @@ Mission Control provides automatic activity tracking for all tool executions in 
 - **API calls**: Inter-process API calls
 - **Messages**: Agent-to-agent and user-agent messaging
 
+> **Tip:** For querying raw agent session logs (JSONL conversation transcripts), see the [session-logs skill documentation](./SKILLS.md#-session-logs). It provides `jq`/`rg`-based queries for debugging, cost analysis, and QA review.
+
 ## Integration Methods
 
 ### Method 1: Event-Based (Recommended)

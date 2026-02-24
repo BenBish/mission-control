@@ -68,6 +68,8 @@ src/
   types/         # TypeScript types
 public/          # Static assets
 dist/            # Build output
+docs/            # Documentation
+  SKILLS.md      # OpenClaw skills reference (session-logs, etc.)
 ```
 
 ## Lockfile
