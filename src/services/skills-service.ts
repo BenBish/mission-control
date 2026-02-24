@@ -28,6 +28,7 @@ function getSkillBasePaths(): string[] {
   }
   
   const paths = [
+    path.join(os.homedir(), '.openclaw-team', 'skills'),
     path.join(os.homedir(), '.local/share/openclaw/skills'),
     '/usr/share/openclaw/skills',
     '/opt/openclaw/skills',
