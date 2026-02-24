@@ -13,6 +13,7 @@ Mission Control Activity Feed Phase 1 MVP provides a complete foundation for tra
 ### 1. Core Architecture ✅
 
 **Project Structure**
+
 ```
 src/
 ├── api/              # Express.js REST API server
@@ -23,6 +24,7 @@ src/
 ```
 
 **Key Components:**
+
 - **Database Layer** - SQLite with WAL mode, proper indexing, CRUD operations
 - **Activity Logger** - Non-invasive instrumentation for tool execution tracking
 - **Express API** - RESTful endpoints for querying and reporting
@@ -33,12 +35,14 @@ src/
 Implements the design from MISSION_CONTROL_DESIGN.md Section 7:
 
 **Tables:**
+
 - `activities` - Core activity records with full execution details
 - `sessions` - Session lifecycle tracking with summaries
 - `cost_summaries` - Aggregated daily costs for efficiency
 - `activity_logs` - Optional stdout/stderr capture
 
 **Indexes:**
+
 - `idx_activities_timestamp` - For chronological queries
 - `idx_activities_session_actor` - For session/actor analysis
 - `idx_activities_status` - For filtering by success/failure
@@ -73,6 +77,7 @@ await logger.logMessage(sessionId, actor, target, message);
 ```
 
 **Features:**
+
 - ✅ Every action logged with unique UUID v7
 - ✅ Pending activity tracking for updates
 - ✅ Event emission for real-time dashboard
@@ -84,24 +89,29 @@ await logger.logMessage(sessionId, actor, target, message);
 ### 4. Express API Server ✅
 
 **Activity Endpoints:**
+
 - `GET /api/activities` - List with filtering (sessionId, actorId, status, tool, time range)
 - `GET /api/activities/:id` - Get single activity
 - `GET /api/activities/search` - Full-text search
 
 **Session Endpoints:**
+
 - `GET /api/sessions/:id` - Session summary with stats
 - `GET /api/sessions/:id/activities` - All activities in session
 - `GET /api/sessions/:id/cost-report` - Cost breakdown by actor and tool
 
 **Reporting Endpoints:**
+
 - `GET /api/cost-report` - System-wide cost aggregation
 - `GET /api/stats` - Overall statistics
 
 **Diagnostic Endpoints:**
+
 - `GET /api/health` - Health check
 - `GET /api/pending-activities` - In-progress activities
 
 **Features:**
+
 - ✅ Query filtering and pagination
 - ✅ JSON response format
 - ✅ Error handling with HTTP status codes
@@ -110,6 +120,7 @@ await logger.logMessage(sessionId, actor, target, message);
 ### 5. Cost Calculation Module ✅
 
 **Pricing Table:**
+
 ```typescript
 PRICING = {
   'openrouter/anthropic/claude-haiku-4.5': { input: $0.0008, output: $0.004 },
@@ -122,12 +133,14 @@ PRICING = {
 ```
 
 **Functions:**
+
 - `calculateCost(model, inputTokens, outputTokens)` - Returns cost in USD
 - `getPricing(model)` - Get pricing info for model
 
 ### 6. Type Definitions ✅
 
 Complete TypeScript types for:
+
 - **Activity** - Full activity record structure
 - **Actor** - Who performed the action
 - **TokenInfo** - Token counts and model info
@@ -140,6 +153,7 @@ All types implement the data model from MISSION_CONTROL_DESIGN.md.
 ### 7. Documentation ✅
 
 **README.md** - Complete overview, installation, usage
+
 - Project structure explanation
 - Setup instructions
 - API endpoint examples
@@ -148,6 +162,7 @@ All types implement the data model from MISSION_CONTROL_DESIGN.md.
 - Development workflow
 
 **INTEGRATION_GUIDE.md** - How to hook into OpenClaw
+
 - Session initialization
 - Tool execution instrumentation (with code examples)
 - Token extraction from different API formats
@@ -157,6 +172,7 @@ All types implement the data model from MISSION_CONTROL_DESIGN.md.
 - Testing integration
 
 **API_SPECIFICATION.md** - Endpoint documentation
+
 - Complete endpoint reference with examples
 - Query parameters and response formats
 - Error codes and response structure
@@ -164,6 +180,7 @@ All types implement the data model from MISSION_CONTROL_DESIGN.md.
 - Real-world usage examples
 
 **DEPLOYMENT.md** - Production deployment guide
+
 - Local development setup
 - Docker containerization
 - Systemd service configuration
@@ -179,6 +196,7 @@ All types implement the data model from MISSION_CONTROL_DESIGN.md.
 Jest test suite with comprehensive coverage:
 
 **Test Categories:**
+
 - Session management (start, end, summary)
 - Tool execution logging (start, end, success, failure)
 - Token tracking and cost calculation
@@ -191,6 +209,7 @@ Jest test suite with comprehensive coverage:
 **Test Count:** 20+ test cases
 
 **Running Tests:**
+
 ```bash
 npm test              # Run once
 npm test:watch      # Watch mode
@@ -200,6 +219,7 @@ npm test:coverage   # Coverage report
 ### 9. Examples ✅
 
 **basic-usage.ts** - Complete working example showing:
+
 - Database initialization
 - Logger creation
 - Session lifecycle
@@ -255,21 +275,25 @@ npm test:coverage   # Coverage report
 ## Key Features
 
 ### ✅ Every Tool Call is Logged
+
 - No filtering - 100% of executions captured
 - Pre-call and post-call logging
 - Minimal overhead (~2-5ms per log operation)
 
 ### ✅ Complete Token Tracking
+
 - Extract tokens from LLM API responses
 - Track input, output, and total tokens
 - Store model name for cost calculation
 
 ### ✅ Automatic Cost Calculation
+
 - Based on actual token usage
 - Per-model pricing table
 - Breakdown by actor and tool
 
 ### ✅ Rich Activity Records
+
 - Unique ID, session tracking, parent activity links
 - Actor information (type, id, role)
 - Action type (tool_call, delegation, etc.)
@@ -279,23 +303,27 @@ npm test:coverage   # Coverage report
 - Tags and metadata
 
 ### ✅ Efficient Querying
+
 - Filter by session, actor, tool, status, time range
 - Full-text search in descriptions
 - Pagination support
 - Indexed database queries
 
 ### ✅ Session Aggregation
+
 - Compute success rate, average duration
 - Track cost per actor
 - Identify top tools used
 - Timeline of events
 
 ### ✅ Type Safety
+
 - Full TypeScript implementation
 - Comprehensive type definitions
 - No `any` types in core code
 
 ### ✅ Testing
+
 - 20+ Jest test cases
 - Session, tool, token, delegation tests
 - Event emission tests
@@ -331,6 +359,7 @@ The logger is designed for zero-friction integration into OpenClaw:
 ### React Dashboard Component
 
 Build a React dashboard displaying:
+
 - Live activity feed with real-time updates (WebSocket)
 - Cost breakdown charts (actor, tool, model)
 - Session summary and statistics
@@ -338,6 +367,7 @@ Build a React dashboard displaying:
 - Top tools and most expensive operations
 
 **Deliverables:**
+
 - Dashboard React component
 - WebSocket server for real-time updates
 - Visualization library integration (Recharts, etc.)
@@ -368,6 +398,7 @@ Commit 2: docs: Phase 1 Documentation and Test Suite
 ## How to Review
 
 1. **Run the tests:**
+
    ```bash
    cd ~/Dev/openclaw-mission-control
    npm install
@@ -375,16 +406,19 @@ Commit 2: docs: Phase 1 Documentation and Test Suite
    ```
 
 2. **Start the API:**
+
    ```bash
    npm run api
    ```
 
 3. **Run the example:**
+
    ```bash
    node --loader ts-node/esm examples/basic-usage.ts
    ```
 
 4. **Query the API:**
+
    ```bash
    curl http://localhost:3001/api/stats
    curl http://localhost:3001/api/activities
@@ -440,6 +474,7 @@ Commit 2: docs: Phase 1 Documentation and Test Suite
 ## Files Changed
 
 **Source Code (15 files):**
+
 - src/api/server.ts, routes.ts
 - src/db/database.ts, schema.ts, migrations.ts
 - src/logger/activity-logger.ts
@@ -449,12 +484,14 @@ Commit 2: docs: Phase 1 Documentation and Test Suite
 - jest.config.js
 
 **Configuration (3 files):**
+
 - package.json
 - tsconfig.json
 - .env.example
 - .gitignore
 
 **Documentation (5 files):**
+
 - README.md
 - docs/INTEGRATION_GUIDE.md
 - docs/API_SPECIFICATION.md
@@ -462,7 +499,8 @@ Commit 2: docs: Phase 1 Documentation and Test Suite
 - PHASE_1_SUMMARY.md (this file)
 
 **Tests (1 file):**
-- src/__tests__/activity-logger.test.ts
+
+- src/**tests**/activity-logger.test.ts
 
 ## Conclusion
 
@@ -473,6 +511,7 @@ Phase 1 provides a complete, production-ready foundation for activity tracking a
 ---
 
 **Next Steps:**
+
 1. Ben reviews and provides feedback
 2. Clarify Phase 1.5 dashboard requirements
 3. Plan integration with OpenClaw main agent

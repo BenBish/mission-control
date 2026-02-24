@@ -24,12 +24,15 @@ Mission Control provides automatic activity tracking for all tool executions in 
 If OpenClaw has an event emitter for tool execution, use the `EventBasedActivityLogger`:
 
 ```typescript
-import { ActivityLogger } from 'mission-control-activity-feed';
-import { EventBasedActivityLogger, initializeOpenClawIntegration } from 'mission-control-activity-feed/integration';
+import { ActivityLogger } from "mission-control-activity-feed";
+import {
+  EventBasedActivityLogger,
+  initializeOpenClawIntegration,
+} from "mission-control-activity-feed/integration";
 
 // On OpenClaw startup
 const { logger, middleware, db } = await initializeOpenClawIntegration({
-  databasePath: './data/mission-control.db',
+  databasePath: "./data/mission-control.db",
   enableStreaming: true,
   captureTokens: true,
   captureOutput: true,
@@ -40,32 +43,32 @@ const { logger, middleware, db } = await initializeOpenClawIntegration({
 const eventLogger = new EventBasedActivityLogger(logger);
 
 // Hook into OpenClaw's event bus (example - adjust to actual API)
-openclawEvents.on('tool:start', (toolName, params, context) => {
+openclawEvents.on("tool:start", (toolName, params, context) => {
   const activityId = eventLogger.onToolStart(
     toolName,
     params,
     context.sessionId,
-    context.actor
+    context.actor,
   );
   context.activityId = activityId; // Store for later
 });
 
-openclawEvents.on('tool:end', (result, error, context) => {
+openclawEvents.on("tool:end", (result, error, context) => {
   eventLogger.onToolEnd(
     context.activityId,
     result,
     error,
     context.durationMs,
-    context.metadata
+    context.metadata,
   );
 });
 
-openclawEvents.on('agent:delegation', (fromActor, toAgent, context) => {
+openclawEvents.on("agent:delegation", (fromActor, toAgent, context) => {
   eventLogger.onDelegation(
     context.sessionId,
     context.parentActivityId,
     fromActor,
-    toAgent
+    toAgent,
   );
 });
 ```
@@ -75,10 +78,13 @@ openclawEvents.on('agent:delegation', (fromActor, toAgent, context) => {
 If you control the tool executor directly, wrap it with middleware:
 
 ```typescript
-import { OpenClawInstrumentationMiddleware, initializeOpenClawIntegration } from 'mission-control-activity-feed/integration';
+import {
+  OpenClawInstrumentationMiddleware,
+  initializeOpenClawIntegration,
+} from "mission-control-activity-feed/integration";
 
 const { logger, middleware } = await initializeOpenClawIntegration({
-  databasePath: './data/mission-control.db',
+  databasePath: "./data/mission-control.db",
   enableStreaming: true,
   captureTokens: true,
   captureOutput: true,
@@ -90,9 +96,9 @@ const instrumentedExecutor = middleware.wrapToolExecutor(originalToolExecutor);
 
 // Set execution context before each call
 middleware.setExecutionContext(sessionId, {
-  type: 'subagent',
+  type: "subagent",
   id: agentId,
-  role: 'Engineer',
+  role: "Engineer",
 });
 
 // Now use instrumentedExecutor instead of originalToolExecutor
@@ -107,22 +113,25 @@ middleware.clearExecutionContext();
 For the most control, use the low-level hook:
 
 ```typescript
-import { createToolExecutionHook, ToolExecutionContext } from 'mission-control-activity-feed/integration';
+import {
+  createToolExecutionHook,
+  ToolExecutionContext,
+} from "mission-control-activity-feed/integration";
 
 const hook = createToolExecutionHook(logger);
 
 // Before each tool execution:
 const result = await hook(
   {
-    toolName: 'exec',
-    params: { command: 'git status' },
-    actor: { type: 'subagent', id: 'engineer-001', role: 'Engineer' },
-    sessionId: 'agent:main:subagent:xyz',
+    toolName: "exec",
+    params: { command: "git status" },
+    actor: { type: "subagent", id: "engineer-001", role: "Engineer" },
+    sessionId: "agent:main:subagent:xyz",
   },
   async (params) => {
     // Call the original tool here
     return await toolExecutor.exec(params);
-  }
+  },
 );
 ```
 
@@ -148,16 +157,16 @@ export MC_API_PORT="3001"
 interface OpenClawIntegrationConfig {
   // Path to SQLite database for activities
   databasePath: string;
-  
+
   // Enable real-time SSE streaming to dashboard
   enableStreaming: boolean;
-  
+
   // Extract token counts from API responses
   captureTokens: boolean;
-  
+
   // Log tool outputs (can be verbose)
   captureOutput: boolean;
-  
+
   // Max characters of output to store (prevents storage bloat)
   maxOutputSize: number;
 }
@@ -168,6 +177,7 @@ interface OpenClawIntegrationConfig {
 Mission Control automatically extracts token counts from API responses. Supported formats:
 
 ### OpenRouter API
+
 ```json
 {
   "usage": {
@@ -178,6 +188,7 @@ Mission Control automatically extracts token counts from API responses. Supporte
 ```
 
 ### Generic API Response
+
 ```json
 {
   "tokens": {
@@ -205,7 +216,7 @@ Costs are automatically calculated based on token counts and model pricing. Conf
 ```typescript
 // src/types/pricing.ts
 export const MODEL_PRICING: Record<string, PricingTier> = {
-  'openrouter/anthropic/claude-3-opus': {
+  "openrouter/anthropic/claude-3-opus": {
     inputCostPer1kTokens: 0.015,
     outputCostPer1kTokens: 0.075,
   },
@@ -218,6 +229,7 @@ export const MODEL_PRICING: Record<string, PricingTier> = {
 Once integrated, all activities will automatically stream to connected dashboard clients via Server-Sent Events (SSE).
 
 To view the dashboard:
+
 1. Start the API server: `npm run api`
 2. Open http://localhost:3001 in browser
 3. Activities appear in real-time as they're logged
@@ -228,10 +240,10 @@ To view the dashboard:
 
 ```typescript
 // test-workflow.ts
-import { initializeOpenClawIntegration } from './integration/openclaw-hook';
+import { initializeOpenClawIntegration } from "./integration/openclaw-hook";
 
 const { logger } = await initializeOpenClawIntegration({
-  databasePath: './data/test.db',
+  databasePath: "./data/test.db",
   enableStreaming: true,
   captureTokens: true,
   captureOutput: true,
@@ -239,41 +251,41 @@ const { logger } = await initializeOpenClawIntegration({
 });
 
 // Log a session
-const sessionId = 'test-session-001';
+const sessionId = "test-session-001";
 await logger.logSessionStart(sessionId);
 
 // Log some activities
 const activityId = await logger.logToolStart(
   sessionId,
-  { type: 'subagent', id: 'test-agent', role: 'Engineer' },
-  'read',
-  { file_path: './package.json' },
-  'Reading package.json'
+  { type: "subagent", id: "test-agent", role: "Engineer" },
+  "read",
+  { file_path: "./package.json" },
+  "Reading package.json",
 );
 
 // Simulate tool execution
-await new Promise(r => setTimeout(r, 1000));
+await new Promise((r) => setTimeout(r, 1000));
 
 await logger.logToolEnd(
   activityId,
-  'success',
+  "success",
   null,
   '{"name": "mission-control-activity-feed", ...}',
   undefined,
-  1250
+  1250,
 );
 
 // Log tokens and cost
 await logger.logToolWithTokens(activityId, {
   inputTokens: 100,
   outputTokens: 50,
-  model: 'openrouter/anthropic/claude-haiku-4.5',
+  model: "openrouter/anthropic/claude-haiku-4.5",
 });
 
 // End session
 await logger.logSessionEnd(sessionId);
 
-console.log('Test workflow complete. Check http://localhost:3001');
+console.log("Test workflow complete. Check http://localhost:3001");
 ```
 
 ### 2. Run the dashboard
@@ -294,11 +306,13 @@ npm run api
 ### Activities not appearing in dashboard
 
 1. **Check database is initialized:**
+
    ```bash
    ls -la ./data/mission-control.db
    ```
 
 2. **Check logs for errors:**
+
    ```bash
    # Enable debug logging
    DEBUG=mission-control:* npm run api
@@ -332,6 +346,7 @@ npm run api
 - **Storage**: ~1 KB per activity record
 
 For high-volume workloads (>1000 activities/min), consider:
+
 - Using PostgreSQL instead of SQLite
 - Enabling write batching (every 100 activities)
 - Archiving old activities to cold storage
@@ -339,6 +354,7 @@ For high-volume workloads (>1000 activities/min), consider:
 ## Data Privacy
 
 Mission Control logs **everything** about tool execution, including:
+
 - Tool inputs (may include sensitive data)
 - Tool outputs (may include PII)
 - Error messages (may leak internal paths or secrets)
@@ -357,8 +373,8 @@ function sanitizeActivityData(activity: Activity): Activity {
     details: {
       ...activity.details,
       // Remove sensitive fields
-      apiKey: '[REDACTED]',
-      password: '[REDACTED]',
+      apiKey: "[REDACTED]",
+      password: "[REDACTED]",
     },
   };
 }
@@ -367,6 +383,7 @@ function sanitizeActivityData(activity: Activity): Activity {
 ## Support
 
 For integration issues:
+
 1. Check this guide and examples
 2. Review the test workflow in `examples/test-workflow.ts`
 3. Check logs and API health endpoint
@@ -375,6 +392,7 @@ For integration issues:
 ## Next Steps
 
 After integration:
+
 1. Run test workflows to verify logging
 2. Monitor dashboard for activity feed
 3. Validate cost calculations

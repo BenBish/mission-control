@@ -7,17 +7,20 @@ Instructions for deploying Mission Control Activity Feed locally and to producti
 ### Quick Start
 
 1. **Install dependencies:**
+
    ```bash
    cd ~/Dev/openclaw-mission-control
    bun install
    ```
 
 2. **Initialize database:**
+
    ```bash
    bun run db:migrate
    ```
 
 3. **Start the API server:**
+
    ```bash
    bun run api
    ```
@@ -95,7 +98,7 @@ docker run -p 3001:3001 \
 Create `docker-compose.yml`:
 
 ```yaml
-version: '3.8'
+version: "3.8"
 
 services:
   activity-feed:
@@ -205,10 +208,10 @@ RETENTION_WARM_DAYS=90
 // Example redaction
 const redact = (text: string): string => {
   return text
-    .replace(/([A-Za-z0-9+/]{40,})/g, '[REDACTED_KEY]')
-    .replace(/password\s*[:=]\s*\S+/gi, 'password=[REDACTED]')
-    .replace(/api[_-]?key\s*[:=]\s*\S+/gi, 'api_key=[REDACTED]')
-    .replace(/token\s*[:=]\s*\S+/gi, 'token=[REDACTED]');
+    .replace(/([A-Za-z0-9+/]{40,})/g, "[REDACTED_KEY]")
+    .replace(/password\s*[:=]\s*\S+/gi, "password=[REDACTED]")
+    .replace(/api[_-]?key\s*[:=]\s*\S+/gi, "api_key=[REDACTED]")
+    .replace(/token\s*[:=]\s*\S+/gi, "token=[REDACTED]");
 };
 ```
 
@@ -227,7 +230,7 @@ For high-volume scenarios (>1000 activities/day):
 ```yaml
 # docker-compose.yml with multiple instances + reverse proxy
 
-version: '3.8'
+version: "3.8"
 
 services:
   nginx:
@@ -279,9 +282,11 @@ Enable request logging in Express:
 ```typescript
 app.use((req, res, next) => {
   const start = Date.now();
-  res.on('finish', () => {
+  res.on("finish", () => {
     const duration = Date.now() - start;
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} ${res.statusCode} ${duration}ms`);
+    console.log(
+      `[${new Date().toISOString()}] ${req.method} ${req.path} ${res.statusCode} ${duration}ms`,
+    );
   });
   next();
 });
@@ -337,21 +342,25 @@ find ~/Dev/openclaw-mission-control/data/archives -name "*.gz" -mtime +90 -delet
 ### From v0.1.0 to v0.2.0+
 
 1. **Backup current database:**
+
    ```bash
    cp data/mission-control.db data/mission-control.db.v0.1.0
    ```
 
 2. **Pull latest code:**
+
    ```bash
    git pull origin main
    ```
 
 3. **Install dependencies:**
+
    ```bash
    bun install
    ```
 
 4. **Run migrations:**
+
    ```bash
    bun run db:migrate
    ```
@@ -399,10 +408,10 @@ Add indexes for common filters:
 
 ```sql
 -- Already included in schema, but for reference:
-CREATE INDEX IF NOT EXISTS idx_activities_session_actor 
+CREATE INDEX IF NOT EXISTS idx_activities_session_actor
 ON activities(session_id, actor_id);
 
-CREATE INDEX IF NOT EXISTS idx_activities_timestamp 
+CREATE INDEX IF NOT EXISTS idx_activities_timestamp
 ON activities(timestamp DESC);
 ```
 
@@ -454,7 +463,7 @@ async function pruneOldActivities() {
 }
 
 // Run daily
-schedule.scheduleJob('0 3 * * *', pruneOldActivities);
+schedule.scheduleJob("0 3 * * *", pruneOldActivities);
 ```
 
 ### Audit Logging

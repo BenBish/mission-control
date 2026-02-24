@@ -38,16 +38,16 @@ The development server will start at `http://localhost:5173`.
 
 ## Available Scripts
 
-| Script | Description |
-|--------|-------------|
-| `bun run dev` | Start dev server with Bun's hot reload |
-| `bun run build` | Build with Bun runtime |
-| `bun run lint` | Run ESLint with Bun |
-| `bun run preview` | Preview production build |
-| `bun run api` | Start API server |
-| `bun run test` | Run tests |
-| `bun run test:watch` | Run tests in watch mode |
-| `bun run test:coverage` | Run tests with coverage |
+| Script                  | Description                            |
+| ----------------------- | -------------------------------------- |
+| `bun run dev`           | Start dev server with Bun's hot reload |
+| `bun run build`         | Build with Bun runtime                 |
+| `bun run lint`          | Run ESLint with Bun                    |
+| `bun run preview`       | Preview production build               |
+| `bun run api`           | Start API server                       |
+| `bun run test`          | Run tests                              |
+| `bun run test:watch`    | Run tests in watch mode                |
+| `bun run test:coverage` | Run tests with coverage                |
 
 ## Building for Production
 

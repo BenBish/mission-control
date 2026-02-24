@@ -8,11 +8,13 @@
 ## Problem
 
 **Original Code (Line 62 in `src/integration/openclaw-hook.ts`):**
+
 ```typescript
-model: context.actor.id  // ❌ WRONG - This is 'agent-123', not 'openrouter/anthropic/claude-3-haiku'
+model: context.actor.id; // ❌ WRONG - This is 'agent-123', not 'openrouter/anthropic/claude-3-haiku'
 ```
 
 **Impact:**
+
 - Cost calculations were completely wrong (10-100x inaccurate)
 - Model pricing lookups failed
 - No visibility into which models were actually being used
@@ -22,6 +24,7 @@ model: context.actor.id  // ❌ WRONG - This is 'agent-123', not 'openrouter/ant
 Implemented **`extractModel()`** function that tries multiple sources in order:
 
 ### Extraction Priority (in order)
+
 1. **Custom extractor** - If configured via `configureModelExtraction()`
 2. **Result metadata** - `result.model` (from API response)
 3. **Result usage** - `result.usage.model` (OpenRouter format)
@@ -34,34 +37,41 @@ Implemented **`extractModel()`** function that tries multiple sources in order:
 ### Usage
 
 #### Basic Integration
+
 ```typescript
-import { initializeOpenClawIntegration } from './integration/openclaw-hook.js';
+import { initializeOpenClawIntegration } from "./integration/openclaw-hook.js";
 
 const { logger, middleware } = await initializeOpenClawIntegration({
-  databasePath: './data/mission-control.db',
+  databasePath: "./data/mission-control.db",
   enableStreaming: true,
   captureTokens: true,
   captureOutput: true,
   maxOutputSize: 5000,
   // NEW: Configure model extraction
   modelExtraction: {
-    defaultModel: 'openrouter/anthropic/claude-3-haiku',
+    defaultModel: "openrouter/anthropic/claude-3-haiku",
     logWarnings: true,
   },
 });
 ```
 
 #### Set Model via Middleware
+
 ```typescript
-middleware.setExecutionContext(sessionId, actor, 'openrouter/anthropic/claude-3-opus');
+middleware.setExecutionContext(
+  sessionId,
+  actor,
+  "openrouter/anthropic/claude-3-opus",
+);
 const result = await toolExecutor(toolName, params);
 middleware.clearExecutionContext();
 ```
 
 #### Custom Model Extractor
+
 ```typescript
 configureModelExtraction({
-  defaultModel: 'gpt-4',
+  defaultModel: "gpt-4",
   getModel: (context, result) => {
     // Custom extraction logic
     if (context.agent?.config?.model) {
@@ -79,6 +89,7 @@ configureModelExtraction({
 ## How to Integrate with OpenClaw
 
 ### Option 1: Extract from Tool Result (Recommended)
+
 Many APIs (OpenRouter, OpenAI) return model name in response:
 
 ```typescript
@@ -96,6 +107,7 @@ Many APIs (OpenRouter, OpenAI) return model name in response:
 **Implementation:** Just pass the API response through - extraction happens automatically.
 
 ### Option 2: Set via Execution Context
+
 Before delegating to a tool:
 
 ```typescript
@@ -108,11 +120,12 @@ const orchestrator = {
     } finally {
       middleware.clearExecutionContext();
     }
-  }
+  },
 };
 ```
 
 ### Option 3: Configure Environment Variable
+
 ```bash
 # Set the model at OpenClaw startup
 export OPENAI_MODEL="openrouter/anthropic/claude-3-opus"
@@ -120,39 +133,45 @@ export LLM_MODEL="gpt-4"
 ```
 
 ### Option 4: Custom Extractor for OpenClaw Context
+
 ```typescript
 configureModelExtraction({
   getModel: (context) => {
     // If OpenClaw stores model in session metadata
-    return context.session?.config?.modelName || 
-           context.agent?.modelName ||
-           process.env.OPENAI_MODEL;
-  }
+    return (
+      context.session?.config?.modelName ||
+      context.agent?.modelName ||
+      process.env.OPENAI_MODEL
+    );
+  },
 });
 ```
 
 ## Configuration API
 
 ### `configureModelExtraction(config: ModelExtractionConfig)`
+
 Configure global model extraction behavior.
 
 ```typescript
 interface ModelExtractionConfig {
   // Default model if extraction fails
   defaultModel?: string;
-  
+
   // Custom extraction function
   getModel?: (context: any, result?: any) => string | undefined;
-  
+
   // Log warnings when model can't be determined
   logWarnings?: boolean;
 }
 ```
 
 ### `extractModel(context: any, result?: any): string | undefined`
+
 Extract model from context and/or result.
 
 **Parameters:**
+
 - `context` - Execution context (from tool call)
 - `result` - Tool execution result (from API)
 
@@ -181,6 +200,7 @@ Model names must match entries in `src/types/pricing.ts`. Currently supported:
 ```
 
 **To add a new model:**
+
 1. Add entry to `PRICING` in `src/types/pricing.ts`
 2. Update extraction logic if using custom format
 3. Verify with test workflow
@@ -188,6 +208,7 @@ Model names must match entries in `src/types/pricing.ts`. Currently supported:
 ## Troubleshooting
 
 ### "No model found in context" Warning
+
 The model couldn't be extracted. Check:
 
 1. **API Response** - Does your API return `model` field?
@@ -196,15 +217,18 @@ The model couldn't be extracted. Check:
 4. **Custom Extractor** - Implement `getModel` function
 
 ### Cost Calculation Wrong
+
 1. **Verify model name** - Check logs, must match pricing table
 2. **Check pricing** - Ensure model exists in `PRICING`
 3. **Test extraction** - Use the test script below
 
 ### Model Not in Pricing Table
+
 Add it to `src/types/pricing.ts`:
+
 ```typescript
 export const PRICING: PricingTable = {
-  'your-model-name': {
+  "your-model-name": {
     inputCostPer1kTokens: 0.001,
     outputCostPer1kTokens: 0.002,
   },

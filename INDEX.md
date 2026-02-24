@@ -4,12 +4,12 @@ Quick navigation guide to all Mission Control Activity Feed documentation.
 
 ## 📋 Start Here
 
-- **[EXECUTIVE_SUMMARY.md](./EXECUTIVE_SUMMARY.md)** ⭐ *START HERE*
+- **[EXECUTIVE_SUMMARY.md](./EXECUTIVE_SUMMARY.md)** ⭐ _START HERE_
   - High-level project overview for stakeholders
   - Completion status, deliverables, recommendations
   - 5-minute read
 
-- **[QUICK_START.md](./QUICK_START.md)** 
+- **[QUICK_START.md](./QUICK_START.md)**
   - Get running in 5 minutes
   - Installation, running API, running tests
   - Common tasks and troubleshooting
@@ -36,7 +36,7 @@ Quick navigation guide to all Mission Control Activity Feed documentation.
 
 ## 🔧 Integration & Development
 
-- **[docs/INTEGRATION_GUIDE.md](./docs/INTEGRATION_GUIDE.md)** ⭐ *FOR ENGINEERS*
+- **[docs/INTEGRATION_GUIDE.md](./docs/INTEGRATION_GUIDE.md)** ⭐ _FOR ENGINEERS_
   - How to hook into OpenClaw
   - Code examples for each integration point
   - Token extraction, error handling
@@ -100,16 +100,19 @@ Quick navigation guide to all Mission Control Activity Feed documentation.
 ## 🎯 Use Cases
 
 ### "I want to understand the project"
+
 1. Read [EXECUTIVE_SUMMARY.md](./EXECUTIVE_SUMMARY.md) (5 min)
 2. Read [README.md](./README.md) (10 min)
 3. Review [PHASE_1_SUMMARY.md](./PHASE_1_SUMMARY.md) (15 min)
 
 ### "I want to integrate this into OpenClaw"
+
 1. Read [docs/INTEGRATION_GUIDE.md](./docs/INTEGRATION_GUIDE.md)
 2. Look at code examples in that guide
 3. Review [examples/basic-usage.ts](./examples/basic-usage.ts)
 
 ### "I want to deploy this to production"
+
 1. Read [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)
 2. Choose deployment method (Docker, systemd, etc.)
 3. Configure .env file
@@ -117,12 +120,14 @@ Quick navigation guide to all Mission Control Activity Feed documentation.
 5. Start server
 
 ### "I want to use the API"
+
 1. Read [docs/API_SPECIFICATION.md](./docs/API_SPECIFICATION.md)
 2. Start server: `npm run api`
 3. Try example requests in the spec
 4. Build your dashboard/tooling
 
 ### "I want to contribute or review code"
+
 1. Read [README.md](./README.md) - Overview
 2. Read [docs/INTEGRATION_GUIDE.md](./docs/INTEGRATION_GUIDE.md) - Design
 3. Review `src/` code with comments
@@ -130,6 +135,7 @@ Quick navigation guide to all Mission Control Activity Feed documentation.
 5. Check [CHECKLIST.md](./CHECKLIST.md) for completeness
 
 ### "I want to run the tests"
+
 ```bash
 cd ~/Dev/openclaw-mission-control
 npm install
@@ -137,6 +143,7 @@ npm test
 ```
 
 ### "I want to see it in action"
+
 ```bash
 npm run api              # Terminal 1: Start API server
 npm install              # Terminal 2: Install dependencies
@@ -147,34 +154,42 @@ curl http://localhost:3001/api/stats  # Terminal 3: Query API
 ## 🔍 Key Sections by Topic
 
 ### Architecture
+
 - [README.md - Architecture](./README.md#architecture)
 - [PHASE_1_SUMMARY.md - What Was Built](./PHASE_1_SUMMARY.md#what-was-built)
 
 ### API Endpoints
+
 - [docs/API_SPECIFICATION.md](./docs/API_SPECIFICATION.md)
 - [README.md - Usage](./README.md#usage)
 
 ### Database Schema
+
 - [README.md - Database Schema](./README.md#database-schema)
 - [PHASE_1_SUMMARY.md - SQLite Schema](./PHASE_1_SUMMARY.md#2-sqlite-schema)
 
 ### Cost Tracking
+
 - [README.md - Cost Calculation](./README.md#cost-calculation)
 - [PHASE_1_SUMMARY.md - Cost Calculation Module](./PHASE_1_SUMMARY.md#5-cost-calculation-module)
 
 ### Integration
+
 - [docs/INTEGRATION_GUIDE.md](./docs/INTEGRATION_GUIDE.md)
 - [QUICK_START.md - Integrate with OpenClaw](./QUICK_START.md#next-integrate-with-openclaw)
 
 ### Deployment
+
 - [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)
 - [README.md - Development](./README.md#development)
 
 ### Testing
+
 - [CHECKLIST.md - Test Suite](./CHECKLIST.md#test-suite)
 - [README.md - Development](./README.md#development)
 
 ### Logging
+
 - [docs/INTEGRATION_GUIDE.md - Logging Best Practices](./docs/INTEGRATION_GUIDE.md#logging-best-practices)
 - [README.md - Logging Best Practices](./README.md#logging-best-practices)
 
@@ -202,12 +217,12 @@ A: See [PHASE_1_SUMMARY.md - Next Steps](./PHASE_1_SUMMARY.md#next-steps-phase-1
 
 ## 📈 Project Timeline
 
-| Phase | Status | Deliverables | Timeline |
-|-------|--------|--------------|----------|
-| Phase 1 | ✅ COMPLETE | Foundation layer | 2 days |
-| Phase 1.5 | 📋 SCHEDULED | React dashboard | 3-4 days |
-| Phase 2 | 📋 PLANNED | Advanced features | 2 weeks |
-| Phase 3 | 📋 PLANNED | Enterprise features | 4+ weeks |
+| Phase     | Status       | Deliverables        | Timeline |
+| --------- | ------------ | ------------------- | -------- |
+| Phase 1   | ✅ COMPLETE  | Foundation layer    | 2 days   |
+| Phase 1.5 | 📋 SCHEDULED | React dashboard     | 3-4 days |
+| Phase 2   | 📋 PLANNED   | Advanced features   | 2 weeks  |
+| Phase 3   | 📋 PLANNED   | Enterprise features | 4+ weeks |
 
 ## 🎓 Learning Path
 
@@ -245,17 +260,17 @@ A: See [PHASE_1_SUMMARY.md - Next Steps](./PHASE_1_SUMMARY.md#next-steps-phase-1
 
 ## 📝 Document Metadata
 
-| Document | Purpose | Audience | Length | Time |
-|----------|---------|----------|--------|------|
-| EXECUTIVE_SUMMARY.md | Stakeholder overview | Managers, leads | 9.8K | 5 min |
-| README.md | Complete reference | Everyone | 12.1K | 20 min |
-| QUICK_START.md | Fast onboarding | Developers | 3.4K | 5 min |
-| PHASE_1_SUMMARY.md | Project completion | Technical review | 13.8K | 20 min |
-| CHECKLIST.md | Verification | QA, leads | 11.6K | 15 min |
-| INDEX.md | Navigation | Everyone | This file | 5 min |
-| INTEGRATION_GUIDE.md | Implementation | Engineers | 10.4K | 30 min |
-| API_SPECIFICATION.md | Reference | Developers | 9.9K | 20 min |
-| DEPLOYMENT.md | Operations | DevOps | 9.3K | 30 min |
+| Document             | Purpose              | Audience         | Length    | Time   |
+| -------------------- | -------------------- | ---------------- | --------- | ------ |
+| EXECUTIVE_SUMMARY.md | Stakeholder overview | Managers, leads  | 9.8K      | 5 min  |
+| README.md            | Complete reference   | Everyone         | 12.1K     | 20 min |
+| QUICK_START.md       | Fast onboarding      | Developers       | 3.4K      | 5 min  |
+| PHASE_1_SUMMARY.md   | Project completion   | Technical review | 13.8K     | 20 min |
+| CHECKLIST.md         | Verification         | QA, leads        | 11.6K     | 15 min |
+| INDEX.md             | Navigation           | Everyone         | This file | 5 min  |
+| INTEGRATION_GUIDE.md | Implementation       | Engineers        | 10.4K     | 30 min |
+| API_SPECIFICATION.md | Reference            | Developers       | 9.9K      | 20 min |
+| DEPLOYMENT.md        | Operations           | DevOps           | 9.3K      | 30 min |
 
 ---
 

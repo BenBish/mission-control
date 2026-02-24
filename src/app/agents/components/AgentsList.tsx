@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { Search, SlidersHorizontal, Users } from "lucide-react";
 import type { Agent } from "@/types/agent";
+import { compareDates } from "@/lib/date-utils";
 
 interface AgentsListProps {
   agents: Agent[];
@@ -81,8 +82,7 @@ export function AgentsList({ agents }: AgentsListProps) {
           comparison = a.role.localeCompare(b.role);
           break;
         case "lastActive":
-          comparison =
-            new Date(a.lastActive).getTime() - new Date(b.lastActive).getTime();
+          comparison = compareDates(a.lastActive, b.lastActive);
           break;
       }
 

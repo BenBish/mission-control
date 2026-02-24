@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import type { Agent } from "@/types/agent";
 import { Bot, Clock, Zap, DollarSign, Hash } from "lucide-react";
 import { CurrentActivityIndicator } from "./CurrentActivityIndicator";
+import { formatLastActive } from "@/lib/date-utils";
 
 interface AgentCardProps {
   agent: Agent;
@@ -14,21 +15,6 @@ export function AgentCard({ agent }: AgentCardProps) {
 
   const handleClick = () => {
     navigate(`/agents/${agent.id}`);
-  };
-
-  const formatLastActive = (timestamp: string) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString();
   };
 
   const formatCost = (cost: number) => {

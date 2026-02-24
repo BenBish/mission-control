@@ -70,6 +70,7 @@ Phase 1.5 adds a complete **React Dashboard UI** and **OpenClaw Integration Laye
 #### Styling
 
 **Dark Mode** theme with consistent design:
+
 - Colors: Blues, greens, grays for status indicators
 - Responsive layout (desktop, tablet, mobile)
 - CSS modules: `src/frontend/styles/`
@@ -82,6 +83,7 @@ Phase 1.5 adds a complete **React Dashboard UI** and **OpenClaw Integration Laye
   - `ActivityDetail.css` - Detail view styles
 
 **Features:**
+
 - Smooth transitions and animations
 - Color-coded status badges
 - Accessible color contrast ratios
@@ -103,13 +105,13 @@ Phase 1.5 adds a complete **React Dashboard UI** and **OpenClaw Integration Laye
 
    ```typescript
    const eventLogger = new EventBasedActivityLogger(logger);
-   
+
    // Hook into OpenClaw events
    openclawEvents.on('tool:start', (toolName, params, context) => {
      const activityId = eventLogger.onToolStart(...);
      context.activityId = activityId;
    });
-   
+
    openclawEvents.on('tool:end', (result, error, context) => {
      eventLogger.onToolEnd(context.activityId, result, error, ...);
    });
@@ -123,7 +125,7 @@ Phase 1.5 adds a complete **React Dashboard UI** and **OpenClaw Integration Laye
    ```typescript
    const middleware = new OpenClawInstrumentationMiddleware(logger);
    const instrumentedExecutor = middleware.wrapToolExecutor(originalExecutor);
-   
+
    middleware.setExecutionContext(sessionId, actor);
    const result = await instrumentedExecutor(toolName, params);
    ```
@@ -160,11 +162,11 @@ Phase 1.5 adds a complete **React Dashboard UI** and **OpenClaw Integration Laye
 
 ```typescript
 interface OpenClawIntegrationConfig {
-  databasePath: string;           // Where to store activities
-  enableStreaming: boolean;       // Enable real-time updates
-  captureTokens: boolean;         // Extract token counts
-  captureOutput: boolean;         // Log tool outputs
-  maxOutputSize: number;          // Max output characters
+  databasePath: string; // Where to store activities
+  enableStreaming: boolean; // Enable real-time updates
+  captureTokens: boolean; // Extract token counts
+  captureOutput: boolean; // Log tool outputs
+  maxOutputSize: number; // Max output characters
 }
 ```
 
@@ -173,6 +175,7 @@ interface OpenClawIntegrationConfig {
 **`examples/test-workflow.ts`** - Complete end-to-end demo
 
 Demonstrates:
+
 - Session lifecycle (start → end)
 - User requests
 - Orchestrator decisions
@@ -184,6 +187,7 @@ Demonstrates:
 Run with: `npm run test:workflow`
 
 Output includes:
+
 - Activity summary with costs
 - Actor breakdown
 - Top tools used
@@ -221,6 +225,7 @@ Output includes:
 ## Tech Stack
 
 **Frontend:**
+
 - React 18 with TypeScript
 - Recharts for visualizations
 - Custom CSS (dark mode)
@@ -228,6 +233,7 @@ Output includes:
 - Polling fallback mechanism
 
 **Backend:**
+
 - Express.js (existing)
 - SQLite (existing)
 - Node.js event emitters
@@ -245,6 +251,7 @@ Output includes:
 ## Database Schema
 
 **Activities Table:**
+
 - id (UUID v7)
 - sessionId
 - timestamp, completedAt, durationMs
@@ -254,12 +261,14 @@ Output includes:
 - tokens, cost, tags
 
 **Sessions Table:**
+
 - id, startTime, endTime
 - stats (totalActions, successRate, cost, tokens)
 - actor summary
 - top tools
 
 **Cost Summaries Table:**
+
 - For fast aggregation queries
 
 ## Security & Privacy
@@ -342,6 +351,7 @@ Open browser to: **http://localhost:3001**
 ### 3. Run Test Workflow (to see it in action)
 
 In a separate terminal:
+
 ```bash
 npm run test:workflow
 ```
@@ -355,35 +365,41 @@ See `docs/OPENCLAW_INTEGRATION.md` for integration patterns.
 ## Deliverables Summary
 
 ✅ **React Dashboard Component**
+
 - Activity feed with real-time updates
 - Cost breakdown with 4 interactive charts
 - Activity detail view with full metadata
 - Responsive dark mode UI
 
 ✅ **WebSocket/Polling Real-Time Updates**
+
 - SSE endpoint for live data
 - Fallback to polling when SSE unavailable
 - <500ms latency
 
 ✅ **OpenClaw Instrumentation Module**
+
 - Event-based integration pattern
 - Middleware wrapper approach
 - Direct hook option
 - Full documentation with examples
 
 ✅ **Documentation**
+
 - `OPENCLAW_INTEGRATION.md` - Complete integration guide
 - API endpoints documented in routes
 - Test workflow demonstrates end-to-end flow
 - Examples for all integration patterns
 
 ✅ **Test Workflow**
+
 - End-to-end demonstration
 - 5 different tool execution types
 - Cost calculation validation
 - Dashboard verification
 
 ✅ **Git History**
+
 - Clean commits for each feature
 - Descriptive commit messages
 - Easy to review and revert if needed
@@ -391,6 +407,7 @@ See `docs/OPENCLAW_INTEGRATION.md` for integration patterns.
 ## Approval Checkpoints Completed
 
 ✅ **Dashboard Prototype Review**
+
 - Activity list with search/filter
 - Cost breakdown with visualizations
 - Activity detail view
@@ -398,6 +415,7 @@ See `docs/OPENCLAW_INTEGRATION.md` for integration patterns.
 - Dark mode theme
 
 ✅ **Integration Hooks Review**
+
 - Event-based pattern ready
 - Middleware pattern ready
 - Direct hook pattern ready
@@ -405,6 +423,7 @@ See `docs/OPENCLAW_INTEGRATION.md` for integration patterns.
 - Token extraction support
 
 ✅ **E2E Test Validation**
+
 - Test workflow runs successfully
 - Activities logged to database
 - Dashboard displays all activities
@@ -438,6 +457,7 @@ See `docs/OPENCLAW_INTEGRATION.md` for integration patterns.
 ## Testing
 
 Run the test suite:
+
 ```bash
 npm test                    # Full test suite
 npm run test:coverage       # With coverage report
@@ -456,16 +476,19 @@ npm run api               # Start API server
 ## Troubleshooting
 
 **Dashboard not loading?**
+
 - Ensure `npm run api` is running
 - Check browser console for errors
 - Verify database file exists: `./data/mission-control.db`
 
 **Activities not appearing?**
+
 - Run `npm run test:workflow` to generate test data
 - Check `/api/health` endpoint
 - Verify SSE connection in DevTools → Network
 
 **Costs showing as $0?**
+
 - Check model pricing in `src/types/pricing.ts`
 - Verify token extraction is working
 - Review `logToolWithTokens` calls in test workflow
@@ -491,6 +514,7 @@ Phase 1.5 successfully delivers:
 📚 **Comprehensive documentation** for deployment and integration
 
 The system is production-ready for:
+
 - Monitoring agent activities
 - Tracking costs across multiple models and agents
 - Debugging agent behavior

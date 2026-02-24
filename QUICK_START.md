@@ -27,6 +27,7 @@ node --loader ts-node/esm examples/basic-usage.ts
 ```
 
 This will:
+
 1. Create a session
 2. Log a tool execution
 3. Add token and cost information
@@ -79,28 +80,28 @@ See `docs/INTEGRATION_GUIDE.md` for hooking into OpenClaw tool execution.
 ### Log a tool execution
 
 ```typescript
-import { Database } from './src/db/database.js';
-import { ActivityLogger } from './src/logger/activity-logger.js';
+import { Database } from "./src/db/database.js";
+import { ActivityLogger } from "./src/logger/activity-logger.js";
 
-const db = new Database('./data/mission-control.db');
+const db = new Database("./data/mission-control.db");
 await db.initialize();
 const logger = new ActivityLogger(db);
 
-const sessionId = 'my-session-123';
+const sessionId = "my-session-123";
 await logger.logSessionStart(sessionId);
 
 const activityId = await logger.logToolStart(
   sessionId,
-  { type: 'subagent', id: 'agent-1', role: 'Engineer' },
-  'exec',
-  { command: 'echo hello' },
-  'Running echo command'
+  { type: "subagent", id: "agent-1", role: "Engineer" },
+  "exec",
+  { command: "echo hello" },
+  "Running echo command",
 );
 
 // Simulate work
-await new Promise(r => setTimeout(r, 100));
+await new Promise((r) => setTimeout(r, 100));
 
-await logger.logToolEnd(activityId, 'success', {}, 'hello', undefined, 100);
+await logger.logToolEnd(activityId, "success", {}, "hello", undefined, 100);
 
 await logger.logSessionEnd(sessionId);
 ```
@@ -110,8 +111,8 @@ await logger.logSessionEnd(sessionId);
 ```typescript
 const activities = await db.getActivities({
   sessionId,
-  status: 'success',
-  limit: 10
+  status: "success",
+  limit: 10,
 });
 ```
 
@@ -133,6 +134,7 @@ cp .env.example .env
 ```
 
 Key variables:
+
 - `PORT` - API server port (default: 3001)
 - `DATABASE_PATH` - SQLite database location
 - `NODE_ENV` - development or production
@@ -140,18 +142,21 @@ Key variables:
 ## Troubleshooting
 
 **"Port already in use"**
+
 ```bash
 lsof -i :3001
 kill -9 <PID>
 ```
 
 **"Module not found"**
+
 ```bash
 bun install
 bun run build
 ```
 
 **"Database locked"**
+
 ```bash
 # Check if another process is using it
 # Kill the process and restart
