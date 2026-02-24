@@ -40,6 +40,7 @@
     "src/styles/**/*.ts",
     "src/styles/**/*.tsx",
     "src/types/activity.ts",
+    "src/types/permissions.ts",
     "src/main.tsx"
   ]
 }

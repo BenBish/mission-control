@@ -14,6 +14,7 @@ const SkillsPage = lazy(() => import("@/app/skills/page"));
 const CronPage = lazy(() =>
   import("@/app/cron/page").then((m) => ({ default: m.CronPage })),
 );
+const PermissionsPage = lazy(() => import("@/app/permissions/page"));
 
 function withSuspense(Component: React.ComponentType) {
   return (
@@ -63,6 +64,10 @@ export const router = createBrowserRouter([
       {
         path: "cron/:jobId",
         element: withSuspense(CronPage),
+      },
+      {
+        path: "permissions",
+        element: withSuspense(PermissionsPage),
       },
       {
         path: "users",

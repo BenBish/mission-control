@@ -13,6 +13,7 @@ import {
   Bot,
   Wrench,
   Clock,
+  Shield,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -24,6 +25,7 @@ const navItems = [
   { to: "/agents", icon: Bot, label: "Agents" },
   { to: "/costs", icon: DollarSign, label: "Cost Breakdown" },
   { to: "/skills", icon: Wrench, label: "Skills" },
+  { to: "/permissions", icon: Shield, label: "Permissions" },
   { to: "/cron", icon: Clock, label: "Cron Jobs" },
   { to: "/users", icon: Users, label: "Users" },
   { to: "/settings", icon: Settings, label: "Settings" },
