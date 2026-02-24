@@ -22,7 +22,9 @@ import { CostLinker } from "../services/cost-linker.js";
 import { initializePricing } from "../types/pricing.js";
 
 // Load environment variables from .env file
-dotenv.config();
+// override: true ensures dotenv wins over Bun's built-in .env loader,
+// which incorrectly expands $ in values like argon2 hashes.
+dotenv.config({ override: true });
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
