@@ -14,10 +14,12 @@ import {
   Wrench,
   Clock,
   Shield,
+  LogOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useTheme } from "@/app/providers";
+import { useAuth } from "@/app/auth/AuthContext";
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
@@ -114,6 +116,24 @@ function ThemeToggle() {
   );
 }
 
+function LogoutButton() {
+  const { user, authEnabled, logout } = useAuth();
+  if (!authEnabled || !user) return null;
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={logout}
+      className="h-9 w-9 rounded-lg"
+      title={`Logout (${user.username})`}
+    >
+      <LogOut className="h-4 w-4" />
+      <span className="sr-only">Logout</span>
+    </Button>
+  );
+}
+
 export function MainLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -153,6 +173,7 @@ export function MainLayout() {
 
           <div className="flex-1" />
 
+          <LogoutButton />
           <ThemeToggle />
         </header>
 

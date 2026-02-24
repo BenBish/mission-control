@@ -11,6 +11,12 @@ import dotenv from "dotenv";
 import { Database } from "../db/database.js";
 import { ActivityLogger } from "../logger/activity-logger.js";
 import { setupRoutes } from "./routes.js";
+import {
+  resolveAuthConfig,
+  authMiddleware,
+  setupAuthRoutes,
+  type AuthConfig,
+} from "./auth.js";
 import { SessionLogScanner } from "../services/session-log-scanner.js";
 import { CostLinker } from "../services/cost-linker.js";
 import { initializePricing } from "../types/pricing.js";
@@ -32,6 +38,7 @@ export class ActivityFeedServer {
   private db: Database;
   private logger: ActivityLogger;
   private config: ServerConfig;
+  private authConfig: AuthConfig;
   private scanner: SessionLogScanner | null = null;
   private costLinker: CostLinker | null = null;
 
@@ -40,6 +47,9 @@ export class ActivityFeedServer {
     this.app = express();
     this.db = new Database(config.databasePath);
     this.logger = new ActivityLogger(this.db);
+
+    // Resolve auth config (throws if misconfigured — fail early)
+    this.authConfig = resolveAuthConfig();
 
     this.setupMiddleware();
   }
@@ -72,6 +82,37 @@ export class ActivityFeedServer {
     // Initialize database
     await this.db.initialize();
     console.log(`📦 Database initialized at ${this.config.databasePath}`);
+
+    // Setup authentication
+    if (this.authConfig.enabled) {
+      console.log("🔒 Authentication enabled");
+    } else {
+      console.log("🔓 Authentication disabled (MC_AUTH_ENABLED != true)");
+    }
+
+    // Auth activity logger helper
+    const logAuthActivity = async (
+      event: string,
+      details: Record<string, unknown>,
+    ) => {
+      await this.db.createActivity({
+        sessionId: "auth",
+        actor: { type: "system", id: "auth" },
+        actionType: "event",
+        description: event,
+        details,
+        status:
+          event.includes("failed") || event.includes("rate_limited")
+            ? "failure"
+            : "success",
+      });
+    };
+
+    // Auth routes (login/logout/me) — must be before auth middleware
+    setupAuthRoutes(this.app, this.authConfig, logAuthActivity);
+
+    // Auth middleware — protects API routes
+    this.app.use(authMiddleware(this.authConfig));
 
     // Setup routes
     setupRoutes(this.app, this.logger);
