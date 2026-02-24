@@ -8,7 +8,7 @@ import { existsSync } from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { glob } from 'glob';
-import { Skill, SkillConfig, PermissionsMatrix, Agent } from '../types/agents.js';
+import { Skill, SkillConfig, PermissionsMatrix } from '../types/agents.js';
 import { AgentService } from './agent-service.js';
 
 // Resolved lazily so env vars set at runtime are respected.
@@ -23,7 +23,7 @@ function getSkillBasePaths(): string[] {
   try {
     const npmPath = require.resolve('@orcateam/openclaw-skills');
     npmSkillsPath = path.dirname(npmPath);
-  } catch (err) {
+  } catch {
     // npm package not found, that's ok - we'll use fallback paths
   }
   
@@ -154,7 +154,7 @@ export class SkillsService {
     // Split and filter out empty lines to handle leading newlines after frontmatter strip
     const lines = cleanContent.split('\n').filter(line => line.trim().length > 0);
     
-    let descriptionLines: string[] = [];
+    const descriptionLines: string[] = [];
     let startIndex = 0;
 
     // Skip the first heading (if it exists)
