@@ -342,7 +342,7 @@ describe("CronService", () => {
     test("should return a path ending in jobs.json", () => {
       const p = CronService.getJobsFilePath();
       expect(p).toContain("jobs.json");
-      expect(p).toContain(".openclaw-team/cron");
+      expect(p).toContain(".openclaw/cron");
     });
   });
 });

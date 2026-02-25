@@ -14,7 +14,7 @@ const CACHE_TTL_MS = 5000;
 function getJobsFile(): string {
   return path.join(
     process.env.HOME || "/home/ben",
-    ".openclaw-team/cron/jobs.json",
+    ".openclaw/cron/jobs.json",
   );
 }
 
