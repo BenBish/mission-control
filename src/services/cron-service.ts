@@ -1,5 +1,4 @@
-import fs from "fs";
-import path from "path";
+import { spawnSync } from "child_process";
 import cronstrue from "cronstrue";
 import { CronJob, RunHistory } from "@/types/cron";
 
@@ -11,16 +10,74 @@ interface CachedJobs {
 let cachedJobs: CachedJobs | null = null;
 const CACHE_TTL_MS = 5000;
 
-function getJobsFile(): string {
-  return path.join(
-    process.env.HOME || "/home/ben",
-    ".openclaw/cron/jobs.json",
-  );
+/**
+ * Build CLI args for targeting a specific gateway.
+ * Uses env vars CRON_GATEWAY_URL and CRON_GATEWAY_TOKEN when set,
+ * allowing Mission Control to query any gateway (personal or team).
+ */
+function getGatewayArgs(): string[] {
+  const args: string[] = [];
+  const url = process.env.CRON_GATEWAY_URL;
+  const token = process.env.CRON_GATEWAY_TOKEN;
+  if (url) args.push("--url", url);
+  if (token) args.push("--token", token);
+  return args;
+}
+
+/**
+ * Run an openclaw CLI command and return parsed JSON output.
+ * Falls back to null on any error (CLI not installed, gateway down, etc.)
+ */
+function runOpenclawJson<T>(args: string[]): T | null {
+  try {
+    const result = spawnSync("openclaw", args, {
+      encoding: "utf-8",
+      timeout: 15_000,
+      env: { ...process.env },
+    });
+    if (result.status !== 0 || !result.stdout) {
+      console.error(
+        "openclaw CLI error:",
+        result.stderr?.trim() || `exit code ${result.status}`,
+      );
+      return null;
+    }
+    return JSON.parse(result.stdout) as T;
+  } catch (error) {
+    console.error("Failed to run openclaw CLI:", error);
+    return null;
+  }
+}
+
+interface CliJobsResponse {
+  jobs: CronJob[];
+  total: number;
+}
+
+interface CliRunsResponse {
+  entries: Array<{
+    ts: number;
+    jobId: string;
+    action: string;
+    status: string;
+    summary?: string;
+    error?: string;
+    runAtMs: number;
+    durationMs: number;
+    nextRunAtMs?: number;
+    sessionId?: string;
+    sessionKey?: string;
+  }>;
 }
 
 export class CronService {
+  /**
+   * @deprecated Kept for backward compatibility with tests.
+   * Returns a placeholder path; actual data now comes from the gateway API.
+   */
   static getJobsFilePath(): string {
-    return getJobsFile();
+    const home = process.env.HOME || "/home/ben";
+    return `${home}/.openclaw/cron/jobs.json`;
   }
 
   static async getJobs(): Promise<CronJob[]> {
@@ -29,26 +86,30 @@ export class CronService {
       return cachedJobs.data;
     }
 
-    try {
-      const jobsFile = getJobsFile();
-      if (!fs.existsSync(jobsFile)) {
-        return [];
-      }
+    const gatewayArgs = getGatewayArgs();
+    const response = runOpenclawJson<CliJobsResponse>([
+      "cron",
+      "list",
+      "--all",
+      "--json",
+      ...gatewayArgs,
+    ]);
 
-      const content = fs.readFileSync(jobsFile, "utf-8");
-      const raw = JSON.parse(content);
-      const jobs: CronJob[] = Array.isArray(raw) ? raw : raw.jobs || [];
-
-      // Enrich jobs
-      const enriched = jobs.map((job) => this.enrichJob(job));
-
-      // Update cache
-      cachedJobs = { data: enriched, timestamp: Date.now() };
-      return enriched;
-    } catch (error) {
-      console.error("Error reading cron jobs:", error);
-      throw error;
+    if (!response) {
+      // CLI unavailable or gateway down — return empty list
+      return [];
     }
+
+    const jobs: CronJob[] = Array.isArray(response.jobs)
+      ? response.jobs
+      : [];
+
+    // Enrich jobs
+    const enriched = jobs.map((job) => this.enrichJob(job));
+
+    // Update cache
+    cachedJobs = { data: enriched, timestamp: Date.now() };
+    return enriched;
   }
 
   static async getJob(id: string): Promise<CronJob | null> {
@@ -56,27 +117,37 @@ export class CronService {
     return jobs.find((j) => j.id === id) || null;
   }
 
-  static async getRunHistory(jobId: string, limit = 20): Promise<RunHistory[]> {
-    try {
-      const runsFile = path.join(
-        path.dirname(getJobsFile()),
-        `runs-${jobId}.jsonl`,
-      );
-      if (!fs.existsSync(runsFile)) {
-        return [];
-      }
+  static async getRunHistory(
+    jobId: string,
+    limit = 20,
+  ): Promise<RunHistory[]> {
+    const gatewayArgs = getGatewayArgs();
+    const response = runOpenclawJson<CliRunsResponse>([
+      "cron",
+      "runs",
+      "--id",
+      jobId,
+      "--limit",
+      String(limit),
+      ...gatewayArgs,
+    ]);
 
-      const content = fs.readFileSync(runsFile, "utf-8");
-      const lines = content
-        .split("\n")
-        .filter((l) => l.trim())
-        .slice(-limit);
-
-      return lines.map((line) => JSON.parse(line) as RunHistory);
-    } catch (error) {
-      console.error("Error reading run history:", error);
+    if (!response || !Array.isArray(response.entries)) {
       return [];
     }
+
+    // Map CLI entries to RunHistory type
+    return response.entries.map((entry) => ({
+      id: entry.sessionId || `${entry.jobId}-${entry.ts}`,
+      jobId: entry.jobId,
+      timestamp: entry.ts,
+      status: entry.status === "ok" || entry.status === "success"
+        ? ("success" as const)
+        : ("failure" as const),
+      duration: entry.durationMs,
+      output: entry.summary,
+      error: entry.error,
+    }));
   }
 
   static enrichJob(job: CronJob): CronJob {

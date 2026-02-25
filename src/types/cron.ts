@@ -40,11 +40,18 @@ export interface CronJobState {
   lastRunAtMs?: number;
   lastRunStatus?: "success" | "failure";
   nextWakeAtMs?: number;
+  // Fields returned by the gateway API
+  lastStatus?: string;
+  lastDurationMs?: number;
+  consecutiveErrors?: number;
+  lastError?: string;
+  nextRunAtMs?: number;
 }
 
 export interface CronJob {
   id: string;
   name: string;
+  agentId?: string;
   schedule: ScheduleConfig;
   payload: PayloadConfig;
   delivery?: {
@@ -61,6 +68,8 @@ export interface CronJob {
   thinking?: string;
   createdAt?: string;
   updatedAt?: string;
+  createdAtMs?: number;
+  updatedAtMs?: number;
   state?: CronJobState;
   // Enriched fields
   scheduleHuman?: string;

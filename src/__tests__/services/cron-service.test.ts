@@ -2,8 +2,9 @@
  * CronService Tests
  * Tests cron job listing, enrichment, schedule formatting, and cache behavior.
  *
- * JOBS_FILE path is computed lazily via getJobsFile(), so tests that override
- * process.env.HOME will see the correct fixture path.
+ * getJobs() now queries the gateway via `openclaw cron list --all --json`.
+ * Tests that exercise getJobs/getJob/getRunHistory rely on the real CLI being
+ * available; they gracefully handle empty results when the gateway is down.
  */
 
 import { describe, test, expect, beforeEach } from "bun:test";
@@ -16,14 +17,14 @@ describe("CronService", () => {
   });
 
   // ==========================================================================
-  // getJobs - reads from real filesystem
+  // getJobs - queries gateway via CLI
   // ==========================================================================
 
   describe("getJobs", () => {
-    test("should return an array of jobs (from real filesystem)", async () => {
+    test("should return an array of jobs (from gateway CLI)", async () => {
       const jobs = await CronService.getJobs();
       expect(Array.isArray(jobs)).toBe(true);
-      // Whatever is in the real jobs file — just check it's enriched
+      // Whatever the gateway returns — just check enrichment if any jobs exist
       for (const job of jobs) {
         expect(job.id).toBeTruthy();
         expect(job.scheduleHuman).toBeTruthy();
@@ -41,7 +42,7 @@ describe("CronService", () => {
       const first = await CronService.getJobs();
       CronService.clearCache();
       const second = await CronService.getJobs();
-      // Should still be equal content (same file)
+      // Should still be equal content (same gateway)
       expect(first.length).toBe(second.length);
     });
   });
@@ -335,7 +336,7 @@ describe("CronService", () => {
   });
 
   // ==========================================================================
-  // getJobsFilePath
+  // getJobsFilePath (deprecated, kept for compatibility)
   // ==========================================================================
 
   describe("getJobsFilePath", () => {
