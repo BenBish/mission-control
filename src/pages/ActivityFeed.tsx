@@ -244,8 +244,11 @@ export default function ActivityFeed() {
                       </td>
                       <td className="py-3 px-4 text-sm">
                         <div className="flex flex-col">
-                          <span className="font-medium truncate max-w-[120px]">
-                            {activity.actor.id}
+                          <span className="font-medium truncate max-w-[160px]">
+                            {activity.actor.emoji && (
+                              <span className="mr-1">{activity.actor.emoji}</span>
+                            )}
+                            {activity.actor.displayName || activity.actor.id}
                           </span>
                           <span className="text-xs text-muted-foreground">
                             {activity.actor.type}
