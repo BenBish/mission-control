@@ -28,6 +28,61 @@ const sseClients: Set<Response> = new Set();
 const DEFAULT_ACTIVITY_LIMIT = 100;
 const MAX_ACTIVITY_LIMIT = 100000;
 
+// ============================================================================
+// AGENT DISPLAY NAME MAPPING (centralised single source of truth)
+// ============================================================================
+
+/** Known agent ID → display name + emoji */
+const AGENT_DISPLAY_NAMES: Record<
+  string,
+  { displayName: string; emoji: string }
+> = {
+  main: { displayName: "Orchestrator", emoji: "🎯" },
+  engineer: { displayName: "Engineer", emoji: "🔧" },
+  "engineer-2": { displayName: "Engineer 2", emoji: "🔧" },
+  "solutions-architect": { displayName: "Solutions Architect", emoji: "🏗️" },
+  "code-reviewer": { displayName: "Code Reviewer", emoji: "🔍" },
+  "manual-tester": { displayName: "Manual Tester", emoji: "🧪" },
+  "project-manager": { displayName: "Project Manager", emoji: "📋" },
+};
+
+/**
+ * Resolve an actor ID to a human-readable display name and emoji.
+ * - Known agents get their mapped name
+ * - "unknown" gets a generic label
+ * - Unmapped IDs are title-cased with a generic robot emoji
+ */
+export function resolveActorDisplayName(actorId: string): {
+  displayName: string;
+  emoji: string;
+} {
+  const known = AGENT_DISPLAY_NAMES[actorId];
+  if (known) return known;
+
+  if (actorId === "unknown") {
+    return { displayName: "Unknown Agent", emoji: "❓" };
+  }
+
+  // Fallback: title-case the ID (replace hyphens/underscores with spaces)
+  const titleCased = actorId
+    .replace(/[-_]/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+  return { displayName: titleCased, emoji: "🤖" };
+}
+
+/**
+ * Enrich an activity's actor with displayName and emoji fields.
+ * Mutates the activity in-place for efficiency.
+ * Safely handles activities without an actor field.
+ */
+function enrichActivityActor(activity: any): any {
+  if (!activity?.actor?.id) return activity;
+  const { displayName, emoji } = resolveActorDisplayName(activity.actor.id);
+  activity.actor.displayName = displayName;
+  activity.actor.emoji = emoji;
+  return activity;
+}
+
 export function setupRoutes(app: Express, logger: ActivityLogger) {
   // ============================================================================
   // HELPER FUNCTIONS
@@ -79,6 +134,11 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
       // Fetch activities from database
       const db = logger.getDatabase();
       const results = await db.getActivities(filter);
+
+      // Enrich actor display names
+      for (const activity of results) {
+        enrichActivityActor(activity);
+      }
 
       res.json({
         success: true,
@@ -208,16 +268,20 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
           if (cost) createdActivity.cost = cost;
         }
 
+        // Enrich actor display names
+        enrichActivityActor(createdActivity);
         created.push(createdActivity);
 
         // Broadcast to SSE clients
         if (app.locals.broadcastActivity) {
-          app.locals.broadcastActivity({
+          const broadcastPayload = {
             ...dbActivity,
             id: createdActivity.id,
             tokens,
             cost,
-          } as Activity);
+          } as Activity;
+          enrichActivityActor(broadcastPayload);
+          app.locals.broadcastActivity(broadcastPayload);
         }
       }
 
@@ -304,6 +368,9 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         });
       }
 
+      // Enrich actor display name
+      enrichActivityActor(activity);
+
       res.json({
         success: true,
         activity,
@@ -339,6 +406,11 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
           a.toolName?.toLowerCase().includes(query.toLowerCase()) ||
           JSON.stringify(a.details).toLowerCase().includes(query.toLowerCase()),
       );
+
+      // Enrich actor display names
+      for (const activity of filtered) {
+        enrichActivityActor(activity);
+      }
 
       res.json({
         success: true,
@@ -392,6 +464,12 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
     async (req: Request, res: Response) => {
       try {
         const activities = await logger.getSessionActivities(req.params.id);
+
+        // Enrich actor display names
+        for (const activity of activities) {
+          enrichActivityActor(activity);
+        }
+
         res.json({
           success: true,
           count: activities.length,
@@ -1071,6 +1149,11 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
       );
 
       const activities = await fsAgentService.getAgentActivity(agentId, limit);
+
+      // Enrich actor display names
+      for (const activity of activities) {
+        enrichActivityActor(activity);
+      }
 
       res.json({
         success: true,

@@ -389,13 +389,18 @@ export default function DashboardPage() {
                           {activity.description}
                         </p>
                         <p className="text-xs text-muted-foreground">
+                          <span>
+                            {activity.actor.emoji && (
+                              <span className="mr-0.5">
+                                {activity.actor.emoji}
+                              </span>
+                            )}
+                            {activity.actor.displayName || activity.actor.id}
+                          </span>
+                          <span className="mx-1">·</span>
                           <span className="capitalize">
                             {activity.actor.type}
                           </span>
-                          <span className="mx-1">·</span>
-                          <code className="text-[10px] bg-muted px-1 py-0.5 rounded">
-                            {activity.actor.id}
-                          </code>
                         </p>
                       </div>
                     </div>

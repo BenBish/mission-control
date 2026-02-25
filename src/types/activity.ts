@@ -22,6 +22,8 @@ export interface Actor {
   id: string;
   role?: string;
   sessionLabel?: string;
+  displayName?: string;
+  emoji?: string;
 }
 
 export interface TokenInfo {

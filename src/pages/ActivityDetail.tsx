@@ -286,6 +286,17 @@ export default function ActivityDetail() {
           </CardHeader>
           <CardContent className="pt-0">
             <div className="space-y-2">
+              {activity.actor.displayName && (
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Name</span>
+                  <span className="text-sm font-medium">
+                    {activity.actor.emoji && (
+                      <span className="mr-1">{activity.actor.emoji}</span>
+                    )}
+                    {activity.actor.displayName}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Type</span>
                 <Badge variant="outline">{activity.actor.type}</Badge>
