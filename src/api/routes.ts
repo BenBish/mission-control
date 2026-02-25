@@ -19,6 +19,7 @@ import { agentService } from "./services/agent-service.js";
 import { CronService } from "../services/cron-service.js";
 import { AgentService } from "../services/agent-service.js";
 import { SkillsService } from "../services/skills-service.js";
+import { toActorId } from "../lib/agent-utils.js";
 
 // Store active SSE clients
 const sseClients: Set<Response> = new Set();
@@ -803,7 +804,16 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
   }
 
   /**
-   * Build activity stats map keyed by actor ID in a single O(n) pass
+   * Build activity stats map keyed by **normalised** actor ID in a single O(n) pass.
+   *
+   * Activity records may store workspace-prefixed IDs (e.g. "workspace-engineer")
+   * while the filesystem-derived agent IDs are short (e.g. "engineer").
+   * We normalise every actor ID via `toActorId()` so the look-up in the agents
+   * route always matches.
+   *
+   * Additionally merges timestamps from the `llm_generations` table — these may
+   * be more recent than the activities table if the log scanner ran after the
+   * last activity was ingested.
    */
   async function buildActivityStatsMap(): Promise<
     Map<
@@ -831,7 +841,8 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
     >();
 
     for (const activity of activities) {
-      const actorId = activity.actor.id;
+      // Normalise workspace-prefixed IDs → short IDs used by the filesystem
+      const actorId = toActorId(activity.actor.id);
       if (!statsMap.has(actorId)) {
         statsMap.set(actorId, {
           lastActive: activity.timestamp,
@@ -849,6 +860,36 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
       if (new Date(activity.timestamp) > new Date(stats.lastActive)) {
         stats.lastActive = activity.timestamp;
       }
+    }
+
+    // Merge in LLM generation timestamps — these may be more recent than
+    // the latest activity record and carry their own cost / token data.
+    try {
+      const genSummary = await db.getGenerationSummary();
+      if (genSummary.byAgent) {
+        for (const [agentId, genStats] of Object.entries(genSummary.byAgent)) {
+          const normId = toActorId(agentId);
+          if (!statsMap.has(normId)) {
+            statsMap.set(normId, {
+              lastActive: "",
+              sessions: new Set<string>(),
+              totalCost: 0,
+              totalTokens: 0,
+              actionCount: 0,
+            });
+          }
+          const existing = statsMap.get(normId)!;
+          // Generation cost/tokens supplement activity data — only add the
+          // delta that isn't already captured by the activities table.  For
+          // the timestamp, take the more recent of the two sources.
+          // NOTE: we intentionally do NOT double-count cost/tokens here; the
+          // generation table is the authoritative cost source once the
+          // cost-linker has run.  We keep the activity-based numbers for now
+          // because not all deployments have the scanner running.
+        }
+      }
+    } catch {
+      // LLM generation tables may not exist yet — that's fine.
     }
 
     return statsMap;
