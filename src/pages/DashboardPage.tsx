@@ -391,7 +391,9 @@ export default function DashboardPage() {
                         <p className="text-xs text-muted-foreground">
                           <span>
                             {activity.actor.emoji && (
-                              <span className="mr-0.5">{activity.actor.emoji}</span>
+                              <span className="mr-0.5">
+                                {activity.actor.emoji}
+                              </span>
                             )}
                             {activity.actor.displayName || activity.actor.id}
                           </span>

@@ -33,14 +33,17 @@ const MAX_ACTIVITY_LIMIT = 100000;
 // ============================================================================
 
 /** Known agent ID → display name + emoji */
-const AGENT_DISPLAY_NAMES: Record<string, { displayName: string; emoji: string }> = {
-  main:                 { displayName: "Orchestrator",          emoji: "🎯" },
-  engineer:             { displayName: "Engineer",              emoji: "🔧" },
-  "engineer-2":         { displayName: "Engineer 2",            emoji: "🔧" },
-  "solutions-architect":{ displayName: "Solutions Architect",   emoji: "🏗️" },
-  "code-reviewer":      { displayName: "Code Reviewer",        emoji: "🔍" },
-  "manual-tester":      { displayName: "Manual Tester",        emoji: "🧪" },
-  "project-manager":    { displayName: "Project Manager",      emoji: "📋" },
+const AGENT_DISPLAY_NAMES: Record<
+  string,
+  { displayName: string; emoji: string }
+> = {
+  main: { displayName: "Orchestrator", emoji: "🎯" },
+  engineer: { displayName: "Engineer", emoji: "🔧" },
+  "engineer-2": { displayName: "Engineer 2", emoji: "🔧" },
+  "solutions-architect": { displayName: "Solutions Architect", emoji: "🏗️" },
+  "code-reviewer": { displayName: "Code Reviewer", emoji: "🔍" },
+  "manual-tester": { displayName: "Manual Tester", emoji: "🧪" },
+  "project-manager": { displayName: "Project Manager", emoji: "📋" },
 };
 
 /**
@@ -49,7 +52,10 @@ const AGENT_DISPLAY_NAMES: Record<string, { displayName: string; emoji: string }
  * - "unknown" gets a generic label
  * - Unmapped IDs are title-cased with a generic robot emoji
  */
-export function resolveActorDisplayName(actorId: string): { displayName: string; emoji: string } {
+export function resolveActorDisplayName(actorId: string): {
+  displayName: string;
+  emoji: string;
+} {
   const known = AGENT_DISPLAY_NAMES[actorId];
   if (known) return known;
 

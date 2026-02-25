@@ -246,7 +246,9 @@ export default function ActivityFeed() {
                         <div className="flex flex-col">
                           <span className="font-medium truncate max-w-[160px]">
                             {activity.actor.emoji && (
-                              <span className="mr-1">{activity.actor.emoji}</span>
+                              <span className="mr-1">
+                                {activity.actor.emoji}
+                              </span>
                             )}
                             {activity.actor.displayName || activity.actor.id}
                           </span>
