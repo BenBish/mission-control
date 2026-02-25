@@ -590,7 +590,7 @@ export class Database {
     totalCacheReadTokens: number;
     byAgent: Record<
       string,
-      { cost: number; generations: number; tokens: number }
+      { cost: number; generations: number; tokens: number; lastActive?: string }
     >;
     byModel: Record<
       string,
@@ -625,7 +625,8 @@ export class Database {
       `SELECT agent_id,
         SUM(cost_total) as cost,
         COUNT(*) as generations,
-        SUM(total_tokens) as tokens
+        SUM(total_tokens) as tokens,
+        MAX(timestamp) as last_active
       FROM llm_generations ${where}
       GROUP BY agent_id ORDER BY cost DESC`,
       ...values,
@@ -643,13 +644,14 @@ export class Database {
 
     const agentMap: Record<
       string,
-      { cost: number; generations: number; tokens: number }
+      { cost: number; generations: number; tokens: number; lastActive?: string }
     > = {};
     for (const row of byAgent) {
       agentMap[row.agent_id] = {
         cost: row.cost,
         generations: row.generations,
         tokens: row.tokens,
+        lastActive: row.last_active || undefined,
       };
     }
 
