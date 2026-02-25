@@ -314,9 +314,7 @@ describe("ORC-40: Stats lookup ID format", () => {
 
     // workspace-planner: activity at -20 min, generation at -3 min
     // After Fix 2, lastActive should be the generation timestamp (more recent)
-    const planner = body.agents.find(
-      (a: any) => a.id === "workspace-planner",
-    );
+    const planner = body.agents.find((a: any) => a.id === "workspace-planner");
     expect(planner).toBeDefined();
     expect(planner.lastActive).toBeTruthy();
 
