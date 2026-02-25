@@ -867,9 +867,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
     try {
       const genSummary = await db.getGenerationSummary();
       if (genSummary.byAgent) {
-        for (const [agentId, genStats] of Object.entries(
-          genSummary.byAgent,
-        )) {
+        for (const [agentId, genStats] of Object.entries(genSummary.byAgent)) {
           const normId = toActorId(agentId);
           if (!statsMap.has(normId)) {
             statsMap.set(normId, {

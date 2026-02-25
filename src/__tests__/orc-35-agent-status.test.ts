@@ -21,7 +21,11 @@ import express from "express";
 import { Database } from "../db/database.js";
 import { ActivityLogger } from "../logger/activity-logger.js";
 import { setupRoutes } from "../api/routes.js";
-import { formatLastActive, parseDate, compareDates } from "../lib/date-utils.js";
+import {
+  formatLastActive,
+  parseDate,
+  compareDates,
+} from "../lib/date-utils.js";
 import { toActorId } from "../lib/agent-utils.js";
 import * as fs from "fs";
 import * as path from "path";
@@ -363,9 +367,7 @@ describe("ORC-35 Integration Tests", () => {
   // TC-10: Very old timestamps (30+ days) display correctly
   // -------------------------------------------------------------------------
   test("TC-10: Timestamps older than 30 days display as formatted date", () => {
-    const thirtyDaysAgo = new Date(
-      Date.now() - 35 * 86_400_000,
-    ).toISOString();
+    const thirtyDaysAgo = new Date(Date.now() - 35 * 86_400_000).toISOString();
     const result = formatLastActive(thirtyDaysAgo);
 
     // Should be a locale date string, not "Never" or "Invalid Date"
