@@ -886,6 +886,15 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
           // generation table is the authoritative cost source once the
           // cost-linker has run.  We keep the activity-based numbers for now
           // because not all deployments have the scanner running.
+
+          // Update lastActive to the more recent of activities vs generations
+          if (
+            genStats.lastActive &&
+            (!existing.lastActive ||
+              new Date(genStats.lastActive) > new Date(existing.lastActive))
+          ) {
+            existing.lastActive = genStats.lastActive;
+          }
         }
       }
     } catch {
@@ -915,7 +924,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
       ]);
 
       const agents = fsAgents.map((agent) => {
-        const stats = statsMap.get(agent.id);
+        const stats = statsMap.get(toActorId(agent.id));
         const lastActive = stats?.lastActive || "";
         const actionCount = stats?.actionCount || 0;
         const status = lastActive
@@ -969,7 +978,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
 
       // Merge activity stats
       const statsMap = await buildActivityStatsMap();
-      const stats = statsMap.get(agentId);
+      const stats = statsMap.get(toActorId(agentId));
       const lastActive = stats?.lastActive || "";
       const actionCount = stats?.actionCount || 0;
       const status = lastActive
