@@ -1,6 +1,15 @@
-import { spawnSync } from "child_process";
+import { execFile as _execFile } from "child_process";
+import { promisify } from "util";
 import cronstrue from "cronstrue";
 import { CronJob, RunHistory } from "@/types/cron";
+
+const _execFileAsync = promisify(_execFile);
+
+/**
+ * Wrapper around promisified execFile. Exposed for test mocking via
+ * `CronService._execFileAsync`. Production code should not override this.
+ */
+let execFileAsync = _execFileAsync;
 
 interface CachedJobs {
   data: CronJob[];
@@ -26,25 +35,28 @@ function getGatewayArgs(): string[] {
 
 /**
  * Run an openclaw CLI command and return parsed JSON output.
+ * Uses async execFile to avoid blocking the event loop.
  * Falls back to null on any error (CLI not installed, gateway down, etc.)
  */
-function runOpenclawJson<T>(args: string[]): T | null {
+async function runOpenclawJson<T>(args: string[]): Promise<T | null> {
   try {
-    const result = spawnSync("openclaw", args, {
+    const { stdout, stderr } = await execFileAsync("openclaw", args, {
       encoding: "utf-8",
       timeout: 15_000,
       env: { ...process.env },
     });
-    if (result.status !== 0 || !result.stdout) {
-      console.error(
-        "openclaw CLI error:",
-        result.stderr?.trim() || `exit code ${result.status}`,
-      );
+    if (!stdout) {
+      console.error("openclaw CLI error:", stderr?.trim() || "no output");
       return null;
     }
-    return JSON.parse(result.stdout) as T;
-  } catch (error) {
-    console.error("Failed to run openclaw CLI:", error);
+    return JSON.parse(stdout) as T;
+  } catch (error: any) {
+    // execFile rejects on non-zero exit or timeout
+    if (error.stderr) {
+      console.error("openclaw CLI error:", error.stderr.trim());
+    } else {
+      console.error("Failed to run openclaw CLI:", error.message || error);
+    }
     return null;
   }
 }
@@ -76,7 +88,10 @@ export class CronService {
    * Returns a placeholder path; actual data now comes from the gateway API.
    */
   static getJobsFilePath(): string {
-    const home = process.env.HOME || "/home/ben";
+    const home = process.env.HOME;
+    if (!home) {
+      throw new Error("HOME environment variable is not set");
+    }
     return `${home}/.openclaw/cron/jobs.json`;
   }
 
@@ -87,7 +102,7 @@ export class CronService {
     }
 
     const gatewayArgs = getGatewayArgs();
-    const response = runOpenclawJson<CliJobsResponse>([
+    const response = await runOpenclawJson<CliJobsResponse>([
       "cron",
       "list",
       "--all",
@@ -122,7 +137,9 @@ export class CronService {
     limit = 20,
   ): Promise<RunHistory[]> {
     const gatewayArgs = getGatewayArgs();
-    const response = runOpenclawJson<CliRunsResponse>([
+    // Note: `cron runs` outputs JSON by default (no --json flag needed),
+    // unlike `cron list` which requires the explicit `--json` flag.
+    const response = await runOpenclawJson<CliRunsResponse>([
       "cron",
       "runs",
       "--id",
@@ -136,18 +153,36 @@ export class CronService {
       return [];
     }
 
-    // Map CLI entries to RunHistory type
+    // Map CLI entries to RunHistory type.
+    // Status mapping: ok/success → "success", pending → "pending",
+    // cancelled/timeout get their own values, everything else → "failure".
     return response.entries.map((entry) => ({
       id: entry.sessionId || `${entry.jobId}-${entry.ts}`,
       jobId: entry.jobId,
       timestamp: entry.ts,
-      status: entry.status === "ok" || entry.status === "success"
-        ? ("success" as const)
-        : ("failure" as const),
+      status: this.mapRunStatus(entry.status),
       duration: entry.durationMs,
       output: entry.summary,
       error: entry.error,
     }));
+  }
+
+  static mapRunStatus(
+    status: string,
+  ): "success" | "failure" | "pending" | "cancelled" | "timeout" {
+    switch (status) {
+      case "ok":
+      case "success":
+        return "success";
+      case "pending":
+        return "pending";
+      case "cancelled":
+        return "cancelled";
+      case "timeout":
+        return "timeout";
+      default:
+        return "failure";
+    }
   }
 
   static enrichJob(job: CronJob): CronJob {
@@ -238,5 +273,15 @@ export class CronService {
 
   static clearCache(): void {
     cachedJobs = null;
+  }
+
+  /**
+   * @internal Override the execFile implementation for testing.
+   * Pass `null` to restore the default.
+   */
+  static _setExecFileAsync(
+    fn: typeof _execFileAsync | null,
+  ): void {
+    execFileAsync = fn ?? _execFileAsync;
   }
 }

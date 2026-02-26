@@ -81,7 +81,7 @@ export interface RunHistory {
   id: string;
   jobId: string;
   timestamp: number;
-  status: "success" | "failure";
+  status: "success" | "failure" | "pending" | "cancelled" | "timeout";
   duration?: number;
   output?: string;
   error?: string;
