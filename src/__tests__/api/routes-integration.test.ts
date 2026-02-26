@@ -16,9 +16,68 @@ import express from "express";
 import { Database } from "../../db/database.js";
 import { ActivityLogger } from "../../logger/activity-logger.js";
 import { setupRoutes } from "../../api/routes.js";
+import { CronService } from "../../services/cron-service.js";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
+
+// ---------------------------------------------------------------------------
+// Mock data for CronService (same pattern as cron-service.test.ts)
+// ---------------------------------------------------------------------------
+
+const MOCK_JOBS_RESPONSE = JSON.stringify({
+  jobs: [
+    {
+      id: "cron-1",
+      name: "Hourly Sync",
+      schedule: { kind: "cron", expr: "0 * * * *" },
+      payload: { kind: "systemEvent", text: "sync" },
+      sessionTarget: "main",
+      enabled: true,
+    },
+    {
+      id: "cron-2",
+      name: "Disabled Job",
+      schedule: { kind: "every", everyMs: 60000 },
+      payload: { kind: "systemEvent", text: "tick" },
+      sessionTarget: "main",
+      enabled: false,
+    },
+  ],
+  total: 2,
+});
+
+const MOCK_RUNS_RESPONSE = JSON.stringify({
+  entries: [
+    {
+      ts: Date.now() - 60000,
+      jobId: "cron-1",
+      action: "run",
+      status: "ok",
+      summary: "Completed successfully",
+      runAtMs: Date.now() - 120000,
+      durationMs: 1500,
+      sessionId: "sess-1",
+    },
+  ],
+});
+
+/**
+ * Fake execFileAsync that returns mock responses based on the CLI args.
+ * Prevents real CLI calls and timeouts in integration tests.
+ */
+const fakeExecFileAsync = async (
+  cmd: string,
+  args: string[],
+  opts?: any,
+): Promise<{ stdout: string; stderr: string }> => {
+  if (args.includes("list")) {
+    return { stdout: MOCK_JOBS_RESPONSE, stderr: "" };
+  } else if (args.includes("runs")) {
+    return { stdout: MOCK_RUNS_RESPONSE, stderr: "" };
+  }
+  return { stdout: "{}", stderr: "" };
+};
 
 let fixtureDir: string;
 let dbPath: string;
@@ -47,49 +106,8 @@ beforeAll(async () => {
     "# Test Skill\nA test skill.\n",
   );
 
-  // Create cron fixtures
-  const cronDir = path.join(fixtureDir, ".openclaw-team/cron");
-  fs.mkdirSync(cronDir, { recursive: true });
-  fs.writeFileSync(
-    path.join(cronDir, "jobs.json"),
-    JSON.stringify([
-      {
-        id: "cron-1",
-        name: "Hourly Sync",
-        schedule: { kind: "cron", expr: "0 * * * *" },
-        payload: { kind: "systemEvent", text: "sync" },
-        sessionTarget: "main",
-        enabled: true,
-      },
-      {
-        id: "cron-2",
-        name: "Disabled Job",
-        schedule: { kind: "every", everyMs: 60000 },
-        payload: { kind: "systemEvent", text: "tick" },
-        sessionTarget: "main",
-        enabled: false,
-      },
-    ]),
-  );
-
-  // Write some run history
-  fs.writeFileSync(
-    path.join(cronDir, "runs-cron-1.jsonl"),
-    [
-      JSON.stringify({
-        id: "r1",
-        jobId: "cron-1",
-        timestamp: Date.now() - 60000,
-        status: "success",
-      }),
-      JSON.stringify({
-        id: "r2",
-        jobId: "cron-1",
-        timestamp: Date.now(),
-        status: "success",
-      }),
-    ].join("\n"),
-  );
+  // Inject CronService mock to avoid real CLI calls (which would timeout)
+  CronService._setExecFileAsync(fakeExecFileAsync as any);
 
   process.env.AGENT_PATHS = agentsDir;
   process.env.SKILL_PATH = skillsDir;
@@ -115,6 +133,10 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  // Restore CronService mock
+  CronService._setExecFileAsync(null);
+  CronService.clearCache();
+
   delete process.env.AGENT_PATHS;
   delete process.env.SKILL_PATH;
   // Restore original HOME to avoid leaking test state
@@ -131,6 +153,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await db.clear();
+  CronService.clearCache();
 });
 
 // Helper for GET requests
@@ -626,8 +649,8 @@ describe("GET /api/pending-activities", () => {
 
 // =============================================================================
 // CRON ENDPOINTS
-// CronService reads from real filesystem (JOBS_FILE is set at module load).
-// Tests use real jobs from the system or test with 404 cases.
+// CronService.execFileAsync is mocked via _setExecFileAsync() in beforeAll
+// to return deterministic mock data without requiring the real openclaw CLI.
 // =============================================================================
 
 describe("GET /api/cron/jobs", () => {
