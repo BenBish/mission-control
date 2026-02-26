@@ -11,6 +11,7 @@ PRAGMA synchronous=NORMAL;
 -- Core activities table
 CREATE TABLE IF NOT EXISTS activities (
   id TEXT PRIMARY KEY,
+  profile_id TEXT NOT NULL DEFAULT 'default',
   session_id TEXT NOT NULL,
   parent_activity_id TEXT,
   
@@ -54,10 +55,12 @@ CREATE INDEX IF NOT EXISTS idx_activities_actor ON activities(actor_id);
 CREATE INDEX IF NOT EXISTS idx_activities_status ON activities(status);
 CREATE INDEX IF NOT EXISTS idx_activities_tool ON activities(tool_name);
 CREATE INDEX IF NOT EXISTS idx_activities_session_actor ON activities(session_id, actor_id);
+-- NOTE: idx_activities_profile_timestamp is created by migration 001-add-profile-id
 
 -- Sessions table for tracking agent sessions
 CREATE TABLE IF NOT EXISTS sessions (
   id TEXT PRIMARY KEY,
+  profile_id TEXT NOT NULL DEFAULT 'default',
   start_time DATETIME NOT NULL,
   end_time DATETIME,
   
@@ -81,6 +84,7 @@ CREATE INDEX IF NOT EXISTS idx_sessions_start_time ON sessions(start_time DESC);
 -- Cost summaries for efficient reporting
 CREATE TABLE IF NOT EXISTS cost_summaries (
   id TEXT PRIMARY KEY,
+  profile_id TEXT NOT NULL DEFAULT 'default',
   session_id TEXT NOT NULL,
   actor_id TEXT,
   summary_date DATE NOT NULL,
@@ -117,6 +121,7 @@ CREATE INDEX IF NOT EXISTS idx_activity_logs_activity ON activity_logs(activity_
 -- LLM generations extracted from OpenClaw session JSONL logs
 CREATE TABLE IF NOT EXISTS llm_generations (
   id TEXT PRIMARY KEY,
+  profile_id TEXT NOT NULL DEFAULT 'default',
   session_log_file TEXT NOT NULL,
   session_log_msg_id TEXT NOT NULL,
   agent_id TEXT NOT NULL,
@@ -146,6 +151,7 @@ CREATE INDEX IF NOT EXISTS idx_llm_generations_linked ON llm_generations(linked_
 -- Tracks incremental scan progress per session log file
 CREATE TABLE IF NOT EXISTS scan_state (
   file_path TEXT PRIMARY KEY,
+  profile_id TEXT NOT NULL DEFAULT 'default',
   last_offset INTEGER DEFAULT 0,
   last_scanned_at DATETIME,
   file_size INTEGER DEFAULT 0

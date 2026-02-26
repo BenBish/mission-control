@@ -57,6 +57,7 @@ export interface ActivityReferences {
 export interface Activity {
   // Identifiers
   id: string;
+  profileId?: string;
   sessionId: string;
   parentActivityId?: string;
 
@@ -98,6 +99,7 @@ export interface Activity {
  * Most fields are optional to allow flexible logging
  */
 export interface CreateActivityInput {
+  profileId?: string;
   sessionId: string;
   parentActivityId?: string;
   actor: Actor;
@@ -168,6 +170,7 @@ export interface SessionSummary {
  * Query filters for activity retrieval
  */
 export interface ActivityFilter {
+  profileId?: string;
   sessionId?: string;
   actorId?: string;
   actorType?: ActorType;

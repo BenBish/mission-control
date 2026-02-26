@@ -15,6 +15,8 @@ import {
 } from "../types/activity.js";
 import { AgentStats } from "../types/agents.js";
 import { v7 as uuidv7 } from "uuid";
+import { runMigrations as runSchemaMigrations } from "./migration-runner.js";
+import migration001 from "./migrations/001-add-profile-id.js";
 
 export class Database {
   private db: SqliteDatabase | null = null;
@@ -40,10 +42,14 @@ export class Database {
   private async migrate(): Promise<void> {
     if (!this.db) throw new Error("Database not initialized");
 
+    // Run base schema (CREATE TABLE IF NOT EXISTS — idempotent)
     const statements = getSQLStatements();
     for (const stmt of statements) {
       await this.db.exec(stmt);
     }
+
+    // Run versioned migrations (ALTER TABLE, backfills, etc.)
+    await runSchemaMigrations(this.db, [migration001]);
   }
 
   /**
@@ -81,17 +87,20 @@ export class Database {
       ...input,
     };
 
+    const profileId = input.profileId ?? "default";
+
     const stmt = await this.db.prepare(`
       INSERT INTO activities (
-        id, session_id, parent_activity_id,
+        id, profile_id, session_id, parent_activity_id,
         timestamp, actor_type, actor_id, actor_role, actor_session_label,
         action_type, tool_name, description, details,
         status, tags, references_json, metadata
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     await stmt.run(
       activity.id,
+      profileId,
       activity.sessionId,
       activity.parentActivityId ?? null,
       activity.timestamp,
@@ -183,6 +192,10 @@ export class Database {
     let sql = "SELECT * FROM activities WHERE 1=1";
     const values: any[] = [];
 
+    if (filter.profileId) {
+      sql += " AND profile_id = ?";
+      values.push(filter.profileId);
+    }
     if (filter.sessionId) {
       sql += " AND session_id = ?";
       values.push(filter.sessionId);
@@ -245,12 +258,18 @@ export class Database {
   /**
    * Create a new session
    */
-  async createSession(sessionId: string): Promise<void> {
+  async createSession(
+    sessionId: string,
+    options?: { profileId?: string },
+  ): Promise<void> {
     if (!this.db) throw new Error("Database not initialized");
 
+    const profileId = options?.profileId ?? "default";
+
     await this.db.run(
-      `INSERT OR IGNORE INTO sessions (id, start_time) VALUES (?, ?)`,
+      `INSERT OR IGNORE INTO sessions (id, profile_id, start_time) VALUES (?, ?, ?)`,
       sessionId,
+      profileId,
       new Date().toISOString(),
     );
   }
@@ -369,10 +388,12 @@ export class Database {
   /**
    * Get aggregated activity stats per agent
    */
-  async getAgentStats(): Promise<Map<string, AgentStats>> {
+  async getAgentStats(options?: {
+    profileId?: string;
+  }): Promise<Map<string, AgentStats>> {
     if (!this.db) throw new Error("Database not initialized");
 
-    const rows = await this.db.all<any[]>(`
+    let sql = `
       SELECT
         actor_id,
         MAX(timestamp) as last_active,
@@ -380,9 +401,17 @@ export class Database {
         COALESCE(SUM(cost_usd), 0) as total_cost,
         COALESCE(SUM(total_tokens), 0) as total_tokens,
         SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending_count
-      FROM activities
-      GROUP BY actor_id
-    `);
+      FROM activities`;
+    const values: any[] = [];
+
+    if (options?.profileId) {
+      sql += " WHERE profile_id = ?";
+      values.push(options.profileId);
+    }
+
+    sql += " GROUP BY actor_id";
+
+    const rows = await this.db.all<any[]>(sql, ...values);
 
     const map = new Map<string, AgentStats>();
     for (const row of rows) {
@@ -407,6 +436,7 @@ export class Database {
   private parseActivityRow(row: any): Activity {
     return {
       id: row.id,
+      profileId: row.profile_id,
       sessionId: row.session_id,
       parentActivityId: row.parent_activity_id,
       timestamp: row.timestamp,
@@ -457,6 +487,7 @@ export class Database {
    */
   async upsertGeneration(gen: {
     id: string;
+    profileId?: string;
     sessionLogFile: string;
     sessionLogMsgId: string;
     agentId: string;
@@ -476,17 +507,20 @@ export class Database {
   }): Promise<void> {
     if (!this.db) throw new Error("Database not initialized");
 
+    const profileId = gen.profileId ?? "default";
+
     await this.db.run(
       `INSERT INTO llm_generations (
-        id, session_log_file, session_log_msg_id, agent_id, timestamp,
+        id, profile_id, session_log_file, session_log_msg_id, agent_id, timestamp,
         model, provider, stop_reason,
         input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, total_tokens,
         cost_input, cost_output, cost_cache_read, cost_total
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(session_log_file, session_log_msg_id) DO UPDATE SET
         cost_total = excluded.cost_total,
         total_tokens = excluded.total_tokens`,
       gen.id,
+      profileId,
       gen.sessionLogFile,
       gen.sessionLogMsgId,
       gen.agentId,
@@ -511,6 +545,7 @@ export class Database {
    */
   async getGenerations(
     filter: {
+      profileId?: string;
       agentId?: string;
       model?: string;
       startTime?: string;
@@ -525,6 +560,10 @@ export class Database {
     let sql = "SELECT * FROM llm_generations WHERE 1=1";
     const values: any[] = [];
 
+    if (filter.profileId) {
+      sql += " AND profile_id = ?";
+      values.push(filter.profileId);
+    }
     if (filter.agentId) {
       sql += " AND agent_id = ?";
       values.push(filter.agentId);
@@ -579,6 +618,7 @@ export class Database {
    */
   async getGenerationSummary(
     filter: {
+      profileId?: string;
       startTime?: string;
       endTime?: string;
     } = {},
@@ -601,6 +641,10 @@ export class Database {
 
     let where = "WHERE 1=1";
     const values: any[] = [];
+    if (filter.profileId) {
+      where += " AND profile_id = ?";
+      values.push(filter.profileId);
+    }
     if (filter.startTime) {
       where += " AND timestamp >= ?";
       values.push(filter.startTime);
@@ -710,16 +754,19 @@ export class Database {
     filePath: string,
     offset: number,
     fileSize: number,
+    options?: { profileId?: string },
   ): Promise<void> {
     if (!this.db) throw new Error("Database not initialized");
+    const profileId = options?.profileId ?? "default";
     await this.db.run(
-      `INSERT INTO scan_state (file_path, last_offset, file_size, last_scanned_at)
-       VALUES (?, ?, ?, datetime('now'))
+      `INSERT INTO scan_state (file_path, profile_id, last_offset, file_size, last_scanned_at)
+       VALUES (?, ?, ?, ?, datetime('now'))
        ON CONFLICT(file_path) DO UPDATE SET
          last_offset = excluded.last_offset,
          file_size = excluded.file_size,
          last_scanned_at = excluded.last_scanned_at`,
       filePath,
+      profileId,
       offset,
       fileSize,
     );
