@@ -106,6 +106,10 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
     return "offline";
   }
 
+  // Shared AgentService instance (filesystem-based) — hoisted so /api/stats
+  // and other early handlers can reference it.
+  const fsAgentService = new AgentService(logger.getDatabase());
+
   // ============================================================================
   // ACTIVITY ENDPOINTS
   // ============================================================================
@@ -635,6 +639,30 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         );
       }
 
+      // Count active actors (online or busy) using the same logic as /api/agents
+      let activeActors = 0;
+      let totalAgents = 0;
+      try {
+        const [fsAgents, statsMap] = await Promise.all([
+          fsAgentService.readAgents(),
+          buildActivityStatsMap(),
+        ]);
+        totalAgents = fsAgents.length;
+        for (const agent of fsAgents) {
+          const agentStats = statsMap.get(toActorId(agent.id));
+          const lastActive = agentStats?.lastActive || "";
+          const actionCount = agentStats?.actionCount || 0;
+          const status = lastActive
+            ? computeAgentStatus(new Date(lastActive), actionCount)
+            : "offline";
+          if (status === "online" || status === "busy") {
+            activeActors++;
+          }
+        }
+      } catch {
+        // Agent counting is best-effort — don't fail the whole stats response
+      }
+
       res.json({
         success: true,
         stats: {
@@ -645,6 +673,8 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
             activities.length > 0 ? (success / activities.length) * 100 : 0,
           totalCost,
           totalTokens,
+          activeActors,
+          totalAgents,
         },
       });
     } catch (error: any) {
@@ -891,8 +921,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
   // AGENTS ENDPOINTS
   // ============================================================================
 
-  // Shared AgentService + SkillsService instances (filesystem-based)
-  const fsAgentService = new AgentService(logger.getDatabase());
+  // SkillsService depends on the hoisted fsAgentService
   const skillsService = new SkillsService(fsAgentService);
 
   /**

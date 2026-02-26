@@ -38,6 +38,8 @@ interface StatsResponse {
     successRate: number;
     totalCost: number;
     totalTokens: number;
+    activeActors: number;
+    totalAgents: number;
   };
 }
 
@@ -214,8 +216,8 @@ export default function DashboardPage() {
         },
         {
           title: "Active Actors",
-          value: "—",
-          description: "Actor stats coming soon",
+          value: String(stats.activeActors),
+          description: `${stats.activeActors} of ${stats.totalAgents} agents active`,
           icon: Users,
           color: "text-cyan-600 dark:text-cyan-400",
           bgColor: "bg-cyan-500/10 dark:bg-cyan-500/20",
