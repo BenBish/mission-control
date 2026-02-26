@@ -242,6 +242,130 @@ describe("API Routes", () => {
       expect(stats.activities).toBeGreaterThanOrEqual(1);
       expect(stats.sessions).toBeGreaterThanOrEqual(1);
     });
+
+    test("GET /api/stats should use generation data for totalCost when available", async () => {
+      // Insert generation data as the authoritative cost source
+      await db.upsertGeneration({
+        id: "gen-cost-1",
+        sessionLogFile: "/path/to/session.jsonl",
+        sessionLogMsgId: "msg-cost-1",
+        agentId: "agent-1",
+        timestamp: "2024-01-15T10:30:00Z",
+        model: "openrouter/anthropic/claude-haiku-4.5",
+        inputTokens: 5000,
+        outputTokens: 2000,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 7000,
+        costInput: 0.005,
+        costOutput: 0.01,
+        costCacheRead: 0,
+        costTotal: 0.015,
+      });
+
+      // Also create an activity with a different cost (to prove generation wins)
+      await logger.logSessionStart("test-session");
+      const activityId = await logger.logToolStart(
+        "test-session",
+        { type: "subagent", id: "agent-1" },
+        "exec",
+        {},
+        "Test",
+      );
+      await logger.logToolWithTokens(activityId, {
+        inputTokens: 100,
+        outputTokens: 50,
+        totalTokens: 150,
+        model: "openrouter/anthropic/claude-haiku-4.5",
+      });
+
+      // Call the stats handler
+      let handler: any;
+      app._router.stack.forEach((layer: any) => {
+        if (
+          layer.route &&
+          layer.route.path === "/api/stats" &&
+          layer.route.methods.get
+        ) {
+          handler = layer.route.stack[0].handle;
+        }
+      });
+      expect(handler).toBeTruthy();
+
+      const req = mockReq();
+      const res = mockRes();
+      await handler(req, res);
+
+      expect(res.jsonData.success).toBe(true);
+      // totalCost should come from generation data (0.015), not activity cost
+      expect(res.jsonData.stats.totalCost).toBeCloseTo(0.015, 5);
+      // totalTokens should come from generation data (5000 + 2000 = 7000)
+      expect(res.jsonData.stats.totalTokens).toBe(7000);
+    });
+
+    test("GET /api/stats should fall back to activity-based cost when no generation data", async () => {
+      // Create activity with token/cost data but NO generation data
+      await logger.logSessionStart("test-session");
+      const activityId = await logger.logToolStart(
+        "test-session",
+        { type: "subagent", id: "agent-1" },
+        "exec",
+        {},
+        "Test",
+      );
+      await logger.logToolWithTokens(activityId, {
+        inputTokens: 1000,
+        outputTokens: 500,
+        totalTokens: 1500,
+        model: "openrouter/anthropic/claude-haiku-4.5",
+      });
+
+      // No generation data inserted — should fall back to activity-based calculation
+      let handler: any;
+      app._router.stack.forEach((layer: any) => {
+        if (
+          layer.route &&
+          layer.route.path === "/api/stats" &&
+          layer.route.methods.get
+        ) {
+          handler = layer.route.stack[0].handle;
+        }
+      });
+      expect(handler).toBeTruthy();
+
+      const req = mockReq();
+      const res = mockRes();
+      await handler(req, res);
+
+      expect(res.jsonData.success).toBe(true);
+      // Should use activity-based calculation (fallback)
+      expect(res.jsonData.stats.totalCost).toBeGreaterThanOrEqual(0);
+      expect(res.jsonData.stats.totalTokens).toBeGreaterThanOrEqual(0);
+    });
+
+    test("GET /api/stats should return zero cost when both generations and activities are empty", async () => {
+      // No generation data, no activities — everything should be 0
+      let handler: any;
+      app._router.stack.forEach((layer: any) => {
+        if (
+          layer.route &&
+          layer.route.path === "/api/stats" &&
+          layer.route.methods.get
+        ) {
+          handler = layer.route.stack[0].handle;
+        }
+      });
+      expect(handler).toBeTruthy();
+
+      const req = mockReq();
+      const res = mockRes();
+      await handler(req, res);
+
+      expect(res.jsonData.success).toBe(true);
+      expect(res.jsonData.stats.totalCost).toBe(0);
+      expect(res.jsonData.stats.totalTokens).toBe(0);
+      expect(res.jsonData.stats.successRate).toBe(0);
+    });
   });
 
   describe("Error Handling", () => {

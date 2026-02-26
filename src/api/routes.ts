@@ -597,7 +597,9 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
     try {
       const db = logger.getDatabase();
       const stats = await db.getStats();
-      const activities = await db.getActivities({ limit: 1000 });
+      const activities = await db.getActivities({
+        limit: MAX_ACTIVITY_LIMIT,
+      });
 
       const success = activities.filter(
         (a: Activity) => a.status === "success",
@@ -605,14 +607,33 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
       const failure = activities.filter(
         (a: Activity) => a.status === "failure",
       ).length;
-      const totalCost = activities.reduce(
-        (sum: number, a: Activity) => sum + (a.cost?.usd || 0),
-        0,
-      );
-      const totalTokens = activities.reduce(
-        (sum: number, a: Activity) => sum + (a.tokens?.totalTokens || 0),
-        0,
-      );
+
+      // Use llm_generations as the authoritative cost source (matches /api/cost-report)
+      // Fallback to activity-based sum when generation data is unavailable
+      let totalCost: number;
+      let totalTokens: number;
+      let generationSummary = null;
+      try {
+        generationSummary = await db.getGenerationSummary();
+      } catch {
+        // Generation tables may not exist yet
+      }
+
+      if (generationSummary) {
+        totalCost = generationSummary.totalCost;
+        totalTokens =
+          generationSummary.totalInputTokens +
+          generationSummary.totalOutputTokens;
+      } else {
+        totalCost = activities.reduce(
+          (sum: number, a: Activity) => sum + (a.cost?.usd || 0),
+          0,
+        );
+        totalTokens = activities.reduce(
+          (sum: number, a: Activity) => sum + (a.tokens?.totalTokens || 0),
+          0,
+        );
+      }
 
       res.json({
         success: true,
