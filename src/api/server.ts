@@ -48,7 +48,7 @@ export class ActivityFeedServer {
     this.config = config;
     this.app = express();
     this.db = new Database(config.databasePath);
-    this.logger = new ActivityLogger(this.db);
+    this.logger = new ActivityLogger(this.db, { profileId: "team" });
 
     // Resolve auth config (throws if misconfigured — fail early)
     this.authConfig = resolveAuthConfig();
@@ -98,6 +98,7 @@ export class ActivityFeedServer {
       details: Record<string, unknown>,
     ) => {
       await this.db.createActivity({
+        profileId: "team",
         sessionId: "auth",
         actor: { type: "system", id: "auth" },
         actionType: "event",
@@ -145,7 +146,7 @@ export class ActivityFeedServer {
 
     // Start session log scanner and cost linker
     this.costLinker = new CostLinker(this.db);
-    this.scanner = new SessionLogScanner(this.db);
+    this.scanner = new SessionLogScanner(this.db, { profileId: "team" });
 
     // After each scan, run the cost linker
     const originalScan = this.scanner.scan.bind(this.scanner);

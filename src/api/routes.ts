@@ -231,6 +231,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
 
         // Transform incoming activity to CreateActivityInput format
         const dbActivity = {
+          profileId: activity.profileId || "team",
           sessionId:
             activity.sessionId || activity.sessionKey || "unknown-session",
           timestamp: activity.timestamp || new Date().toISOString(),

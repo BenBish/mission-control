@@ -9,6 +9,7 @@ import { Database } from "../../db/database.js";
 import * as fs from "fs";
 
 const TEST_DB_PATH = "./test-data/test-migration-backfill.db";
+const FRESH_DB_PATH = "./test-data/test-fresh-startup.db";
 
 describe("Migration Backfill (AC 3)", () => {
   beforeAll(() => {
@@ -217,5 +218,211 @@ describe("Migration Backfill (AC 3)", () => {
     expect(rawScan.profile_id).toBe("team");
 
     await db.close();
+  });
+
+  test("server starts successfully with a fresh database (AC 10)", async () => {
+    // Clean up any prior test db
+    for (const suffix of ["", "-wal", "-shm"]) {
+      const f = `${FRESH_DB_PATH}${suffix}`;
+      if (fs.existsSync(f)) fs.unlinkSync(f);
+    }
+
+    // Create a brand-new database (no pre-existing tables)
+    const db = new Database(FRESH_DB_PATH);
+    await db.initialize();
+
+    // Verify we can create an activity (tables and migrations work)
+    const activity = await db.createActivity({
+      profileId: "team",
+      sessionId: "fresh-test-session",
+      actor: { type: "system", id: "test" },
+      actionType: "event",
+      description: "Fresh DB smoke test",
+      status: "success",
+    });
+
+    expect(activity.id).toBeDefined();
+    expect(activity.profileId).toBe("team");
+
+    // Verify scan_state composite PK works on fresh DB
+    await db.updateScanState("/test/file.jsonl", 100, 200, {
+      profileId: "team",
+    });
+    const scanState = await db.getScanState("/test/file.jsonl", "team");
+    expect(scanState).not.toBeNull();
+    expect(scanState!.lastOffset).toBe(100);
+
+    // Verify different profiles don't collide on scan_state
+    await db.updateScanState("/test/file.jsonl", 50, 200, {
+      profileId: "other",
+    });
+    const otherScanState = await db.getScanState("/test/file.jsonl", "other");
+    expect(otherScanState!.lastOffset).toBe(50);
+
+    // Original profile scan state is unchanged
+    const teamScanState = await db.getScanState("/test/file.jsonl", "team");
+    expect(teamScanState!.lastOffset).toBe(100);
+
+    // Verify stats work
+    const stats = await db.getStats();
+    expect(stats.activities).toBeGreaterThanOrEqual(1);
+
+    await db.close();
+
+    // Clean up
+    for (const suffix of ["", "-wal", "-shm"]) {
+      const f = `${FRESH_DB_PATH}${suffix}`;
+      if (fs.existsSync(f)) fs.unlinkSync(f);
+    }
+  });
+
+  test("server starts successfully with a migrated database (AC 10)", async () => {
+    // This reuses the existing test above — the first test already migrates
+    // an old-schema DB and verifies it works. Here we re-open that migrated DB
+    // to verify a second initialization succeeds (idempotent migrations).
+
+    // Clean up and set up a pre-migration database
+    for (const suffix of ["", "-wal", "-shm"]) {
+      const f = `${TEST_DB_PATH}${suffix}`;
+      if (fs.existsSync(f)) fs.unlinkSync(f);
+    }
+
+    const rawDb = await open({
+      filename: TEST_DB_PATH,
+      driver: sqlite3.Database,
+    });
+
+    await rawDb.exec("PRAGMA journal_mode=WAL");
+    await rawDb.exec(`
+      CREATE TABLE IF NOT EXISTS activities (
+        id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL,
+        parent_activity_id TEXT,
+        timestamp DATETIME NOT NULL,
+        completed_at DATETIME,
+        duration_ms INTEGER,
+        actor_type TEXT NOT NULL,
+        actor_id TEXT NOT NULL,
+        actor_role TEXT,
+        actor_session_label TEXT,
+        action_type TEXT NOT NULL,
+        tool_name TEXT,
+        description TEXT NOT NULL,
+        details JSON,
+        status TEXT NOT NULL,
+        result JSON,
+        input_tokens INTEGER,
+        output_tokens INTEGER,
+        total_tokens INTEGER,
+        model TEXT,
+        cost_usd REAL,
+        tags TEXT,
+        references_json JSON,
+        metadata JSON,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    await rawDb.exec(`
+      CREATE TABLE IF NOT EXISTS sessions (
+        id TEXT PRIMARY KEY,
+        start_time DATETIME NOT NULL,
+        end_time DATETIME,
+        total_actions INTEGER DEFAULT 0,
+        success_count INTEGER DEFAULT 0,
+        failure_count INTEGER DEFAULT 0,
+        total_tokens INTEGER DEFAULT 0,
+        total_cost_usd REAL DEFAULT 0.0,
+        avg_action_duration_ms REAL DEFAULT 0,
+        actors_json JSON,
+        top_tools_json JSON,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    await rawDb.exec(`
+      CREATE TABLE IF NOT EXISTS cost_summaries (
+        id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL,
+        actor_id TEXT,
+        summary_date DATE NOT NULL,
+        action_count INTEGER DEFAULT 0,
+        total_cost_usd REAL DEFAULT 0.0,
+        total_tokens INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    await rawDb.exec(`
+      CREATE TABLE IF NOT EXISTS llm_generations (
+        id TEXT PRIMARY KEY,
+        session_log_file TEXT NOT NULL,
+        session_log_msg_id TEXT NOT NULL,
+        agent_id TEXT NOT NULL,
+        timestamp DATETIME NOT NULL,
+        model TEXT NOT NULL,
+        provider TEXT,
+        stop_reason TEXT,
+        input_tokens INTEGER DEFAULT 0,
+        output_tokens INTEGER DEFAULT 0,
+        cache_read_tokens INTEGER DEFAULT 0,
+        cache_write_tokens INTEGER DEFAULT 0,
+        total_tokens INTEGER DEFAULT 0,
+        cost_input REAL DEFAULT 0,
+        cost_output REAL DEFAULT 0,
+        cost_cache_read REAL DEFAULT 0,
+        cost_total REAL DEFAULT 0,
+        linked_activity_id TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(session_log_file, session_log_msg_id)
+      );
+    `);
+
+    await rawDb.exec(`
+      CREATE TABLE IF NOT EXISTS scan_state (
+        file_path TEXT PRIMARY KEY,
+        last_offset INTEGER DEFAULT 0,
+        last_scanned_at DATETIME,
+        file_size INTEGER DEFAULT 0
+      );
+    `);
+
+    await rawDb.exec(`
+      CREATE TABLE IF NOT EXISTS activity_logs (
+        id TEXT PRIMARY KEY,
+        activity_id TEXT NOT NULL,
+        stdout TEXT,
+        stderr TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    await rawDb.close();
+
+    // First init — runs the migration
+    const db1 = new Database(TEST_DB_PATH);
+    await db1.initialize();
+    await db1.close();
+
+    // Second init — migration should be idempotent
+    const db2 = new Database(TEST_DB_PATH);
+    await db2.initialize();
+
+    // Verify we can still insert and query
+    const activity = await db2.createActivity({
+      profileId: "team",
+      sessionId: "reopen-test",
+      actor: { type: "system", id: "test" },
+      actionType: "event",
+      description: "Re-opened migrated DB test",
+      status: "success",
+    });
+
+    expect(activity.id).toBeDefined();
+    expect(activity.profileId).toBe("team");
+
+    await db2.close();
   });
 });

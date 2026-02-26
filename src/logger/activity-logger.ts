@@ -17,9 +17,14 @@ import { calculateCost } from "../types/pricing.js";
 export class ActivityLogger extends EventEmitter {
   private pendingActivities: Map<string, Activity> = new Map();
   private sessionStarts: Map<string, string> = new Map();
+  private profileId: string;
 
-  constructor(private db: Database) {
+  constructor(
+    private db: Database,
+    options?: { profileId?: string },
+  ) {
     super();
+    this.profileId = options?.profileId ?? "team";
   }
 
   /**
@@ -44,7 +49,7 @@ export class ActivityLogger extends EventEmitter {
       status: "success",
     });
 
-    await this.db.createSession(sessionId);
+    await this.db.createSession(sessionId, { profileId: this.profileId });
     this.sessionStarts.set(sessionId, new Date().toISOString());
 
     return activity.id;
@@ -293,7 +298,10 @@ export class ActivityLogger extends EventEmitter {
    * Creates an activity record in the database
    */
   private async log(input: CreateActivityInput): Promise<Activity> {
-    const activity = await this.db.createActivity(input);
+    const activity = await this.db.createActivity({
+      ...input,
+      profileId: input.profileId ?? this.profileId,
+    });
 
     // Track pending activities for later updates
     if (activity.status === "pending") {

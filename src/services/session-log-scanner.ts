@@ -60,6 +60,7 @@ export class SessionLogScanner {
   private db: Database;
   private sessionsGlob: string;
   private intervalMs: number;
+  private profileId: string;
   private timer: ReturnType<typeof setInterval> | null = null;
   private scanning = false;
   private lastScanResult: ScanResult | null = null;
@@ -67,7 +68,7 @@ export class SessionLogScanner {
 
   constructor(
     db: Database,
-    options?: { sessionsGlob?: string; intervalMs?: number },
+    options?: { sessionsGlob?: string; intervalMs?: number; profileId?: string },
   ) {
     this.db = db;
     this.sessionsGlob = options?.sessionsGlob || DEFAULT_SESSIONS_GLOB;
@@ -75,6 +76,7 @@ export class SessionLogScanner {
       options?.intervalMs ||
       parseInt(process.env.SCAN_INTERVAL_MS || "") ||
       DEFAULT_SCAN_INTERVAL_MS;
+    this.profileId = options?.profileId ?? "team";
   }
 
   /**
@@ -190,7 +192,7 @@ export class SessionLogScanner {
     filePath: string,
   ): Promise<{ newGenerations: number; totalCost: number }> {
     const stat = fs.statSync(filePath);
-    const scanState = await this.db.getScanState(filePath);
+    const scanState = await this.db.getScanState(filePath, this.profileId);
 
     // Skip if file hasn't grown since last scan
     if (scanState && stat.size <= scanState.lastOffset) {
@@ -239,6 +241,7 @@ export class SessionLogScanner {
 
         await this.db.upsertGeneration({
           id: uuidv7(),
+          profileId: this.profileId,
           sessionLogFile: filePath,
           sessionLogMsgId: entry.id,
           agentId,
@@ -265,7 +268,9 @@ export class SessionLogScanner {
     }
 
     // Update scan state to current file size
-    await this.db.updateScanState(filePath, stat.size, stat.size);
+    await this.db.updateScanState(filePath, stat.size, stat.size, {
+      profileId: this.profileId,
+    });
 
     return { newGenerations, totalCost };
   }

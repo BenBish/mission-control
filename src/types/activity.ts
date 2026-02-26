@@ -57,7 +57,7 @@ export interface ActivityReferences {
 export interface Activity {
   // Identifiers
   id: string;
-  profileId?: string;
+  profileId: string;
   sessionId: string;
   parentActivityId?: string;
 

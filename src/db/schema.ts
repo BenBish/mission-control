@@ -147,14 +147,16 @@ CREATE INDEX IF NOT EXISTS idx_llm_generations_timestamp ON llm_generations(time
 CREATE INDEX IF NOT EXISTS idx_llm_generations_agent ON llm_generations(agent_id);
 CREATE INDEX IF NOT EXISTS idx_llm_generations_model ON llm_generations(model);
 CREATE INDEX IF NOT EXISTS idx_llm_generations_linked ON llm_generations(linked_activity_id);
+-- NOTE: idx_llm_generations_profile_ts is created by migration 001-add-profile-id
 
--- Tracks incremental scan progress per session log file
+-- Tracks incremental scan progress per session log file per profile
 CREATE TABLE IF NOT EXISTS scan_state (
-  file_path TEXT PRIMARY KEY,
+  file_path TEXT NOT NULL,
   profile_id TEXT NOT NULL DEFAULT 'default',
   last_offset INTEGER DEFAULT 0,
   last_scanned_at DATETIME,
-  file_size INTEGER DEFAULT 0
+  file_size INTEGER DEFAULT 0,
+  PRIMARY KEY (file_path, profile_id)
 );
 `;
 

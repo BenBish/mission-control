@@ -80,25 +80,23 @@ export class Database {
   async createActivity(input: CreateActivityInput): Promise<Activity> {
     if (!this.db) throw new Error("Database not initialized");
 
+    const profileId = input.profileId ?? "default";
+
     const activity: Activity = {
       id: uuidv7(),
       timestamp: new Date().toISOString(),
       status: input.status || "pending",
       ...input,
+      profileId,
     };
 
-    const profileId = input.profileId ?? "default";
-
-    const stmt = await this.db.prepare(`
-      INSERT INTO activities (
+    await this.db.run(
+      `INSERT INTO activities (
         id, profile_id, session_id, parent_activity_id,
         timestamp, actor_type, actor_id, actor_role, actor_session_label,
         action_type, tool_name, description, details,
         status, tags, references_json, metadata
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    await stmt.run(
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       activity.id,
       profileId,
       activity.sessionId,
@@ -727,17 +725,22 @@ export class Database {
   // ============================================================================
 
   /**
-   * Get scan state for a file
+   * Get scan state for a file, scoped by profileId
    */
-  async getScanState(filePath: string): Promise<{
+  async getScanState(
+    filePath: string,
+    profileId?: string,
+  ): Promise<{
     lastOffset: number;
     fileSize: number;
     lastScannedAt: string | null;
   } | null> {
     if (!this.db) throw new Error("Database not initialized");
+    const pid = profileId ?? "default";
     const row = await this.db.get<any>(
-      "SELECT last_offset, file_size, last_scanned_at FROM scan_state WHERE file_path = ?",
+      "SELECT last_offset, file_size, last_scanned_at FROM scan_state WHERE file_path = ? AND profile_id = ?",
       filePath,
+      pid,
     );
     if (!row) return null;
     return {
@@ -748,7 +751,7 @@ export class Database {
   }
 
   /**
-   * Update scan state for a file
+   * Update scan state for a file, scoped by profileId
    */
   async updateScanState(
     filePath: string,
@@ -761,7 +764,7 @@ export class Database {
     await this.db.run(
       `INSERT INTO scan_state (file_path, profile_id, last_offset, file_size, last_scanned_at)
        VALUES (?, ?, ?, ?, datetime('now'))
-       ON CONFLICT(file_path) DO UPDATE SET
+       ON CONFLICT(file_path, profile_id) DO UPDATE SET
          last_offset = excluded.last_offset,
          file_size = excluded.file_size,
          last_scanned_at = excluded.last_scanned_at`,
