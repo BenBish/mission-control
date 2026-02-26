@@ -471,7 +471,7 @@ describe("CronService", () => {
     test("should return a path ending in jobs.json", () => {
       const p = CronService.getJobsFilePath();
       expect(p).toContain("jobs.json");
-      expect(p).toContain(".openclaw/cron");
+      expect(p).toContain(".openclaw-team/cron");
     });
 
     test("should throw when HOME is not set", () => {

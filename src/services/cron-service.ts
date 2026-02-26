@@ -92,7 +92,7 @@ export class CronService {
     if (!home) {
       throw new Error("HOME environment variable is not set");
     }
-    return `${home}/.openclaw/cron/jobs.json`;
+    return `${home}/.openclaw-team/cron/jobs.json`;
   }
 
   static async getJobs(): Promise<CronJob[]> {
