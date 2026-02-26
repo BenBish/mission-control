@@ -2,28 +2,113 @@
  * CronService Tests
  * Tests cron job listing, enrichment, schedule formatting, and cache behavior.
  *
- * JOBS_FILE path is computed lazily via getJobsFile(), so tests that override
- * process.env.HOME will see the correct fixture path.
+ * getJobs() now queries the gateway via `openclaw cron list --all --json`.
+ * CLI calls are mocked via CronService._setExecFileAsync() to avoid real CLI
+ * dependency and prevent slow/flaky tests.
  */
 
-import { describe, test, expect, beforeEach } from "bun:test";
+import { describe, test, expect, beforeEach, afterAll } from "bun:test";
 import { CronService } from "../../services/cron-service.js";
 import type { CronJob } from "../../types/cron.js";
+
+const MOCK_JOBS_RESPONSE = JSON.stringify({
+  jobs: [
+    {
+      id: "job-1",
+      name: "Test Cron Job",
+      schedule: { kind: "cron", expr: "0 * * * *" },
+      payload: { kind: "systemEvent", text: "test" },
+      sessionTarget: "main",
+      enabled: true,
+    },
+    {
+      id: "job-2",
+      name: "Interval Job",
+      schedule: { kind: "every", everyMs: 300000 },
+      payload: { kind: "systemEvent", text: "ping" },
+      sessionTarget: "main",
+      enabled: true,
+    },
+  ],
+  total: 2,
+});
+
+const MOCK_RUNS_RESPONSE = JSON.stringify({
+  entries: [
+    {
+      ts: Date.now() - 60000,
+      jobId: "job-1",
+      action: "run",
+      status: "ok",
+      summary: "Completed successfully",
+      runAtMs: Date.now() - 120000,
+      durationMs: 1500,
+      sessionId: "sess-1",
+    },
+    {
+      ts: Date.now() - 120000,
+      jobId: "job-1",
+      action: "run",
+      status: "timeout",
+      error: "Timed out after 30s",
+      runAtMs: Date.now() - 180000,
+      durationMs: 30000,
+      sessionId: "sess-2",
+    },
+  ],
+});
+
+/** Controls mock behavior per-test */
+let mockShouldFail = false;
+let mockJobsResponse = MOCK_JOBS_RESPONSE;
+let mockRunsResponse = MOCK_RUNS_RESPONSE;
+
+/**
+ * Fake execFileAsync that returns mock responses based on the CLI args.
+ */
+const fakeExecFileAsync = async (
+  cmd: string,
+  args: string[],
+  opts?: any,
+): Promise<{ stdout: string; stderr: string }> => {
+  if (mockShouldFail) {
+    const err = new Error("CLI not found") as any;
+    err.stderr = "command not found: openclaw";
+    throw err;
+  }
+
+  if (args.includes("list")) {
+    return { stdout: mockJobsResponse, stderr: "" };
+  } else if (args.includes("runs")) {
+    return { stdout: mockRunsResponse, stderr: "" };
+  }
+  return { stdout: "{}", stderr: "" };
+};
 
 describe("CronService", () => {
   beforeEach(() => {
     CronService.clearCache();
+    mockShouldFail = false;
+    mockJobsResponse = MOCK_JOBS_RESPONSE;
+    mockRunsResponse = MOCK_RUNS_RESPONSE;
+    // Inject the mock
+    CronService._setExecFileAsync(fakeExecFileAsync as any);
+  });
+
+  afterAll(() => {
+    // Restore real implementation
+    CronService._setExecFileAsync(null);
   });
 
   // ==========================================================================
-  // getJobs - reads from real filesystem
+  // getJobs - queries gateway via CLI (mocked)
   // ==========================================================================
 
   describe("getJobs", () => {
-    test("should return an array of jobs (from real filesystem)", async () => {
+    test("should return an array of enriched jobs", async () => {
       const jobs = await CronService.getJobs();
       expect(Array.isArray(jobs)).toBe(true);
-      // Whatever is in the real jobs file — just check it's enriched
+      expect(jobs.length).toBe(2);
       for (const job of jobs) {
         expect(job.id).toBeTruthy();
         expect(job.scheduleHuman).toBeTruthy();
@@ -41,8 +126,14 @@ describe("CronService", () => {
       const first = await CronService.getJobs();
       CronService.clearCache();
       const second = await CronService.getJobs();
-      // Should still be equal content (same file)
+      // Should still be equal content (same mock data)
       expect(first.length).toBe(second.length);
+    });
+
+    test("should return empty array when CLI fails", async () => {
+      mockShouldFail = true;
+      const jobs = await CronService.getJobs();
+      expect(jobs).toEqual([]);
     });
   });
 
@@ -57,12 +148,9 @@ describe("CronService", () => {
     });
 
     test("should find job by ID if it exists", async () => {
-      const jobs = await CronService.getJobs();
-      if (jobs.length > 0) {
-        const found = await CronService.getJob(jobs[0].id);
-        expect(found).toBeTruthy();
-        expect(found!.id).toBe(jobs[0].id);
-      }
+      const found = await CronService.getJob("job-1");
+      expect(found).toBeTruthy();
+      expect(found!.id).toBe("job-1");
     });
   });
 
@@ -71,17 +159,58 @@ describe("CronService", () => {
   // ==========================================================================
 
   describe("getRunHistory", () => {
-    test("should return empty array for non-existent job runs", async () => {
+    test("should return empty array when CLI fails", async () => {
+      mockShouldFail = true;
       const runs = await CronService.getRunHistory("no-such-job-xyz");
       expect(runs).toEqual([]);
     });
 
-    test("should return array (possibly empty) for any job", async () => {
-      const jobs = await CronService.getJobs();
-      if (jobs.length > 0) {
-        const runs = await CronService.getRunHistory(jobs[0].id);
-        expect(Array.isArray(runs)).toBe(true);
-      }
+    test("should return mapped run entries for a job", async () => {
+      const runs = await CronService.getRunHistory("job-1");
+      expect(Array.isArray(runs)).toBe(true);
+      expect(runs.length).toBe(2);
+      expect(runs[0].status).toBe("success");
+      expect(runs[0].jobId).toBe("job-1");
+      expect(runs[1].status).toBe("timeout");
+      expect(runs[1].error).toBe("Timed out after 30s");
+    });
+
+    test("should return empty array when entries is missing", async () => {
+      mockRunsResponse = JSON.stringify({});
+      const runs = await CronService.getRunHistory("job-1");
+      expect(runs).toEqual([]);
+    });
+  });
+
+  // ==========================================================================
+  // mapRunStatus
+  // ==========================================================================
+
+  describe("mapRunStatus", () => {
+    test("should map 'ok' to 'success'", () => {
+      expect(CronService.mapRunStatus("ok")).toBe("success");
+    });
+
+    test("should map 'success' to 'success'", () => {
+      expect(CronService.mapRunStatus("success")).toBe("success");
+    });
+
+    test("should map 'pending' to 'pending'", () => {
+      expect(CronService.mapRunStatus("pending")).toBe("pending");
+    });
+
+    test("should map 'cancelled' to 'cancelled'", () => {
+      expect(CronService.mapRunStatus("cancelled")).toBe("cancelled");
+    });
+
+    test("should map 'timeout' to 'timeout'", () => {
+      expect(CronService.mapRunStatus("timeout")).toBe("timeout");
+    });
+
+    test("should map unknown status to 'failure'", () => {
+      expect(CronService.mapRunStatus("error")).toBe("failure");
+      expect(CronService.mapRunStatus("crashed")).toBe("failure");
+      expect(CronService.mapRunStatus("")).toBe("failure");
     });
   });
 
@@ -335,7 +464,7 @@ describe("CronService", () => {
   });
 
   // ==========================================================================
-  // getJobsFilePath
+  // getJobsFilePath (deprecated, kept for compatibility)
   // ==========================================================================
 
   describe("getJobsFilePath", () => {
@@ -343,6 +472,18 @@ describe("CronService", () => {
       const p = CronService.getJobsFilePath();
       expect(p).toContain("jobs.json");
       expect(p).toContain(".openclaw-team/cron");
+    });
+
+    test("should throw when HOME is not set", () => {
+      const origHome = process.env.HOME;
+      try {
+        delete process.env.HOME;
+        expect(() => CronService.getJobsFilePath()).toThrow(
+          "HOME environment variable is not set",
+        );
+      } finally {
+        process.env.HOME = origHome;
+      }
     });
   });
 });

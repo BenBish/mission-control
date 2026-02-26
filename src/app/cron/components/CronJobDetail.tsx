@@ -157,12 +157,20 @@ export function CronJobDetail({ jobId }: CronJobDetailProps) {
                   </div>
                   <Badge
                     variant={
-                      run.status === "success" ? "default" : "destructive"
+                      run.status === "success"
+                        ? "default"
+                        : run.status === "pending"
+                          ? "secondary"
+                          : "destructive"
                     }
                     className={
                       run.status === "success"
                         ? "bg-green-100 text-green-900 dark:bg-green-950/30 dark:text-green-400"
-                        : ""
+                        : run.status === "pending"
+                          ? "bg-yellow-100 text-yellow-900 dark:bg-yellow-950/30 dark:text-yellow-400"
+                          : run.status === "timeout"
+                            ? "bg-orange-100 text-orange-900 dark:bg-orange-950/30 dark:text-orange-400"
+                            : ""
                     }
                   >
                     {run.status}
