@@ -597,7 +597,6 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
     try {
       const db = logger.getDatabase();
       const stats = await db.getStats();
-      const MAX_ACTIVITY_LIMIT = 50000;
       const activities = await db.getActivities({
         limit: MAX_ACTIVITY_LIMIT,
       });
@@ -620,7 +619,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         // Generation tables may not exist yet
       }
 
-      if (generationSummary && generationSummary.totalGenerations > 0) {
+      if (generationSummary) {
         totalCost = generationSummary.totalCost;
         totalTokens =
           generationSummary.totalInputTokens +
