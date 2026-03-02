@@ -941,7 +941,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
    * Defaults to "default" when omitted (backward compatible).
    */
   app.get("/api/stream", (req: Request, res: Response) => {
-    const profileId = (req.query.profile as string) || "default";
+    const profileId = req.profileId;
 
     // Set SSE headers
     res.setHeader("Content-Type", "text/event-stream");
@@ -970,6 +970,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
 
     // Clean up on disconnect
     req.on("close", () => {
+      clearInterval(heartbeatInterval);
       const clients = sseClientsByProfile.get(profileId);
       if (clients) {
         clients.delete(res);

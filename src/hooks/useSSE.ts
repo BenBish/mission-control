@@ -11,7 +11,7 @@
  * which automatically preserves the `?profile=` query parameter.
  */
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Activity } from "@/types/activity";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
