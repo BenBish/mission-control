@@ -3,26 +3,6 @@ import type { Profile } from "@/types/profile";
 
 const POLL_INTERVAL_MS = 30_000;
 
-// Mock data for development before ORC-46 merges
-const mockProfiles: Profile[] = [
-  {
-    id: "team",
-    name: "Orca Team",
-    gatewayUrl: "http://127.0.0.1:18890",
-    status: "online",
-    agentCount: 7,
-    lastActivity: "2026-02-27T00:00:00Z",
-  },
-  {
-    id: "default",
-    name: "Default",
-    gatewayUrl: "http://127.0.0.1:18789",
-    status: "online",
-    agentCount: 1,
-    lastActivity: "2026-02-27T00:00:00Z",
-  },
-];
-
 interface UseProfilesResult {
   profiles: Profile[];
   isLoading: boolean;
@@ -51,9 +31,7 @@ export function useProfiles(): UseProfilesResult {
       }
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
-      // Fall back to mock data when API is not available (ORC-46 not yet merged)
-      console.warn("[useProfiles] API unavailable, using mock profiles:", err);
-      setProfiles(mockProfiles);
+      setError(err instanceof Error ? err.message : "Failed to fetch profiles");
     } finally {
       setIsLoading(false);
     }
