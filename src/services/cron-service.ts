@@ -64,7 +64,7 @@ async function runOpenclawJson<T>(args: string[]): Promise<T | null> {
     } else {
       console.error(
         "Failed to run openclaw CLI:",
-        error instanceof Error ? error.message : String(error),
+        error instanceof Error ? error.message : error,
       );
     }
     return null;
