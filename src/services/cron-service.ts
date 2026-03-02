@@ -56,12 +56,16 @@ async function runOpenclawJson<T>(args: string[]): Promise<T | null> {
       return null;
     }
     return JSON.parse(stdout) as T;
-  } catch (error: any) {
+  } catch (error: unknown) {
     // execFile rejects on non-zero exit or timeout
-    if (error.stderr) {
-      console.error("openclaw CLI error:", error.stderr.trim());
+    const err = error as Record<string, unknown>;
+    if (typeof err.stderr === "string" && err.stderr) {
+      console.error("openclaw CLI error:", err.stderr.trim());
     } else {
-      console.error("Failed to run openclaw CLI:", error.message || error);
+      console.error(
+        "Failed to run openclaw CLI:",
+        error instanceof Error ? error.message : String(error),
+      );
     }
     return null;
   }

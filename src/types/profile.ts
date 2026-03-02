@@ -26,10 +26,10 @@ export interface Profile {
   systemdUnit?: string;
 
   /** Number of active agents (frontend display) */
-  agentCount: number;
+  agentCount?: number;
 
   /** Last activity timestamp (frontend display) */
-  lastActivity: string;
+  lastActivity?: string;
 }
 
 export interface ProfilesResponse {

@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
   type ReactNode,
 } from "react";
@@ -25,48 +26,62 @@ interface ProfileProviderProps {
   children: ReactNode;
 }
 
+/**
+ * Derive the active profile from the profiles list without an effect.
+ * Reads localStorage for the stored preference and falls back to the first
+ * profile. Returns null when no profiles are available yet.
+ */
+function resolveActiveProfile(profiles: Profile[]): Profile | null {
+  if (profiles.length === 0) return null;
+
+  const storedId =
+    typeof window !== "undefined"
+      ? localStorage.getItem(STORAGE_KEY)
+      : null;
+
+  const stored = storedId ? profiles.find((p) => p.id === storedId) : null;
+
+  if (stored) return stored;
+
+  // Persist the fallback so future renders are consistent
+  if (typeof window !== "undefined") {
+    localStorage.setItem(STORAGE_KEY, profiles[0].id);
+  }
+  return profiles[0];
+}
+
 export function ProfileProvider({ children }: ProfileProviderProps) {
   const { profiles, isLoading: isLoadingProfiles } = useProfiles();
-  const [activeProfile, setActiveProfileState] = useState<Profile | null>(null);
   const [isSwitching, setIsSwitching] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Initialize active profile from localStorage or first profile
-  useEffect(() => {
-    if (profiles.length === 0) return;
-
-    const storedId =
+  // Track a user-explicit selection (via setActiveProfile callback).
+  // null means "use the derived value from profiles list".
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(
+    () =>
       typeof window !== "undefined"
         ? localStorage.getItem(STORAGE_KEY)
-        : null;
+        : null,
+  );
 
-    const stored = storedId
-      ? profiles.find((p) => p.id === storedId)
-      : null;
+  // Derive active profile synchronously from profiles + selectedProfileId.
+  // No effect / no setState needed — pure derivation.
+  const activeProfile = useMemo(() => {
+    if (profiles.length === 0) return null;
 
-    if (stored) {
-      setActiveProfileState(stored);
-    } else {
-      setActiveProfileState(profiles[0]);
-      if (typeof window !== "undefined") {
-        localStorage.setItem(STORAGE_KEY, profiles[0].id);
-      }
+    if (selectedProfileId) {
+      const found = profiles.find((p) => p.id === selectedProfileId);
+      if (found) return found;
     }
-  }, [profiles]);
 
-  // Update active profile when profiles refresh (status might change)
-  useEffect(() => {
-    if (!activeProfile || profiles.length === 0) return;
-    const updated = profiles.find((p) => p.id === activeProfile.id);
-    if (updated && updated.status !== activeProfile.status) {
-      setActiveProfileState(updated);
-    }
-  }, [profiles, activeProfile]);
+    // Fallback: first profile
+    return resolveActiveProfile(profiles);
+  }, [profiles, selectedProfileId]);
 
   const setActiveProfile = useCallback(
     (profile: Profile) => {
       setIsSwitching(true);
-      setActiveProfileState(profile);
+      setSelectedProfileId(profile.id);
 
       if (typeof window !== "undefined") {
         localStorage.setItem(STORAGE_KEY, profile.id);

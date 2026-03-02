@@ -58,7 +58,7 @@ export function ProfileSelector() {
               />
               <span className="truncate">{profile.name}</span>
               <span className="text-xs text-muted-foreground ml-1">
-                ({profile.agentCount})
+                ({profile.agentCount ?? 0})
               </span>
             </span>
           </SelectItem>

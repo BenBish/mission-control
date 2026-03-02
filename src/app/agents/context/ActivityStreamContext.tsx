@@ -50,6 +50,7 @@ export function ActivityStreamProvider({
   children,
 }: ActivityStreamProviderProps) {
   const { activeProfile } = useProfile();
+  const profileId = activeProfile?.id;
   const [connected, setConnected] = useState(false);
 
   // Map of actorId → Set of handlers
@@ -71,8 +72,8 @@ export function ActivityStreamProvider({
       eventSourceRef.current = null;
     }
 
-    const streamUrl = activeProfile?.id
-      ? `/api/stream?profile=${encodeURIComponent(activeProfile.id)}`
+    const streamUrl = profileId
+      ? `/api/stream?profile=${encodeURIComponent(profileId)}`
       : "/api/stream";
     const es = new EventSource(streamUrl);
     eventSourceRef.current = es;
@@ -120,7 +121,7 @@ export function ActivityStreamProvider({
         if (!unmountedRef.current) connectRef.current();
       }, delayMs);
     });
-  }, [activeProfile?.id]); // reconnect when profile changes
+  }, [profileId]); // reconnect when profile changes
 
   useEffect(() => {
     connectRef.current = connect;
