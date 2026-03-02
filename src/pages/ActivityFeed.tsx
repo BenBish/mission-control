@@ -21,6 +21,7 @@ import {
   Clock,
   BarChart3,
 } from "lucide-react";
+import { useProfile } from "@/app/profile-context";
 
 interface ActivitiesResponse {
   success: boolean;
@@ -33,13 +34,17 @@ export default function ActivityFeed() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { activeProfile, isSwitching } = useProfile();
 
   useEffect(() => {
     const fetchActivities = async () => {
       setIsLoading(true);
       setError(null);
       try {
-        const response = await fetch("/api/activities?limit=100");
+        const profileParam = activeProfile?.id
+          ? `?profile=${encodeURIComponent(activeProfile.id)}&limit=100`
+          : "?limit=100";
+        const response = await fetch(`/api/activities${profileParam}`);
         if (!response.ok) {
           throw new Error(`Failed to fetch activities: ${response.statusText}`);
         }
@@ -57,7 +62,7 @@ export default function ActivityFeed() {
     };
 
     fetchActivities();
-  }, []);
+  }, [activeProfile?.id]);
 
   const formatTimestamp = (timestamp: string) => {
     const date = new Date(timestamp);
@@ -134,7 +139,7 @@ export default function ActivityFeed() {
     navigate(`/activities/${id}`);
   };
 
-  if (isLoading) {
+  if (isLoading || isSwitching) {
     return (
       <div className="space-y-6">
         <PageHeader

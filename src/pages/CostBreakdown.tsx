@@ -20,6 +20,7 @@ import {
   TrendingUp,
   PieChart,
 } from "lucide-react";
+import { useProfile } from "@/app/profile-context";
 
 interface CostStats {
   success: boolean;
@@ -85,6 +86,7 @@ function CostBar({
 }
 
 export default function CostBreakdown() {
+  const { activeProfile, isSwitching } = useProfile();
   const [costStats, setCostStats] = useState<CostStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -94,7 +96,10 @@ export default function CostBreakdown() {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch("/api/cost-report");
+      const profileParam = activeProfile?.id
+        ? `?profile=${encodeURIComponent(activeProfile.id)}`
+        : "";
+      const response = await fetch(`/api/cost-report${profileParam}`);
       if (!response.ok) throw new Error(`Failed: ${response.statusText}`);
       const data: CostStats = await response.json();
       if (data.success) setCostStats(data);

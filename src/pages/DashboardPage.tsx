@@ -27,6 +27,7 @@ import {
   BarChart3,
   Zap,
 } from "lucide-react";
+import { useProfile } from "@/app/profile-context";
 
 interface StatsResponse {
   success: boolean;
@@ -60,6 +61,7 @@ interface StatCard {
 
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const { activeProfile, isSwitching } = useProfile();
   const [stats, setStats] = useState<StatsResponse["stats"] | null>(null);
   const [recentActivities, setRecentActivities] = useState<Activity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -70,10 +72,13 @@ export default function DashboardPage() {
       setIsLoading(true);
       setError(null);
       try {
+        const profileParam = activeProfile?.id
+          ? `?profile=${encodeURIComponent(activeProfile.id)}`
+          : "";
         // Fetch stats and recent activities in parallel
         const [statsRes, activitiesRes] = await Promise.all([
-          fetch("/api/stats"),
-          fetch("/api/activities?limit=5"),
+          fetch(`/api/stats${profileParam}`),
+          fetch(`/api/activities${profileParam ? `${profileParam}&limit=5` : "?limit=5"}`),
         ]);
 
         if (!statsRes.ok) {
@@ -102,7 +107,7 @@ export default function DashboardPage() {
     };
 
     fetchData();
-  }, []);
+  }, [activeProfile?.id]);
 
   const formatCost = (cost: number) => {
     return `$${cost.toFixed(4)}`;
@@ -258,7 +263,7 @@ export default function DashboardPage() {
         },
       ];
 
-  if (isLoading) {
+  if (isLoading || isSwitching) {
     return (
       <div className="space-y-6">
         <PageHeader

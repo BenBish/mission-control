@@ -24,6 +24,12 @@ export interface Profile {
 
   /** Systemd unit name, if discovered via systemd */
   systemdUnit?: string;
+
+  /** Number of active agents (frontend display) */
+  agentCount: number;
+
+  /** Last activity timestamp (frontend display) */
+  lastActivity: string;
 }
 
 export interface ProfilesResponse {

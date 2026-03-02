@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import type { CronJob, RunHistory } from "@/types/cron";
 
-export function useCronJobs() {
+export function useCronJobs(profileId?: string) {
   const [jobs, setJobs] = useState<CronJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -10,7 +10,10 @@ export function useCronJobs() {
     const fetchJobs = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch("/api/cron/jobs");
+        const url = profileId
+          ? `/api/cron/jobs?profile=${encodeURIComponent(profileId)}`
+          : "/api/cron/jobs";
+        const response = await fetch(url);
         const data = await response.json();
 
         if (data.success) {
@@ -30,7 +33,7 @@ export function useCronJobs() {
     const interval = setInterval(fetchJobs, 30000); // Refresh every 30s
 
     return () => clearInterval(interval);
-  }, []);
+  }, [profileId]);
 
   return { jobs, isLoading, error };
 }
