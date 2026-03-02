@@ -4,6 +4,7 @@ import { RouterProvider } from "react-router-dom";
 import { ThemeProvider } from "@/app/providers";
 import { ProfileProvider } from "@/app/profile-context";
 import { ActivityStreamProvider } from "@/app/agents/context/ActivityStreamContext";
+import { ProfileProvider } from "@/hooks/useProfile";
 import { AuthProvider } from "@/app/auth/AuthContext";
 import { AuthGuard } from "@/app/auth/AuthGuard";
 import { router } from "@/app/router";

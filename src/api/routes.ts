@@ -22,8 +22,8 @@ import { SkillsService } from "../services/skills-service.js";
 import { toActorId } from "../lib/agent-utils.js";
 import { getProfiles, getProfile } from "../services/profile-service.js";
 
-// Store active SSE clients
-const sseClients: Set<Response> = new Set();
+// Store active SSE clients, keyed by profile ID for scoped event delivery
+const sseClientsByProfile: Map<string, Set<Response>> = new Map();
 
 // Default limits for activity queries
 const DEFAULT_ACTIVITY_LIMIT = 100;
@@ -936,34 +936,62 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
 
   /**
    * GET /api/stream
-   * Server-Sent Events endpoint for real-time activity updates
+   * Server-Sent Events endpoint for real-time activity updates.
+   * Accepts `?profile=<id>` to scope the stream to a specific profile.
+   * Defaults to "default" when omitted (backward compatible).
    */
   app.get("/api/stream", (req: Request, res: Response) => {
+    const profileId = (req.query.profile as string) || "default";
+
     // Set SSE headers
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
     res.setHeader("Access-Control-Allow-Origin", "*");
 
-    // Send initial connection message
-    res.write(":connected\n\n");
+    // Register client in profile-scoped set
+    if (!sseClientsByProfile.has(profileId)) {
+      sseClientsByProfile.set(profileId, new Set());
+    }
+    sseClientsByProfile.get(profileId)!.add(res);
 
-    // Add to active clients
-    sseClients.add(res);
-    console.log(`[SSE] Client connected. Active clients: ${sseClients.size}`);
+    const totalClients = Array.from(sseClientsByProfile.values()).reduce(
+      (sum, set) => sum + set.size,
+      0,
+    );
+    console.log(
+      `[SSE] Client connected for profile "${profileId}". Active clients: ${totalClients}`,
+    );
+
+    // Send initial system event with profile confirmation
+    res.write(
+      `event: system\ndata: ${JSON.stringify({ type: "connected", profile: profileId })}\n\n`,
+    );
 
     // Clean up on disconnect
     req.on("close", () => {
-      sseClients.delete(res);
+      const clients = sseClientsByProfile.get(profileId);
+      if (clients) {
+        clients.delete(res);
+        if (clients.size === 0) {
+          sseClientsByProfile.delete(profileId);
+        }
+      }
+      const remaining = Array.from(sseClientsByProfile.values()).reduce(
+        (sum, set) => sum + set.size,
+        0,
+      );
       console.log(
-        `[SSE] Client disconnected. Active clients: ${sseClients.size}`,
+        `[SSE] Client disconnected from profile "${profileId}". Active clients: ${remaining}`,
       );
     });
 
     // Keep connection alive with heartbeat every 30s
     const heartbeatInterval = setInterval(() => {
       if (!res.writableEnded) {
-        res.write(":heartbeat\n\n");
+        res.write(
+          `event: system\ndata: ${JSON.stringify({ type: "heartbeat" })}\n\n`,
+        );
       } else {
         clearInterval(heartbeatInterval);
       }
@@ -975,17 +1003,23 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
   // ============================================================================
 
   /**
-   * Internal function to broadcast new activities to connected clients
+   * Internal function to broadcast new activities to connected clients.
+   * Events are scoped to the activity's profileId — only clients subscribed
+   * to that profile receive the event. Falls back to "default" for backward
+   * compatibility with activities that lack a profileId.
    */
   app.locals.broadcastActivity = (activity: Activity) => {
-    const message = `data: ${JSON.stringify(activity)}\nevent: activity\n\n`;
+    const profileId = activity.profileId || "default";
+    const clients = sseClientsByProfile.get(profileId);
+    if (!clients || clients.size === 0) return;
 
-    // Send to all connected SSE clients
-    for (const client of sseClients) {
+    const message = `event: activity\ndata: ${JSON.stringify(activity)}\n\n`;
+
+    for (const client of clients) {
       if (!client.writableEnded) {
         client.write(message);
       } else {
-        sseClients.delete(client);
+        clients.delete(client);
       }
     }
   };

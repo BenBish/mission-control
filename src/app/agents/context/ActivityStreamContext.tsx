@@ -6,6 +6,10 @@
  *
  * Solution: One EventSource at the app root; consumers call useActivityStream()
  * and receive only events matching their agentId filter.
+ *
+ * Profile scoping: The SSE connection includes `?profile=<id>` so the server
+ * only sends events for the active profile. When the profile changes, the old
+ * connection is closed and a new one opens immediately.
  */
 
 import {
@@ -18,7 +22,7 @@ import {
   type ReactNode,
 } from "react";
 import type { Activity } from "@/types/activity";
-import { useProfile } from "@/app/profile-context";
+import { useProfile } from "@/hooks/useProfile";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -49,8 +53,7 @@ interface ActivityStreamProviderProps {
 export function ActivityStreamProvider({
   children,
 }: ActivityStreamProviderProps) {
-  const { activeProfile } = useProfile();
-  const profileId = activeProfile?.id;
+  const { profileId } = useProfile();
   const [connected, setConnected] = useState(false);
 
   // Map of actorId → Set of handlers
@@ -62,6 +65,12 @@ export function ActivityStreamProvider({
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const unmountedRef = useRef(false);
   const connectRef = useRef<() => void>(() => {});
+  const profileIdRef = useRef(profileId);
+
+  // Keep profileIdRef current so the stable connect fn reads the latest value
+  useEffect(() => {
+    profileIdRef.current = profileId;
+  }, [profileId]);
 
   const connect = useCallback(() => {
     if (unmountedRef.current) return;
@@ -72,10 +81,10 @@ export function ActivityStreamProvider({
       eventSourceRef.current = null;
     }
 
-    const streamUrl = profileId
-      ? `/api/stream?profile=${encodeURIComponent(profileId)}`
-      : "/api/stream";
-    const es = new EventSource(streamUrl);
+    const currentProfile = profileIdRef.current;
+    const es = new EventSource(
+      `/api/stream?profile=${encodeURIComponent(currentProfile)}`,
+    );
     eventSourceRef.current = es;
 
     es.addEventListener("open", () => {
@@ -100,6 +109,18 @@ export function ActivityStreamProvider({
       }
     });
 
+    es.addEventListener("system", (event) => {
+      if (unmountedRef.current) return;
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "connected") {
+          console.log(`[ActivityStream] SSE connected for profile: ${data.profile}`);
+        }
+      } catch {
+        // Ignore malformed system events
+      }
+    });
+
     es.addEventListener("error", () => {
       if (unmountedRef.current) return;
 
@@ -121,14 +142,16 @@ export function ActivityStreamProvider({
         if (!unmountedRef.current) connectRef.current();
       }, delayMs);
     });
-  }, [profileId]); // reconnect when profile changes
+  }, []); // stable — no deps that change
 
   useEffect(() => {
     connectRef.current = connect;
   }, [connect]);
 
+  // (Re-)connect when mounted or when profileId changes
   useEffect(() => {
     unmountedRef.current = false;
+    retryCountRef.current = 0; // reset retries on profile change
     connect();
 
     return () => {
@@ -142,7 +165,7 @@ export function ActivityStreamProvider({
         eventSourceRef.current = null;
       }
     };
-  }, [connect]);
+  }, [connect, profileId]);
 
   const subscribe = useCallback(
     (actorId: string, handler: (activity: Activity) => void) => {

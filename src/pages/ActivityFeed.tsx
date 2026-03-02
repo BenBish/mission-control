@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Card,
@@ -12,6 +12,8 @@ import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/_shared/PageHeader";
 import { Loading } from "@/components/_shared/Loading";
 import type { Activity } from "@/types/activity";
+import { useProfile } from "@/hooks/useProfile";
+import { useSSE } from "@/hooks/useSSE";
 import {
   List,
   ArrowRight,
@@ -21,7 +23,6 @@ import {
   Clock,
   BarChart3,
 } from "lucide-react";
-import { useProfile } from "@/app/profile-context";
 
 interface ActivitiesResponse {
   success: boolean;
@@ -34,17 +35,35 @@ export default function ActivityFeed() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
-  const { activeProfile, isSwitching } = useProfile();
+  const { profileId } = useProfile();
+
+  // Handle real-time activity events from the profile-scoped SSE stream
+  const onActivity = useCallback((activity: Activity) => {
+    setActivities((prev) => {
+      const exists = prev.some((a) => a.id === activity.id);
+      const updated = exists
+        ? prev.map((a) => (a.id === activity.id ? activity : a))
+        : [activity, ...prev];
+      // Keep sorted newest-first and cap at 100
+      return updated
+        .sort(
+          (a, b) =>
+            new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+        )
+        .slice(0, 100);
+    });
+  }, []);
+
+  useSSE(profileId, { onActivity });
 
   useEffect(() => {
     const fetchActivities = async () => {
       setIsLoading(true);
       setError(null);
       try {
-        const profileParam = activeProfile?.id
-          ? `?profile=${encodeURIComponent(activeProfile.id)}&limit=100`
-          : "?limit=100";
-        const response = await fetch(`/api/activities${profileParam}`);
+        const response = await fetch(
+          `/api/activities?limit=100&profile=${encodeURIComponent(profileId)}`,
+        );
         if (!response.ok) {
           throw new Error(`Failed to fetch activities: ${response.statusText}`);
         }
@@ -62,7 +81,7 @@ export default function ActivityFeed() {
     };
 
     fetchActivities();
-  }, [activeProfile?.id]);
+  }, [profileId]);
 
   const formatTimestamp = (timestamp: string) => {
     const date = new Date(timestamp);
@@ -139,7 +158,7 @@ export default function ActivityFeed() {
     navigate(`/activities/${id}`);
   };
 
-  if (isLoading || isSwitching) {
+  if (isLoading) {
     return (
       <div className="space-y-6">
         <PageHeader
