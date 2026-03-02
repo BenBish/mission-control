@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useProfile } from "@/app/profile-context";
 import {
   Card,
   CardContent,
@@ -72,6 +73,7 @@ function JsonDisplay({ data }: { data: unknown }) {
 export default function ActivityDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { activeProfile, isSwitching } = useProfile();
   const [activity, setActivity] = useState<Activity | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -86,7 +88,10 @@ export default function ActivityDetail() {
       setIsLoading(true);
       setError(null);
       try {
-        const response = await fetch(`/api/activities/${id}`);
+        const profileParam = activeProfile?.id
+          ? `?profile=${encodeURIComponent(activeProfile.id)}`
+          : "";
+        const response = await fetch(`/api/activities/${id}${profileParam}`);
         if (!response.ok) {
           if (response.status === 404) throw new Error("Activity not found");
           throw new Error(`Failed: ${response.statusText}`);
@@ -101,7 +106,7 @@ export default function ActivityDetail() {
       }
     };
     fetchActivity();
-  }, [id]);
+  }, [id, activeProfile?.id]);
 
   const formatTimestamp = (timestamp: string) =>
     new Date(timestamp).toLocaleString();
@@ -158,7 +163,7 @@ export default function ActivityDetail() {
     }
   };
 
-  if (isLoading)
+  if (isLoading || isSwitching)
     return (
       <div className="space-y-6">
         <PageHeader

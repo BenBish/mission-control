@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Card,
   CardContent,
@@ -92,7 +92,7 @@ export default function CostBreakdown() {
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const fetchCostStats = async () => {
+  const fetchCostStats = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
@@ -110,11 +110,11 @@ export default function CostBreakdown() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  };
+  }, [activeProfile?.id]);
 
   useEffect(() => {
     fetchCostStats();
-  }, []);
+  }, [fetchCostStats]);
   const handleRefresh = () => {
     setIsRefreshing(true);
     fetchCostStats();
@@ -158,7 +158,7 @@ export default function CostBreakdown() {
       : (cacheTokens / (inputTokens + cacheTokens)) * 100;
   })();
 
-  if (isLoading)
+  if (isLoading || isSwitching)
     return (
       <div className="space-y-6">
         <PageHeader title="Cost Breakdown" description="View cost statistics" />

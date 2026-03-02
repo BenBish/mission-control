@@ -18,6 +18,7 @@ import {
   type ReactNode,
 } from "react";
 import type { Activity } from "@/types/activity";
+import { useProfile } from "@/app/profile-context";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -48,6 +49,7 @@ interface ActivityStreamProviderProps {
 export function ActivityStreamProvider({
   children,
 }: ActivityStreamProviderProps) {
+  const { activeProfile } = useProfile();
   const [connected, setConnected] = useState(false);
 
   // Map of actorId → Set of handlers
@@ -69,7 +71,10 @@ export function ActivityStreamProvider({
       eventSourceRef.current = null;
     }
 
-    const es = new EventSource("/api/stream");
+    const streamUrl = activeProfile?.id
+      ? `/api/stream?profile=${encodeURIComponent(activeProfile.id)}`
+      : "/api/stream";
+    const es = new EventSource(streamUrl);
     eventSourceRef.current = es;
 
     es.addEventListener("open", () => {
@@ -115,7 +120,7 @@ export function ActivityStreamProvider({
         if (!unmountedRef.current) connectRef.current();
       }, delayMs);
     });
-  }, []); // stable — no deps that change
+  }, [activeProfile?.id]); // reconnect when profile changes
 
   useEffect(() => {
     connectRef.current = connect;
