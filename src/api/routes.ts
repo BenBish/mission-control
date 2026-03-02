@@ -141,7 +141,14 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
    */
   app.get("/api/profiles/:id", async (req: Request, res: Response) => {
     try {
-      const profile = await getProfile(req.params.id);
+      const profileId = req.params.id;
+      if (!/^[a-zA-Z0-9_-]{1,50}$/.test(profileId)) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid profile ID",
+        });
+      }
+      const profile = await getProfile(profileId);
       if (!profile) {
         return res.status(404).json({
           success: false,
@@ -280,8 +287,21 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
 
         // Transform incoming activity to CreateActivityInput format
         // Profile precedence: activity body > query param > "default"
+        const resolvedProfileId =
+          activity.profileId || req.profileId || "default";
+        // Guard: reject sentinel "all" and invalid IDs on write path
+        if (
+          resolvedProfileId === "all" ||
+          !/^[a-zA-Z0-9_-]{1,50}$/.test(resolvedProfileId)
+        ) {
+          return res.status(400).json({
+            success: false,
+            error:
+              'Invalid profile ID — must be a specific profile, not "all"',
+          });
+        }
         const dbActivity = {
-          profileId: activity.profileId || req.profileId,
+          profileId: resolvedProfileId,
           sessionId:
             activity.sessionId || activity.sessionKey || "unknown-session",
           timestamp: activity.timestamp || new Date().toISOString(),
@@ -663,12 +683,15 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
   app.get("/api/stats", async (req: Request, res: Response) => {
     try {
       const db = logger.getDatabase();
-      const stats = await db.getStats();
       const profileFilter = req.profileId !== "all" ? req.profileId : undefined;
       const activities = await db.getActivities({
         profileId: profileFilter,
         limit: MAX_ACTIVITY_LIMIT,
       });
+
+      // Derive activity/session counts from profile-scoped activities (not unfiltered db.getStats())
+      const activityCount = activities.length;
+      const sessionCount = new Set(activities.map((a: Activity) => a.sessionId)).size;
 
       const success = activities.filter(
         (a: Activity) => a.status === "success",
@@ -733,7 +756,8 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
       res.json({
         success: true,
         stats: {
-          ...stats,
+          activities: activityCount,
+          sessions: sessionCount,
           successCount: success,
           failureCount: failure,
           successRate:
