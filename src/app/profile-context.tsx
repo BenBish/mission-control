@@ -15,6 +15,8 @@ const STORAGE_KEY = "openclaw-active-profile";
 interface ProfileContextType {
   profiles: Profile[];
   activeProfile: Profile | null;
+  /** Convenience shorthand: activeProfile?.id ?? "default" */
+  profileId: string;
   setActiveProfile: (profile: Profile) => void;
   isLoadingProfiles: boolean;
   isSwitching: boolean;
@@ -113,6 +115,7 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
       value={{
         profiles,
         activeProfile,
+        profileId: activeProfile?.id ?? "default",
         setActiveProfile,
         isLoadingProfiles,
         isSwitching,

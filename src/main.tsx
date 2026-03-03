@@ -4,7 +4,6 @@ import { RouterProvider } from "react-router-dom";
 import { ThemeProvider } from "@/app/providers";
 import { ProfileProvider } from "@/app/profile-context";
 import { ActivityStreamProvider } from "@/app/agents/context/ActivityStreamContext";
-import { ProfileProvider as SSEProfileProvider } from "@/hooks/useProfile";
 import { AuthProvider } from "@/app/auth/AuthContext";
 import { AuthGuard } from "@/app/auth/AuthGuard";
 import { router } from "@/app/router";
@@ -18,11 +17,9 @@ createRoot(document.getElementById("root")!).render(
         <AuthProvider>
           <AuthGuard>
             <ProfileProvider>
-              <SSEProfileProvider>
-                <ActivityStreamProvider>
-                  <RouterProvider router={router} />
-                </ActivityStreamProvider>
-              </SSEProfileProvider>
+              <ActivityStreamProvider>
+                <RouterProvider router={router} />
+              </ActivityStreamProvider>
             </ProfileProvider>
           </AuthGuard>
         </AuthProvider>

@@ -22,7 +22,7 @@ import {
   type ReactNode,
 } from "react";
 import type { Activity } from "@/types/activity";
-import { useProfile } from "@/hooks/useProfile";
+import { useProfile } from "@/app/profile-context";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

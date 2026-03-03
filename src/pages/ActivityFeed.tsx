@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/_shared/PageHeader";
 import { Loading } from "@/components/_shared/Loading";
 import type { Activity } from "@/types/activity";
-import { useProfile } from "@/hooks/useProfile";
+import { useProfile } from "@/app/profile-context";
 import { useSSE } from "@/hooks/useSSE";
 import {
   List,
