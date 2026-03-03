@@ -11,23 +11,32 @@ const _execFileAsync = promisify(_execFile);
  */
 let execFileAsync = _execFileAsync;
 
+export interface GatewayOptions {
+  gatewayUrl?: string;
+  gatewayToken?: string;
+}
+
 interface CachedJobs {
   data: CronJob[];
   timestamp: number;
 }
 
-let cachedJobs: CachedJobs | null = null;
+/** Per-profile job cache keyed by profileId (or "__default__" for no-profile calls). */
+const cachedJobsByProfile: Map<string, CachedJobs> = new Map();
 const CACHE_TTL_MS = 5000;
 
 /**
  * Build CLI args for targeting a specific gateway.
  * Uses env vars CRON_GATEWAY_URL and CRON_GATEWAY_TOKEN when set,
  * allowing Mission Control to query any gateway (personal or team).
+ *
+ * When `gatewayUrl` and `gatewayToken` are provided explicitly
+ * (e.g. for multi-profile support), they take precedence over env vars.
  */
-function getGatewayArgs(): string[] {
+function getGatewayArgs(options?: GatewayOptions): string[] {
   const args: string[] = [];
-  const url = process.env.CRON_GATEWAY_URL;
-  const token = process.env.CRON_GATEWAY_TOKEN;
+  const url = options?.gatewayUrl || process.env.CRON_GATEWAY_URL;
+  const token = options?.gatewayToken || process.env.CRON_GATEWAY_TOKEN;
   if (url) args.push("--url", url);
   if (token) args.push("--token", token);
   return args;
@@ -50,12 +59,16 @@ async function runOpenclawJson<T>(args: string[]): Promise<T | null> {
       return null;
     }
     return JSON.parse(stdout) as T;
-  } catch (error: any) {
+  } catch (error: unknown) {
     // execFile rejects on non-zero exit or timeout
-    if (error.stderr) {
-      console.error("openclaw CLI error:", error.stderr.trim());
+    const err = error as Record<string, unknown>;
+    if (typeof err.stderr === "string" && err.stderr) {
+      console.error("openclaw CLI error:", err.stderr.trim());
     } else {
-      console.error("Failed to run openclaw CLI:", error.message || error);
+      console.error(
+        "Failed to run openclaw CLI:",
+        error instanceof Error ? error.message : error,
+      );
     }
     return null;
   }
@@ -95,13 +108,17 @@ export class CronService {
     return `${home}/.openclaw-team/cron/jobs.json`;
   }
 
-  static async getJobs(): Promise<CronJob[]> {
+  static async getJobs(gateway?: GatewayOptions): Promise<CronJob[]> {
+    // Per-profile cache key
+    const cacheKey = gateway?.gatewayUrl ?? "__default__";
+
     // Check cache
-    if (cachedJobs && Date.now() - cachedJobs.timestamp < CACHE_TTL_MS) {
-      return cachedJobs.data;
+    const cached = cachedJobsByProfile.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      return cached.data;
     }
 
-    const gatewayArgs = getGatewayArgs();
+    const gatewayArgs = getGatewayArgs(gateway);
     const response = await runOpenclawJson<CliJobsResponse>([
       "cron",
       "list",
@@ -115,28 +132,33 @@ export class CronService {
       return [];
     }
 
-    const jobs: CronJob[] = Array.isArray(response.jobs)
-      ? response.jobs
-      : [];
+    const jobs: CronJob[] = Array.isArray(response.jobs) ? response.jobs : [];
 
     // Enrich jobs
     const enriched = jobs.map((job) => this.enrichJob(job));
 
     // Update cache
-    cachedJobs = { data: enriched, timestamp: Date.now() };
+    cachedJobsByProfile.set(cacheKey, {
+      data: enriched,
+      timestamp: Date.now(),
+    });
     return enriched;
   }
 
-  static async getJob(id: string): Promise<CronJob | null> {
-    const jobs = await this.getJobs();
+  static async getJob(
+    id: string,
+    gateway?: GatewayOptions,
+  ): Promise<CronJob | null> {
+    const jobs = await this.getJobs(gateway);
     return jobs.find((j) => j.id === id) || null;
   }
 
   static async getRunHistory(
     jobId: string,
     limit = 20,
+    gateway?: GatewayOptions,
   ): Promise<RunHistory[]> {
-    const gatewayArgs = getGatewayArgs();
+    const gatewayArgs = getGatewayArgs(gateway);
     // Note: `cron runs` outputs JSON by default (no --json flag needed),
     // unlike `cron list` which requires the explicit `--json` flag.
     const response = await runOpenclawJson<CliRunsResponse>([
@@ -272,16 +294,14 @@ export class CronService {
   }
 
   static clearCache(): void {
-    cachedJobs = null;
+    cachedJobsByProfile.clear();
   }
 
   /**
    * @internal Override the execFile implementation for testing.
    * Pass `null` to restore the default.
    */
-  static _setExecFileAsync(
-    fn: typeof _execFileAsync | null,
-  ): void {
+  static _setExecFileAsync(fn: typeof _execFileAsync | null): void {
     execFileAsync = fn ?? _execFileAsync;
   }
 }

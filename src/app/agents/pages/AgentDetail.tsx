@@ -19,18 +19,20 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatLastActive } from "@/lib/date-utils";
+import { useProfile } from "@/app/profile-context";
 
 export default function AgentDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { agent, isLoading, error } = useAgent(id || "");
+  const { activeProfile, isSwitching } = useProfile();
+  const { agent, isLoading, error } = useAgent(id || "", activeProfile?.id);
   const {
     activities,
     isLoading: activitiesLoading,
     error: activitiesError,
     isSubscribed,
     refetch: refetchActivities,
-  } = useAgentActivity(id || null);
+  } = useAgentActivity(id || null, activeProfile?.id);
 
   if (!id) {
     return (
@@ -46,7 +48,7 @@ export default function AgentDetail() {
     );
   }
 
-  if (isLoading) {
+  if (isLoading || isSwitching) {
     return (
       <div className="space-y-6">
         <PageHeader title="Agent" description="Loading agent details..." />

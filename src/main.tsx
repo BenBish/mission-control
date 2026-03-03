@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router-dom";
 import { ThemeProvider } from "@/app/providers";
+import { ProfileProvider } from "@/app/profile-context";
 import { ActivityStreamProvider } from "@/app/agents/context/ActivityStreamContext";
 import { AuthProvider } from "@/app/auth/AuthContext";
 import { AuthGuard } from "@/app/auth/AuthGuard";
@@ -15,9 +16,11 @@ createRoot(document.getElementById("root")!).render(
       <ThemeProvider defaultTheme="system">
         <AuthProvider>
           <AuthGuard>
-            <ActivityStreamProvider>
-              <RouterProvider router={router} />
-            </ActivityStreamProvider>
+            <ProfileProvider>
+              <ActivityStreamProvider>
+                <RouterProvider router={router} />
+              </ActivityStreamProvider>
+            </ProfileProvider>
           </AuthGuard>
         </AuthProvider>
       </ThemeProvider>

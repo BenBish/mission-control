@@ -329,6 +329,13 @@ export class ActivityLogger extends EventEmitter {
   }
 
   /**
+   * Get the profile_id that owns a session.
+   */
+  async getSessionProfileId(sessionId: string): Promise<string | null> {
+    return this.db.getSessionProfileId(sessionId);
+  }
+
+  /**
    * Get session activities
    */
   async getSessionActivities(sessionId: string): Promise<Activity[]> {

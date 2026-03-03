@@ -68,7 +68,11 @@ export class SessionLogScanner {
 
   constructor(
     db: Database,
-    options?: { sessionsGlob?: string; intervalMs?: number; profileId?: string },
+    options?: {
+      sessionsGlob?: string;
+      intervalMs?: number;
+      profileId?: string;
+    },
   ) {
     this.db = db;
     this.sessionsGlob = options?.sessionsGlob || DEFAULT_SESSIONS_GLOB;

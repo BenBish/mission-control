@@ -116,7 +116,7 @@ beforeAll(async () => {
   dbPath = path.join(fixtureDir, "test.db");
   db = new Database(dbPath);
   await db.initialize();
-  logger = new ActivityLogger(db);
+  logger = new ActivityLogger(db, { profileId: "default" });
 
   app = express();
   app.use(express.json());

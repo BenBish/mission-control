@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Card,
   CardContent,
@@ -20,6 +20,7 @@ import {
   TrendingUp,
   PieChart,
 } from "lucide-react";
+import { useProfile } from "@/app/profile-context";
 
 interface CostStats {
   success: boolean;
@@ -85,16 +86,20 @@ function CostBar({
 }
 
 export default function CostBreakdown() {
+  const { activeProfile, isSwitching } = useProfile();
   const [costStats, setCostStats] = useState<CostStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const fetchCostStats = async () => {
+  const fetchCostStats = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch("/api/cost-report");
+      const profileParam = activeProfile?.id
+        ? `?profile=${encodeURIComponent(activeProfile.id)}`
+        : "";
+      const response = await fetch(`/api/cost-report${profileParam}`);
       if (!response.ok) throw new Error(`Failed: ${response.statusText}`);
       const data: CostStats = await response.json();
       if (data.success) setCostStats(data);
@@ -105,11 +110,11 @@ export default function CostBreakdown() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  };
+  }, [activeProfile?.id]);
 
   useEffect(() => {
     fetchCostStats();
-  }, []);
+  }, [fetchCostStats]);
   const handleRefresh = () => {
     setIsRefreshing(true);
     fetchCostStats();
@@ -153,7 +158,7 @@ export default function CostBreakdown() {
       : (cacheTokens / (inputTokens + cacheTokens)) * 100;
   })();
 
-  if (isLoading)
+  if (isLoading || isSwitching)
     return (
       <div className="space-y-6">
         <PageHeader title="Cost Breakdown" description="View cost statistics" />
