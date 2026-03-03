@@ -23,11 +23,17 @@ const CACHE_TTL_MS = 5000;
  * Build CLI args for targeting a specific gateway.
  * Uses env vars CRON_GATEWAY_URL and CRON_GATEWAY_TOKEN when set,
  * allowing Mission Control to query any gateway (personal or team).
+ *
+ * When `gatewayUrl` and `gatewayToken` are provided explicitly
+ * (e.g. for multi-profile support), they take precedence over env vars.
  */
-function getGatewayArgs(): string[] {
+function getGatewayArgs(options?: {
+  gatewayUrl?: string;
+  gatewayToken?: string;
+}): string[] {
   const args: string[] = [];
-  const url = process.env.CRON_GATEWAY_URL;
-  const token = process.env.CRON_GATEWAY_TOKEN;
+  const url = options?.gatewayUrl || process.env.CRON_GATEWAY_URL;
+  const token = options?.gatewayToken || process.env.CRON_GATEWAY_TOKEN;
   if (url) args.push("--url", url);
   if (token) args.push("--token", token);
   return args;
@@ -50,12 +56,16 @@ async function runOpenclawJson<T>(args: string[]): Promise<T | null> {
       return null;
     }
     return JSON.parse(stdout) as T;
-  } catch (error: any) {
+  } catch (error: unknown) {
     // execFile rejects on non-zero exit or timeout
-    if (error.stderr) {
-      console.error("openclaw CLI error:", error.stderr.trim());
+    const err = error as Record<string, unknown>;
+    if (typeof err.stderr === "string" && err.stderr) {
+      console.error("openclaw CLI error:", err.stderr.trim());
     } else {
-      console.error("Failed to run openclaw CLI:", error.message || error);
+      console.error(
+        "Failed to run openclaw CLI:",
+        error instanceof Error ? error.message : error,
+      );
     }
     return null;
   }

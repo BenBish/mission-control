@@ -20,9 +20,10 @@ import { CronService } from "../services/cron-service.js";
 import { AgentService } from "../services/agent-service.js";
 import { SkillsService } from "../services/skills-service.js";
 import { toActorId } from "../lib/agent-utils.js";
+import { getProfiles, getProfile } from "../services/profile-service.js";
 
-// Store active SSE clients
-const sseClients: Set<Response> = new Set();
+// Store active SSE clients, keyed by profile ID for scoped event delivery
+const sseClientsByProfile: Map<string, Set<Response>> = new Map();
 
 // Default limits for activity queries
 const DEFAULT_ACTIVITY_LIMIT = 100;
@@ -111,6 +112,62 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
   const fsAgentService = new AgentService(logger.getDatabase());
 
   // ============================================================================
+  // PROFILE ENDPOINTS
+  // ============================================================================
+
+  /**
+   * GET /api/profiles
+   * List all discovered profiles with their status (online/offline)
+   */
+  app.get("/api/profiles", async (_req: Request, res: Response) => {
+    try {
+      const profiles = await getProfiles();
+      res.json({
+        success: true,
+        count: profiles.length,
+        profiles,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  /**
+   * GET /api/profiles/:id
+   * Get a specific profile by ID
+   */
+  app.get("/api/profiles/:id", async (req: Request, res: Response) => {
+    try {
+      const profileId = req.params.id;
+      if (!/^[a-zA-Z0-9_-]{1,50}$/.test(profileId)) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid profile ID",
+        });
+      }
+      const profile = await getProfile(profileId);
+      if (!profile) {
+        return res.status(404).json({
+          success: false,
+          error: "Profile not found",
+        });
+      }
+      res.json({
+        success: true,
+        profile,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  // ============================================================================
   // ACTIVITY ENDPOINTS
   // ============================================================================
 
@@ -121,6 +178,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
   app.get("/api/activities", async (req: Request, res: Response) => {
     try {
       const filter: ActivityFilter = {
+        profileId: req.profileId !== "all" ? req.profileId : undefined,
         sessionId: req.query.sessionId as string | undefined,
         actorId: req.query.actorId as string | undefined,
         actorType: req.query.actorType as any,
@@ -132,8 +190,6 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         limit: req.query.limit ? parseInt(req.query.limit as string) : 100,
         offset: req.query.offset ? parseInt(req.query.offset as string) : 0,
       };
-
-      const activities = (await logger.getActivity("")) || [];
 
       // Fetch activities from database
       const db = logger.getDatabase();
@@ -230,8 +286,22 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         }
 
         // Transform incoming activity to CreateActivityInput format
+        // Profile precedence: activity body > query param > "default"
+        const resolvedProfileId =
+          activity.profileId || req.profileId || "default";
+        // Guard: reject sentinel "all" and invalid IDs on write path
+        if (
+          resolvedProfileId === "all" ||
+          !/^[a-zA-Z0-9_-]{1,50}$/.test(resolvedProfileId)
+        ) {
+          return res.status(400).json({
+            success: false,
+            error:
+              'Invalid profile ID — must be a specific profile, not "all"',
+          });
+        }
         const dbActivity = {
-          profileId: activity.profileId || "team",
+          profileId: resolvedProfileId,
           sessionId:
             activity.sessionId || activity.sessionKey || "unknown-session",
           timestamp: activity.timestamp || new Date().toISOString(),
@@ -311,8 +381,11 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
     try {
       const db = logger.getDatabase();
 
-      // Get all activities with tokens but no cost
-      const activities = await db.getActivities({ limit: MAX_ACTIVITY_LIMIT });
+      // Get all activities with tokens but no cost (scoped by profile)
+      const activities = await db.getActivities({
+        profileId: req.profileId !== "all" ? req.profileId : undefined,
+        limit: MAX_ACTIVITY_LIMIT,
+      });
       const activitiesToUpdate = activities.filter(
         (a: Activity) =>
           a.tokens && a.tokens.totalTokens > 0 && (!a.cost || a.cost.usd === 0),
@@ -404,7 +477,10 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
 
       // Get all activities and filter (simple implementation)
       const db = logger.getDatabase();
-      const activities = await db.getActivities({ limit: 1000 });
+      const activities = await db.getActivities({
+        profileId: req.profileId !== "all" ? req.profileId : undefined,
+        limit: 1000,
+      });
       const filtered = activities.filter(
         (a: Activity) =>
           a.description.toLowerCase().includes(query.toLowerCase()) ||
@@ -533,7 +609,11 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
   app.get("/api/cost-report", async (req: Request, res: Response) => {
     try {
       const db = logger.getDatabase();
-      const activities = await db.getActivities({ limit: MAX_ACTIVITY_LIMIT });
+      // ?profile=all → cross-profile aggregation (no filter)
+      const activities = await db.getActivities({
+        profileId: req.profileId !== "all" ? req.profileId : undefined,
+        limit: MAX_ACTIVITY_LIMIT,
+      });
 
       let totalCost = 0;
       let totalTokens = 0;
@@ -566,10 +646,12 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         }
       }
 
-      // Include LLM generation data if available
+      // Include LLM generation data if available (scoped by profile)
       let generationSummary = null;
       try {
-        generationSummary = await db.getGenerationSummary();
+        generationSummary = await db.getGenerationSummary({
+          profileId: req.profileId !== "all" ? req.profileId : undefined,
+        });
       } catch {
         // Generation tables may not exist yet
       }
@@ -601,10 +683,15 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
   app.get("/api/stats", async (req: Request, res: Response) => {
     try {
       const db = logger.getDatabase();
-      const stats = await db.getStats();
+      const profileFilter = req.profileId !== "all" ? req.profileId : undefined;
       const activities = await db.getActivities({
+        profileId: profileFilter,
         limit: MAX_ACTIVITY_LIMIT,
       });
+
+      // Derive activity/session counts from profile-scoped activities (not unfiltered db.getStats())
+      const activityCount = activities.length;
+      const sessionCount = new Set(activities.map((a: Activity) => a.sessionId)).size;
 
       const success = activities.filter(
         (a: Activity) => a.status === "success",
@@ -619,7 +706,9 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
       let totalTokens: number;
       let generationSummary = null;
       try {
-        generationSummary = await db.getGenerationSummary();
+        generationSummary = await db.getGenerationSummary({
+          profileId: profileFilter,
+        });
       } catch {
         // Generation tables may not exist yet
       }
@@ -645,8 +734,8 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
       let totalAgents = 0;
       try {
         const [fsAgents, statsMap] = await Promise.all([
-          fsAgentService.readAgents(),
-          buildActivityStatsMap(),
+          fsAgentService.readAgents(profileFilter),
+          buildActivityStatsMap(profileFilter),
         ]);
         totalAgents = fsAgents.length;
         for (const agent of fsAgents) {
@@ -667,7 +756,8 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
       res.json({
         success: true,
         stats: {
-          ...stats,
+          activities: activityCount,
+          sessions: sessionCount,
           successCount: success,
           failureCount: failure,
           successRate:
@@ -754,6 +844,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
     try {
       const db = logger.getDatabase();
       const generations = await db.getGenerations({
+        profileId: req.profileId !== "all" ? req.profileId : undefined,
         agentId: req.query.agentId as string | undefined,
         model: req.query.model as string | undefined,
         startTime: req.query.startTime as string | undefined,
@@ -781,6 +872,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
     try {
       const db = logger.getDatabase();
       const summary = await db.getGenerationSummary({
+        profileId: req.profileId !== "all" ? req.profileId : undefined,
         startTime: req.query.startTime as string | undefined,
         endTime: req.query.endTime as string | undefined,
       });
@@ -844,34 +936,63 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
 
   /**
    * GET /api/stream
-   * Server-Sent Events endpoint for real-time activity updates
+   * Server-Sent Events endpoint for real-time activity updates.
+   * Accepts `?profile=<id>` to scope the stream to a specific profile.
+   * Defaults to "default" when omitted (backward compatible).
    */
   app.get("/api/stream", (req: Request, res: Response) => {
+    const profileId = req.profileId;
+
     // Set SSE headers
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
     res.setHeader("Access-Control-Allow-Origin", "*");
 
-    // Send initial connection message
-    res.write(":connected\n\n");
+    // Register client in profile-scoped set
+    if (!sseClientsByProfile.has(profileId)) {
+      sseClientsByProfile.set(profileId, new Set());
+    }
+    sseClientsByProfile.get(profileId)!.add(res);
 
-    // Add to active clients
-    sseClients.add(res);
-    console.log(`[SSE] Client connected. Active clients: ${sseClients.size}`);
+    const totalClients = Array.from(sseClientsByProfile.values()).reduce(
+      (sum, set) => sum + set.size,
+      0,
+    );
+    console.log(
+      `[SSE] Client connected for profile "${profileId}". Active clients: ${totalClients}`,
+    );
+
+    // Send initial system event with profile confirmation
+    res.write(
+      `event: system\ndata: ${JSON.stringify({ type: "connected", profile: profileId })}\n\n`,
+    );
 
     // Clean up on disconnect
     req.on("close", () => {
-      sseClients.delete(res);
+      clearInterval(heartbeatInterval);
+      const clients = sseClientsByProfile.get(profileId);
+      if (clients) {
+        clients.delete(res);
+        if (clients.size === 0) {
+          sseClientsByProfile.delete(profileId);
+        }
+      }
+      const remaining = Array.from(sseClientsByProfile.values()).reduce(
+        (sum, set) => sum + set.size,
+        0,
+      );
       console.log(
-        `[SSE] Client disconnected. Active clients: ${sseClients.size}`,
+        `[SSE] Client disconnected from profile "${profileId}". Active clients: ${remaining}`,
       );
     });
 
     // Keep connection alive with heartbeat every 30s
     const heartbeatInterval = setInterval(() => {
       if (!res.writableEnded) {
-        res.write(":heartbeat\n\n");
+        res.write(
+          `event: system\ndata: ${JSON.stringify({ type: "heartbeat" })}\n\n`,
+        );
       } else {
         clearInterval(heartbeatInterval);
       }
@@ -883,17 +1004,23 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
   // ============================================================================
 
   /**
-   * Internal function to broadcast new activities to connected clients
+   * Internal function to broadcast new activities to connected clients.
+   * Events are scoped to the activity's profileId — only clients subscribed
+   * to that profile receive the event. Falls back to "default" for backward
+   * compatibility with activities that lack a profileId.
    */
   app.locals.broadcastActivity = (activity: Activity) => {
-    const message = `data: ${JSON.stringify(activity)}\nevent: activity\n\n`;
+    const profileId = activity.profileId || "default";
+    const clients = sseClientsByProfile.get(profileId);
+    if (!clients || clients.size === 0) return;
 
-    // Send to all connected SSE clients
-    for (const client of sseClients) {
+    const message = `event: activity\ndata: ${JSON.stringify(activity)}\n\n`;
+
+    for (const client of clients) {
       if (!client.writableEnded) {
         client.write(message);
       } else {
-        sseClients.delete(client);
+        clients.delete(client);
       }
     }
   };
@@ -944,7 +1071,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
    * be more recent than the activities table if the log scanner ran after the
    * last activity was ingested.
    */
-  async function buildActivityStatsMap(): Promise<
+  async function buildActivityStatsMap(profileId?: string): Promise<
     Map<
       string,
       {
@@ -957,7 +1084,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
     >
   > {
     const db = logger.getDatabase();
-    const activities = await db.getActivities({ limit: 10000 });
+    const activities = await db.getActivities({ profileId, limit: 10000 });
     const statsMap = new Map<
       string,
       {
@@ -1047,9 +1174,10 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
    */
   app.get("/api/agents", async (req: Request, res: Response) => {
     try {
+      const profileFilter = req.profileId !== "all" ? req.profileId : undefined;
       const [fsAgents, statsMap] = await Promise.all([
-        fsAgentService.readAgents(),
-        buildActivityStatsMap(),
+        fsAgentService.readAgents(profileFilter),
+        buildActivityStatsMap(profileFilter),
       ]);
 
       const agents = fsAgents.map((agent) => {
@@ -1097,7 +1225,8 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         });
       }
 
-      const agent = await fsAgentService.readAgent(agentId);
+      const profileFilter = req.profileId !== "all" ? req.profileId : undefined;
+      const agent = await fsAgentService.readAgent(agentId, profileFilter);
       if (!agent) {
         return res.status(404).json({
           success: false,
@@ -1106,7 +1235,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
       }
 
       // Merge activity stats
-      const statsMap = await buildActivityStatsMap();
+      const statsMap = await buildActivityStatsMap(profileFilter);
       const stats = statsMap.get(toActorId(agentId));
       const lastActive = stats?.lastActive || "";
       const actionCount = stats?.actionCount || 0;

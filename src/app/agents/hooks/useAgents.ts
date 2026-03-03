@@ -13,7 +13,7 @@ interface UseAgentsResult {
   refetch: () => void;
 }
 
-export function useAgents(): UseAgentsResult {
+export function useAgents(profileId?: string): UseAgentsResult {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +22,10 @@ export function useAgents(): UseAgentsResult {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch("/api/agents");
+      const url = profileId
+        ? `/api/agents?profile=${encodeURIComponent(profileId)}`
+        : "/api/agents";
+      const response = await fetch(url);
       if (!response.ok) {
         throw new Error(`Failed to fetch agents: ${response.statusText}`);
       }
@@ -37,7 +40,7 @@ export function useAgents(): UseAgentsResult {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [profileId]);
 
   useEffect(() => {
     fetchAgents();
@@ -57,7 +60,7 @@ interface UseAgentResult {
   error: string | null;
 }
 
-export function useAgent(id: string): UseAgentResult {
+export function useAgent(id: string, profileId?: string): UseAgentResult {
   const [agent, setAgent] = useState<AgentDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +73,10 @@ export function useAgent(id: string): UseAgentResult {
       setIsLoading(true);
       setError(null);
       try {
-        const response = await fetch(`/api/agents/${id}`, {
+        const url = profileId
+          ? `/api/agents/${id}?profile=${encodeURIComponent(profileId)}`
+          : `/api/agents/${id}`;
+        const response = await fetch(url, {
           signal: abortController.signal,
         });
         if (!response.ok) {
@@ -105,7 +111,7 @@ export function useAgent(id: string): UseAgentResult {
       isMounted = false;
       abortController.abort();
     };
-  }, [id]);
+  }, [id, profileId]);
 
   return {
     agent,

@@ -21,7 +21,7 @@ interface UseSkillsReturn {
   refetch: () => void;
 }
 
-export function useSkills(): UseSkillsReturn {
+export function useSkills(profileId?: string): UseSkillsReturn {
   const [skills, setSkills] = useState<Skill[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,11 +30,15 @@ export function useSkills(): UseSkillsReturn {
     setIsLoading(true);
     setError(null);
 
+    const profileParam = profileId
+      ? `?profile=${encodeURIComponent(profileId)}`
+      : "";
+
     try {
       // Fetch skills and permissions matrix in parallel
       const [skillsRes, permissionsRes] = await Promise.all([
-        fetch("/api/skills", { signal }),
-        fetch("/api/permissions/matrix", { signal }),
+        fetch(`/api/skills${profileParam}`, { signal }),
+        fetch(`/api/permissions/matrix${profileParam}`, { signal }),
       ]);
 
       if (!skillsRes.ok) {
@@ -97,7 +101,7 @@ export function useSkills(): UseSkillsReturn {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [profileId]);
 
   useEffect(() => {
     const controller = new AbortController();

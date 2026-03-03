@@ -23,6 +23,7 @@ interface UseAgentActivityResult {
  */
 export function useAgentActivity(
   agentId: string | null,
+  profileId?: string,
 ): UseAgentActivityResult {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -42,8 +43,13 @@ export function useAgentActivity(
     setError(null);
 
     try {
+      const params = new URLSearchParams({
+        actorId: actorId!,
+        limit: "50",
+      });
+      if (profileId) params.set("profile", profileId);
       const response = await fetch(
-        `/api/activities?actorId=${encodeURIComponent(actorId!)}&limit=50`,
+        `/api/activities?${params.toString()}`,
         { signal: abortControllerRef.current?.signal },
       );
 
@@ -71,7 +77,7 @@ export function useAgentActivity(
     } finally {
       setIsLoading(false);
     }
-  }, [agentId, actorId]);
+  }, [agentId, actorId, profileId]);
 
   // Receive activities from the shared SSE stream
   const handleActivity = useCallback(
