@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import type { CronJob, RunHistory } from "@/types/cron";
 
-export function useCronJobs(profileId?: string) {
+export function useCronJobs() {
   const [jobs, setJobs] = useState<CronJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -10,10 +10,7 @@ export function useCronJobs(profileId?: string) {
     const fetchJobs = async () => {
       try {
         setIsLoading(true);
-        const url = profileId
-          ? `/api/cron/jobs?profile=${encodeURIComponent(profileId)}`
-          : "/api/cron/jobs";
-        const response = await fetch(url);
+        const response = await fetch("/api/cron/jobs");
         const data = await response.json();
 
         if (data.success) {
@@ -33,12 +30,12 @@ export function useCronJobs(profileId?: string) {
     const interval = setInterval(fetchJobs, 30000); // Refresh every 30s
 
     return () => clearInterval(interval);
-  }, [profileId]);
+  }, []);
 
   return { jobs, isLoading, error };
 }
 
-export function useCronJobDetail(jobId: string, profileId?: string) {
+export function useCronJobDetail(jobId: string) {
   const [job, setJob] = useState<CronJob | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -47,10 +44,7 @@ export function useCronJobDetail(jobId: string, profileId?: string) {
     const fetchJob = async () => {
       try {
         setIsLoading(true);
-        const profileParam = profileId
-          ? `?profile=${encodeURIComponent(profileId)}`
-          : "";
-        const response = await fetch(`/api/cron/jobs/${jobId}${profileParam}`);
+        const response = await fetch(`/api/cron/jobs/${jobId}`);
         const data = await response.json();
 
         if (data.success) {
@@ -70,12 +64,12 @@ export function useCronJobDetail(jobId: string, profileId?: string) {
     const interval = setInterval(fetchJob, 30000);
 
     return () => clearInterval(interval);
-  }, [jobId, profileId]);
+  }, [jobId]);
 
   return { job, isLoading, error };
 }
 
-export function useCronMutations(jobId: string, profileId?: string) {
+export function useCronMutations(jobId: string) {
   const [runs, setRuns] = useState<RunHistory[]>([]);
   const [isLoadingRuns, setIsLoadingRuns] = useState(true);
   const [errorRuns, setErrorRuns] = useState<string | null>(null);
@@ -84,10 +78,7 @@ export function useCronMutations(jobId: string, profileId?: string) {
     const fetchRuns = async () => {
       try {
         setIsLoadingRuns(true);
-        const profileParam = profileId
-          ? `&profile=${encodeURIComponent(profileId)}`
-          : "";
-        const response = await fetch(`/api/cron/jobs/${jobId}/runs?limit=20${profileParam}`);
+        const response = await fetch(`/api/cron/jobs/${jobId}/runs?limit=20`);
         const data = await response.json();
 
         if (data.success) {
@@ -104,15 +95,11 @@ export function useCronMutations(jobId: string, profileId?: string) {
     };
 
     fetchRuns();
-  }, [jobId, profileId]);
-
-  const profileParam = profileId
-    ? `?profile=${encodeURIComponent(profileId)}`
-    : "";
+  }, [jobId]);
 
   const enableJob = useCallback(async () => {
     try {
-      const response = await fetch(`/api/cron/jobs/${jobId}/enable${profileParam}`, {
+      const response = await fetch(`/api/cron/jobs/${jobId}/enable`, {
         method: "POST",
       });
       const data = await response.json();
@@ -120,11 +107,11 @@ export function useCronMutations(jobId: string, profileId?: string) {
     } catch {
       return false;
     }
-  }, [jobId, profileParam]);
+  }, [jobId]);
 
   const disableJob = useCallback(async () => {
     try {
-      const response = await fetch(`/api/cron/jobs/${jobId}/disable${profileParam}`, {
+      const response = await fetch(`/api/cron/jobs/${jobId}/disable`, {
         method: "POST",
       });
       const data = await response.json();
@@ -132,11 +119,11 @@ export function useCronMutations(jobId: string, profileId?: string) {
     } catch {
       return false;
     }
-  }, [jobId, profileParam]);
+  }, [jobId]);
 
   const runNow = useCallback(async () => {
     try {
-      const response = await fetch(`/api/cron/jobs/${jobId}/run${profileParam}`, {
+      const response = await fetch(`/api/cron/jobs/${jobId}/run`, {
         method: "POST",
       });
       const data = await response.json();
@@ -144,11 +131,11 @@ export function useCronMutations(jobId: string, profileId?: string) {
     } catch {
       return false;
     }
-  }, [jobId, profileParam]);
+  }, [jobId]);
 
   const deleteJob = useCallback(async () => {
     try {
-      const response = await fetch(`/api/cron/jobs/${jobId}${profileParam}`, {
+      const response = await fetch(`/api/cron/jobs/${jobId}`, {
         method: "DELETE",
       });
       const data = await response.json();
@@ -156,7 +143,7 @@ export function useCronMutations(jobId: string, profileId?: string) {
     } catch {
       return false;
     }
-  }, [jobId, profileParam]);
+  }, [jobId]);
 
   return {
     runs,

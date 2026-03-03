@@ -13,7 +13,7 @@ interface UseAgentsResult {
   refetch: () => void;
 }
 
-export function useAgents(profileId?: string): UseAgentsResult {
+export function useAgents(): UseAgentsResult {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -22,10 +22,7 @@ export function useAgents(profileId?: string): UseAgentsResult {
     setIsLoading(true);
     setError(null);
     try {
-      const url = profileId
-        ? `/api/agents?profile=${encodeURIComponent(profileId)}`
-        : "/api/agents";
-      const response = await fetch(url);
+      const response = await fetch("/api/agents");
       if (!response.ok) {
         throw new Error(`Failed to fetch agents: ${response.statusText}`);
       }
@@ -40,7 +37,7 @@ export function useAgents(profileId?: string): UseAgentsResult {
     } finally {
       setIsLoading(false);
     }
-  }, [profileId]);
+  }, []);
 
   useEffect(() => {
     fetchAgents();
@@ -60,7 +57,7 @@ interface UseAgentResult {
   error: string | null;
 }
 
-export function useAgent(id: string, profileId?: string): UseAgentResult {
+export function useAgent(id: string): UseAgentResult {
   const [agent, setAgent] = useState<AgentDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -73,10 +70,7 @@ export function useAgent(id: string, profileId?: string): UseAgentResult {
       setIsLoading(true);
       setError(null);
       try {
-        const url = profileId
-          ? `/api/agents/${id}?profile=${encodeURIComponent(profileId)}`
-          : `/api/agents/${id}`;
-        const response = await fetch(url, {
+        const response = await fetch(`/api/agents/${id}`, {
           signal: abortController.signal,
         });
         if (!response.ok) {
@@ -111,7 +105,7 @@ export function useAgent(id: string, profileId?: string): UseAgentResult {
       isMounted = false;
       abortController.abort();
     };
-  }, [id, profileId]);
+  }, [id]);
 
   return {
     agent,

@@ -5,7 +5,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Play, Trash2, AlertCircle } from "lucide-react";
 import { useCronJobDetail, useCronMutations } from "../hooks/useCronJobs";
-import { useProfile } from "@/app/profile-context";
 
 interface CronJobDetailProps {
   jobId: string;
@@ -13,17 +12,16 @@ interface CronJobDetailProps {
 
 export function CronJobDetail({ jobId }: CronJobDetailProps) {
   const navigate = useNavigate();
-  const { activeProfile, isSwitching } = useProfile();
-  const { job, isLoading, error } = useCronJobDetail(jobId, activeProfile?.id);
+  const { job, isLoading, error } = useCronJobDetail(jobId);
   const { runs, isLoadingRuns, errorRuns, runNow, deleteJob } =
-    useCronMutations(jobId, activeProfile?.id);
+    useCronMutations(jobId);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  if (isLoading || isSwitching) {
+  if (isLoading) {
     return (
       <div className="p-8 text-center">
         <div className="inline-block animate-spin">⏳</div>

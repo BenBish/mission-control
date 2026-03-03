@@ -17,7 +17,7 @@ interface UsePermissionsMatrixReturn {
   refetch: () => void;
 }
 
-export function usePermissionsMatrix(profileId?: string): UsePermissionsMatrixReturn {
+export function usePermissionsMatrix(): UsePermissionsMatrixReturn {
   const [data, setData] = useState<PermissionsMatrixData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -28,10 +28,7 @@ export function usePermissionsMatrix(profileId?: string): UsePermissionsMatrixRe
     setError(null);
 
     try {
-      const profileParam = profileId
-        ? `?profile=${encodeURIComponent(profileId)}`
-        : "";
-      const response = await fetch(`/api/permissions/matrix${profileParam}`, { signal });
+      const response = await fetch("/api/permissions/matrix", { signal });
 
       if (!response.ok) {
         throw new Error(
@@ -68,7 +65,7 @@ export function usePermissionsMatrix(profileId?: string): UsePermissionsMatrixRe
     } finally {
       setIsLoading(false);
     }
-  }, [profileId]);
+  }, []);
 
   const refetch = useCallback(() => {
     // Abort any in-flight request before starting a new one

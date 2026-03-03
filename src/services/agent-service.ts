@@ -37,32 +37,6 @@ function getAgentBasePaths(): string[] {
   );
 }
 
-/**
- * Get agent base paths filtered for a specific profile.
- * Maps profile names to their state directories:
- *   "default" → ~/.openclaw/...
- *   "team"    → ~/.openclaw-team/...
- *   other     → ~/.openclaw-<profile>/...
- */
-function getAgentBasePathsForProfile(profileId: string): string[] {
-  const stateDir =
-    profileId === "default"
-      ? path.join(os.homedir(), ".openclaw")
-      : path.join(os.homedir(), `.openclaw-${profileId}`);
-
-  // Return all paths under the profile's state directory
-  return [
-    path.join(stateDir, "agents"),
-    path.join(stateDir, "workspace-engineer"),
-    path.join(stateDir, "workspace-solutions-architect"),
-    path.join(stateDir, "workspace-code-reviewer"),
-    path.join(stateDir, "workspace-manual-tester"),
-    path.join(stateDir, "workspace-engineer-2"),
-    path.join(stateDir, "workspace-project-manager"),
-    path.join(stateDir, "workspace"),
-  ];
-}
-
 // Cache TTL in milliseconds
 const CACHE_TTL_MS = 30_000;
 
@@ -74,7 +48,6 @@ interface CacheEntry<T> {
 export class AgentService {
   private db: Database | null = null;
   private agentsCache: CacheEntry<Agent[]> | null = null;
-  private agentsCacheKey: string = "";
   // Map from agent ID to SOUL.md file path, populated when agents are read
   private soulPathCache: CacheEntry<Map<string, string>> | null = null;
 
@@ -89,18 +62,10 @@ export class AgentService {
   }
 
   /**
-   * Read all agents from the filesystem (cached with 30s TTL).
-   * When `profileId` is provided, the agent base paths are filtered to
-   * the state directory for that profile (e.g. ~/.openclaw-team for "team").
+   * Read all agents from the filesystem (cached with 30s TTL)
    */
-  async readAgents(profileId?: string): Promise<Agent[]> {
-    // Use profile-qualified cache key
-    const cacheKey = profileId || "__all__";
-    if (
-      this.agentsCache &&
-      Date.now() < this.agentsCache.expiry &&
-      this.agentsCacheKey === cacheKey
-    ) {
+  async readAgents(): Promise<Agent[]> {
+    if (this.agentsCache && Date.now() < this.agentsCache.expiry) {
       return this.agentsCache.data;
     }
 
@@ -108,11 +73,7 @@ export class AgentService {
     const processedPaths = new Set<string>();
     const soulPaths = new Map<string, string>();
 
-    const basePaths = profileId
-      ? getAgentBasePathsForProfile(profileId)
-      : getAgentBasePaths();
-
-    for (const basePath of basePaths) {
+    for (const basePath of getAgentBasePaths()) {
       if (!existsSync(basePath)) continue;
 
       const soulFiles = await glob("**/SOUL.md", {
@@ -156,17 +117,16 @@ export class AgentService {
 
     const expiry = Date.now() + CACHE_TTL_MS;
     this.agentsCache = { data: agents, expiry };
-    this.agentsCacheKey = cacheKey;
     this.soulPathCache = { data: soulPaths, expiry };
 
     return agents;
   }
 
   /**
-   * Read a specific agent by ID, optionally scoped to a profile.
+   * Read a specific agent by ID
    */
-  async readAgent(id: string, profileId?: string): Promise<Agent | null> {
-    const agents = await this.readAgents(profileId);
+  async readAgent(id: string): Promise<Agent | null> {
+    const agents = await this.readAgents();
     return agents.find((a) => a.id === id) || null;
   }
 

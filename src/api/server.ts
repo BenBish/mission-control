@@ -17,7 +17,6 @@ import {
   setupAuthRoutes,
   type AuthConfig,
 } from "./auth.js";
-import { profileContextMiddleware } from "./middleware/profile-context.js";
 import { SessionLogScanner } from "../services/session-log-scanner.js";
 import { CostLinker } from "../services/cost-linker.js";
 import { initializePricing } from "../types/pricing.js";
@@ -117,9 +116,6 @@ export class ActivityFeedServer {
 
     // Auth middleware — protects API routes
     this.app.use(authMiddleware(this.authConfig));
-
-    // Profile context middleware — extracts ?profile= from every request
-    this.app.use(profileContextMiddleware);
 
     // Setup routes
     setupRoutes(this.app, this.logger);
