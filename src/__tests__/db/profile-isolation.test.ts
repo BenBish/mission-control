@@ -20,11 +20,7 @@ describe("Profile Isolation", () => {
 
   beforeEach(async () => {
     // Remove existing test db to start fresh each time
-    for (const p of [
-      TEST_DB_PATH,
-      `${TEST_DB_PATH}-wal`,
-      `${TEST_DB_PATH}-shm`,
-    ]) {
+    for (const p of [TEST_DB_PATH, `${TEST_DB_PATH}-wal`, `${TEST_DB_PATH}-shm`]) {
       if (fs.existsSync(p)) fs.unlinkSync(p);
     }
     db = new Database(TEST_DB_PATH);
@@ -79,8 +75,12 @@ describe("Profile Isolation", () => {
 
     for (const table of tables) {
       test(`${table} has profile_id column`, async () => {
-        const cols = await (db as any).db.all(`PRAGMA table_info(${table})`);
-        const profileCol = cols.find((c: any) => c.name === "profile_id");
+        const cols = await (db as any).db.all(
+          `PRAGMA table_info(${table})`,
+        );
+        const profileCol = cols.find(
+          (c: any) => c.name === "profile_id",
+        );
         expect(profileCol).toBeTruthy();
         expect(profileCol.type).toBe("TEXT");
         expect(profileCol.notnull).toBe(1);
@@ -199,7 +199,9 @@ describe("Profile Isolation", () => {
         const cols = await (freshDb as any).db.all(
           `PRAGMA table_info(${table})`,
         );
-        const profileCol = cols.find((c: any) => c.name === "profile_id");
+        const profileCol = cols.find(
+          (c: any) => c.name === "profile_id",
+        );
         expect(profileCol).toBeTruthy();
       }
 

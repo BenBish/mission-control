@@ -36,6 +36,3 @@ data
 # Test artifacts
 test-data/
 vite-test.config.ts
-*.db
-*.db-shm
-*.db-wal

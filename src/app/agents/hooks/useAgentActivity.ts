@@ -23,7 +23,6 @@ interface UseAgentActivityResult {
  */
 export function useAgentActivity(
   agentId: string | null,
-  profileId?: string,
 ): UseAgentActivityResult {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -43,14 +42,10 @@ export function useAgentActivity(
     setError(null);
 
     try {
-      const params = new URLSearchParams({
-        actorId: actorId!,
-        limit: "50",
-      });
-      if (profileId) params.set("profile", profileId);
-      const response = await fetch(`/api/activities?${params.toString()}`, {
-        signal: abortControllerRef.current?.signal,
-      });
+      const response = await fetch(
+        `/api/activities?actorId=${encodeURIComponent(actorId!)}&limit=50`,
+        { signal: abortControllerRef.current?.signal },
+      );
 
       if (!response.ok) {
         throw new Error(`Failed to fetch activities: ${response.statusText}`);
@@ -76,7 +71,7 @@ export function useAgentActivity(
     } finally {
       setIsLoading(false);
     }
-  }, [agentId, actorId, profileId]);
+  }, [agentId, actorId]);
 
   // Receive activities from the shared SSE stream
   const handleActivity = useCallback(
