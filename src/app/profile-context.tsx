@@ -37,9 +37,7 @@ function resolveActiveProfile(profiles: Profile[]): Profile | null {
   if (profiles.length === 0) return null;
 
   const storedId =
-    typeof window !== "undefined"
-      ? localStorage.getItem(STORAGE_KEY)
-      : null;
+    typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null;
 
   const stored = storedId ? profiles.find((p) => p.id === storedId) : null;
 
@@ -61,9 +59,7 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
   // null means "use the derived value from profiles list".
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(
     () =>
-      typeof window !== "undefined"
-        ? localStorage.getItem(STORAGE_KEY)
-        : null,
+      typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null,
   );
 
   // Derive active profile synchronously from profiles + selectedProfileId.
@@ -80,28 +76,25 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
     return resolveActiveProfile(profiles);
   }, [profiles, selectedProfileId]);
 
-  const setActiveProfile = useCallback(
-    (profile: Profile) => {
-      setIsSwitching(true);
-      setSelectedProfileId(profile.id);
+  const setActiveProfile = useCallback((profile: Profile) => {
+    setIsSwitching(true);
+    setSelectedProfileId(profile.id);
 
-      if (typeof window !== "undefined") {
-        localStorage.setItem(STORAGE_KEY, profile.id);
-      }
+    if (typeof window !== "undefined") {
+      localStorage.setItem(STORAGE_KEY, profile.id);
+    }
 
-      if (profile.status === "offline") {
-        setToastMessage(
-          `Profile '${profile.name}' is offline. Showing cached data.`,
-        );
-      }
+    if (profile.status === "offline") {
+      setToastMessage(
+        `Profile '${profile.name}' is offline. Showing cached data.`,
+      );
+    }
 
-      // Brief switching state to trigger loading skeletons in consumers
-      setTimeout(() => {
-        setIsSwitching(false);
-      }, 150);
-    },
-    [],
-  );
+    // Brief switching state to trigger loading skeletons in consumers
+    setTimeout(() => {
+      setIsSwitching(false);
+    }, 150);
+  }, []);
 
   // Clear toast after display
   useEffect(() => {

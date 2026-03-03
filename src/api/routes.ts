@@ -313,8 +313,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         ) {
           return res.status(400).json({
             success: false,
-            error:
-              'Invalid profile ID — must be a specific profile, not "all"',
+            error: 'Invalid profile ID — must be a specific profile, not "all"',
           });
         }
         const dbActivity = {
@@ -592,7 +591,9 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
     "/api/sessions/:id/activities",
     async (req: Request, res: Response) => {
       try {
-        if (!(await validateSessionProfile(req.params.id, req.profileId, res))) {
+        if (
+          !(await validateSessionProfile(req.params.id, req.profileId, res))
+        ) {
           return;
         }
 
@@ -625,7 +626,9 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
     "/api/sessions/:id/cost-report",
     async (req: Request, res: Response) => {
       try {
-        if (!(await validateSessionProfile(req.params.id, req.profileId, res))) {
+        if (
+          !(await validateSessionProfile(req.params.id, req.profileId, res))
+        ) {
           return;
         }
 
@@ -747,7 +750,8 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
 
       // Derive activity/session counts from profile-scoped activities (not unfiltered db.getStats())
       const activityCount = activities.length;
-      const sessionCount = new Set(activities.map((a: Activity) => a.sessionId)).size;
+      const sessionCount = new Set(activities.map((a: Activity) => a.sessionId))
+        .size;
 
       const success = activities.filter(
         (a: Activity) => a.status === "success",
@@ -1525,7 +1529,18 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
    */
   app.get("/api/permissions/matrix", async (req: Request, res: Response) => {
     try {
-      const permMatrix = await skillsService.getPermissionsMatrix();
+      // Resolve profile context for profile-scoped permissions matrix
+      const profileId = req.profileId;
+      let stateDir: string | undefined;
+      if (profileId && profileId !== "all") {
+        const profile = await getProfile(profileId);
+        stateDir = profile?.stateDir;
+      }
+
+      const permMatrix = await skillsService.getPermissionsMatrix(
+        profileId,
+        stateDir,
+      );
 
       res.json({
         success: true,
@@ -1602,7 +1617,11 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         Math.max(1, parseInt(req.query.limit as string) || 20),
         100,
       );
-      const runs = await CronService.getRunHistory(req.params.id, limit, gateway);
+      const runs = await CronService.getRunHistory(
+        req.params.id,
+        limit,
+        gateway,
+      );
       res.json({
         success: true,
         runs,

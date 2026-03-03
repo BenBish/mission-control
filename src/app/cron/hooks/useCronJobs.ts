@@ -87,7 +87,9 @@ export function useCronMutations(jobId: string, profileId?: string) {
         const profileParam = profileId
           ? `&profile=${encodeURIComponent(profileId)}`
           : "";
-        const response = await fetch(`/api/cron/jobs/${jobId}/runs?limit=20${profileParam}`);
+        const response = await fetch(
+          `/api/cron/jobs/${jobId}/runs?limit=20${profileParam}`,
+        );
         const data = await response.json();
 
         if (data.success) {
@@ -112,9 +114,12 @@ export function useCronMutations(jobId: string, profileId?: string) {
 
   const enableJob = useCallback(async () => {
     try {
-      const response = await fetch(`/api/cron/jobs/${jobId}/enable${profileParam}`, {
-        method: "POST",
-      });
+      const response = await fetch(
+        `/api/cron/jobs/${jobId}/enable${profileParam}`,
+        {
+          method: "POST",
+        },
+      );
       const data = await response.json();
       return data.success;
     } catch {
@@ -124,9 +129,12 @@ export function useCronMutations(jobId: string, profileId?: string) {
 
   const disableJob = useCallback(async () => {
     try {
-      const response = await fetch(`/api/cron/jobs/${jobId}/disable${profileParam}`, {
-        method: "POST",
-      });
+      const response = await fetch(
+        `/api/cron/jobs/${jobId}/disable${profileParam}`,
+        {
+          method: "POST",
+        },
+      );
       const data = await response.json();
       return data.success;
     } catch {
@@ -136,9 +144,12 @@ export function useCronMutations(jobId: string, profileId?: string) {
 
   const runNow = useCallback(async () => {
     try {
-      const response = await fetch(`/api/cron/jobs/${jobId}/run${profileParam}`, {
-        method: "POST",
-      });
+      const response = await fetch(
+        `/api/cron/jobs/${jobId}/run${profileParam}`,
+        {
+          method: "POST",
+        },
+      );
       const data = await response.json();
       return data.success;
     } catch {

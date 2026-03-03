@@ -38,9 +38,7 @@ async function probeGateway(url: string): Promise<boolean> {
 /**
  * Parse a systemd service file to extract profile information.
  */
-async function parseSystemdService(
-  filePath: string,
-): Promise<{
+async function parseSystemdService(filePath: string): Promise<{
   profile: string;
   port: number;
   stateDir: string;
@@ -59,7 +57,9 @@ async function parseSystemdService(
 
       // Parse Environment= lines
       if (trimmed.startsWith("Environment=")) {
-        const value = trimmed.slice("Environment=".length).replace(/^"|"$/g, "");
+        const value = trimmed
+          .slice("Environment=".length)
+          .replace(/^"|"$/g, "");
 
         if (value.startsWith("OPENCLAW_GATEWAY_PORT=")) {
           port = parseInt(value.split("=")[1], 10);
@@ -99,19 +99,13 @@ async function parseSystemdService(
  * Discover profiles from systemd service files.
  */
 async function discoverFromSystemd(): Promise<Profile[]> {
-  const systemdDir = path.join(
-    os.homedir(),
-    ".config",
-    "systemd",
-    "user",
-  );
+  const systemdDir = path.join(os.homedir(), ".config", "systemd", "user");
 
   let files: string[];
   try {
     const dirEntries = await fs.readdir(systemdDir);
     files = dirEntries.filter(
-      (f) =>
-        f.startsWith("openclaw-gateway") && f.endsWith(".service"),
+      (f) => f.startsWith("openclaw-gateway") && f.endsWith(".service"),
     );
   } catch {
     return [];
@@ -129,7 +123,8 @@ async function discoverFromSystemd(): Promise<Profile[]> {
 
     profiles.push({
       id: parsed.profile,
-      name: parsed.profile === "default" ? "Default" : titleCase(parsed.profile),
+      name:
+        parsed.profile === "default" ? "Default" : titleCase(parsed.profile),
       gatewayUrl,
       port: parsed.port,
       status: isOnline ? "online" : "offline",
@@ -176,9 +171,7 @@ function discoverFromEnv(): Profile[] {
  * Title-case a string.
  */
 function titleCase(s: string): string {
-  return s
-    .replace(/[-_]/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+  return s.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 /**

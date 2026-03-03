@@ -12,9 +12,7 @@ export function ProfileSelector() {
     useProfile();
 
   if (isLoadingProfiles || profiles.length === 0) {
-    return (
-      <div className="h-9 w-40 animate-pulse rounded-md bg-muted" />
-    );
+    return <div className="h-9 w-40 animate-pulse rounded-md bg-muted" />;
   }
 
   const handleValueChange = (profileId: string) => {
@@ -25,10 +23,7 @@ export function ProfileSelector() {
   };
 
   return (
-    <Select
-      value={activeProfile?.id ?? ""}
-      onValueChange={handleValueChange}
-    >
+    <Select value={activeProfile?.id ?? ""} onValueChange={handleValueChange}>
       <SelectTrigger className="h-9 w-44 gap-2 text-sm">
         <SelectValue placeholder="Select profile">
           {activeProfile && (
@@ -51,9 +46,7 @@ export function ProfileSelector() {
             <span className="flex items-center gap-2">
               <span
                 className={`inline-block h-2 w-2 rounded-full flex-shrink-0 ${
-                  profile.status === "online"
-                    ? "bg-green-500"
-                    : "bg-red-500"
+                  profile.status === "online" ? "bg-green-500" : "bg-red-500"
                 }`}
               />
               <span className="truncate">{profile.name}</span>

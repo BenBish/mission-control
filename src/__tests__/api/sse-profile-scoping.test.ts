@@ -79,7 +79,9 @@ afterAll(async () => {
     if ((CronService as any)._origGetJobs) {
       (CronService as any).getJobs = (CronService as any)._origGetJobs;
       (CronService as any).getJob = (CronService as any)._origGetJob;
-      (CronService as any).getRunHistory = (CronService as any)._origGetRunHistory;
+      (CronService as any).getRunHistory = (
+        CronService as any
+      )._origGetRunHistory;
       delete (CronService as any)._origGetJobs;
       delete (CronService as any)._origGetJob;
       delete (CronService as any)._origGetRunHistory;
@@ -113,7 +115,10 @@ async function post(path: string, body: unknown) {
 async function collectSSEEvents(
   profileParam: string | null,
   durationMs: number,
-): Promise<{ events: Array<{ event: string; data: string }>; abort: AbortController }> {
+): Promise<{
+  events: Array<{ event: string; data: string }>;
+  abort: AbortController;
+}> {
   const abort = new AbortController();
   const url = profileParam
     ? `${baseUrl}/api/stream?profile=${profileParam}`
@@ -208,10 +213,9 @@ describe("SSE Profile Scoping", () => {
       events: string[],
     ) => {
       return (async () => {
-        const res = await fetch(
-          `${baseUrl}/api/stream?profile=${profile}`,
-          { signal: abort.signal },
-        );
+        const res = await fetch(`${baseUrl}/api/stream?profile=${profile}`, {
+          signal: abort.signal,
+        });
         expect(res.status).toBe(200);
 
         const reader = res.body!.getReader();
@@ -302,10 +306,9 @@ describe("SSE Profile Scoping", () => {
         profiles.map(async (profile) => {
           const controller = new AbortController();
           controllers.push(controller);
-          const res = await fetch(
-            `${baseUrl}/api/stream?profile=${profile}`,
-            { signal: controller.signal },
-          );
+          const res = await fetch(`${baseUrl}/api/stream?profile=${profile}`, {
+            signal: controller.signal,
+          });
           expect(res.status).toBe(200);
           return res;
         }),

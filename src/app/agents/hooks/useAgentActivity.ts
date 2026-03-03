@@ -48,10 +48,9 @@ export function useAgentActivity(
         limit: "50",
       });
       if (profileId) params.set("profile", profileId);
-      const response = await fetch(
-        `/api/activities?${params.toString()}`,
-        { signal: abortControllerRef.current?.signal },
-      );
+      const response = await fetch(`/api/activities?${params.toString()}`, {
+        signal: abortControllerRef.current?.signal,
+      });
 
       if (!response.ok) {
         throw new Error(`Failed to fetch activities: ${response.statusText}`);

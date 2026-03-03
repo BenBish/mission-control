@@ -139,9 +139,12 @@ export class SkillsService {
   /**
    * Generate permissions matrix (agents × skills)
    */
-  async getPermissionsMatrix(): Promise<PermissionsMatrix> {
-    const agents = await this.agentService.readAgents();
-    const skills = await this.readSkills();
+  async getPermissionsMatrix(
+    profileId?: string,
+    profileStateDir?: string,
+  ): Promise<PermissionsMatrix> {
+    const agents = await this.agentService.readAgents(profileId);
+    const skills = await this.readSkills(profileStateDir);
 
     const matrix: boolean[][] = [];
 

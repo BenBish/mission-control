@@ -38,7 +38,10 @@ export interface UseSSEResult {
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
-export function useSSE(profileId: string, handlers: SSEHandlers = {}): UseSSEResult {
+export function useSSE(
+  profileId: string,
+  handlers: SSEHandlers = {},
+): UseSSEResult {
   const [connected, setConnected] = useState(false);
 
   // Keep stable refs to handlers so we don't re-create EventSource on every render
@@ -48,7 +51,9 @@ export function useSSE(profileId: string, handlers: SSEHandlers = {}): UseSSERes
   }, [handlers]);
 
   useEffect(() => {
-    const es = new EventSource(`/api/stream?profile=${encodeURIComponent(profileId)}`);
+    const es = new EventSource(
+      `/api/stream?profile=${encodeURIComponent(profileId)}`,
+    );
 
     es.addEventListener("open", () => {
       setConnected(true);

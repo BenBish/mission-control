@@ -114,7 +114,9 @@ export function ActivityStreamProvider({
       try {
         const data = JSON.parse(event.data);
         if (data.type === "connected") {
-          console.log(`[ActivityStream] SSE connected for profile: ${data.profile}`);
+          console.log(
+            `[ActivityStream] SSE connected for profile: ${data.profile}`,
+          );
         }
       } catch {
         // Ignore malformed system events

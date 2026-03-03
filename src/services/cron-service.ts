@@ -132,19 +132,23 @@ export class CronService {
       return [];
     }
 
-    const jobs: CronJob[] = Array.isArray(response.jobs)
-      ? response.jobs
-      : [];
+    const jobs: CronJob[] = Array.isArray(response.jobs) ? response.jobs : [];
 
     // Enrich jobs
     const enriched = jobs.map((job) => this.enrichJob(job));
 
     // Update cache
-    cachedJobsByProfile.set(cacheKey, { data: enriched, timestamp: Date.now() });
+    cachedJobsByProfile.set(cacheKey, {
+      data: enriched,
+      timestamp: Date.now(),
+    });
     return enriched;
   }
 
-  static async getJob(id: string, gateway?: GatewayOptions): Promise<CronJob | null> {
+  static async getJob(
+    id: string,
+    gateway?: GatewayOptions,
+  ): Promise<CronJob | null> {
     const jobs = await this.getJobs(gateway);
     return jobs.find((j) => j.id === id) || null;
   }
@@ -297,9 +301,7 @@ export class CronService {
    * @internal Override the execFile implementation for testing.
    * Pass `null` to restore the default.
    */
-  static _setExecFileAsync(
-    fn: typeof _execFileAsync | null,
-  ): void {
+  static _setExecFileAsync(fn: typeof _execFileAsync | null): void {
     execFileAsync = fn ?? _execFileAsync;
   }
 }
