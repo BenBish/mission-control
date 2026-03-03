@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { Profile } from "@/types/profile";
+import { apiFetch } from "@/lib/api-client";
 
 const POLL_INTERVAL_MS = 30_000;
 
@@ -19,7 +20,7 @@ export function useProfiles(): UseProfilesResult {
   const fetchProfiles = useCallback(async (signal?: AbortSignal) => {
     setError(null);
     try {
-      const response = await fetch("/api/profiles", { signal });
+      const response = await apiFetch("/api/profiles", { signal });
       if (!response.ok) {
         throw new Error(`Failed to fetch profiles: ${response.statusText}`);
       }

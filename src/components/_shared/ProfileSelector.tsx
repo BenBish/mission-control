@@ -11,8 +11,17 @@ export function ProfileSelector() {
   const { profiles, activeProfile, setActiveProfile, isLoadingProfiles } =
     useProfile();
 
-  if (isLoadingProfiles || profiles.length === 0) {
+  if (isLoadingProfiles) {
     return <div className="h-9 w-40 animate-pulse rounded-md bg-muted" />;
+  }
+
+  if (profiles.length === 0) {
+    return (
+      <div className="flex h-9 w-44 items-center gap-2 rounded-md border border-border px-3 text-sm text-muted-foreground">
+        <span className="inline-block h-2 w-2 rounded-full bg-red-500" />
+        <span className="truncate">No profiles</span>
+      </div>
+    );
   }
 
   const handleValueChange = (profileId: string) => {

@@ -19,6 +19,7 @@ interface ProfileContextType {
   profileId: string;
   setActiveProfile: (profile: Profile) => void;
   isLoadingProfiles: boolean;
+  profilesError: string | null;
   isSwitching: boolean;
 }
 
@@ -51,7 +52,7 @@ function resolveActiveProfile(profiles: Profile[]): Profile | null {
 }
 
 export function ProfileProvider({ children }: ProfileProviderProps) {
-  const { profiles, isLoading: isLoadingProfiles } = useProfiles();
+  const { profiles, isLoading: isLoadingProfiles, error: profilesError } = useProfiles();
   const [isSwitching, setIsSwitching] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -111,6 +112,7 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
         profileId: activeProfile?.id ?? "default",
         setActiveProfile,
         isLoadingProfiles,
+        profilesError,
         isSwitching,
       }}
     >
