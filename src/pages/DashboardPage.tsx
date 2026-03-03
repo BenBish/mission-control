@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Card,
@@ -13,8 +13,6 @@ import { PageHeader } from "@/components/_shared/PageHeader";
 import { Loading } from "@/components/_shared/Loading";
 import { Separator } from "@/components/ui/separator";
 import type { Activity } from "@/types/activity";
-import { useProfile } from "@/app/profile-context";
-import { useSSE } from "@/hooks/useSSE";
 import {
   Activity as ActivityIcon,
   Users,
@@ -62,36 +60,20 @@ interface StatCard {
 
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const { profileId } = useProfile();
   const [stats, setStats] = useState<StatsResponse["stats"] | null>(null);
   const [recentActivities, setRecentActivities] = useState<Activity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Handle real-time activity events from the profile-scoped SSE stream
-  const onActivity = useCallback((activity: Activity) => {
-    setRecentActivities((prev) => {
-      // Prepend new activity, deduplicate, and keep only the 5 most recent
-      const exists = prev.some((a) => a.id === activity.id);
-      const updated = exists
-        ? prev.map((a) => (a.id === activity.id ? activity : a))
-        : [activity, ...prev];
-      return updated.slice(0, 5);
-    });
-  }, []);
-
-  useSSE(profileId, { onActivity });
 
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       setError(null);
       try {
-        const profileParam = `profile=${encodeURIComponent(profileId)}`;
-        // Fetch stats and recent activities in parallel, scoped to profile
+        // Fetch stats and recent activities in parallel
         const [statsRes, activitiesRes] = await Promise.all([
-          fetch(`/api/stats?${profileParam}`),
-          fetch(`/api/activities?limit=5&${profileParam}`),
+          fetch("/api/stats"),
+          fetch("/api/activities?limit=5"),
         ]);
 
         if (!statsRes.ok) {
@@ -120,7 +102,7 @@ export default function DashboardPage() {
     };
 
     fetchData();
-  }, [profileId]);
+  }, []);
 
   const formatCost = (cost: number) => {
     return `$${cost.toFixed(4)}`;

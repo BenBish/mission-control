@@ -28,7 +28,9 @@ async function columnExists(
   table: string,
   column: string,
 ): Promise<boolean> {
-  const cols = await db.all<{ name: string }[]>(`PRAGMA table_info(${table})`);
+  const cols = await db.all<{ name: string }[]>(
+    `PRAGMA table_info(${table})`,
+  );
   return cols.some((c) => c.name === column);
 }
 
