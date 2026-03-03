@@ -16,7 +16,7 @@ import type { SessionLogScanner } from "../services/session-log-scanner.js";
 import type { CostLinker } from "../services/cost-linker.js";
 import type { Agent, AgentDetail } from "../types/agent.js";
 import { agentService } from "./services/agent-service.js";
-import { CronService } from "../services/cron-service.js";
+import { CronService, type GatewayOptions } from "../services/cron-service.js";
 import { AgentService } from "../services/agent-service.js";
 import { SkillsService } from "../services/skills-service.js";
 import { toActorId } from "../lib/agent-utils.js";
@@ -110,6 +110,23 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
   // Shared AgentService instance (filesystem-based) — hoisted so /api/stats
   // and other early handlers can reference it.
   const fsAgentService = new AgentService(logger.getDatabase());
+
+  /**
+   * Resolve the current request's profileId to gateway connection options.
+   * Returns { gatewayUrl } for the profile so backend services (cron, etc.)
+   * can target the correct gateway. Returns undefined when no profile-specific
+   * gateway is found (falls back to env vars / default gateway).
+   */
+  async function resolveGatewayOptions(
+    profileId: string,
+  ): Promise<{ gatewayUrl?: string; gatewayToken?: string }> {
+    if (!profileId || profileId === "default" || profileId === "all") {
+      return {};
+    }
+    const profile = await getProfile(profileId);
+    if (!profile) return {};
+    return { gatewayUrl: profile.gatewayUrl };
+  }
 
   // ============================================================================
   // PROFILE ENDPOINTS
@@ -511,11 +528,42 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
   // ============================================================================
 
   /**
+   * Verify that a session belongs to the requested profile.
+   * Returns true if the session is owned by the profile (or profile is "all").
+   * Sends 403 and returns false if there's a mismatch.
+   */
+  async function validateSessionProfile(
+    sessionId: string,
+    profileId: string,
+    res: Response,
+  ): Promise<boolean> {
+    // Skip validation when profile middleware isn't active or "all" is specified
+    if (!profileId || profileId === "all") return true;
+
+    const sessionProfile = await logger.getSessionProfileId(sessionId);
+    // If the session doesn't exist yet, let the handler deal with 404
+    if (sessionProfile === null) return true;
+
+    if (sessionProfile !== profileId) {
+      res.status(403).json({
+        success: false,
+        error: "Session does not belong to this profile",
+      });
+      return false;
+    }
+    return true;
+  }
+
+  /**
    * GET /api/sessions/:id
    * Get session summary and statistics
    */
   app.get("/api/sessions/:id", async (req: Request, res: Response) => {
     try {
+      if (!(await validateSessionProfile(req.params.id, req.profileId, res))) {
+        return;
+      }
+
       const summary = await logger.getSessionSummary(req.params.id);
       if (!summary) {
         return res.status(404).json({
@@ -544,6 +592,10 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
     "/api/sessions/:id/activities",
     async (req: Request, res: Response) => {
       try {
+        if (!(await validateSessionProfile(req.params.id, req.profileId, res))) {
+          return;
+        }
+
         const activities = await logger.getSessionActivities(req.params.id);
 
         // Enrich actor display names
@@ -573,6 +625,10 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
     "/api/sessions/:id/cost-report",
     async (req: Request, res: Response) => {
       try {
+        if (!(await validateSessionProfile(req.params.id, req.profileId, res))) {
+          return;
+        }
+
         const summary = await logger.getSessionSummary(req.params.id);
         if (!summary) {
           return res.status(404).json({
@@ -1394,7 +1450,15 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
    */
   app.get("/api/skills", async (req: Request, res: Response) => {
     try {
-      const skills = await skillsService.readSkills();
+      // Resolve profile stateDir for profile-scoped skill discovery
+      const profileId = req.profileId;
+      let stateDir: string | undefined;
+      if (profileId && profileId !== "all") {
+        const profile = await getProfile(profileId);
+        stateDir = profile?.stateDir;
+      }
+
+      const skills = await skillsService.readSkills(stateDir);
 
       res.json({
         success: true,
@@ -1423,7 +1487,15 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         });
       }
 
-      const skill = await skillsService.readSkill(skillId);
+      // Resolve profile stateDir for profile-scoped skill discovery
+      const profileId = req.profileId;
+      let stateDir: string | undefined;
+      if (profileId && profileId !== "all") {
+        const profile = await getProfile(profileId);
+        stateDir = profile?.stateDir;
+      }
+
+      const skill = await skillsService.readSkill(skillId, stateDir);
       if (!skill) {
         return res.status(404).json({
           success: false,
@@ -1479,7 +1551,8 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
    */
   app.get("/api/cron/jobs", async (req: Request, res: Response) => {
     try {
-      const jobs = await CronService.getJobs();
+      const gateway = await resolveGatewayOptions(req.profileId);
+      const jobs = await CronService.getJobs(gateway);
       res.json({
         success: true,
         jobs,
@@ -1498,7 +1571,8 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
    */
   app.get("/api/cron/jobs/:id", async (req: Request, res: Response) => {
     try {
-      const job = await CronService.getJob(req.params.id);
+      const gateway = await resolveGatewayOptions(req.profileId);
+      const job = await CronService.getJob(req.params.id, gateway);
       if (!job) {
         return res.status(404).json({
           success: false,
@@ -1523,11 +1597,12 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
    */
   app.get("/api/cron/jobs/:id/runs", async (req: Request, res: Response) => {
     try {
+      const gateway = await resolveGatewayOptions(req.profileId);
       const limit = Math.min(
         Math.max(1, parseInt(req.query.limit as string) || 20),
         100,
       );
-      const runs = await CronService.getRunHistory(req.params.id, limit);
+      const runs = await CronService.getRunHistory(req.params.id, limit, gateway);
       res.json({
         success: true,
         runs,
@@ -1546,7 +1621,8 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
    */
   app.post("/api/cron/jobs/:id/enable", async (req: Request, res: Response) => {
     try {
-      const job = await CronService.getJob(req.params.id);
+      const gateway = await resolveGatewayOptions(req.profileId);
+      const job = await CronService.getJob(req.params.id, gateway);
       if (!job) {
         return res.status(404).json({ success: false, error: "Job not found" });
       }
@@ -1571,7 +1647,8 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
     "/api/cron/jobs/:id/disable",
     async (req: Request, res: Response) => {
       try {
-        const job = await CronService.getJob(req.params.id);
+        const gateway = await resolveGatewayOptions(req.profileId);
+        const job = await CronService.getJob(req.params.id, gateway);
         if (!job) {
           return res
             .status(404)
@@ -1597,7 +1674,8 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
    */
   app.post("/api/cron/jobs/:id/run", async (req: Request, res: Response) => {
     try {
-      const job = await CronService.getJob(req.params.id);
+      const gateway = await resolveGatewayOptions(req.profileId);
+      const job = await CronService.getJob(req.params.id, gateway);
       if (!job) {
         return res.status(404).json({ success: false, error: "Job not found" });
       }
@@ -1626,7 +1704,8 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
    */
   app.delete("/api/cron/jobs/:id", async (req: Request, res: Response) => {
     try {
-      const job = await CronService.getJob(req.params.id);
+      const gateway = await resolveGatewayOptions(req.profileId);
+      const job = await CronService.getJob(req.params.id, gateway);
       if (!job) {
         return res.status(404).json({ success: false, error: "Job not found" });
       }

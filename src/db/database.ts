@@ -286,6 +286,19 @@ export class Database {
   }
 
   /**
+   * Get the profile_id that owns a session. Returns null if the session
+   * doesn't exist.
+   */
+  async getSessionProfileId(sessionId: string): Promise<string | null> {
+    if (!this.db) throw new Error("Database not initialized");
+    const row = await this.db.get<{ profile_id: string }>(
+      "SELECT profile_id FROM sessions WHERE id = ?",
+      sessionId,
+    );
+    return row?.profile_id ?? null;
+  }
+
+  /**
    * Get session summary with computed statistics
    */
   async getSessionSummary(sessionId: string): Promise<SessionSummary | null> {

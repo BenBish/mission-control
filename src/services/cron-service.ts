@@ -11,12 +11,18 @@ const _execFileAsync = promisify(_execFile);
  */
 let execFileAsync = _execFileAsync;
 
+export interface GatewayOptions {
+  gatewayUrl?: string;
+  gatewayToken?: string;
+}
+
 interface CachedJobs {
   data: CronJob[];
   timestamp: number;
 }
 
-let cachedJobs: CachedJobs | null = null;
+/** Per-profile job cache keyed by profileId (or "__default__" for no-profile calls). */
+const cachedJobsByProfile: Map<string, CachedJobs> = new Map();
 const CACHE_TTL_MS = 5000;
 
 /**
@@ -27,10 +33,7 @@ const CACHE_TTL_MS = 5000;
  * When `gatewayUrl` and `gatewayToken` are provided explicitly
  * (e.g. for multi-profile support), they take precedence over env vars.
  */
-function getGatewayArgs(options?: {
-  gatewayUrl?: string;
-  gatewayToken?: string;
-}): string[] {
+function getGatewayArgs(options?: GatewayOptions): string[] {
   const args: string[] = [];
   const url = options?.gatewayUrl || process.env.CRON_GATEWAY_URL;
   const token = options?.gatewayToken || process.env.CRON_GATEWAY_TOKEN;
@@ -105,13 +108,17 @@ export class CronService {
     return `${home}/.openclaw-team/cron/jobs.json`;
   }
 
-  static async getJobs(): Promise<CronJob[]> {
+  static async getJobs(gateway?: GatewayOptions): Promise<CronJob[]> {
+    // Per-profile cache key
+    const cacheKey = gateway?.gatewayUrl ?? "__default__";
+
     // Check cache
-    if (cachedJobs && Date.now() - cachedJobs.timestamp < CACHE_TTL_MS) {
-      return cachedJobs.data;
+    const cached = cachedJobsByProfile.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      return cached.data;
     }
 
-    const gatewayArgs = getGatewayArgs();
+    const gatewayArgs = getGatewayArgs(gateway);
     const response = await runOpenclawJson<CliJobsResponse>([
       "cron",
       "list",
@@ -133,20 +140,21 @@ export class CronService {
     const enriched = jobs.map((job) => this.enrichJob(job));
 
     // Update cache
-    cachedJobs = { data: enriched, timestamp: Date.now() };
+    cachedJobsByProfile.set(cacheKey, { data: enriched, timestamp: Date.now() });
     return enriched;
   }
 
-  static async getJob(id: string): Promise<CronJob | null> {
-    const jobs = await this.getJobs();
+  static async getJob(id: string, gateway?: GatewayOptions): Promise<CronJob | null> {
+    const jobs = await this.getJobs(gateway);
     return jobs.find((j) => j.id === id) || null;
   }
 
   static async getRunHistory(
     jobId: string,
     limit = 20,
+    gateway?: GatewayOptions,
   ): Promise<RunHistory[]> {
-    const gatewayArgs = getGatewayArgs();
+    const gatewayArgs = getGatewayArgs(gateway);
     // Note: `cron runs` outputs JSON by default (no --json flag needed),
     // unlike `cron list` which requires the explicit `--json` flag.
     const response = await runOpenclawJson<CliRunsResponse>([
@@ -282,7 +290,7 @@ export class CronService {
   }
 
   static clearCache(): void {
-    cachedJobs = null;
+    cachedJobsByProfile.clear();
   }
 
   /**
