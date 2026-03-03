@@ -3,12 +3,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Clock, AlertCircle } from "lucide-react";
 import { useCronJobs } from "../hooks/useCronJobs";
+import { useProfile } from "@/app/profile-context";
 
 export function CronJobsList() {
   const navigate = useNavigate();
-  const { jobs, isLoading, error } = useCronJobs();
+  const { activeProfile, isSwitching } = useProfile();
+  const { jobs, isLoading, error } = useCronJobs(activeProfile?.id);
 
-  if (isLoading) {
+  if (isLoading || isSwitching) {
     return (
       <div className="p-8 text-center">
         <div className="inline-block animate-spin">⏳</div>

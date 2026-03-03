@@ -20,6 +20,8 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useTheme } from "@/app/providers";
 import { useAuth } from "@/app/auth/AuthContext";
+import { useProfile } from "@/app/profile-context";
+import { ProfileSelector } from "@/components/_shared/ProfileSelector";
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
@@ -35,6 +37,7 @@ const navItems = [
 
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const location = useLocation();
+  const { activeProfile } = useProfile();
 
   return (
     <div className="flex h-full flex-col">
@@ -47,7 +50,9 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           <span className="font-semibold text-sm tracking-tight">
             Mission Control
           </span>
-          <span className="text-xs text-muted-foreground">Orca Dashboard</span>
+          <span className="text-xs text-muted-foreground truncate">
+            {activeProfile?.name ?? "Orca Dashboard"}
+          </span>
         </div>
       </div>
 
@@ -173,6 +178,7 @@ export function MainLayout() {
 
           <div className="flex-1" />
 
+          <ProfileSelector />
           <LogoutButton />
           <ThemeToggle />
         </header>

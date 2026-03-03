@@ -53,23 +53,41 @@ interface CacheEntry<T> {
 export class SkillsService {
   private agentService: AgentService;
   private skillsCache: CacheEntry<Skill[]> | null = null;
+  private lastCacheKey: string = "";
 
   constructor(agentService: AgentService) {
     this.agentService = agentService;
   }
 
   /**
-   * Read all skills from the filesystem (cached with 30s TTL)
+   * Read all skills from the filesystem (cached with 30s TTL).
+   * When `profileStateDir` is provided, skills from `<stateDir>/skills/`
+   * are included (and take precedence over global skills with the same ID).
    */
-  async readSkills(): Promise<Skill[]> {
-    if (this.skillsCache && Date.now() < this.skillsCache.expiry) {
+  async readSkills(profileStateDir?: string): Promise<Skill[]> {
+    const cacheKey = profileStateDir ?? "__global__";
+
+    if (
+      this.skillsCache &&
+      Date.now() < this.skillsCache.expiry &&
+      this.lastCacheKey === cacheKey
+    ) {
       return this.skillsCache.data;
     }
 
     const skills: Skill[] = [];
     const processedDirs = new Set<string>();
 
-    for (const basePath of getSkillBasePaths()) {
+    // Build search paths: profile-specific path first (higher priority)
+    const basePaths = [...getSkillBasePaths()];
+    if (profileStateDir) {
+      const profileSkillsPath = path.join(profileStateDir, "skills");
+      if (!basePaths.includes(profileSkillsPath)) {
+        basePaths.unshift(profileSkillsPath);
+      }
+    }
+
+    for (const basePath of basePaths) {
       if (!existsSync(basePath)) continue;
 
       const skillFiles = await glob("**/SKILL.md", {
@@ -106,23 +124,27 @@ export class SkillsService {
     }
 
     this.skillsCache = { data: skills, expiry: Date.now() + CACHE_TTL_MS };
+    this.lastCacheKey = cacheKey;
     return skills;
   }
 
   /**
    * Read a specific skill by ID
    */
-  async readSkill(id: string): Promise<Skill | null> {
-    const skills = await this.readSkills();
+  async readSkill(id: string, profileStateDir?: string): Promise<Skill | null> {
+    const skills = await this.readSkills(profileStateDir);
     return skills.find((s) => s.id === id) || null;
   }
 
   /**
    * Generate permissions matrix (agents × skills)
    */
-  async getPermissionsMatrix(): Promise<PermissionsMatrix> {
-    const agents = await this.agentService.readAgents();
-    const skills = await this.readSkills();
+  async getPermissionsMatrix(
+    profileId?: string,
+    profileStateDir?: string,
+  ): Promise<PermissionsMatrix> {
+    const agents = await this.agentService.readAgents(profileId);
+    const skills = await this.readSkills(profileStateDir);
 
     const matrix: boolean[][] = [];
 
