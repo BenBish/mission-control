@@ -4,7 +4,6 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { toActorId } from "@/lib/agent-utils";
 import { useActivityStream } from "@/app/agents/context/ActivityStreamContext";
-import { useProfile } from "@/app/profile-context";
 
 interface CurrentActivityIndicatorProps {
   agentId: string;
@@ -26,7 +25,6 @@ export function CurrentActivityIndicator({
   mode,
 }: CurrentActivityIndicatorProps) {
   const isCompactMode = mode === "compact" || compact;
-  const { activeProfile } = useProfile();
   const [currentActivity, setCurrentActivity] = useState<Activity | null>(null);
   const [status, setStatus] = useState<"idle" | "busy" | "offline">("offline");
   const statusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -74,12 +72,9 @@ export function CurrentActivityIndicator({
 
     const fetchLatestActivity = async () => {
       try {
-        const params = new URLSearchParams({
-          actorId,
-          limit: "1",
-        });
-        if (activeProfile?.id) params.set("profile", activeProfile.id);
-        const response = await fetch(`/api/activities?${params.toString()}`);
+        const response = await fetch(
+          `/api/activities?actorId=${encodeURIComponent(actorId)}&limit=1`,
+        );
         if (!response.ok || cancelled) return;
         const data = await response.json();
         if (data.success && data.activities?.length > 0 && !cancelled) {
@@ -102,7 +97,7 @@ export function CurrentActivityIndicator({
         statusTimeoutRef.current = null;
       }
     };
-  }, [actorId, applyActivity, activeProfile?.id]);
+  }, [actorId, applyActivity]);
 
   if (isCompactMode) {
     return (

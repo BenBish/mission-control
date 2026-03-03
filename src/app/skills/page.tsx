@@ -9,11 +9,9 @@ import { PageHeader } from "@/components/_shared/PageHeader";
 import { Loading } from "@/components/_shared/Loading";
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertCircle } from "lucide-react";
-import { useProfile } from "@/app/profile-context";
 
 export default function SkillsPage() {
-  const { activeProfile, isSwitching } = useProfile();
-  const { skills, isLoading, error } = useSkills(activeProfile?.id);
+  const { skills, isLoading, error } = useSkills();
 
   if (error) {
     return (
@@ -44,7 +42,7 @@ export default function SkillsPage() {
         description="Browse and search available skills in the system"
       />
 
-      {isLoading || isSwitching ? (
+      {isLoading ? (
         <Loading />
       ) : (
         <SkillsList skills={skills} isLoading={isLoading} />

@@ -4,13 +4,11 @@ import { PageHeader } from "@/components/_shared/PageHeader";
 import { Loading } from "@/components/_shared/Loading";
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertCircle } from "lucide-react";
-import { useProfile } from "@/app/profile-context";
 
 export default function AgentsPage() {
-  const { activeProfile, isSwitching } = useProfile();
-  const { agents, isLoading, error } = useAgents(activeProfile?.id);
+  const { agents, isLoading, error } = useAgents();
 
-  if (isLoading || isSwitching) {
+  if (isLoading) {
     return (
       <div className="space-y-6">
         <PageHeader
