@@ -111,27 +111,35 @@ async function discoverFromSystemd(): Promise<Profile[]> {
     return [];
   }
 
-  const profiles: Profile[] = [];
+  // Parse all service files
+  const parsed = await Promise.all(
+    files.map(async (file) => {
+      const filePath = path.join(systemdDir, file);
+      return parseSystemdService(filePath);
+    }),
+  );
 
-  for (const file of files) {
-    const filePath = path.join(systemdDir, file);
-    const parsed = await parseSystemdService(filePath);
-    if (!parsed) continue;
+  const validEntries = parsed.filter(
+    (p): p is NonNullable<typeof p> => p !== null,
+  );
 
-    const gatewayUrl = `http://127.0.0.1:${parsed.port}`;
-    const isOnline = await probeGateway(gatewayUrl);
+  // Probe all gateways in parallel to avoid sequential timeout delays
+  const probeResults = await Promise.all(
+    validEntries.map((entry) =>
+      probeGateway(`http://127.0.0.1:${entry.port}`),
+    ),
+  );
 
-    profiles.push({
-      id: parsed.profile,
-      name:
-        parsed.profile === "default" ? "Default" : titleCase(parsed.profile),
-      gatewayUrl,
-      port: parsed.port,
-      status: isOnline ? "online" : "offline",
-      stateDir: parsed.stateDir,
-      systemdUnit: parsed.unit,
-    });
-  }
+  const profiles: Profile[] = validEntries.map((entry, i) => ({
+    id: entry.profile,
+    name:
+      entry.profile === "default" ? "Default" : titleCase(entry.profile),
+    gatewayUrl: `http://127.0.0.1:${entry.port}`,
+    port: entry.port,
+    status: probeResults[i] ? "online" : "offline",
+    stateDir: entry.stateDir,
+    systemdUnit: entry.unit,
+  }));
 
   return profiles;
 }
