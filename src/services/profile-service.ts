@@ -129,15 +129,12 @@ async function discoverFromSystemd(): Promise<Profile[]> {
 
   // Probe all gateways in parallel to avoid sequential timeout delays
   const probeResults = await Promise.all(
-    validEntries.map((entry) =>
-      probeGateway(`http://127.0.0.1:${entry.port}`),
-    ),
+    validEntries.map((entry) => probeGateway(`http://127.0.0.1:${entry.port}`)),
   );
 
   const profiles: Profile[] = validEntries.map((entry, i) => ({
     id: entry.profile,
-    name:
-      entry.profile === "default" ? "Default" : titleCase(entry.profile),
+    name: entry.profile === "default" ? "Default" : titleCase(entry.profile),
     gatewayUrl: `http://127.0.0.1:${entry.port}`,
     port: entry.port,
     status: probeResults[i] ? "online" : "offline",
