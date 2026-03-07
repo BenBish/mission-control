@@ -52,7 +52,11 @@ function resolveActiveProfile(profiles: Profile[]): Profile | null {
 }
 
 export function ProfileProvider({ children }: ProfileProviderProps) {
-  const { profiles, isLoading: isLoadingProfiles, error: profilesError } = useProfiles();
+  const {
+    profiles,
+    isLoading: isLoadingProfiles,
+    error: profilesError,
+  } = useProfiles();
   const [isSwitching, setIsSwitching] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
