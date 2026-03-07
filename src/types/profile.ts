@@ -22,6 +22,9 @@ export interface Profile {
   /** State directory (e.g. ~/.openclaw or ~/.openclaw-team) */
   stateDir: string;
 
+  /** Gateway authentication token */
+  gatewayToken?: string;
+
   /** Systemd unit name, if discovered via systemd */
   systemdUnit?: string;
 

@@ -43,6 +43,7 @@ async function parseSystemdService(filePath: string): Promise<{
   port: number;
   stateDir: string;
   unit: string;
+  gatewayToken: string | null;
 } | null> {
   try {
     const content = await fs.readFile(filePath, "utf-8");
@@ -51,6 +52,7 @@ async function parseSystemdService(filePath: string): Promise<{
     let port: number | null = null;
     let profile: string | null = null;
     let stateDir: string | null = null;
+    let gatewayToken: string | null = null;
 
     for (const line of lines) {
       const trimmed = line.trim();
@@ -67,6 +69,8 @@ async function parseSystemdService(filePath: string): Promise<{
           profile = value.split("=")[1];
         } else if (value.startsWith("OPENCLAW_STATE_DIR=")) {
           stateDir = value.split("=")[1];
+        } else if (value.startsWith("OPENCLAW_GATEWAY_TOKEN=")) {
+          gatewayToken = value.split("=")[1];
         }
       }
     }
@@ -89,7 +93,7 @@ async function parseSystemdService(filePath: string): Promise<{
           : path.join(os.homedir(), `.openclaw-${profile}`);
     }
 
-    return { profile, port, stateDir, unit };
+    return { profile, port, stateDir, unit, gatewayToken };
   } catch {
     return null;
   }
@@ -138,6 +142,7 @@ async function discoverFromSystemd(): Promise<Profile[]> {
     port: entry.port,
     status: probeResults[i] ? "online" : "offline",
     stateDir: entry.stateDir,
+    gatewayToken: entry.gatewayToken ?? undefined,
     systemdUnit: entry.unit,
   }));
 
