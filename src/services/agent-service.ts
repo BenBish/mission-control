@@ -17,6 +17,33 @@ import {
 import { Database } from "../db/database.js";
 import { ActivityFilter } from "../types/activity.js";
 
+/**
+ * Shape of an agent entry in openclaw.json → agents.list[]
+ */
+interface OpenClawAgentEntry {
+  id: string;
+  name?: string;
+  workspace?: string;
+  agentDir?: string;
+  default?: boolean;
+  model?: string | { primary?: string };
+  skills?: string[];
+  identity?: { name?: string; emoji?: string };
+  subagents?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+/**
+ * Relevant slice of openclaw.json
+ */
+interface OpenClawConfig {
+  agents?: {
+    defaults?: Record<string, unknown>;
+    list?: OpenClawAgentEntry[];
+  };
+  [key: string]: unknown;
+}
+
 // Base paths for agents - use AGENT_PATHS env var or defaults with os.homedir()
 // Resolved lazily so env vars set at runtime (e.g. in tests) are respected.
 const DEFAULT_AGENT_PATHS = [
@@ -92,6 +119,10 @@ export class AgentService {
    * Read all agents from the filesystem (cached with 30s TTL).
    * When `profileId` is provided, the agent base paths are filtered to
    * the state directory for that profile (e.g. ~/.openclaw-team for "team").
+   *
+   * Agent skill assignments are read from `openclaw.json` in the profile's
+   * state directory (agents.list[].skills), not from per-agent `agent.json`
+   * files.
    */
   async readAgents(profileId?: string): Promise<Agent[]> {
     // Use profile-qualified cache key
@@ -111,6 +142,16 @@ export class AgentService {
     const basePaths = profileId
       ? getAgentBasePathsForProfile(profileId)
       : getAgentBasePaths();
+
+    // Load openclaw.json config to get agent skill assignments and metadata.
+    // Build a lookup map from agent ID → config entry for fast matching.
+    const openclawConfig = await this.readOpenClawConfig(profileId);
+    const configByAgentId = new Map<string, OpenClawAgentEntry>();
+    for (const entry of openclawConfig?.agents?.list ?? []) {
+      if (entry.id) {
+        configByAgentId.set(entry.id, entry);
+      }
+    }
 
     for (const basePath of basePaths) {
       if (!existsSync(basePath)) continue;
@@ -133,20 +174,35 @@ export class AgentService {
           const agentId = this.extractAgentId(soulFile, basePath);
           const agentConfig = await this.readAgentConfig(soulDir);
 
+          // Look up this agent's config entry from openclaw.json
+          const configEntry = configByAgentId.get(agentId);
+
+          // Resolve model from config entry (may be string or { primary: string })
+          const configModel = configEntry?.model
+            ? typeof configEntry.model === "string"
+              ? configEntry.model
+              : configEntry.model.primary
+            : undefined;
+
           soulPaths.set(agentId, soulFile);
 
           agents.push({
             id: agentId,
             name:
+              configEntry?.identity?.name ||
               agentConfig?.name ||
               metadata.name ||
               this.guessNameFromPath(soulFile),
             role: metadata.role || agentConfig?.role || "Unknown",
-            model: metadata.model || agentConfig?.model || "unknown",
+            model:
+              configModel ||
+              metadata.model ||
+              agentConfig?.model ||
+              "unknown",
             gitAuthorName: metadata.gitAuthorName || agentConfig?.gitAuthorName,
             gitAuthorEmail:
               metadata.gitAuthorEmail || agentConfig?.gitAuthorEmail,
-            skills: agentConfig?.allowedSkills || [],
+            skills: configEntry?.skills ?? agentConfig?.allowedSkills ?? [],
           });
         } catch (err) {
           console.warn(`[AgentService] Failed to parse ${soulFile}:`, err);
@@ -314,6 +370,60 @@ export class AgentService {
         console.warn(`[AgentService] Failed to parse ${configPath}:`, err);
       }
     }
+    return null;
+  }
+
+  /**
+   * Read openclaw.json config for a profile to get agent skill assignments
+   * and other metadata that lives in the central config rather than per-agent
+   * files.
+   *
+   * Profile mapping:
+   *   "default" → ~/.openclaw/openclaw.json
+   *   "team"    → ~/.openclaw-team/openclaw.json
+   *   other     → ~/.openclaw-<profile>/openclaw.json
+   *   undefined → scans all DEFAULT_AGENT_PATHS parents for openclaw.json
+   */
+  private async readOpenClawConfig(
+    profileId?: string,
+  ): Promise<OpenClawConfig | null> {
+    const configPaths: string[] = [];
+
+    if (profileId) {
+      const stateDir =
+        profileId === "default"
+          ? path.join(os.homedir(), ".openclaw")
+          : path.join(os.homedir(), `.openclaw-${profileId}`);
+      configPaths.push(path.join(stateDir, "openclaw.json"));
+    } else {
+      // When no profile is specified, try to find openclaw.json in any of
+      // the base paths' parent directories (state dirs)
+      const seen = new Set<string>();
+      for (const basePath of getAgentBasePaths()) {
+        // The state dir is the parent of directories like workspace-engineer
+        const parent = path.dirname(basePath);
+        const configPath = path.join(parent, "openclaw.json");
+        if (!seen.has(configPath)) {
+          seen.add(configPath);
+          configPaths.push(configPath);
+        }
+      }
+    }
+
+    // Try each candidate path; return the first one that parses successfully
+    for (const configPath of configPaths) {
+      if (!existsSync(configPath)) continue;
+      try {
+        const content = await fs.readFile(configPath, "utf-8");
+        return JSON.parse(content) as OpenClawConfig;
+      } catch (err) {
+        console.warn(
+          `[AgentService] Failed to parse ${configPath}:`,
+          err,
+        );
+      }
+    }
+
     return null;
   }
 

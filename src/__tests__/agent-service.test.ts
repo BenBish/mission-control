@@ -4,6 +4,9 @@
  */
 
 import { AgentService } from "../services/agent-service.js";
+import * as fs from "fs/promises";
+import * as path from "path";
+import * as os from "os";
 
 describe("AgentService", () => {
   let agentService: AgentService;
@@ -87,6 +90,104 @@ openrouter/minimax/minimax-m2.5
       const service = new AgentService();
       const agents = await service.readAgents();
       expect(Array.isArray(agents)).toBe(true);
+    });
+  });
+
+  describe("readAgents with openclaw.json skills", () => {
+    let tmpDir: string;
+    const originalAgentPaths = process.env.AGENT_PATHS;
+
+    beforeEach(async () => {
+      tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "agent-svc-test-"));
+
+      // Create a workspace with SOUL.md
+      const workspaceDir = path.join(tmpDir, "workspace-test-agent");
+      await fs.mkdir(workspaceDir, { recursive: true });
+      await fs.writeFile(
+        path.join(workspaceDir, "SOUL.md"),
+        `# SOUL.md - Test Agent
+
+You are the **Test Agent** — you run tests.
+
+GIT_AUTHOR_NAME=test-agent
+GIT_AUTHOR_EMAIL=test@example.com
+`,
+      );
+
+      // Point AGENT_PATHS to our temp directory
+      process.env.AGENT_PATHS = workspaceDir;
+    });
+
+    afterEach(async () => {
+      if (originalAgentPaths !== undefined) {
+        process.env.AGENT_PATHS = originalAgentPaths;
+      } else {
+        delete process.env.AGENT_PATHS;
+      }
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    });
+
+    test("should read skills from openclaw.json when available", async () => {
+      // Create openclaw.json in the parent directory (state dir)
+      const openclawConfig = {
+        agents: {
+          list: [
+            {
+              id: "workspace-test-agent",
+              skills: ["coding-agent", "github", "weather"],
+              identity: { name: "Test Agent", emoji: "🧪" },
+              model: { primary: "test-model/v1" },
+            },
+          ],
+        },
+      };
+      await fs.writeFile(
+        path.join(tmpDir, "openclaw.json"),
+        JSON.stringify(openclawConfig, null, 2),
+      );
+
+      const service = new AgentService();
+      const agents = await service.readAgents();
+
+      const testAgent = agents.find((a) => a.id === "workspace-test-agent");
+      expect(testAgent).toBeDefined();
+      expect(testAgent!.skills).toEqual(["coding-agent", "github", "weather"]);
+      expect(testAgent!.name).toBe("Test Agent");
+      expect(testAgent!.model).toBe("test-model/v1");
+    });
+
+    test("should return empty skills when agent has no skills in openclaw.json", async () => {
+      // Create openclaw.json without skills
+      const openclawConfig = {
+        agents: {
+          list: [
+            {
+              id: "workspace-test-agent",
+              identity: { name: "Test Agent" },
+            },
+          ],
+        },
+      };
+      await fs.writeFile(
+        path.join(tmpDir, "openclaw.json"),
+        JSON.stringify(openclawConfig, null, 2),
+      );
+
+      const service = new AgentService();
+      const agents = await service.readAgents();
+
+      const testAgent = agents.find((a) => a.id === "workspace-test-agent");
+      expect(testAgent).toBeDefined();
+      expect(testAgent!.skills).toEqual([]);
+    });
+
+    test("should fallback to empty skills when no openclaw.json exists", async () => {
+      const service = new AgentService();
+      const agents = await service.readAgents();
+
+      const testAgent = agents.find((a) => a.id === "workspace-test-agent");
+      expect(testAgent).toBeDefined();
+      expect(testAgent!.skills).toEqual([]);
     });
   });
 
