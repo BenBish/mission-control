@@ -111,4 +111,34 @@ describe("Profile Service", () => {
       expect(profile).toBeNull();
     });
   });
+
+  describe("gatewayToken extraction (ORC-56)", () => {
+    test("profiles include gatewayToken from systemd service files", async () => {
+      const profiles = await getProfiles();
+
+      // Both default and team systemd services define OPENCLAW_GATEWAY_TOKEN
+      const defaultProfile = profiles.find((p) => p.id === "default");
+      const teamProfile = profiles.find((p) => p.id === "team");
+
+      if (defaultProfile) {
+        expect(defaultProfile.gatewayToken).toBeTruthy();
+        expect(typeof defaultProfile.gatewayToken).toBe("string");
+      }
+
+      if (teamProfile) {
+        expect(teamProfile.gatewayToken).toBeTruthy();
+        expect(typeof teamProfile.gatewayToken).toBe("string");
+      }
+    });
+
+    test("default and team profiles have different tokens", async () => {
+      const profiles = await getProfiles();
+      const defaultProfile = profiles.find((p) => p.id === "default");
+      const teamProfile = profiles.find((p) => p.id === "team");
+
+      if (defaultProfile?.gatewayToken && teamProfile?.gatewayToken) {
+        expect(defaultProfile.gatewayToken).not.toBe(teamProfile.gatewayToken);
+      }
+    });
+  });
 });

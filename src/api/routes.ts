@@ -113,19 +113,31 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
 
   /**
    * Resolve the current request's profileId to gateway connection options.
-   * Returns { gatewayUrl } for the profile so backend services (cron, etc.)
-   * can target the correct gateway. Returns undefined when no profile-specific
-   * gateway is found (falls back to env vars / default gateway).
+   * Returns { gatewayUrl, gatewayToken } for the profile so backend services
+   * (cron, etc.) can target the correct gateway.
+   *
+   * Always resolves for ALL profiles (including "default") to ensure the CLI
+   * targets the correct gateway with proper authentication. Returns empty
+   * object only when no profile is found (falls back to env vars).
    */
   async function resolveGatewayOptions(
     profileId: string,
   ): Promise<{ gatewayUrl?: string; gatewayToken?: string }> {
-    if (!profileId || profileId === "default" || profileId === "all") {
+    if (!profileId || profileId === "all") {
       return {};
     }
     const profile = await getProfile(profileId);
     if (!profile) return {};
-    return { gatewayUrl: profile.gatewayUrl };
+    // Always provide both URL and token together — the CLI rejects
+    // --url without --token, and omitting --url causes auto-discovery
+    // which may resolve to the wrong gateway.
+    const result: { gatewayUrl?: string; gatewayToken?: string } = {
+      gatewayUrl: profile.gatewayUrl,
+    };
+    if (profile.gatewayToken) {
+      result.gatewayToken = profile.gatewayToken;
+    }
+    return result;
   }
 
   // ============================================================================
