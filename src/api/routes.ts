@@ -123,22 +123,17 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
   async function resolveGatewayOptions(profileId: string): Promise<{
     gatewayUrl?: string;
     gatewayToken?: string;
-    profileId?: string;
   }> {
     if (!profileId || profileId === "all") {
       return {};
     }
     const profile = await getProfile(profileId);
     if (!profile) return {};
-    // Pass profileId so the CLI can use --profile for auto-discovery.
-    // Also include URL and token as fallbacks for non-CLI consumers.
     const result: {
       gatewayUrl?: string;
       gatewayToken?: string;
-      profileId?: string;
     } = {
       gatewayUrl: profile.gatewayUrl,
-      profileId: profile.id,
     };
     if (profile.gatewayToken) {
       result.gatewayToken = profile.gatewayToken;
