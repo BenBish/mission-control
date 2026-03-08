@@ -135,7 +135,7 @@ async function discoverFromSystemd(): Promise<Profile[]> {
   const profiles: Profile[] = validEntries.map((entry, i) => ({
     id: entry.profile,
     name: entry.profile === "default" ? "Default" : titleCase(entry.profile),
-    gatewayUrl: `http://127.0.0.1:${entry.port}`,
+    gatewayUrl: `ws://localhost:${entry.port}`,
     port: entry.port,
     status: probeResults[i] ? "online" : "offline",
     stateDir: entry.stateDir,
@@ -167,7 +167,7 @@ function discoverFromEnv(): Profile[] {
     profiles.push({
       id: name,
       name: name === "default" ? "Default" : titleCase(name),
-      gatewayUrl: `http://127.0.0.1:${port}`,
+      gatewayUrl: `ws://localhost:${port}`,
       port,
       status: "offline", // Will be probed below
       stateDir: stateDir || path.join(os.homedir(), `.openclaw-${name}`),
