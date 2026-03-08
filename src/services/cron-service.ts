@@ -14,6 +14,7 @@ let execFileAsync = _execFileAsync;
 export interface GatewayOptions {
   gatewayUrl?: string;
   gatewayToken?: string;
+  profileId?: string;
 }
 
 interface CachedJobs {
@@ -35,6 +36,14 @@ const CACHE_TTL_MS = 5000;
  */
 function getGatewayArgs(options?: GatewayOptions): string[] {
   const args: string[] = [];
+
+  // Prefer --profile when available — lets the CLI handle discovery
+  // (avoids needing to extract tokens from systemd service files)
+  if (options?.profileId && options.profileId !== "all") {
+    args.push("--profile", options.profileId);
+    return args;
+  }
+
   const url = options?.gatewayUrl || process.env.CRON_GATEWAY_URL;
   const token = options?.gatewayToken || process.env.CRON_GATEWAY_TOKEN;
   if (url) args.push("--url", url);

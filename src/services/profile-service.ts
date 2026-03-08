@@ -199,7 +199,7 @@ export async function getProfiles(): Promise<Profile[]> {
     const envProfiles = discoverFromEnv();
     // Probe each env-sourced profile
     for (const profile of envProfiles) {
-      const isOnline = await probeGateway(profile.gatewayUrl);
+      const isOnline = await probeGateway(`http://localhost:${profile.port}`);
       profile.status = isOnline ? "online" : "offline";
     }
     profiles = envProfiles;
