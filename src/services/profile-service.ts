@@ -9,6 +9,21 @@ import * as path from "path";
 import * as os from "os";
 import type { Profile } from "../types/profile.js";
 
+/**
+ * Read the gateway auth token from a profile's openclaw.json config file.
+ * Token lives at gateway.auth.token in the config JSON.
+ */
+async function readGatewayToken(stateDir: string): Promise<string | null> {
+  try {
+    const configPath = path.join(stateDir, "openclaw.json");
+    const raw = await fs.readFile(configPath, "utf-8");
+    const config = JSON.parse(raw);
+    return config?.gateway?.auth?.token ?? null;
+  } catch {
+    return null;
+  }
+}
+
 const CACHE_TTL_MS = 30_000;
 const PROBE_TIMEOUT_MS = 3_000;
 
@@ -127,19 +142,24 @@ async function discoverFromSystemd(): Promise<Profile[]> {
     (p): p is NonNullable<typeof p> => p !== null,
   );
 
-  // Probe all gateways in parallel to avoid sequential timeout delays
-  const probeResults = await Promise.all(
-    validEntries.map((entry) => probeGateway(`http://127.0.0.1:${entry.port}`)),
-  );
+  // Probe all gateways and read tokens in parallel
+  const [probeResults, tokenResults] = await Promise.all([
+    Promise.all(
+      validEntries.map((entry) =>
+        probeGateway(`http://127.0.0.1:${entry.port}`),
+      ),
+    ),
+    Promise.all(validEntries.map((entry) => readGatewayToken(entry.stateDir))),
+  ]);
 
   const profiles: Profile[] = validEntries.map((entry, i) => ({
     id: entry.profile,
     name: entry.profile === "default" ? "Default" : titleCase(entry.profile),
-    gatewayUrl: `http://127.0.0.1:${entry.port}`,
+    gatewayUrl: `ws://localhost:${entry.port}`,
     port: entry.port,
     status: probeResults[i] ? "online" : "offline",
     stateDir: entry.stateDir,
-    gatewayToken: entry.gatewayToken ?? undefined,
+    gatewayToken: tokenResults[i] ?? undefined,
     systemdUnit: entry.unit,
   }));
 
@@ -167,7 +187,7 @@ function discoverFromEnv(): Profile[] {
     profiles.push({
       id: name,
       name: name === "default" ? "Default" : titleCase(name),
-      gatewayUrl: `http://127.0.0.1:${port}`,
+      gatewayUrl: `ws://localhost:${port}`,
       port,
       status: "offline", // Will be probed below
       stateDir: stateDir || path.join(os.homedir(), `.openclaw-${name}`),
@@ -199,7 +219,7 @@ export async function getProfiles(): Promise<Profile[]> {
     const envProfiles = discoverFromEnv();
     // Probe each env-sourced profile
     for (const profile of envProfiles) {
-      const isOnline = await probeGateway(profile.gatewayUrl);
+      const isOnline = await probeGateway(`http://localhost:${profile.port}`);
       profile.status = isOnline ? "online" : "offline";
     }
     profiles = envProfiles;

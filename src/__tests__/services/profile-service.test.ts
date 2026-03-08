@@ -54,7 +54,7 @@ describe("Profile Service", () => {
       for (const profile of profiles) {
         expect(profile.id).toBeTruthy();
         expect(profile.name).toBeTruthy();
-        expect(profile.gatewayUrl).toBeTruthy();
+        expect(profile.gatewayUrl).toMatch(/^ws:\/\/localhost:\d+$/);
         expect(typeof profile.port).toBe("number");
         expect(["online", "offline"]).toContain(profile.status);
         expect(profile.stateDir).toBeTruthy();
@@ -66,7 +66,7 @@ describe("Profile Service", () => {
       const team = profiles.find((p) => p.id === "team");
       if (team) {
         expect(team.port).toBe(18890);
-        expect(team.gatewayUrl).toContain("18890");
+        expect(team.gatewayUrl).toBe("ws://localhost:18890");
       }
     });
 
@@ -75,7 +75,7 @@ describe("Profile Service", () => {
       const defaultProfile = profiles.find((p) => p.id === "default");
       if (defaultProfile) {
         expect(defaultProfile.port).toBe(18789);
-        expect(defaultProfile.gatewayUrl).toContain("18789");
+        expect(defaultProfile.gatewayUrl).toBe("ws://localhost:18789");
       }
     });
 
