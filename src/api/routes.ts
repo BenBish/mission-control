@@ -461,37 +461,12 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
   });
 
   /**
-   * GET /api/activities/:id
-   * Get a specific activity by ID
-   */
-  app.get("/api/activities/:id", async (req: Request, res: Response) => {
-    try {
-      const activity = await logger.getActivity(req.params.id);
-      if (!activity) {
-        return res.status(404).json({
-          success: false,
-          error: "Activity not found",
-        });
-      }
-
-      // Enrich actor display name
-      enrichActivityActor(activity);
-
-      res.json({
-        success: true,
-        activity,
-      });
-    } catch (error: any) {
-      res.status(500).json({
-        success: false,
-        error: error.message,
-      });
-    }
-  });
-
-  /**
    * GET /api/activities/search?q=query
    * Search activities by description or details
+   *
+   * NOTE: This route MUST be registered before /api/activities/:id
+   * because Express matches routes in registration order and the :id
+   * wildcard would otherwise capture the literal string "search".
    */
   app.get("/api/activities/search", async (req: Request, res: Response) => {
     try {
@@ -525,6 +500,35 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         success: true,
         count: filtered.length,
         activities: filtered,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  /**
+   * GET /api/activities/:id
+   * Get a specific activity by ID
+   */
+  app.get("/api/activities/:id", async (req: Request, res: Response) => {
+    try {
+      const activity = await logger.getActivity(req.params.id);
+      if (!activity) {
+        return res.status(404).json({
+          success: false,
+          error: "Activity not found",
+        });
+      }
+
+      // Enrich actor display name
+      enrichActivityActor(activity);
+
+      res.json({
+        success: true,
+        activity,
       });
     } catch (error: any) {
       res.status(500).json({

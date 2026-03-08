@@ -195,10 +195,7 @@ export class AgentService {
               this.guessNameFromPath(soulFile),
             role: metadata.role || agentConfig?.role || "Unknown",
             model:
-              configModel ||
-              metadata.model ||
-              agentConfig?.model ||
-              "unknown",
+              configModel || metadata.model || agentConfig?.model || "unknown",
             gitAuthorName: metadata.gitAuthorName || agentConfig?.gitAuthorName,
             gitAuthorEmail:
               metadata.gitAuthorEmail || agentConfig?.gitAuthorEmail,
@@ -417,10 +414,7 @@ export class AgentService {
         const content = await fs.readFile(configPath, "utf-8");
         return JSON.parse(content) as OpenClawConfig;
       } catch (err) {
-        console.warn(
-          `[AgentService] Failed to parse ${configPath}:`,
-          err,
-        );
+        console.warn(`[AgentService] Failed to parse ${configPath}:`, err);
       }
     }
 
