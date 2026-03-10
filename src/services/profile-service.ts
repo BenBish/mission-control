@@ -217,11 +217,13 @@ export async function getProfiles(): Promise<Profile[]> {
   // Fallback to env var if no systemd services found
   if (profiles.length === 0) {
     const envProfiles = discoverFromEnv();
-    // Probe each env-sourced profile
-    for (const profile of envProfiles) {
-      const isOnline = await probeGateway(`http://localhost:${profile.port}`);
-      profile.status = isOnline ? "online" : "offline";
-    }
+    // Probe all env-sourced profiles in parallel
+    const probeResults = await Promise.all(
+      envProfiles.map((p) => probeGateway(`http://localhost:${p.port}`)),
+    );
+    envProfiles.forEach((p, i) => {
+      p.status = probeResults[i] ? "online" : "offline";
+    });
     profiles = envProfiles;
   }
 

@@ -43,7 +43,7 @@ export function useProfiles(): UseProfilesResult {
     fetchProfiles(controller.signal);
 
     intervalRef.current = setInterval(() => {
-      fetchProfiles();
+      fetchProfiles(controller.signal);
     }, POLL_INTERVAL_MS);
 
     return () => {
