@@ -8,8 +8,13 @@ import {
 import { useProfile } from "@/app/profile-context";
 
 export function ProfileSelector() {
-  const { profiles, activeProfile, setActiveProfile, isLoadingProfiles, profilesError } =
-    useProfile();
+  const {
+    profiles,
+    activeProfile,
+    setActiveProfile,
+    isLoadingProfiles,
+    profilesError,
+  } = useProfile();
 
   if (isLoadingProfiles) {
     return <div className="h-9 w-40 animate-pulse rounded-md bg-muted" />;
