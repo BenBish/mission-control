@@ -1,15 +1,20 @@
 /**
- * Playwright globalSetup — seeds test database before servers start.
+ * Playwright globalSetup — verify test database exists.
+ * Seeding is done in the webServer command (before API starts) to avoid
+ * race conditions between globalSetup and webServer startup.
  */
 
-import { seedDatabase } from "./helpers/db-seeder.js";
 import path from "path";
 import fs from "fs";
 
 export default async function globalSetup() {
-  await seedDatabase();
-
   const dbPath = path.resolve("./test-data/playwright.db");
-  const stat = fs.statSync(dbPath);
-  console.log(`✓ Test database seeded at ${dbPath} (${stat.size} bytes)`);
+  if (fs.existsSync(dbPath)) {
+    const stat = fs.statSync(dbPath);
+    console.log(`✓ Test database exists at ${dbPath} (${stat.size} bytes)`);
+  } else {
+    console.log(
+      `⚠ Test database not found at ${dbPath} — webServer will create it`,
+    );
+  }
 }
