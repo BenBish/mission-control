@@ -44,15 +44,15 @@ export default defineConfig({
   webServer: [
     {
       command:
-        "PORT=3051 DATABASE_PATH=./test-data/playwright.db MC_AUTH_ENABLED=true MC_USERNAME=admin MC_PASSWORD_HASH='$argon2id$v=19$m=65536,t=2,p=1$Q8wa6rNQgE6LEgPI+USz0vYKIBenPFGPROJUlvbrIh4$ED0rkFmZ9sktgbff2/5oXDITf9FC+315SXfGMa4QfXk' MC_JWT_SECRET=test-secret-for-e2e bun run src/api/server.ts",
+        "PORT=3051 DATABASE_PATH=./test-data/playwright.db MC_AUTH_ENABLED=true MC_USERNAME=admin MC_PASSWORD_HASH='$argon2id$v=19$m=65536,t=2,p=1$Q8wa6rNQgE6LEgPI+USz0vYKIBenPFGPROJUlvbrIh4$ED0rkFmZ9sktgbff2/5oXDITf9FC+315SXfGMa4QfXk' MC_JWT_SECRET=test-secret-for-e2e SCAN_INTERVAL_MS=86400000 HOME=/tmp/mc-e2e-home bun run src/api/server.ts 2>&1 | tee /tmp/pw-api-server.log",
       port: 3051,
-      reuseExistingServer: !isCI,
+      reuseExistingServer: false,
       timeout: 30_000,
     },
     {
       command: "VITE_PORT=3050 VITE_API_PORT=3051 bunx vite",
       port: 3050,
-      reuseExistingServer: !isCI,
+      reuseExistingServer: false,
       timeout: 30_000,
     },
   ],
