@@ -33,7 +33,7 @@ get_issue_state() {
   local identifier="$1"
   local query
   query=$(cat <<GRAPHQL
-{"query": "{ issueSearch(filter: { identifier: { eq: \"${identifier}\" } }) { nodes { identifier state { name type } } } }"}
+{"query": "{ searchIssues(term: \"${identifier}\", first: 1) { nodes { identifier state { name type } } } }"}
 GRAPHQL
 )
 
@@ -44,8 +44,8 @@ GRAPHQL
     -d "$query" 2>/dev/null) || return 1
 
   local state_name state_type
-  state_name=$(echo "$response" | jq -r '.data.issueSearch.nodes[0].state.name // empty' 2>/dev/null) || return 1
-  state_type=$(echo "$response" | jq -r '.data.issueSearch.nodes[0].state.type // empty' 2>/dev/null) || return 1
+  state_name=$(echo "$response" | jq -r '.data.searchIssues.nodes[0].state.name // empty' 2>/dev/null) || return 1
+  state_type=$(echo "$response" | jq -r '.data.searchIssues.nodes[0].state.type // empty' 2>/dev/null) || return 1
 
   if [[ -z "$state_name" || -z "$state_type" ]]; then
     return 1
