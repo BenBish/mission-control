@@ -232,9 +232,7 @@ export async function seedDatabase(): Promise<void> {
       now.getTime() - (SESSIONS.length - i) * 3600_000,
     );
     const endTime =
-      i < SESSIONS.length - 1
-        ? new Date(startTime.getTime() + 3000_000)
-        : null;
+      i < SESSIONS.length - 1 ? new Date(startTime.getTime() + 3000_000) : null;
     await db.run(
       "INSERT INTO sessions (id, profile_id, start_time, end_time) VALUES (?, ?, ?, ?)",
       SESSIONS[i],
@@ -252,9 +250,7 @@ export async function seedDatabase(): Promise<void> {
     const actionType = randomItem(ACTION_TYPES);
     const toolName = randomItem(TOOL_NAMES);
     const model = randomItem(MODELS);
-    const timestamp = new Date(
-      now.getTime() - (60 - i) * 60_000,
-    ).toISOString();
+    const timestamp = new Date(now.getTime() - (60 - i) * 60_000).toISOString();
     const inputTokens = Math.floor(Math.random() * 5000) + 100;
     const outputTokens = Math.floor(Math.random() * 2000) + 50;
     const totalTokens = inputTokens + outputTokens;
@@ -340,7 +336,10 @@ export async function seedDatabase(): Promise<void> {
 }
 
 export async function cleanDatabase(): Promise<void> {
-  console.log(`[cleanDatabase] called from:`, new Error().stack?.split("\n").slice(1, 4).join(" → "));
+  console.log(
+    `[cleanDatabase] called from:`,
+    new Error().stack?.split("\n").slice(1, 4).join(" → "),
+  );
   for (const ext of ["", "-wal", "-shm"]) {
     const p = DB_PATH + ext;
     if (fs.existsSync(p)) fs.unlinkSync(p);

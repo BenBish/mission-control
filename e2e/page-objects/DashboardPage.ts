@@ -56,11 +56,9 @@ export class DashboardPage extends BasePage {
 
   /** Get recent activity rows — clickable divs in the Recent Activity card */
   getRecentActivityRows(): Locator {
-    const recentCard = this.page
-      .locator("div")
-      .filter({
-        has: this.page.getByRole("heading", { name: "Recent Activity" }),
-      });
+    const recentCard = this.page.locator("div").filter({
+      has: this.page.getByRole("heading", { name: "Recent Activity" }),
+    });
     return recentCard.locator("div[class*='cursor-pointer']");
   }
 

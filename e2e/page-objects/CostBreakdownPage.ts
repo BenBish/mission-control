@@ -101,9 +101,7 @@ export class CostBreakdownPage extends BasePage {
 
   /** Check if empty state is visible */
   async hasEmptyState(): Promise<boolean> {
-    return this.page
-      .getByText("No cost data available yet.")
-      .isVisible();
+    return this.page.getByText("No cost data available yet.").isVisible();
   }
 
   /** Check if error state is visible */

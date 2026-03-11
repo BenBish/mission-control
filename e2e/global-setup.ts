@@ -11,7 +11,5 @@ export default async function globalSetup() {
 
   const dbPath = path.resolve("./test-data/playwright.db");
   const stat = fs.statSync(dbPath);
-  console.log(
-    `✓ Test database seeded at ${dbPath} (${stat.size} bytes)`,
-  );
+  console.log(`✓ Test database seeded at ${dbPath} (${stat.size} bytes)`);
 }

@@ -51,9 +51,7 @@ test.describe("Dashboard", () => {
     expect(count).toBeLessThanOrEqual(5);
   });
 
-  test("recent activity rows show description and status", async ({
-    page,
-  }) => {
+  test("recent activity rows show description and status", async ({ page }) => {
     const rows = dashboard.getRecentActivityRows();
     const firstRow = rows.first();
 
