@@ -6,6 +6,7 @@
 import { useState, useEffect, useCallback } from "react";
 import type { Skill, SkillsResponse } from "@/types/skills";
 import type { Agent } from "@/types/agents";
+import { apiFetch } from "@/lib/api-client";
 
 interface PermissionsMatrixResponse {
   success: boolean;
@@ -38,8 +39,8 @@ export function useSkills(profileId?: string): UseSkillsReturn {
       try {
         // Fetch skills and permissions matrix in parallel
         const [skillsRes, permissionsRes] = await Promise.all([
-          fetch(`/api/skills${profileParam}`, { signal }),
-          fetch(`/api/permissions/matrix${profileParam}`, { signal }),
+          apiFetch(`/api/skills${profileParam}`, { signal }),
+          apiFetch(`/api/permissions/matrix${profileParam}`, { signal }),
         ]);
 
         if (!skillsRes.ok) {

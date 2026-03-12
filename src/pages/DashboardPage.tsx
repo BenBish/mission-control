@@ -14,6 +14,7 @@ import { Loading } from "@/components/_shared/Loading";
 import { Separator } from "@/components/ui/separator";
 import type { Activity } from "@/types/activity";
 import { useProfile } from "@/app/profile-context";
+import { apiFetch } from "@/lib/api-client";
 import { useSSE } from "@/hooks/useSSE";
 import {
   Activity as ActivityIcon,
@@ -90,8 +91,8 @@ export default function DashboardPage() {
         const profileParam = `profile=${encodeURIComponent(profileId)}`;
         // Fetch stats and recent activities in parallel, scoped to profile
         const [statsRes, activitiesRes] = await Promise.all([
-          fetch(`/api/stats?${profileParam}`),
-          fetch(`/api/activities?limit=5&${profileParam}`),
+          apiFetch(`/api/stats?${profileParam}`),
+          apiFetch(`/api/activities?limit=5&${profileParam}`),
         ]);
 
         if (!statsRes.ok) {

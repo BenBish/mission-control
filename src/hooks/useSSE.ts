@@ -13,6 +13,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Activity } from "@/types/activity";
+import { apiUrl } from "@/lib/api-client";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -52,7 +53,7 @@ export function useSSE(
 
   useEffect(() => {
     const es = new EventSource(
-      `/api/stream?profile=${encodeURIComponent(profileId)}`,
+      apiUrl(`/api/stream?profile=${encodeURIComponent(profileId)}`),
     );
 
     es.addEventListener("open", () => {

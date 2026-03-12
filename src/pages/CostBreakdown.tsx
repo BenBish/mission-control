@@ -21,6 +21,7 @@ import {
   PieChart,
 } from "lucide-react";
 import { useProfile } from "@/app/profile-context";
+import { apiFetch } from "@/lib/api-client";
 
 interface CostStats {
   success: boolean;
@@ -99,7 +100,7 @@ export default function CostBreakdown() {
       const profileParam = activeProfile?.id
         ? `?profile=${encodeURIComponent(activeProfile.id)}`
         : "";
-      const response = await fetch(`/api/cost-report${profileParam}`);
+      const response = await apiFetch(`/api/cost-report${profileParam}`);
       if (!response.ok) throw new Error(`Failed: ${response.statusText}`);
       const data: CostStats = await response.json();
       if (data.success) setCostStats(data);

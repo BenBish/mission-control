@@ -3,6 +3,7 @@ import type { Activity } from "@/types/activity";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { toActorId } from "@/lib/agent-utils";
+import { apiFetch } from "@/lib/api-client";
 import { useActivityStream } from "@/app/agents/context/ActivityStreamContext";
 import { useProfile } from "@/app/profile-context";
 
@@ -79,7 +80,7 @@ export function CurrentActivityIndicator({
           limit: "1",
         });
         if (activeProfile?.id) params.set("profile", activeProfile.id);
-        const response = await fetch(`/api/activities?${params.toString()}`);
+        const response = await apiFetch(`/api/activities?${params.toString()}`);
         if (!response.ok || cancelled) return;
         const data = await response.json();
         if (data.success && data.activities?.length > 0 && !cancelled) {
