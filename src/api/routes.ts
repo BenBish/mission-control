@@ -21,6 +21,7 @@ import { AgentService } from "../services/agent-service.js";
 import { SkillsService } from "../services/skills-service.js";
 import { toActorId } from "../lib/agent-utils.js";
 import { getProfiles, getProfile } from "../services/profile-service.js";
+import { ArchieStateService } from "../services/archie-state-service.js";
 
 // Store active SSE clients, keyed by profile ID for scoped event delivery
 const sseClientsByProfile: Map<string, Set<Response>> = new Map();
@@ -39,6 +40,7 @@ const AGENT_DISPLAY_NAMES: Record<
   { displayName: string; emoji: string }
 > = {
   main: { displayName: "Orchestrator", emoji: "🎯" },
+  archie: { displayName: "Archie", emoji: "🏗️" },
   engineer: { displayName: "Engineer", emoji: "🔧" },
   "engineer-2": { displayName: "Engineer 2", emoji: "🔧" },
   "solutions-architect": { displayName: "Solutions Architect", emoji: "🏗️" },
@@ -110,6 +112,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
   // Shared AgentService instance (filesystem-based) — hoisted so /api/stats
   // and other early handlers can reference it.
   const fsAgentService = new AgentService(logger.getDatabase());
+  const archieStateService = new ArchieStateService();
 
   /**
    * Resolve the current request's profileId to gateway connection options.
@@ -1252,9 +1255,10 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
   app.get("/api/agents", async (req: Request, res: Response) => {
     try {
       const profileFilter = req.profileId !== "all" ? req.profileId : undefined;
-      const [fsAgents, statsMap] = await Promise.all([
+      const [fsAgents, statsMap, archieStatus] = await Promise.all([
         fsAgentService.readAgents(profileFilter),
         buildActivityStatsMap(profileFilter),
+        archieStateService.getStatus(),
       ]);
 
       const agents = fsAgents.map((agent) => {
@@ -1275,10 +1279,56 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         };
       });
 
+      // Inject Archie as a synthetic agent if not already present
+      if (!agents.some((a) => a.id === "archie")) {
+        const archieAgentStatus =
+          archieStateService.deriveAgentStatus(archieStatus);
+        const archieLastActive =
+          archieStatus.current_task?.updated_at ||
+          archieStatus.recent_tasks[0]?.updated_at ||
+          "";
+        const archieTotalCost = archieStatus.recent_tasks.reduce(
+          (sum, t) => sum + (t.usage?.totals?.cost_usd || 0),
+          0,
+        );
+
+        agents.push({
+          id: "archie",
+          name: "Archie",
+          role: "Tech Lead / Orchestrator",
+          model: "claude-sonnet-4-6",
+          skills: [],
+          status: archieAgentStatus,
+          lastActive: archieLastActive,
+          sessionCount: archieStatus.recent_tasks.length,
+          totalCost: archieTotalCost,
+          totalTokens: 0,
+        });
+      }
+
       res.json({
         success: true,
         count: agents.length,
         agents,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  /**
+   * GET /api/agents/archie/status
+   * Get Archie's current task state and overall status
+   */
+  app.get("/api/agents/archie/status", async (_req: Request, res: Response) => {
+    try {
+      const status = await archieStateService.getStatus();
+      res.json({
+        success: true,
+        ...status,
       });
     } catch (error: any) {
       res.status(500).json({
@@ -1300,6 +1350,35 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
           success: false,
           error: "Invalid agent ID",
         });
+      }
+
+      // Handle Archie as a synthetic agent
+      if (agentId === "archie") {
+        const archieStatus = await archieStateService.getStatus();
+        const archieAgentStatus =
+          archieStateService.deriveAgentStatus(archieStatus);
+        const archieLastActive =
+          archieStatus.current_task?.updated_at ||
+          archieStatus.recent_tasks[0]?.updated_at ||
+          "";
+        const archieTotalCost = archieStatus.recent_tasks.reduce(
+          (sum, t) => sum + (t.usage?.totals?.cost_usd || 0),
+          0,
+        );
+
+        const detail: AgentDetail = {
+          id: "archie",
+          name: "Archie",
+          role: "Tech Lead / Orchestrator",
+          model: "claude-sonnet-4-6",
+          status: archieAgentStatus,
+          lastActive: archieLastActive,
+          sessionCount: archieStatus.recent_tasks.length,
+          totalCost: archieTotalCost,
+          totalTokens: 0,
+        };
+
+        return res.json({ success: true, agent: detail });
       }
 
       const profileFilter = req.profileId !== "all" ? req.profileId : undefined;
