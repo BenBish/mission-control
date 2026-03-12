@@ -1663,10 +1663,13 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         return res.status(404).json({ success: false, error: "Job not found" });
       }
       // Proxy to `openclaw cron enable --id <id>`
-      res.json({
-        success: true,
-        message: "Job enabled (via openclaw cron enable)",
-      });
+      const success = await CronService.enableJob(req.params.id, gateway);
+      if (!success) {
+        return res
+          .status(500)
+          .json({ success: false, error: "Failed to enable job" });
+      }
+      res.json({ success: true, message: "Job enabled" });
     } catch (error: any) {
       res.status(500).json({
         success: false,
@@ -1691,10 +1694,13 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
             .json({ success: false, error: "Job not found" });
         }
         // Proxy to `openclaw cron disable --id <id>`
-        res.json({
-          success: true,
-          message: "Job disabled (via openclaw cron disable)",
-        });
+        const success = await CronService.disableJob(req.params.id, gateway);
+        if (!success) {
+          return res
+            .status(500)
+            .json({ success: false, error: "Failed to disable job" });
+        }
+        res.json({ success: true, message: "Job disabled" });
       } catch (error: any) {
         res.status(500).json({
           success: false,
@@ -1722,10 +1728,13 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         });
       }
       // Proxy to `openclaw cron run --id <id>`
-      res.json({
-        success: true,
-        message: "Job triggered (via openclaw cron run)",
-      });
+      const success = await CronService.runJob(req.params.id, gateway);
+      if (!success) {
+        return res
+          .status(500)
+          .json({ success: false, error: "Failed to trigger job" });
+      }
+      res.json({ success: true, message: "Job triggered" });
     } catch (error: any) {
       res.status(500).json({
         success: false,
@@ -1746,10 +1755,13 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         return res.status(404).json({ success: false, error: "Job not found" });
       }
       // Proxy to `openclaw cron rm --id <id>`
-      res.json({
-        success: true,
-        message: "Job deleted (via openclaw cron rm)",
-      });
+      const success = await CronService.deleteJob(req.params.id, gateway);
+      if (!success) {
+        return res
+          .status(500)
+          .json({ success: false, error: "Failed to delete job" });
+      }
+      res.json({ success: true, message: "Job deleted" });
     } catch (error: any) {
       res.status(500).json({
         success: false,
