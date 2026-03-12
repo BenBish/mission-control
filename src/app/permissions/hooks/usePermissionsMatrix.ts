@@ -5,6 +5,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { apiFetch } from "@/lib/api-client";
 import type {
   PermissionsMatrixData,
   PermissionsMatrixResponse,
@@ -34,9 +35,12 @@ export function usePermissionsMatrix(
         const profileParam = profileId
           ? `?profile=${encodeURIComponent(profileId)}`
           : "";
-        const response = await fetch(`/api/permissions/matrix${profileParam}`, {
-          signal,
-        });
+        const response = await apiFetch(
+          `/api/permissions/matrix${profileParam}`,
+          {
+            signal,
+          },
+        );
 
         if (!response.ok) {
           throw new Error(

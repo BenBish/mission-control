@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { Activity } from "@/types/activity";
 import { toActorId } from "@/lib/agent-utils";
+import { apiFetch } from "@/lib/api-client";
 import { useActivityStream } from "@/app/agents/context/ActivityStreamContext";
 
 /** Maximum number of activities kept in memory (prevents unbounded growth). */
@@ -48,7 +49,7 @@ export function useAgentActivity(
         limit: "50",
       });
       if (profileId) params.set("profile", profileId);
-      const response = await fetch(`/api/activities?${params.toString()}`, {
+      const response = await apiFetch(`/api/activities?${params.toString()}`, {
         signal: abortControllerRef.current?.signal,
       });
 

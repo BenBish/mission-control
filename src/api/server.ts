@@ -61,7 +61,16 @@ export class ActivityFeedServer {
    * Setup Express middleware
    */
   private setupMiddleware(): void {
-    this.app.use(cors());
+    const corsOrigins = process.env.MC_CORS_ORIGINS
+      ? process.env.MC_CORS_ORIGINS.split(",").map((s) => s.trim())
+      : ["http://localhost:3000", "http://localhost:3050"];
+
+    this.app.use(
+      cors({
+        origin: corsOrigins,
+        credentials: true,
+      }),
+    );
     this.app.use(express.json({ limit: "5mb" }));
     this.app.use(express.urlencoded({ extended: true, limit: "5mb" }));
 

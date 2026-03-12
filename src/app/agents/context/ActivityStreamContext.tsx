@@ -23,6 +23,7 @@ import {
 } from "react";
 import type { Activity } from "@/types/activity";
 import { useProfile } from "@/app/profile-context";
+import { apiUrl } from "@/lib/api-client";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -83,7 +84,7 @@ export function ActivityStreamProvider({
 
     const currentProfile = profileIdRef.current;
     const es = new EventSource(
-      `/api/stream?profile=${encodeURIComponent(currentProfile)}`,
+      apiUrl(`/api/stream?profile=${encodeURIComponent(currentProfile)}`),
     );
     eventSourceRef.current = es;
 

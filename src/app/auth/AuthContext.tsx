@@ -13,7 +13,7 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
-import { setUnauthorizedHandler } from "@/lib/api-client";
+import { setUnauthorizedHandler, apiFetch } from "@/lib/api-client";
 
 interface AuthUser {
   username: string;
@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const checkAuth = useCallback(async () => {
     try {
-      const res = await fetch("/api/auth/me", { credentials: "include" });
+      const res = await apiFetch("/api/auth/me");
       const data = await res.json();
 
       if (res.ok && data.success) {
@@ -62,10 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
-      await fetch("/api/auth/logout", {
-        method: "POST",
-        credentials: "include",
-      });
+      await apiFetch("/api/auth/logout", { method: "POST" });
     } catch {
       // ignore
     }

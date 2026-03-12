@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useProfile } from "@/app/profile-context";
+import { apiFetch } from "@/lib/api-client";
 import {
   Card,
   CardContent,
@@ -91,7 +92,7 @@ export default function ActivityDetail() {
         const profileParam = activeProfile?.id
           ? `?profile=${encodeURIComponent(activeProfile.id)}`
           : "";
-        const response = await fetch(`/api/activities/${id}${profileParam}`);
+        const response = await apiFetch(`/api/activities/${id}${profileParam}`);
         if (!response.ok) {
           if (response.status === 404) throw new Error("Activity not found");
           throw new Error(`Failed: ${response.statusText}`);
