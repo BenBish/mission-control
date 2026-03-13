@@ -62,6 +62,7 @@ const MOCK_RUNS_RESPONSE = JSON.stringify({
 let mockShouldFail = false;
 let mockJobsResponse = MOCK_JOBS_RESPONSE;
 let mockRunsResponse = MOCK_RUNS_RESPONSE;
+let lastExecArgs: string[] = [];
 
 /**
  * Fake execFileAsync that returns mock responses based on the CLI args.
@@ -71,6 +72,7 @@ const fakeExecFileAsync = async (
   args: string[],
   opts?: any,
 ): Promise<{ stdout: string; stderr: string }> => {
+  lastExecArgs = args;
   if (mockShouldFail) {
     const err = new Error("CLI not found") as any;
     err.stderr = "command not found: openclaw";
@@ -91,6 +93,7 @@ describe("CronService", () => {
     mockShouldFail = false;
     mockJobsResponse = MOCK_JOBS_RESPONSE;
     mockRunsResponse = MOCK_RUNS_RESPONSE;
+    lastExecArgs = [];
     // Inject the mock
     CronService._setExecFileAsync(fakeExecFileAsync as any);
   });
@@ -450,6 +453,117 @@ describe("CronService", () => {
         expr: "0 * * * *",
       });
       expect(result).toBe("scheduled");
+    });
+  });
+
+  // ==========================================================================
+  // enableJob
+  // ==========================================================================
+
+  describe("enableJob", () => {
+    test("should return true on success", async () => {
+      const result = await CronService.enableJob("job-1");
+      expect(result).toBe(true);
+    });
+
+    test("should call CLI with correct args", async () => {
+      await CronService.enableJob("job-1");
+      expect(lastExecArgs).toContain("cron");
+      expect(lastExecArgs).toContain("enable");
+      expect(lastExecArgs).toContain("--id");
+      expect(lastExecArgs).toContain("job-1");
+    });
+
+    test("should pass gateway args", async () => {
+      await CronService.enableJob("job-1", {
+        gatewayUrl: "https://gw.test",
+        gatewayToken: "tok123",
+      });
+      expect(lastExecArgs).toContain("--url");
+      expect(lastExecArgs).toContain("https://gw.test");
+      expect(lastExecArgs).toContain("--token");
+      expect(lastExecArgs).toContain("tok123");
+    });
+
+    test("should return false on CLI failure", async () => {
+      mockShouldFail = true;
+      const result = await CronService.enableJob("job-1");
+      expect(result).toBe(false);
+    });
+  });
+
+  // ==========================================================================
+  // disableJob
+  // ==========================================================================
+
+  describe("disableJob", () => {
+    test("should return true on success", async () => {
+      const result = await CronService.disableJob("job-1");
+      expect(result).toBe(true);
+    });
+
+    test("should call CLI with correct args", async () => {
+      await CronService.disableJob("job-1");
+      expect(lastExecArgs).toContain("cron");
+      expect(lastExecArgs).toContain("disable");
+      expect(lastExecArgs).toContain("--id");
+      expect(lastExecArgs).toContain("job-1");
+    });
+
+    test("should return false on CLI failure", async () => {
+      mockShouldFail = true;
+      const result = await CronService.disableJob("job-1");
+      expect(result).toBe(false);
+    });
+  });
+
+  // ==========================================================================
+  // runJob
+  // ==========================================================================
+
+  describe("runJob", () => {
+    test("should return true on success", async () => {
+      const result = await CronService.runJob("job-1");
+      expect(result).toBe(true);
+    });
+
+    test("should call CLI with correct args", async () => {
+      await CronService.runJob("job-1");
+      expect(lastExecArgs).toContain("cron");
+      expect(lastExecArgs).toContain("run");
+      expect(lastExecArgs).toContain("--id");
+      expect(lastExecArgs).toContain("job-1");
+    });
+
+    test("should return false on CLI failure", async () => {
+      mockShouldFail = true;
+      const result = await CronService.runJob("job-1");
+      expect(result).toBe(false);
+    });
+  });
+
+  // ==========================================================================
+  // deleteJob
+  // ==========================================================================
+
+  describe("deleteJob", () => {
+    test("should return true on success", async () => {
+      const result = await CronService.deleteJob("job-1");
+      expect(result).toBe(true);
+    });
+
+    test("should call CLI with 'rm' subcommand", async () => {
+      await CronService.deleteJob("job-1");
+      expect(lastExecArgs).toContain("cron");
+      expect(lastExecArgs).toContain("rm");
+      expect(lastExecArgs).toContain("--id");
+      expect(lastExecArgs).toContain("job-1");
+    });
+
+    test("should return false on CLI failure", async () => {
+      mockShouldFail = true;
+      const result = await CronService.deleteJob("job-1");
+      expect(result).toBe(false);
     });
   });
 

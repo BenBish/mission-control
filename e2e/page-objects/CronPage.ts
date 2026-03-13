@@ -51,4 +51,102 @@ export class CronPage extends BasePage {
   getJobRows(): Locator {
     return this.jobsTable.locator("tbody tr");
   }
+
+  // ── Mutation helpers ───────────────────────────────────────────────────────
+
+  /**
+   * Mock a cron mutation endpoint to return a controlled response.
+   * Call before navigating or triggering the action.
+   */
+  async mockMutation(
+    method: "POST" | "DELETE",
+    urlPattern: string | RegExp,
+    response: { status: number; body: object },
+  ) {
+    await this.page.route(urlPattern, (route) => {
+      if (route.request().method() === method) {
+        route.fulfill({
+          status: response.status,
+          contentType: "application/json",
+          body: JSON.stringify(response.body),
+        });
+      } else {
+        route.continue();
+      }
+    });
+  }
+
+  /** Mock enable endpoint for a job */
+  async mockEnable(jobId: string, success = true) {
+    await this.mockMutation(
+      "POST",
+      `**/api/cron/jobs/${jobId}/enable`,
+      success
+        ? { status: 200, body: { success: true, message: "Job enabled" } }
+        : {
+            status: 500,
+            body: { success: false, error: "Failed to enable job" },
+          },
+    );
+  }
+
+  /** Mock disable endpoint for a job */
+  async mockDisable(jobId: string, success = true) {
+    await this.mockMutation(
+      "POST",
+      `**/api/cron/jobs/${jobId}/disable`,
+      success
+        ? { status: 200, body: { success: true, message: "Job disabled" } }
+        : {
+            status: 500,
+            body: { success: false, error: "Failed to disable job" },
+          },
+    );
+  }
+
+  /** Mock run endpoint for a job */
+  async mockRun(jobId: string, success = true) {
+    await this.mockMutation(
+      "POST",
+      `**/api/cron/jobs/${jobId}/run`,
+      success
+        ? { status: 200, body: { success: true, message: "Job triggered" } }
+        : {
+            status: 500,
+            body: { success: false, error: "Failed to trigger job" },
+          },
+    );
+  }
+
+  /** Mock delete endpoint for a job */
+  async mockDelete(jobId: string, success = true) {
+    await this.mockMutation(
+      "DELETE",
+      `**/api/cron/jobs/${jobId}`,
+      success
+        ? { status: 200, body: { success: true, message: "Job deleted" } }
+        : {
+            status: 500,
+            body: { success: false, error: "Failed to delete job" },
+          },
+    );
+  }
+
+  /**
+   * Mock the jobs list endpoint to return a controlled set of jobs.
+   * Useful for testing mutation UI without needing the CLI.
+   */
+  async mockJobsList(jobs: object[]) {
+    await this.page.route("**/api/cron/jobs", (route) => {
+      if (route.request().method() === "GET") {
+        route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ success: true, jobs }),
+        });
+      } else {
+        route.continue();
+      }
+    });
+  }
 }

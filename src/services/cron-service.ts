@@ -43,6 +43,32 @@ function getGatewayArgs(options?: GatewayOptions): string[] {
 }
 
 /**
+ * Run an openclaw CLI command that may not return JSON (mutations).
+ * Returns true on success (exit 0), false on failure.
+ */
+async function runOpenclawCommand(args: string[]): Promise<boolean> {
+  try {
+    await execFileAsync("openclaw", args, {
+      encoding: "utf-8",
+      timeout: 15_000,
+      env: { ...process.env },
+    });
+    return true;
+  } catch (error: unknown) {
+    const err = error as Record<string, unknown>;
+    if (typeof err.stderr === "string" && err.stderr) {
+      console.error("openclaw CLI error:", err.stderr.trim());
+    } else {
+      console.error(
+        "Failed to run openclaw CLI:",
+        error instanceof Error ? error.message : error,
+      );
+    }
+    return false;
+  }
+}
+
+/**
  * Run an openclaw CLI command and return parsed JSON output.
  * Uses async execFile to avoid blocking the event loop.
  * Falls back to null on any error (CLI not installed, gateway down, etc.)
@@ -291,6 +317,67 @@ export class CronService {
       return `in ~${Math.round(hours / 24)}d`;
     }
     return "scheduled";
+  }
+
+  static async enableJob(
+    id: string,
+    gateway?: GatewayOptions,
+  ): Promise<boolean> {
+    const gatewayArgs = getGatewayArgs(gateway);
+    const success = await runOpenclawCommand([
+      "cron",
+      "enable",
+      "--id",
+      id,
+      ...gatewayArgs,
+    ]);
+    if (success) this.clearCache();
+    return success;
+  }
+
+  static async disableJob(
+    id: string,
+    gateway?: GatewayOptions,
+  ): Promise<boolean> {
+    const gatewayArgs = getGatewayArgs(gateway);
+    const success = await runOpenclawCommand([
+      "cron",
+      "disable",
+      "--id",
+      id,
+      ...gatewayArgs,
+    ]);
+    if (success) this.clearCache();
+    return success;
+  }
+
+  static async runJob(id: string, gateway?: GatewayOptions): Promise<boolean> {
+    const gatewayArgs = getGatewayArgs(gateway);
+    const success = await runOpenclawCommand([
+      "cron",
+      "run",
+      "--id",
+      id,
+      ...gatewayArgs,
+    ]);
+    if (success) this.clearCache();
+    return success;
+  }
+
+  static async deleteJob(
+    id: string,
+    gateway?: GatewayOptions,
+  ): Promise<boolean> {
+    const gatewayArgs = getGatewayArgs(gateway);
+    const success = await runOpenclawCommand([
+      "cron",
+      "rm",
+      "--id",
+      id,
+      ...gatewayArgs,
+    ]);
+    if (success) this.clearCache();
+    return success;
   }
 
   static clearCache(): void {

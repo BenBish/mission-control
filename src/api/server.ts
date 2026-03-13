@@ -22,10 +22,17 @@ import { SessionLogScanner } from "../services/session-log-scanner.js";
 import { CostLinker } from "../services/cost-linker.js";
 import { initializePricing } from "../types/pricing.js";
 
+// Preserve command-line env vars before dotenv loads
+// (Playwright passes PORT=3051, etc as command-line arguments)
+const cliEnvVars = { ...process.env };
+
 // Load environment variables from .env file
-// override: true ensures dotenv wins over Bun's built-in .env loader,
-// which incorrectly expands $ in values like argon2 hashes.
+// override: true ensures dotenv wins over Bun's .env loader, but we restore
+// CLI vars afterward to maintain precedence.
 dotenv.config({ override: true });
+
+// Restore command-line env vars (they take precedence over .env)
+Object.assign(process.env, cliEnvVars);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
