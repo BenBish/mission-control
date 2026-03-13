@@ -718,6 +718,23 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         }
       }
 
+      // Remap actorCosts keys to display names with emoji
+      const resolvedActorCosts: Record<
+        string,
+        { cost: number; tokens: number; actions: number }
+      > = {};
+      for (const [actorId, stats] of Object.entries(actorCosts)) {
+        const { displayName, emoji } = resolveActorDisplayName(actorId);
+        const label = `${emoji} ${displayName}`;
+        if (resolvedActorCosts[label]) {
+          resolvedActorCosts[label].cost += stats.cost;
+          resolvedActorCosts[label].tokens += stats.tokens;
+          resolvedActorCosts[label].actions += stats.actions;
+        } else {
+          resolvedActorCosts[label] = { ...stats };
+        }
+      }
+
       // Include LLM generation data if available (scoped by profile)
       let generationSummary = null;
       try {
@@ -736,7 +753,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
             generationSummary.totalOutputTokens
           : totalTokens,
         activityCount: activities.length,
-        actorCosts,
+        actorCosts: resolvedActorCosts,
         toolCosts,
         generationSummary,
       });
