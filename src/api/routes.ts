@@ -90,20 +90,16 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
   // ============================================================================
 
   /**
-   * Compute agent status based on last activity time and action count
+   * Compute agent status based on last activity time
    * Used consistently across both /api/agents and /api/agents/:id endpoints
    */
-  function computeAgentStatus(
-    lastActiveDate: Date,
-    actionCount: number,
-  ): Agent["status"] {
+  function computeAgentStatus(lastActiveDate: Date): Agent["status"] {
     const now = new Date();
     const diffMs = now.getTime() - lastActiveDate.getTime();
     const diffMins = diffMs / 60000;
 
     if (diffMins < 5) return "online";
     if (diffMins < 30) return "idle";
-    if (actionCount > 0) return "busy";
     return "offline";
   }
 
@@ -806,7 +802,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         );
       }
 
-      // Count active actors (online or busy) using the same logic as /api/agents
+      // Count active actors (online) using the same logic as /api/agents
       let activeActors = 0;
       let totalAgents = 0;
       try {
@@ -818,11 +814,10 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         for (const agent of fsAgents) {
           const agentStats = statsMap.get(toActorId(agent.id));
           const lastActive = agentStats?.lastActive || "";
-          const actionCount = agentStats?.actionCount || 0;
           const status = lastActive
-            ? computeAgentStatus(new Date(lastActive), actionCount)
+            ? computeAgentStatus(new Date(lastActive))
             : "offline";
-          if (status === "online" || status === "busy") {
+          if (status === "online") {
             activeActors++;
           }
         }
@@ -1260,9 +1255,8 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
       const agents = fsAgents.map((agent) => {
         const stats = statsMap.get(toActorId(agent.id));
         const lastActive = stats?.lastActive || "";
-        const actionCount = stats?.actionCount || 0;
         const status = lastActive
-          ? computeAgentStatus(new Date(lastActive), actionCount)
+          ? computeAgentStatus(new Date(lastActive))
           : "offline";
 
         return {
@@ -1315,9 +1309,8 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
       const statsMap = await buildActivityStatsMap(profileFilter);
       const stats = statsMap.get(toActorId(agentId));
       const lastActive = stats?.lastActive || "";
-      const actionCount = stats?.actionCount || 0;
       const status = lastActive
-        ? computeAgentStatus(new Date(lastActive), actionCount)
+        ? computeAgentStatus(new Date(lastActive))
         : "offline";
 
       const detail: AgentDetail = {

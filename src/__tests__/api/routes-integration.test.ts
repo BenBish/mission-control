@@ -483,8 +483,8 @@ describe("Agent status computation", () => {
     const { body } = await get("/api/agents");
     const agent = body.agents.find((a: any) => a.id === "test-agent");
     if (agent) {
-      // With 1 action and > 30 min ago, should be "busy" (actionCount > 0)
-      expect(["busy", "offline"]).toContain(agent.status);
+      // With > 30 min ago, should be "offline"
+      expect(agent.status).toBe("offline");
     }
   });
 });
