@@ -305,6 +305,20 @@ export default function AgentDetail() {
               </div>
             </CardContent>
           </Card>
+          {agent.skills && agent.skills.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Skills</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-wrap gap-2">
+                {agent.skills.map((skill) => (
+                  <Badge key={skill} variant="secondary">
+                    {skill}
+                  </Badge>
+                ))}
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {/* SOUL.md Tab */}
