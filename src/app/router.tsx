@@ -11,6 +11,7 @@ const CostBreakdown = lazy(() => import("@/pages/CostBreakdown"));
 const AgentsPage = lazy(() => import("@/app/agents/page"));
 const AgentDetail = lazy(() => import("@/app/agents/pages/AgentDetail"));
 const SkillsPage = lazy(() => import("@/app/skills/page"));
+const SkillDetail = lazy(() => import("@/app/skills/pages/SkillDetail"));
 const CronPage = lazy(() =>
   import("@/app/cron/page").then((m) => ({ default: m.CronPage })),
 );
@@ -56,6 +57,10 @@ export const router = createBrowserRouter([
       {
         path: "skills",
         element: withSuspense(SkillsPage),
+      },
+      {
+        path: "skills/:id",
+        element: withSuspense(SkillDetail),
       },
       {
         path: "cron",
