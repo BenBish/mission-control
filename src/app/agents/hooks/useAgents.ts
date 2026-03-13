@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { apiFetch } from "@/lib/api-client";
 import type {
   Agent,
   AgentDetail,
@@ -25,7 +26,7 @@ export function useAgents(profileId?: string): UseAgentsResult {
       const url = profileId
         ? `/api/agents?profile=${encodeURIComponent(profileId)}`
         : "/api/agents";
-      const response = await fetch(url);
+      const response = await apiFetch(url);
       if (!response.ok) {
         throw new Error(`Failed to fetch agents: ${response.statusText}`);
       }
@@ -76,7 +77,7 @@ export function useAgent(id: string, profileId?: string): UseAgentResult {
         const url = profileId
           ? `/api/agents/${id}?profile=${encodeURIComponent(profileId)}`
           : `/api/agents/${id}`;
-        const response = await fetch(url, {
+        const response = await apiFetch(url, {
           signal: abortController.signal,
         });
         if (!response.ok) {
