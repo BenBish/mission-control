@@ -356,7 +356,7 @@ describe("ORC-35 Integration Tests", () => {
     // Should still be online — computeAgentStatus uses diffMins which will be
     // negative for future timestamps, but the route passes it to Date constructor.
     // The key assertion: no crash, no "Invalid Date", status is reasonable.
-    expect(["online", "busy", "idle", "offline"]).toContain(engineer.status);
+    expect(["online", "idle", "offline"]).toContain(engineer.status);
     expect(new Date(engineer.lastActive).toString()).not.toBe("Invalid Date");
 
     // formatLastActive handles future timestamps as "Just now"
