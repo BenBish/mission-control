@@ -520,8 +520,13 @@ describe("GET /api/cost-report", () => {
     });
 
     const { body } = await get("/api/cost-report");
-    expect(body.actorCosts["agent-1"]).toBeTruthy();
-    expect(body.actorCosts["agent-1"].cost).toBe(0.05);
+    // actorCosts keys are now resolved display names (e.g. "🤖 Agent 1"), not raw IDs
+    const actorEntries = Object.entries(body.actorCosts);
+    expect(actorEntries.length).toBeGreaterThan(0);
+    const actorStats = actorEntries.find(
+      ([, stats]: any) => stats.cost === 0.05,
+    );
+    expect(actorStats).toBeTruthy();
     expect(body.toolCosts["exec"]).toBeTruthy();
     expect(body.toolCosts["exec"].count).toBe(1);
   });
