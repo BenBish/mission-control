@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Card,
@@ -68,17 +68,45 @@ export default function DashboardPage() {
   const [recentActivities, setRecentActivities] = useState<Activity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const statsRefreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const refreshStats = useCallback(() => {
+    if (statsRefreshTimer.current) clearTimeout(statsRefreshTimer.current);
+    statsRefreshTimer.current = setTimeout(async () => {
+      try {
+        const res = await apiFetch(
+          `/api/stats?profile=${encodeURIComponent(profileId)}`,
+        );
+        if (res.ok) {
+          const data: StatsResponse = await res.json();
+          if (data.success) setStats(data.stats);
+        }
+      } catch {
+        // silent — don't show error for background refresh
+      }
+    }, 2000);
+  }, [profileId]);
 
   // Handle real-time activity events from the profile-scoped SSE stream
-  const onActivity = useCallback((activity: Activity) => {
-    setRecentActivities((prev) => {
-      // Prepend new activity, deduplicate, and keep only the 5 most recent
-      const exists = prev.some((a) => a.id === activity.id);
-      const updated = exists
-        ? prev.map((a) => (a.id === activity.id ? activity : a))
-        : [activity, ...prev];
-      return updated.slice(0, 5);
-    });
+  const onActivity = useCallback(
+    (activity: Activity) => {
+      setRecentActivities((prev) => {
+        // Prepend new activity, deduplicate, and keep only the 5 most recent
+        const exists = prev.some((a) => a.id === activity.id);
+        const updated = exists
+          ? prev.map((a) => (a.id === activity.id ? activity : a))
+          : [activity, ...prev];
+        return updated.slice(0, 5);
+      });
+      refreshStats();
+    },
+    [refreshStats],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (statsRefreshTimer.current) clearTimeout(statsRefreshTimer.current);
+    };
   }, []);
 
   useSSE(profileId, { onActivity });
