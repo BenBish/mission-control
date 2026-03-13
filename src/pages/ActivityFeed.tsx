@@ -14,6 +14,7 @@ import { Loading } from "@/components/_shared/Loading";
 import type { Activity } from "@/types/activity";
 import { useProfile } from "@/app/profile-context";
 import { useSSE } from "@/hooks/useSSE";
+import { apiFetch } from "@/lib/api-client";
 import {
   List,
   ArrowRight,
@@ -61,7 +62,7 @@ export default function ActivityFeed() {
       setIsLoading(true);
       setError(null);
       try {
-        const response = await fetch(
+        const response = await apiFetch(
           `/api/activities?limit=100&profile=${encodeURIComponent(profileId)}`,
         );
         if (!response.ok) {
