@@ -1,5 +1,6 @@
 /**
- * Agent Types
+ * Frontend Agent types. For backend service types see types/agents.ts.
+ * Keep both files in sync when adding fields to the API response.
  */
 
 export interface Agent {
@@ -12,6 +13,9 @@ export interface Agent {
   sessionCount: number;
   totalCost: number;
   totalTokens: number;
+  skills?: string[];
+  gitAuthorName?: string;
+  gitAuthorEmail?: string;
 }
 
 export interface AgentDetail extends Agent {
