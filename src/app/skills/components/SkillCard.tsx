@@ -3,6 +3,7 @@
  * Display skill information with agent access badges and category
  */
 
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Skill } from "@/types/skills";
 
@@ -11,8 +12,12 @@ interface SkillCardProps {
 }
 
 export function SkillCard({ skill }: SkillCardProps) {
+  const navigate = useNavigate();
   return (
-    <Card className="hover:shadow-md transition-shadow duration-200">
+    <Card
+      className="hover:shadow-md transition-shadow duration-200 cursor-pointer"
+      onClick={() => navigate(`/skills/${skill.id}`)}
+    >
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
           <CardTitle className="text-base font-semibold leading-tight">
