@@ -360,7 +360,7 @@ export default function CostBreakdown() {
               <Users className="h-5 w-5 text-primary" />
               Cost by Actor
             </CardTitle>
-            <CardDescription>Cost breakdown by actor ID</CardDescription>
+            <CardDescription>Cost breakdown by actor</CardDescription>
           </CardHeader>
           <CardContent className="pt-4 px-0">
             <div className="overflow-x-auto">
