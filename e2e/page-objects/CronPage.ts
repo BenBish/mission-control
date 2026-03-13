@@ -83,7 +83,10 @@ export class CronPage extends BasePage {
       `**/api/cron/jobs/${jobId}/enable`,
       success
         ? { status: 200, body: { success: true, message: "Job enabled" } }
-        : { status: 500, body: { success: false, error: "Failed to enable job" } },
+        : {
+            status: 500,
+            body: { success: false, error: "Failed to enable job" },
+          },
     );
   }
 
@@ -94,7 +97,10 @@ export class CronPage extends BasePage {
       `**/api/cron/jobs/${jobId}/disable`,
       success
         ? { status: 200, body: { success: true, message: "Job disabled" } }
-        : { status: 500, body: { success: false, error: "Failed to disable job" } },
+        : {
+            status: 500,
+            body: { success: false, error: "Failed to disable job" },
+          },
     );
   }
 
@@ -105,7 +111,10 @@ export class CronPage extends BasePage {
       `**/api/cron/jobs/${jobId}/run`,
       success
         ? { status: 200, body: { success: true, message: "Job triggered" } }
-        : { status: 500, body: { success: false, error: "Failed to trigger job" } },
+        : {
+            status: 500,
+            body: { success: false, error: "Failed to trigger job" },
+          },
     );
   }
 
@@ -116,7 +125,10 @@ export class CronPage extends BasePage {
       `**/api/cron/jobs/${jobId}`,
       success
         ? { status: 200, body: { success: true, message: "Job deleted" } }
-        : { status: 500, body: { success: false, error: "Failed to delete job" } },
+        : {
+            status: 500,
+            body: { success: false, error: "Failed to delete job" },
+          },
     );
   }
 
