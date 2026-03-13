@@ -83,33 +83,33 @@ export function useCronMutations(jobId: string, profileId?: string) {
   const [isLoadingRuns, setIsLoadingRuns] = useState(true);
   const [errorRuns, setErrorRuns] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchRuns = async () => {
-      try {
-        setIsLoadingRuns(true);
-        const profileParam = profileId
-          ? `&profile=${encodeURIComponent(profileId)}`
-          : "";
-        const response = await apiFetch(
-          `/api/cron/jobs/${jobId}/runs?limit=20${profileParam}`,
-        );
-        const data = await response.json();
+  const fetchRuns = useCallback(async () => {
+    try {
+      setIsLoadingRuns(true);
+      const profileParam = profileId
+        ? `&profile=${encodeURIComponent(profileId)}`
+        : "";
+      const response = await apiFetch(
+        `/api/cron/jobs/${jobId}/runs?limit=20${profileParam}`,
+      );
+      const data = await response.json();
 
-        if (data.success) {
-          setRuns(data.runs);
-          setErrorRuns(null);
-        } else {
-          setErrorRuns(data.error || "Failed to fetch runs");
-        }
-      } catch (err) {
-        setErrorRuns(err instanceof Error ? err.message : "Unknown error");
-      } finally {
-        setIsLoadingRuns(false);
+      if (data.success) {
+        setRuns(data.runs);
+        setErrorRuns(null);
+      } else {
+        setErrorRuns(data.error || "Failed to fetch runs");
       }
-    };
-
-    fetchRuns();
+    } catch (err) {
+      setErrorRuns(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setIsLoadingRuns(false);
+    }
   }, [jobId, profileId]);
+
+  useEffect(() => {
+    fetchRuns();
+  }, [fetchRuns]);
 
   const profileParam = profileId
     ? `?profile=${encodeURIComponent(profileId)}`
@@ -154,11 +154,14 @@ export function useCronMutations(jobId: string, profileId?: string) {
         },
       );
       const data = await response.json();
+      if (data.success) {
+        setTimeout(() => fetchRuns(), 1000);
+      }
       return data.success;
     } catch {
       return false;
     }
-  }, [jobId, profileParam]);
+  }, [jobId, profileParam, fetchRuns]);
 
   const deleteJob = useCallback(async () => {
     try {
@@ -183,5 +186,6 @@ export function useCronMutations(jobId: string, profileId?: string) {
     disableJob,
     runNow,
     deleteJob,
+    refetchRuns: fetchRuns,
   };
 }
