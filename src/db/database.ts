@@ -830,4 +830,134 @@ export class Database {
       sessions: sessions?.count || 0,
     };
   }
+
+  /**
+   * Get detailed DB stats for settings page
+   */
+  async getSettingsStats(): Promise<{
+    totalActivities: number;
+    hotActivities: number;
+    warmActivities: number;
+    coldActivities: number;
+    totalSessions: number;
+    totalGenerations: number;
+    profileStats: Array<{
+      profileId: string;
+      activityCount: number;
+      lastActivity: string | null;
+    }>;
+    scanState: {
+      lastScanTime: string | null;
+      filesTracked: number;
+      generationsScanned: number;
+    };
+  }> {
+    if (!this.db) throw new Error("Database not initialized");
+
+    const now = new Date();
+    const hotCutoff = new Date(
+      now.getTime() - 7 * 24 * 60 * 60 * 1000,
+    ).toISOString();
+    const warmCutoff = new Date(
+      now.getTime() - 90 * 24 * 60 * 60 * 1000,
+    ).toISOString();
+
+    const [
+      totalActivities,
+      hotActivities,
+      warmActivities,
+      coldActivities,
+      totalSessions,
+      totalGenerations,
+      profileStats,
+      scanStats,
+      scanCount,
+    ] = await Promise.all([
+      this.db
+        .get<{ count: number }>("SELECT COUNT(*) as count FROM activities")
+        .then((r) => r?.count || 0),
+      this.db
+        .get<{
+          count: number;
+        }>(
+          "SELECT COUNT(*) as count FROM activities WHERE timestamp >= ?",
+          hotCutoff,
+        )
+        .then((r) => r?.count || 0),
+      this.db
+        .get<{
+          count: number;
+        }>(
+          "SELECT COUNT(*) as count FROM activities WHERE timestamp >= ? AND timestamp < ?",
+          warmCutoff,
+          hotCutoff,
+        )
+        .then((r) => r?.count || 0),
+      this.db
+        .get<{
+          count: number;
+        }>(
+          "SELECT COUNT(*) as count FROM activities WHERE timestamp < ?",
+          warmCutoff,
+        )
+        .then((r) => r?.count || 0),
+      this.db
+        .get<{ count: number }>("SELECT COUNT(*) as count FROM sessions")
+        .then((r) => r?.count || 0),
+      this.db
+        .get<{ count: number }>("SELECT COUNT(*) as count FROM llm_generations")
+        .then((r) => r?.count || 0),
+      this.db.all<{
+        profile_id: string;
+        cnt: number;
+        last: string | null;
+      }>(
+        "SELECT profile_id, COUNT(*) as cnt, MAX(timestamp) as last FROM activities GROUP BY profile_id",
+      ),
+      this.db.get<{ last_scan: string | null }>(
+        "SELECT MAX(last_scanned_at) as last_scan FROM scan_state",
+      ),
+      this.db.get<{ files: number }>(
+        "SELECT COUNT(*) as files FROM scan_state",
+      ),
+    ]);
+
+    return {
+      totalActivities,
+      hotActivities,
+      warmActivities,
+      coldActivities,
+      totalSessions,
+      totalGenerations,
+      profileStats: profileStats.map((r) => ({
+        profileId: r.profile_id,
+        activityCount: r.cnt,
+        lastActivity: r.last,
+      })),
+      scanState: {
+        lastScanTime: scanStats?.last_scan || null,
+        filesTracked: scanCount?.files || 0,
+        generationsScanned: totalGenerations,
+      },
+    };
+  }
+
+  /**
+   * Delete activities older than a given timestamp
+   */
+  async deleteActivitiesBefore(cutoff: string): Promise<number> {
+    if (!this.db) throw new Error("Database not initialized");
+    const result = await this.db.run(
+      "DELETE FROM activities WHERE timestamp < ?",
+      cutoff,
+    );
+    return result.changes || 0;
+  }
+
+  /**
+   * Get database file path
+   */
+  getDbPath(): string {
+    return this.dbPath;
+  }
 }

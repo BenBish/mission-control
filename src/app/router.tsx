@@ -16,6 +16,7 @@ const CronPage = lazy(() =>
   import("@/app/cron/page").then((m) => ({ default: m.CronPage })),
 );
 const PermissionsPage = lazy(() => import("@/app/permissions/page"));
+const SettingsPage = lazy(() => import("@/app/settings/page"));
 
 function withSuspense(Component: React.ComponentType) {
   return (
@@ -84,11 +85,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "settings",
-        element: (
-          <div className="flex h-full items-center justify-center">
-            <p className="text-muted-foreground">Settings page (coming soon)</p>
-          </div>
-        ),
+        element: withSuspense(SettingsPage),
       },
       {
         path: "*",
