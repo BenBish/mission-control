@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Card,
@@ -9,6 +9,14 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { PageHeader } from "@/components/_shared/PageHeader";
 import { Loading } from "@/components/_shared/Loading";
 import type { Activity } from "@/types/activity";
@@ -23,6 +31,10 @@ import {
   XCircle,
   Clock,
   BarChart3,
+  ChevronLeft,
+  ChevronRight,
+  RefreshCw,
+  X,
 } from "lucide-react";
 
 interface ActivitiesResponse {
@@ -31,46 +43,150 @@ interface ActivitiesResponse {
   activities: Activity[];
 }
 
+interface Filters {
+  status: string;
+  actionType: string;
+  actorId: string;
+  toolName: string;
+  startTime: string;
+  endTime: string;
+}
+
+const EMPTY_FILTERS: Filters = {
+  status: "",
+  actionType: "",
+  actorId: "",
+  toolName: "",
+  startTime: "",
+  endTime: "",
+};
+
+const PAGE_SIZE = 50;
+
+const STATUS_OPTIONS = ["success", "failure", "pending", "partial"];
+const ACTION_TYPE_OPTIONS = [
+  "tool_call",
+  "delegation",
+  "api_call",
+  "decision",
+  "message",
+  "event",
+  "user_request",
+  "agent_spawn",
+  "session_start",
+  "session_end",
+];
+
 export default function ActivityFeed() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+  const [debouncedFilters, setDebouncedFilters] =
+    useState<Filters>(EMPTY_FILTERS);
+  const [page, setPage] = useState(1);
+  const [resultCount, setResultCount] = useState(0);
+  const [hasNewActivity, setHasNewActivity] = useState(false);
   const navigate = useNavigate();
   const { profileId } = useProfile();
+  const debounceTimer = useRef<ReturnType<typeof setTimeout>>(null);
+
+  const hasActiveFilters = useMemo(
+    () => Object.values(debouncedFilters).some((v) => v !== ""),
+    [debouncedFilters],
+  );
+
+  // Debounce text inputs (actorId, toolName) by 300ms; apply others immediately
+  const updateFilter = useCallback(
+    (key: keyof Filters, value: string) => {
+      const next = { ...filters, [key]: value };
+      setFilters(next);
+
+      if (key === "actorId" || key === "toolName") {
+        if (debounceTimer.current) clearTimeout(debounceTimer.current);
+        debounceTimer.current = setTimeout(() => {
+          setDebouncedFilters(next);
+          setPage(1);
+        }, 300);
+      } else {
+        setDebouncedFilters(next);
+        setPage(1);
+      }
+    },
+    [filters],
+  );
+
+  const clearFilters = useCallback(() => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    setFilters(EMPTY_FILTERS);
+    setDebouncedFilters(EMPTY_FILTERS);
+    setPage(1);
+  }, []);
 
   // Handle real-time activity events from the profile-scoped SSE stream
-  const onActivity = useCallback((activity: Activity) => {
-    setActivities((prev) => {
-      const exists = prev.some((a) => a.id === activity.id);
-      const updated = exists
-        ? prev.map((a) => (a.id === activity.id ? activity : a))
-        : [activity, ...prev];
-      // Keep sorted newest-first and cap at 100
-      return updated
-        .sort(
-          (a, b) =>
-            new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
-        )
-        .slice(0, 100);
-    });
-  }, []);
+  const onActivity = useCallback(
+    (activity: Activity) => {
+      if (hasActiveFilters) {
+        setHasNewActivity(true);
+        return;
+      }
+      setActivities((prev) => {
+        const exists = prev.some((a) => a.id === activity.id);
+        const updated = exists
+          ? prev.map((a) => (a.id === activity.id ? activity : a))
+          : [activity, ...prev];
+        return updated
+          .sort(
+            (a, b) =>
+              new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+          )
+          .slice(0, PAGE_SIZE);
+      });
+    },
+    [hasActiveFilters],
+  );
 
   useSSE(profileId, { onActivity });
 
+  // Fetch activities when filters, page, or profile change
   useEffect(() => {
     const fetchActivities = async () => {
       setIsLoading(true);
       setError(null);
+      setHasNewActivity(false);
       try {
-        const response = await apiFetch(
-          `/api/activities?limit=100&profile=${encodeURIComponent(profileId)}`,
-        );
+        const params = new URLSearchParams({
+          limit: String(PAGE_SIZE),
+          offset: String((page - 1) * PAGE_SIZE),
+          profile: profileId,
+        });
+        if (debouncedFilters.status)
+          params.set("status", debouncedFilters.status);
+        if (debouncedFilters.actionType)
+          params.set("actionType", debouncedFilters.actionType);
+        if (debouncedFilters.actorId)
+          params.set("actorId", debouncedFilters.actorId);
+        if (debouncedFilters.toolName)
+          params.set("toolName", debouncedFilters.toolName);
+        if (debouncedFilters.startTime)
+          params.set(
+            "startTime",
+            new Date(debouncedFilters.startTime).toISOString(),
+          );
+        if (debouncedFilters.endTime)
+          params.set(
+            "endTime",
+            new Date(debouncedFilters.endTime).toISOString(),
+          );
+
+        const response = await apiFetch(`/api/activities?${params}`);
         if (!response.ok) {
           throw new Error(`Failed to fetch activities: ${response.statusText}`);
         }
         const data: ActivitiesResponse = await response.json();
         if (data.success) {
           setActivities(data.activities);
+          setResultCount(data.count);
         } else {
           throw new Error("API returned unsuccessful response");
         }
@@ -82,7 +198,7 @@ export default function ActivityFeed() {
     };
 
     fetchActivities();
-  }, [profileId]);
+  }, [profileId, page, debouncedFilters]);
 
   const formatTimestamp = (timestamp: string) => {
     const date = new Date(timestamp);
@@ -159,17 +275,15 @@ export default function ActivityFeed() {
     navigate(`/activities/${id}`);
   };
 
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <PageHeader
-          title="Activity Feed"
-          description="View all system activities and events"
-        />
-        <Loading />
-      </div>
-    );
-  }
+  const handleRefreshBanner = () => {
+    setHasNewActivity(false);
+    setPage(1);
+    setDebouncedFilters({ ...debouncedFilters });
+  };
+
+  const offset = (page - 1) * PAGE_SIZE;
+  const showingFrom = activities.length > 0 ? offset + 1 : 0;
+  const showingTo = offset + activities.length;
 
   if (error) {
     return (
@@ -200,6 +314,127 @@ export default function ActivityFeed() {
         description="View all system activities and events"
       />
 
+      {/* Filter bar */}
+      <Card className="shadow-sm">
+        <CardContent className="py-4">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">
+                Status
+              </label>
+              <Select
+                value={filters.status || "all"}
+                onValueChange={(v) =>
+                  updateFilter("status", v === "all" ? "" : v)
+                }
+              >
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  {STATUS_OPTIONS.map((s) => (
+                    <SelectItem key={s} value={s} className="capitalize">
+                      {s}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">
+                Action Type
+              </label>
+              <Select
+                value={filters.actionType || "all"}
+                onValueChange={(v) =>
+                  updateFilter("actionType", v === "all" ? "" : v)
+                }
+              >
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  {ACTION_TYPE_OPTIONS.map((a) => (
+                    <SelectItem key={a} value={a}>
+                      {a}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">
+                Actor
+              </label>
+              <Input
+                placeholder="Filter by actor..."
+                value={filters.actorId}
+                onChange={(e) => updateFilter("actorId", e.target.value)}
+                className="w-[160px]"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">
+                Tool
+              </label>
+              <Input
+                placeholder="Filter by tool..."
+                value={filters.toolName}
+                onChange={(e) => updateFilter("toolName", e.target.value)}
+                className="w-[160px]"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">
+                From
+              </label>
+              <Input
+                type="date"
+                value={filters.startTime}
+                onChange={(e) => updateFilter("startTime", e.target.value)}
+                className="w-[150px]"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">
+                To
+              </label>
+              <Input
+                type="date"
+                value={filters.endTime}
+                onChange={(e) => updateFilter("endTime", e.target.value)}
+                className="w-[150px]"
+              />
+            </div>
+
+            {hasActiveFilters && (
+              <Button variant="ghost" size="sm" onClick={clearFilters}>
+                <X className="h-4 w-4 mr-1" />
+                Clear Filters
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* New activity banner */}
+      {hasNewActivity && (
+        <div
+          className="flex items-center justify-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-400 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-950/50 transition-colors"
+          onClick={handleRefreshBanner}
+        >
+          <RefreshCw className="h-4 w-4" />
+          New activity — click to refresh
+        </div>
+      )}
+
       <Card className="shadow-sm">
         <CardHeader className="pb-4 border-b">
           <div className="flex items-center justify-between">
@@ -212,14 +447,20 @@ export default function ActivityFeed() {
               </CardTitle>
               <CardDescription>
                 <Badge variant="outline" className="font-normal">
-                  {activities.length} activities found
+                  {resultCount > PAGE_SIZE
+                    ? `Showing ${showingFrom}–${showingTo} of ${resultCount}`
+                    : `${resultCount} activities`}
                 </Badge>
               </CardDescription>
             </div>
           </div>
         </CardHeader>
         <CardContent className="pt-0 px-0">
-          {activities.length === 0 ? (
+          {isLoading ? (
+            <div className="py-12">
+              <Loading />
+            </div>
+          ) : activities.length === 0 ? (
             <p className="text-center text-sm text-muted-foreground py-12">
               No activities found. Activities will appear here when the system
               processes events.
@@ -328,6 +569,35 @@ export default function ActivityFeed() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {/* Pagination */}
+          {!isLoading && activities.length > 0 && (
+            <div className="flex items-center justify-between border-t px-4 py-3">
+              <span className="text-sm text-muted-foreground">
+                Showing {showingFrom}–{showingTo}
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => p - 1)}
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={activities.length < PAGE_SIZE}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>

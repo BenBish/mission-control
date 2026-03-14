@@ -40,7 +40,7 @@ test.describe("Activity Feed", () => {
     const rows = feed.getRows();
     const rowCount = await rows.count();
     expect(rowCount).toBeGreaterThan(0);
-    expect(rowCount).toBeLessThanOrEqual(100);
+    expect(rowCount).toBeLessThanOrEqual(50);
 
     const firstRow = rows.first();
 

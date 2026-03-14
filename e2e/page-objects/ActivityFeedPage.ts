@@ -17,7 +17,11 @@ export class ActivityFeedPage extends BasePage {
       level: 1,
     });
     this.table = page.locator("table");
-    this.activityCountBadge = page.getByText(/\d+ activities found/);
+    // Target the count badge specifically (inside CardDescription, not the pagination span)
+    this.activityCountBadge = page
+      .locator("div[class*='card'] span, div[class*='card'] div")
+      .getByText(/\d+ activities/)
+      .first();
   }
 
   async goto() {
@@ -42,9 +46,13 @@ export class ActivityFeedPage extends BasePage {
     return this.table.locator("tbody tr");
   }
 
-  /** Get the count from the "N activities found" badge */
+  /** Get the count from the activity count badge ("N activities" or "Showing X–Y of N") */
   async getActivityCount(): Promise<number> {
     const text = (await this.activityCountBadge.textContent()) ?? "";
+    // Match "Showing X–Y of N" format first, extracting total N
+    const showingMatch = text.match(/of\s+(\d+)/);
+    if (showingMatch) return parseInt(showingMatch[1], 10);
+    // Fall back to "N activities" format
     const match = text.match(/(\d+)/);
     return match ? parseInt(match[1], 10) : 0;
   }
