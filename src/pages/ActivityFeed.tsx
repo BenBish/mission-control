@@ -23,6 +23,7 @@ import type { Activity } from "@/types/activity";
 import { useProfile } from "@/app/profile-context";
 import { useSSE } from "@/hooks/useSSE";
 import { apiFetch } from "@/lib/api-client";
+import { Link } from "react-router-dom";
 import {
   List,
   ArrowRight,
@@ -483,6 +484,9 @@ export default function ActivityFeed() {
                       Tool
                     </th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Session
+                    </th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                       Status
                     </th>
                     <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -533,6 +537,19 @@ export default function ActivityFeed() {
                           <span className="font-mono text-xs">
                             {activity.toolName}
                           </span>
+                        ) : (
+                          <span className="text-muted-foreground/50">—</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-sm">
+                        {activity.sessionId ? (
+                          <Link
+                            to={`/sessions/${activity.sessionId}`}
+                            className="font-mono text-xs text-primary hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {activity.sessionId.slice(0, 8)}...
+                          </Link>
                         ) : (
                           <span className="text-muted-foreground/50">—</span>
                         )}

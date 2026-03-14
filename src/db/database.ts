@@ -286,6 +286,43 @@ export class Database {
   }
 
   /**
+   * Get paginated list of sessions, optionally filtered by profile
+   */
+  async getSessions(options?: {
+    profileId?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ sessions: any[]; total: number }> {
+    if (!this.db) throw new Error("Database not initialized");
+
+    let countSql = "SELECT COUNT(*) as total FROM sessions WHERE 1=1";
+    let sql = "SELECT * FROM sessions WHERE 1=1";
+    const values: any[] = [];
+    const countValues: any[] = [];
+
+    if (options?.profileId) {
+      sql += " AND profile_id = ?";
+      countSql += " AND profile_id = ?";
+      values.push(options.profileId);
+      countValues.push(options.profileId);
+    }
+
+    sql += " ORDER BY start_time DESC";
+
+    const limit = options?.limit ?? 50;
+    const offset = options?.offset ?? 0;
+    sql += " LIMIT ? OFFSET ?";
+    values.push(limit, offset);
+
+    const [rows, countRow] = await Promise.all([
+      this.db.all<any[]>(sql, ...values),
+      this.db.get<{ total: number }>(countSql, ...countValues),
+    ]);
+
+    return { sessions: rows, total: countRow?.total ?? 0 };
+  }
+
+  /**
    * Get the profile_id that owns a session. Returns null if the session
    * doesn't exist.
    */

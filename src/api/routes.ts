@@ -567,6 +567,34 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
   }
 
   /**
+   * GET /api/sessions
+   * List sessions with pagination
+   */
+  app.get("/api/sessions", async (req: Request, res: Response) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const offset = req.query.offset
+        ? parseInt(req.query.offset as string)
+        : 0;
+
+      const db = logger.getDatabase();
+      const profileId = req.profileId !== "all" ? req.profileId : undefined;
+      const { sessions, total } = await db.getSessions({
+        profileId,
+        limit,
+        offset,
+      });
+
+      res.json({ success: true, sessions, total });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  /**
    * GET /api/sessions/:id
    * Get session summary and statistics
    */

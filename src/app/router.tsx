@@ -10,6 +10,8 @@ const ActivityDetail = lazy(() => import("@/pages/ActivityDetail"));
 const CostBreakdown = lazy(() => import("@/pages/CostBreakdown"));
 const AgentsPage = lazy(() => import("@/app/agents/page"));
 const AgentDetail = lazy(() => import("@/app/agents/pages/AgentDetail"));
+const SessionsPage = lazy(() => import("@/app/sessions/page"));
+const SessionDetail = lazy(() => import("@/app/sessions/pages/SessionDetail"));
 const SkillsPage = lazy(() => import("@/app/skills/page"));
 const SkillDetail = lazy(() => import("@/app/skills/pages/SkillDetail"));
 const CronPage = lazy(() =>
@@ -45,6 +47,14 @@ export const router = createBrowserRouter([
       {
         path: "costs",
         element: withSuspense(CostBreakdown),
+      },
+      {
+        path: "sessions",
+        element: withSuspense(SessionsPage),
+      },
+      {
+        path: "sessions/:id",
+        element: withSuspense(SessionDetail),
       },
       {
         path: "agents",

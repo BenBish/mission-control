@@ -31,6 +31,7 @@ export const TEST_URLS = {
 export const NAV_ITEMS = [
   { label: "Dashboard", path: "/" },
   { label: "Activities", path: "/activities" },
+  { label: "Sessions", path: "/sessions" },
   { label: "Agents", path: "/agents" },
   { label: "Cost Breakdown", path: "/costs" },
   { label: "Skills", path: "/skills" },
