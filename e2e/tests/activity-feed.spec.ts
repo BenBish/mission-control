@@ -29,6 +29,7 @@ test.describe("Activity Feed", () => {
         "Actor",
         "Action",
         "Tool",
+        "Session",
         "Status",
         "Tokens",
         "Cost",
@@ -56,22 +57,23 @@ test.describe("Activity Feed", () => {
     const action = firstRow.locator("td").nth(2);
     await expect(action).not.toBeEmpty();
 
-    // Status column (index 4) — should have a status text
-    const status = firstRow.locator("td").nth(4);
+    // Status column (index 5) — should have a status text
+    const status = firstRow.locator("td").nth(5);
     const statusText = await status.textContent();
     expect(statusText).toMatch(/success|failure|pending/i);
   });
 
   test("clicking a row navigates to activity detail", async ({ page }) => {
-    await feed.clickRow(0);
+    // Click on the Time cell (index 0) to avoid hitting the Session link
+    await feed.getRows().first().locator("td").nth(0).click();
     await page.waitForURL(/\/activities\/activity-e2e-/);
     expect(page.url()).toContain("/activities/activity-e2e-");
   });
 
   test("rows show cost values with dollar sign", async () => {
     const rows = feed.getRows();
-    // Cost is column 6
-    const costCell = rows.first().locator("td").nth(6);
+    // Cost is column 7
+    const costCell = rows.first().locator("td").nth(7);
     const costText = await costCell.textContent();
     // Cost should contain a dollar amount or be a dash
     expect(costText?.trim()).toMatch(/\$[\d.]+|^—$/);
@@ -79,8 +81,8 @@ test.describe("Activity Feed", () => {
 
   test("rows show token counts as numbers", async () => {
     const rows = feed.getRows();
-    // Tokens is column 5
-    const tokenCell = rows.first().locator("td").nth(5);
+    // Tokens is column 6
+    const tokenCell = rows.first().locator("td").nth(6);
     const tokenText = await tokenCell.textContent();
     // Should be a number or a dash
     expect(tokenText?.trim()).toMatch(/^[\d,]+|—$/);

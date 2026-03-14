@@ -13,6 +13,7 @@ import {
   Bot,
   Wrench,
   Clock,
+  History,
   Shield,
   LogOut,
 } from "lucide-react";
@@ -26,6 +27,7 @@ import { ProfileSelector } from "@/components/_shared/ProfileSelector";
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/activities", icon: List, label: "Activities" },
+  { to: "/sessions", icon: History, label: "Sessions" },
   { to: "/agents", icon: Bot, label: "Agents" },
   { to: "/costs", icon: DollarSign, label: "Cost Breakdown" },
   { to: "/skills", icon: Wrench, label: "Skills" },
