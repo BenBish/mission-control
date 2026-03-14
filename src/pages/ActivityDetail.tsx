@@ -14,6 +14,8 @@ import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/_shared/PageHeader";
 import { Loading } from "@/components/_shared/Loading";
 import { Separator } from "@/components/ui/separator";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import type { Activity } from "@/types/activity";
 import {
   ArrowLeft,
@@ -43,31 +45,18 @@ interface ActivityResponse {
 
 function JsonDisplay({ data }: { data: unknown }) {
   const jsonString = JSON.stringify(data, null, 2);
-  const syntaxHighlight = (json: string) => {
-    return json
-      .replace(
-        /"(.*?)":/g,
-        '<span class="text-purple-600 dark:text-purple-400">"$1"</span>:',
-      )
-      .replace(
-        /: "(.*?)"/g,
-        ': <span class="text-green-600 dark:text-green-400">"$1"</span>',
-      )
-      .replace(
-        /: (true|false)/g,
-        ': <span class="text-blue-600 dark:text-blue-400">$1</span>',
-      )
-      .replace(
-        /: (\d+)/g,
-        ': <span class="text-amber-600 dark:text-amber-400">$1</span>',
-      )
-      .replace(/: (null)/g, ': <span class="text-gray-500">$1</span>');
-  };
   return (
-    <pre
-      className="rounded-lg bg-slate-950 dark:bg-slate-950 p-4 text-xs overflow-x-auto font-mono leading-relaxed border border-slate-800"
-      dangerouslySetInnerHTML={{ __html: syntaxHighlight(jsonString) }}
-    />
+    <SyntaxHighlighter
+      language="json"
+      style={oneDark}
+      customStyle={{
+        borderRadius: "0.5rem",
+        fontSize: "0.75rem",
+        margin: 0,
+      }}
+    >
+      {jsonString}
+    </SyntaxHighlighter>
   );
 }
 
