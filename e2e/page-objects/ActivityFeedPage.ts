@@ -18,7 +18,10 @@ export class ActivityFeedPage extends BasePage {
     });
     this.table = page.locator("table");
     // Target the count badge specifically (inside CardDescription, not the pagination span)
-    this.activityCountBadge = page.locator("div[class*='card'] span, div[class*='card'] div").getByText(/\d+ activities/).first();
+    this.activityCountBadge = page
+      .locator("div[class*='card'] span, div[class*='card'] div")
+      .getByText(/\d+ activities/)
+      .first();
   }
 
   async goto() {
