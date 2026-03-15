@@ -551,6 +551,156 @@ export class Database {
   }
 
   // ============================================================================
+  // FAILURE ANALYSIS
+  // ============================================================================
+
+  /**
+   * Get failure statistics: totals, by-tool, by-actor, and daily trend
+   */
+  async getFailureStats(filter: {
+    profileId?: string;
+    startTime?: string;
+    endTime?: string;
+  }): Promise<{
+    totals: { totalFailures: number; failureRate: number };
+    byTool: Array<{
+      tool: string;
+      failures: number;
+      rate: number;
+      lastFailed: string;
+    }>;
+    byActor: Array<{
+      actor: string;
+      failures: number;
+      lastFailed: string;
+    }>;
+    daily: Array<{ date: string; failures: number; total: number }>;
+  }> {
+    if (!this.db) throw new Error("Database not initialized");
+
+    let where = "WHERE 1=1";
+    const vals: any[] = [];
+    if (filter.profileId) {
+      where += " AND profile_id = ?";
+      vals.push(filter.profileId);
+    }
+    if (filter.startTime) {
+      where += " AND timestamp >= ?";
+      vals.push(filter.startTime);
+    }
+    if (filter.endTime) {
+      where += " AND timestamp <= ?";
+      vals.push(filter.endTime);
+    }
+
+    // Totals
+    const totalsRow = await this.db.get<any>(
+      `SELECT
+        SUM(CASE WHEN status = 'failure' THEN 1 ELSE 0 END) as total_failures,
+        COUNT(*) as total_all
+      FROM activities ${where}`,
+      ...vals,
+    );
+    const totalFailures = totalsRow?.total_failures ?? 0;
+    const totalAll = totalsRow?.total_all ?? 0;
+    const failureRate =
+      totalAll > 0 ? Math.round((totalFailures / totalAll) * 1000) / 10 : 0;
+
+    // By tool
+    const byTool = await this.db.all<any[]>(
+      `SELECT
+        a.tool_name as tool,
+        COUNT(*) as failures,
+        ROUND(100.0 * COUNT(*) / NULLIF((
+          SELECT COUNT(*) FROM activities b
+          WHERE b.tool_name = a.tool_name
+            ${filter.profileId ? "AND b.profile_id = ?" : ""}
+            ${filter.startTime ? "AND b.timestamp >= ?" : ""}
+            ${filter.endTime ? "AND b.timestamp <= ?" : ""}
+        ), 0), 1) as rate,
+        MAX(a.timestamp) as last_failed
+      FROM activities a
+      WHERE a.status = 'failure'
+        AND a.tool_name IS NOT NULL
+        ${filter.profileId ? "AND a.profile_id = ?" : ""}
+        ${filter.startTime ? "AND a.timestamp >= ?" : ""}
+        ${filter.endTime ? "AND a.timestamp <= ?" : ""}
+      GROUP BY a.tool_name
+      ORDER BY failures DESC
+      LIMIT 20`,
+      ...[
+        // subquery params
+        ...(filter.profileId ? [filter.profileId] : []),
+        ...(filter.startTime ? [filter.startTime] : []),
+        ...(filter.endTime ? [filter.endTime] : []),
+        // outer params
+        ...(filter.profileId ? [filter.profileId] : []),
+        ...(filter.startTime ? [filter.startTime] : []),
+        ...(filter.endTime ? [filter.endTime] : []),
+      ],
+    );
+
+    // By actor
+    const byActor = await this.db.all<any[]>(
+      `SELECT
+        actor_id as actor,
+        COUNT(*) as failures,
+        MAX(timestamp) as last_failed
+      FROM activities
+      WHERE status = 'failure'
+        ${filter.profileId ? "AND profile_id = ?" : ""}
+        ${filter.startTime ? "AND timestamp >= ?" : ""}
+        ${filter.endTime ? "AND timestamp <= ?" : ""}
+      GROUP BY actor_id
+      ORDER BY failures DESC
+      LIMIT 20`,
+      ...[
+        ...(filter.profileId ? [filter.profileId] : []),
+        ...(filter.startTime ? [filter.startTime] : []),
+        ...(filter.endTime ? [filter.endTime] : []),
+      ],
+    );
+
+    // Daily trend (last 30 days or within range)
+    const dailyWhere = filter.startTime
+      ? where
+      : `${where} AND timestamp >= DATE('now', '-30 days')`;
+    const dailyVals = filter.startTime ? vals : [...vals];
+
+    const daily = await this.db.all<any[]>(
+      `SELECT
+        DATE(timestamp) as date,
+        SUM(CASE WHEN status = 'failure' THEN 1 ELSE 0 END) as failures,
+        COUNT(*) as total
+      FROM activities
+      ${dailyWhere}
+      GROUP BY DATE(timestamp)
+      ORDER BY date ASC`,
+      ...dailyVals,
+    );
+
+    return {
+      totals: { totalFailures, failureRate },
+      byTool: byTool.map((r) => ({
+        tool: r.tool,
+        failures: r.failures,
+        rate: r.rate ?? 0,
+        lastFailed: r.last_failed,
+      })),
+      byActor: byActor.map((r) => ({
+        actor: r.actor,
+        failures: r.failures,
+        lastFailed: r.last_failed,
+      })),
+      daily: daily.map((r) => ({
+        date: r.date,
+        failures: r.failures,
+        total: r.total,
+      })),
+    };
+  }
+
+  // ============================================================================
   // LLM GENERATION OPERATIONS
   // ============================================================================
 

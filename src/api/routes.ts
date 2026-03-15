@@ -796,6 +796,49 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
   });
 
   /**
+   * GET /api/failures
+   * Get failure analysis statistics (by tool, actor, daily trend)
+   */
+  app.get("/api/failures", async (req: Request, res: Response) => {
+    try {
+      const db = logger.getDatabase();
+      const profileId = req.profileId !== "all" ? req.profileId : undefined;
+      const startTime = req.query.startTime as string | undefined;
+      const endTime = req.query.endTime as string | undefined;
+
+      const stats = await db.getFailureStats({
+        profileId,
+        startTime,
+        endTime,
+      });
+
+      // Fetch recent failures for the table
+      const recentFailures = await db.getActivities({
+        profileId,
+        status: "failure",
+        startTime,
+        endTime,
+        limit: 20,
+      });
+
+      for (const activity of recentFailures) {
+        enrichActivityActor(activity);
+      }
+
+      res.json({
+        success: true,
+        ...stats,
+        recentFailures,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  /**
    * GET /api/stats
    * Get overall system statistics
    */
