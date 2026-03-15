@@ -7,6 +7,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/_shared/PageHeader";
 import { Loading } from "@/components/_shared/Loading";
 import {
@@ -19,6 +20,7 @@ import {
   Zap,
   TrendingUp,
   PieChart,
+  Calendar,
 } from "lucide-react";
 import { useProfile } from "@/app/profile-context";
 import { apiFetch } from "@/lib/api-client";
@@ -66,6 +68,55 @@ interface CostByModel {
   tokens: number;
 }
 
+type DatePreset = "today" | "7d" | "30d" | "all" | "custom";
+
+function getDateRange(preset: DatePreset): {
+  startTime?: string;
+  endTime?: string;
+} {
+  if (preset === "all" || preset === "custom") return {};
+  const now = new Date();
+  const end = now.toISOString();
+  if (preset === "today") {
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+    return { startTime: start.toISOString(), endTime: end };
+  }
+  const days = preset === "7d" ? 7 : 30;
+  const start = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+  return { startTime: start.toISOString(), endTime: end };
+}
+
+function formatDateLabel(
+  preset: DatePreset,
+  customFrom?: string,
+  customTo?: string,
+): string {
+  const fmt = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
+
+  if (preset === "custom") {
+    if (customFrom && customTo) {
+      return `Showing: Custom (${fmt(customFrom)} \u2013 ${fmt(customTo)})`;
+    }
+    if (customFrom) return `Showing: Custom (from ${fmt(customFrom)})`;
+    if (customTo) return `Showing: Custom (until ${fmt(customTo)})`;
+    return "Showing: All time";
+  }
+
+  const range = getDateRange(preset);
+  if (!range.startTime) return "Showing: All time";
+
+  const labels: Record<string, string> = {
+    today: "Today",
+    "7d": "Last 7 days",
+    "30d": "Last 30 days",
+  };
+  return `Showing: ${labels[preset]} (${fmt(range.startTime)} \u2013 ${fmt(range.endTime!)})`;
+}
+
 function CostBar({
   value,
   max,
@@ -92,15 +143,37 @@ export default function CostBreakdown() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [datePreset, setDatePreset] = useState<DatePreset>("30d");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
 
   const fetchCostStats = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const profileParam = activeProfile?.id
-        ? `?profile=${encodeURIComponent(activeProfile.id)}`
-        : "";
-      const response = await apiFetch(`/api/cost-report${profileParam}`);
+      const params = new URLSearchParams();
+      if (activeProfile?.id)
+        params.set("profile", encodeURIComponent(activeProfile.id));
+
+      if (datePreset === "custom") {
+        if (customFrom) {
+          const start = new Date(customFrom);
+          start.setHours(0, 0, 0, 0);
+          params.set("startTime", start.toISOString());
+        }
+        if (customTo) {
+          const end = new Date(customTo);
+          end.setHours(23, 59, 59, 999);
+          params.set("endTime", end.toISOString());
+        }
+      } else {
+        const range = getDateRange(datePreset);
+        if (range.startTime) params.set("startTime", range.startTime);
+        if (range.endTime) params.set("endTime", range.endTime);
+      }
+
+      const qs = params.toString() ? `?${params.toString()}` : "";
+      const response = await apiFetch(`/api/cost-report${qs}`);
       if (!response.ok) throw new Error(`Failed: ${response.statusText}`);
       const data: CostStats = await response.json();
       if (data.success) setCostStats(data);
@@ -111,7 +184,7 @@ export default function CostBreakdown() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [activeProfile?.id]);
+  }, [activeProfile?.id, datePreset, customFrom, customTo]);
 
   useEffect(() => {
     fetchCostStats();
@@ -158,6 +231,14 @@ export default function CostBreakdown() {
       ? 0
       : (cacheTokens / (inputTokens + cacheTokens)) * 100;
   })();
+
+  const presets: { label: string; value: DatePreset }[] = [
+    { label: "Today", value: "today" },
+    { label: "Last 7 days", value: "7d" },
+    { label: "Last 30 days", value: "30d" },
+    { label: "All time", value: "all" },
+    { label: "Custom", value: "custom" },
+  ];
 
   if (isLoading || isSwitching)
     return (
@@ -207,6 +288,63 @@ export default function CostBreakdown() {
           />
           Refresh
         </Button>
+      </div>
+      {/* Date range presets */}
+      <div className="space-y-3">
+        <div className="flex flex-wrap gap-2">
+          {presets.map((p) => (
+            <Button
+              key={p.value}
+              variant={datePreset === p.value ? "default" : "outline"}
+              size="sm"
+              onClick={() => setDatePreset(p.value)}
+            >
+              {p.label}
+            </Button>
+          ))}
+        </div>
+        {datePreset === "custom" && (
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <label
+                htmlFor="cost-date-from"
+                className="text-sm text-muted-foreground"
+              >
+                From
+              </label>
+              <Input
+                id="cost-date-from"
+                type="date"
+                value={customFrom}
+                onChange={(e) => setCustomFrom(e.target.value)}
+                className="w-40"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <label
+                htmlFor="cost-date-to"
+                className="text-sm text-muted-foreground"
+              >
+                To
+              </label>
+              <Input
+                id="cost-date-to"
+                type="date"
+                value={customTo}
+                onChange={(e) => setCustomTo(e.target.value)}
+                className="w-40"
+              />
+            </div>
+          </div>
+        )}
+        <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+          <Calendar className="h-3.5 w-3.5" />
+          {formatDateLabel(
+            datePreset,
+            customFrom ? new Date(customFrom).toISOString() : undefined,
+            customTo ? new Date(customTo).toISOString() : undefined,
+          )}
+        </p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="overflow-hidden border-l-4 border-l-emerald-500">
