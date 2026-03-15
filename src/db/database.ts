@@ -551,6 +551,46 @@ export class Database {
   }
 
   // ============================================================================
+  // DAILY STATS
+  // ============================================================================
+
+  /**
+   * Get daily aggregated stats for activity volume and cost trends
+   */
+  async getDailyStats(filter: { profileId?: string; days?: number }): Promise<
+    Array<{
+      date: string;
+      activities: number;
+      successCount: number;
+      failureCount: number;
+      successRate: number;
+      cost: number;
+      tokens: number;
+    }>
+  > {
+    if (!this.db) throw new Error("Database not initialized");
+
+    const days = filter.days ?? 30;
+    return this.db.all(
+      `SELECT
+        DATE(timestamp) as date,
+        COUNT(*) as activities,
+        SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as successCount,
+        SUM(CASE WHEN status = 'failure' THEN 1 ELSE 0 END) as failureCount,
+        ROUND(100.0 * SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) / COUNT(*), 1) as successRate,
+        COALESCE(SUM(cost_usd), 0) as cost,
+        COALESCE(SUM(total_tokens), 0) as tokens
+      FROM activities
+      WHERE profile_id = ?
+        AND timestamp >= DATE('now', '-' || ? || ' days')
+      GROUP BY DATE(timestamp)
+      ORDER BY date ASC`,
+      filter.profileId ?? "default",
+      days,
+    );
+  }
+
+  // ============================================================================
   // FAILURE ANALYSIS
   // ============================================================================
 

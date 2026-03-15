@@ -845,6 +845,23 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
   });
 
   /**
+   * GET /api/stats/daily
+   * Get daily aggregated stats for trend charts
+   */
+  app.get("/api/stats/daily", async (req: Request, res: Response) => {
+    try {
+      const profileId = req.profileId;
+      const days = req.query.days ? parseInt(req.query.days as string) : 30;
+      const db = logger.getDatabase();
+      const data = await db.getDailyStats({ profileId, days });
+      res.json({ success: true, days: data });
+    } catch (err) {
+      console.error("Error fetching daily stats:", err);
+      res.status(500).json({ success: false, error: "Internal server error" });
+    }
+  });
+
+  /**
    * GET /api/stats
    * Get overall system statistics
    */

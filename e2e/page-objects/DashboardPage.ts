@@ -67,18 +67,28 @@ export class DashboardPage extends BasePage {
     return this.page.getByRole("button", { name: "View All" });
   }
 
-  /** Click "View Activity Feed" quick action */
-  async clickViewActivityFeed() {
-    await this.page
-      .getByRole("button", { name: /View Activity Feed/i })
-      .click();
+  /** Get the Activity Volume chart card */
+  getActivityVolumeCard(): Locator {
+    return this.page.locator("div").filter({
+      has: this.page.getByRole("heading", { name: "Activity Volume" }),
+    });
   }
 
-  /** Click "View Cost Breakdown" quick action */
-  async clickViewCostBreakdown() {
+  /** Get the Daily Cost chart card */
+  getDailyCostCard(): Locator {
+    return this.page.locator("div").filter({
+      has: this.page.getByRole("heading", { name: "Daily Cost" }),
+    });
+  }
+
+  /** Wait for chart containers to render (SVGs inside recharts) */
+  async waitForCharts() {
     await this.page
-      .getByRole("button", { name: /View Cost Breakdown/i })
-      .click();
+      .getByRole("heading", { name: "Activity Volume" })
+      .waitFor({ state: "visible" });
+    await this.page
+      .getByRole("heading", { name: "Daily Cost" })
+      .waitFor({ state: "visible" });
   }
 
   /** Check if the empty state message is visible */
