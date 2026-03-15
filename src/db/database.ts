@@ -17,6 +17,7 @@ import { AgentStats } from "../types/agents.js";
 import { v7 as uuidv7 } from "uuid";
 import { runMigrations as runSchemaMigrations } from "./migration-runner.js";
 import migration001 from "./migrations/001-add-profile-id.js";
+import migration002 from "./migrations/002-backfill-sessions.js";
 
 export class Database {
   private db: SqliteDatabase | null = null;
@@ -49,7 +50,7 @@ export class Database {
     }
 
     // Run versioned migrations (ALTER TABLE, backfills, etc.)
-    await runSchemaMigrations(this.db, [migration001]);
+    await runSchemaMigrations(this.db, [migration001, migration002]);
   }
 
   /**
@@ -89,6 +90,17 @@ export class Database {
       ...input,
       profileId,
     };
+
+    // Auto-create session stub if it doesn't exist
+    if (activity.sessionId) {
+      await this.db.run(
+        `INSERT OR IGNORE INTO sessions (id, profile_id, start_time)
+         VALUES (?, ?, ?)`,
+        activity.sessionId,
+        profileId,
+        activity.timestamp,
+      );
+    }
 
     await this.db.run(
       `INSERT INTO activities (
@@ -296,18 +308,30 @@ export class Database {
     if (!this.db) throw new Error("Database not initialized");
 
     let countSql = "SELECT COUNT(*) as total FROM sessions WHERE 1=1";
-    let sql = "SELECT * FROM sessions WHERE 1=1";
+    let sql = `SELECT
+      s.id,
+      s.profile_id,
+      s.start_time,
+      s.end_time,
+      COALESCE(s.total_actions, (SELECT COUNT(*) FROM activities a WHERE a.session_id = s.id)) as total_actions,
+      COALESCE(s.success_count, (SELECT COUNT(*) FROM activities a WHERE a.session_id = s.id AND a.status = 'success')) as success_count,
+      COALESCE(s.failure_count, (SELECT COUNT(*) FROM activities a WHERE a.session_id = s.id AND a.status = 'failure')) as failure_count,
+      COALESCE(s.total_cost_usd, 0) as total_cost_usd,
+      COALESCE(s.total_tokens, 0) as total_tokens,
+      s.actors_json,
+      s.top_tools_json
+    FROM sessions s WHERE 1=1`;
     const values: any[] = [];
     const countValues: any[] = [];
 
     if (options?.profileId) {
-      sql += " AND profile_id = ?";
+      sql += " AND s.profile_id = ?";
       countSql += " AND profile_id = ?";
       values.push(options.profileId);
       countValues.push(options.profileId);
     }
 
-    sql += " ORDER BY start_time DESC";
+    sql += " ORDER BY s.start_time DESC";
 
     const limit = options?.limit ?? 50;
     const offset = options?.offset ?? 0;
