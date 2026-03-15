@@ -226,6 +226,83 @@ describe("API Routes", () => {
       expect(agent1Activities.length).toBeGreaterThan(0);
       expect(agent2Activities.length).toBeGreaterThan(0);
     });
+
+    test("should filter activities by startTime and endTime", async () => {
+      // Create an activity (timestamp will be now)
+      const activityId = await logger.logToolStart(
+        "test-session",
+        { type: "subagent", id: "agent-1" },
+        "exec",
+        {},
+        "Recent activity",
+      );
+      await logger.logToolWithTokens(activityId, {
+        inputTokens: 1000,
+        outputTokens: 500,
+        totalTokens: 1500,
+        model: "openrouter/anthropic/claude-haiku-4.5",
+      });
+
+      // Query with a time range that includes now
+      const now = new Date();
+      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+      const filtered = await db.getActivities({
+        startTime: oneHourAgo.toISOString(),
+        endTime: now.toISOString(),
+      });
+      expect(filtered.length).toBeGreaterThan(0);
+
+      // Query with a time range in the past — should return nothing
+      const farPast = new Date("2020-01-01T00:00:00Z");
+      const farPastEnd = new Date("2020-01-02T00:00:00Z");
+      const empty = await db.getActivities({
+        startTime: farPast.toISOString(),
+        endTime: farPastEnd.toISOString(),
+      });
+      expect(empty.length).toBe(0);
+    });
+
+    test("should filter generation summary by startTime and endTime", async () => {
+      // Insert a generation with a known timestamp
+      const timestamp = new Date().toISOString();
+      await db.upsertGeneration({
+        id: "gen-date-filter-1",
+        sessionLogFile: "/path/to/session.jsonl",
+        sessionLogMsgId: "msg-date-1",
+        agentId: "agent-1",
+        timestamp,
+        model: "openrouter/anthropic/claude-haiku-4.5",
+        inputTokens: 1000,
+        outputTokens: 500,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 1500,
+        costInput: 0.001,
+        costOutput: 0.002,
+        costCacheRead: 0,
+        costTotal: 0.003,
+      });
+
+      // Query with time range including now
+      const now = new Date();
+      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+      const summary = await db.getGenerationSummary({
+        startTime: oneHourAgo.toISOString(),
+        endTime: now.toISOString(),
+      });
+      expect(summary.totalGenerations).toBeGreaterThan(0);
+      expect(summary.totalCost).toBeGreaterThan(0);
+
+      // Query with time range in the past — should return zeros
+      const farPast = new Date("2020-01-01T00:00:00Z");
+      const farPastEnd = new Date("2020-01-02T00:00:00Z");
+      const emptySummary = await db.getGenerationSummary({
+        startTime: farPast.toISOString(),
+        endTime: farPastEnd.toISOString(),
+      });
+      expect(emptySummary.totalGenerations).toBe(0);
+      expect(emptySummary.totalCost).toBe(0);
+    });
   });
 
   describe("Health & Stats Routes", () => {

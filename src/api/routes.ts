@@ -711,9 +711,13 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
   app.get("/api/cost-report", async (req: Request, res: Response) => {
     try {
       const db = logger.getDatabase();
+      const startTime = req.query.startTime as string | undefined;
+      const endTime = req.query.endTime as string | undefined;
       // ?profile=all → cross-profile aggregation (no filter)
       const activities = await db.getActivities({
         profileId: req.profileId !== "all" ? req.profileId : undefined,
+        startTime,
+        endTime,
         limit: MAX_ACTIVITY_LIMIT,
       });
 
@@ -770,6 +774,8 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
       try {
         generationSummary = await db.getGenerationSummary({
           profileId: req.profileId !== "all" ? req.profileId : undefined,
+          startTime,
+          endTime,
         });
       } catch {
         // Generation tables may not exist yet

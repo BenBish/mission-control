@@ -108,4 +108,34 @@ export class CostBreakdownPage extends BasePage {
   async hasError(): Promise<boolean> {
     return this.page.getByText("Error").isVisible();
   }
+
+  /** Get a date preset button by label */
+  getPresetButton(label: string): Locator {
+    return this.page.getByRole("button", { name: label, exact: true });
+  }
+
+  /** Click a date preset button */
+  async selectPreset(label: string) {
+    await this.getPresetButton(label).click();
+  }
+
+  /** Get the active range label text */
+  async getRangeLabel(): Promise<string> {
+    return (
+      (await this.page.locator("text=Showing:").textContent()) ?? ""
+    ).trim();
+  }
+
+  /** Check if the custom date inputs are visible */
+  async hasCustomDateInputs(): Promise<boolean> {
+    const from = this.page.locator("#cost-date-from");
+    const to = this.page.locator("#cost-date-to");
+    return (await from.isVisible()) && (await to.isVisible());
+  }
+
+  /** Fill custom date range */
+  async fillCustomRange(from: string, to: string) {
+    await this.page.locator("#cost-date-from").fill(from);
+    await this.page.locator("#cost-date-to").fill(to);
+  }
 }
