@@ -3,6 +3,8 @@
  * Express routes for activity feed endpoints
  */
 
+import fs from "fs";
+import path from "path";
 import { Express, Request, Response } from "express";
 import { ActivityLogger } from "../logger/activity-logger.js";
 import {
@@ -1805,6 +1807,156 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         success: false,
         error: error.message,
       });
+    }
+  });
+
+  // ============================================================================
+  // SETTINGS ENDPOINTS
+  // ============================================================================
+
+  /**
+   * GET /api/settings
+   * Returns current config, DB stats, profiles, and scan state
+   */
+  app.get("/api/settings", async (_req: Request, res: Response) => {
+    try {
+      const db = logger.getDatabase();
+      const dbPath = db.getDbPath();
+      const stats = await db.getSettingsStats();
+
+      let fileSizeBytes = 0;
+      try {
+        fileSizeBytes = fs.statSync(dbPath).size;
+      } catch {
+        // DB file may not exist yet
+      }
+
+      // Build profiles with names from profile-service
+      const discoveredProfiles = await getProfiles();
+      const profiles = stats.profileStats.map((ps) => {
+        const discovered = discoveredProfiles.find(
+          (p) => p.id === ps.profileId,
+        );
+        return {
+          id: ps.profileId,
+          name: discovered?.name || ps.profileId,
+          basePath: discovered?.stateDir || "",
+          activityCount: ps.activityCount,
+          lastActivity: ps.lastActivity,
+        };
+      });
+
+      res.json({
+        success: true,
+        config: {
+          retentionHotDays: parseInt(process.env.RETENTION_HOT_DAYS || "7", 10),
+          retentionWarmDays: parseInt(
+            process.env.RETENTION_WARM_DAYS || "90",
+            10,
+          ),
+          maxOutputSize: parseInt(process.env.MAX_OUTPUT_SIZE || "5000", 10),
+          apiPort: parseInt(process.env.PORT || "3001", 10),
+          dbPath,
+          nodeVersion: process.version,
+        },
+        dbStats: {
+          fileSizeBytes,
+          totalActivities: stats.totalActivities,
+          hotActivities: stats.hotActivities,
+          warmActivities: stats.warmActivities,
+          coldActivities: stats.coldActivities,
+          totalSessions: stats.totalSessions,
+          totalGenerations: stats.totalGenerations,
+        },
+        profiles,
+        scanState: stats.scanState,
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  /**
+   * POST /api/settings/retention
+   * Update retention configuration values
+   */
+  app.post("/api/settings/retention", async (req: Request, res: Response) => {
+    try {
+      const { hotDays, warmDays, maxOutputSize } = req.body;
+
+      if (hotDays !== undefined) {
+        process.env.RETENTION_HOT_DAYS = String(hotDays);
+      }
+      if (warmDays !== undefined) {
+        process.env.RETENTION_WARM_DAYS = String(warmDays);
+      }
+      if (maxOutputSize !== undefined) {
+        process.env.MAX_OUTPUT_SIZE = String(maxOutputSize);
+      }
+
+      // Persist to .env file if it exists
+      const envPath = path.resolve(".env");
+      if (fs.existsSync(envPath)) {
+        let envContent = fs.readFileSync(envPath, "utf-8");
+        const updates: Record<string, string> = {};
+        if (hotDays !== undefined)
+          updates["RETENTION_HOT_DAYS"] = String(hotDays);
+        if (warmDays !== undefined)
+          updates["RETENTION_WARM_DAYS"] = String(warmDays);
+        if (maxOutputSize !== undefined)
+          updates["MAX_OUTPUT_SIZE"] = String(maxOutputSize);
+
+        for (const [key, value] of Object.entries(updates)) {
+          const regex = new RegExp(`^${key}=.*$`, "m");
+          if (regex.test(envContent)) {
+            envContent = envContent.replace(regex, `${key}=${value}`);
+          } else {
+            envContent += `\n${key}=${value}`;
+          }
+        }
+        fs.writeFileSync(envPath, envContent);
+      }
+
+      res.json({ success: true, message: "Retention settings updated" });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  /**
+   * POST /api/settings/cleanup
+   * Trigger immediate retention cleanup
+   */
+  app.post("/api/settings/cleanup", async (_req: Request, res: Response) => {
+    try {
+      // Retention cleanup: delete activities older than warm retention period
+      const db = logger.getDatabase();
+      const warmDays = parseInt(process.env.RETENTION_WARM_DAYS || "90", 10);
+      const cutoff = new Date(
+        Date.now() - warmDays * 24 * 60 * 60 * 1000,
+      ).toISOString();
+
+      const result = await db.deleteActivitiesBefore(cutoff);
+      res.json({
+        success: true,
+        message: `Cleanup complete. Removed ${result} old activities.`,
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  /**
+   * POST /api/settings/reset-scan
+   * Clear scan_state table for full rescan
+   */
+  app.post("/api/settings/reset-scan", async (_req: Request, res: Response) => {
+    try {
+      const db = logger.getDatabase();
+      await db.resetScanState();
+      res.json({ success: true, message: "Scan state cleared" });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
     }
   });
 
