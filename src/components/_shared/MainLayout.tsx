@@ -16,6 +16,7 @@ import {
   History,
   Shield,
   LogOut,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -28,6 +29,7 @@ const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/activities", icon: List, label: "Activities" },
   { to: "/sessions", icon: History, label: "Sessions" },
+  { to: "/failures", icon: AlertTriangle, label: "Failures" },
   { to: "/agents", icon: Bot, label: "Agents" },
   { to: "/costs", icon: DollarSign, label: "Cost Breakdown" },
   { to: "/skills", icon: Wrench, label: "Skills" },

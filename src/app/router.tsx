@@ -19,6 +19,7 @@ const CronPage = lazy(() =>
 );
 const PermissionsPage = lazy(() => import("@/app/permissions/page"));
 const SettingsPage = lazy(() => import("@/app/settings/page"));
+const FailureAnalysis = lazy(() => import("@/pages/FailureAnalysis"));
 
 function withSuspense(Component: React.ComponentType) {
   return (
@@ -56,6 +57,10 @@ export const router = createBrowserRouter([
       {
         path: "sessions/:id",
         element: withSuspense(SessionDetail),
+      },
+      {
+        path: "failures",
+        element: withSuspense(FailureAnalysis),
       },
       {
         path: "agents",
