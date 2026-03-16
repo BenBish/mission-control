@@ -35,6 +35,7 @@ describe("Agents API Routes", () => {
       expect(typeof agentServiceProto.readAgents).toBe("function");
       expect(typeof agentServiceProto.readAgent).toBe("function");
       expect(typeof agentServiceProto.readAgentSoul).toBe("function");
+      expect(typeof agentServiceProto.readAgentFullConfig).toBe("function");
       expect(typeof agentServiceProto.getAgentActivity).toBe("function");
       expect(typeof agentServiceProto.getAgentSkills).toBe("function");
     });

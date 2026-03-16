@@ -34,6 +34,17 @@ interface OpenClawAgentEntry {
 }
 
 /**
+ * Full configuration returned by readAgentFullConfig()
+ */
+export interface AgentFullConfig {
+  workspace: string;
+  model?: string;
+  gitConfig?: { author?: string; email?: string };
+  identity?: { name?: string; emoji?: string };
+  skills?: string[];
+}
+
+/**
  * Relevant slice of openclaw.json
  */
 interface OpenClawConfig {
@@ -174,8 +185,17 @@ export class AgentService {
           const agentId = this.extractAgentId(soulFile, basePath);
           const agentConfig = await this.readAgentConfig(soulDir);
 
-          // Look up this agent's config entry from openclaw.json
-          const configEntry = configByAgentId.get(agentId);
+          // Look up this agent's config entry from openclaw.json.
+          // Fallback: extractAgentId() may return the basename of the workspace
+          // dir (e.g. "workspace") while openclaw.json uses a logical id (e.g.
+          // "main"). Match by resolved workspace path when the direct id lookup
+          // misses.
+          const configEntry =
+            configByAgentId.get(agentId) ??
+            [...configByAgentId.values()].find((c) => {
+              const ws = c.workspace ?? c.agentDir;
+              return ws && path.resolve(ws) === path.resolve(soulDir);
+            });
 
           // Resolve model from config entry (may be string or { primary: string })
           const configModel = configEntry?.model
@@ -226,9 +246,9 @@ export class AgentService {
   /**
    * Get raw SOUL.md content for an agent
    */
-  async readAgentSoul(id: string): Promise<string | null> {
-    // Ensure cache is populated
-    await this.readAgents();
+  async readAgentSoul(id: string, profileId?: string): Promise<string | null> {
+    // Ensure cache is populated with the correct profile scope
+    await this.readAgents(profileId);
 
     if (this.soulPathCache && Date.now() < this.soulPathCache.expiry) {
       const soulFile = this.soulPathCache.data.get(id);
@@ -243,6 +263,81 @@ export class AgentService {
     }
 
     return null;
+  }
+
+  /**
+   * Get full agent configuration including workspace path, model, git config,
+   * identity and skills. Combines openclaw.json data with AGENTS.md parsing.
+   */
+  async readAgentFullConfig(
+    id: string,
+    profileId?: string,
+  ): Promise<AgentFullConfig | null> {
+    // Ensure caches are populated
+    await this.readAgents(profileId);
+
+    const openclawConfig = await this.readOpenClawConfig(profileId);
+    const agentsList = openclawConfig?.agents?.list ?? [];
+
+    // Find the config entry — direct id match, then workspace path fallback
+    let configEntry = agentsList.find((e) => e.id === id);
+    if (!configEntry && this.soulPathCache) {
+      const soulFile = this.soulPathCache.data.get(id);
+      if (soulFile) {
+        const soulDir = path.dirname(soulFile);
+        configEntry = agentsList.find((c) => {
+          const ws = c.workspace ?? c.agentDir;
+          return ws && path.resolve(ws) === path.resolve(soulDir);
+        });
+      }
+    }
+
+    // Determine workspace path
+    let workspace: string | undefined;
+    if (configEntry?.workspace) {
+      workspace = configEntry.workspace;
+    } else if (configEntry?.agentDir) {
+      workspace = configEntry.agentDir;
+    } else if (this.soulPathCache) {
+      const soulFile = this.soulPathCache.data.get(id);
+      if (soulFile) {
+        workspace = path.dirname(soulFile);
+      }
+    }
+
+    if (!workspace) return null;
+
+    // Resolve model
+    const model = configEntry?.model
+      ? typeof configEntry.model === "string"
+        ? configEntry.model
+        : configEntry.model.primary
+      : undefined;
+
+    // Read AGENTS.md for git config
+    let gitConfig: { author?: string; email?: string } | undefined;
+    try {
+      const agentsMdPath = path.join(workspace, "AGENTS.md");
+      const content = await fs.readFile(agentsMdPath, "utf-8");
+      const nameMatch = content.match(/GIT_AUTHOR_NAME\s*=\s*(.+)/);
+      const emailMatch = content.match(/GIT_AUTHOR_EMAIL\s*=\s*(.+)/);
+      if (nameMatch || emailMatch) {
+        gitConfig = {
+          author: nameMatch ? nameMatch[1].trim() : undefined,
+          email: emailMatch ? emailMatch[1].trim() : undefined,
+        };
+      }
+    } catch {
+      // AGENTS.md may not exist
+    }
+
+    return {
+      workspace,
+      model,
+      gitConfig,
+      identity: configEntry?.identity,
+      skills: configEntry?.skills,
+    };
   }
 
   /**

@@ -8,6 +8,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { SOULMarkdownViewer } from "../components/SOULMarkdownViewer";
 import { AgentActivityFeed } from "../components/AgentActivityFeed";
+import { AgentConfigPanel } from "../components/AgentConfigPanel";
 import {
   AlertCircle,
   ArrowLeft,
@@ -219,7 +220,7 @@ export default function AgentDetail() {
             SOUL.md
           </TabsTrigger>
           <TabsTrigger value="config" disabled={!agent.config}>
-            Configuration
+            Config
           </TabsTrigger>
         </TabsList>
 
@@ -339,26 +340,17 @@ export default function AgentDetail() {
 
         {/* Configuration Tab */}
         <TabsContent value="config">
-          <Card>
-            <CardHeader>
-              <CardTitle>Agent Configuration</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {agent.config ? (
-                <div className="space-y-4">
-                  <div className="rounded-lg bg-muted p-4">
-                    <pre className="overflow-x-auto text-xs">
-                      {JSON.stringify(agent.config, null, 2)}
-                    </pre>
-                  </div>
-                </div>
-              ) : (
+          {agent.config ? (
+            <AgentConfigPanel agent={agent} profileId={activeProfile?.id} />
+          ) : (
+            <Card>
+              <CardContent className="py-6">
                 <p className="text-muted-foreground">
                   No configuration data available
                 </p>
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
     </div>
