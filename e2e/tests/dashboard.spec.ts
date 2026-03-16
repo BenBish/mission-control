@@ -1,6 +1,6 @@
 /**
  * Dashboard page E2E tests.
- * Tests stat cards, recent activity list, quick actions, and error states.
+ * Tests stat cards, recent activity list, trend charts, and error states.
  */
 
 import { test, expect } from "../fixtures/base.js";
@@ -76,33 +76,36 @@ test.describe("Dashboard", () => {
     expect(page.url()).toContain("/activities");
   });
 
-  test("quick actions section is visible with action buttons", async ({
+  test("shows Activity Volume chart card", async ({ page }) => {
+    await dashboard.waitForCharts();
+
+    await expect(
+      page.getByRole("heading", { name: "Activity Volume" }),
+    ).toBeVisible();
+
+    // Chart should render an SVG (Recharts renders inside a ResponsiveContainer)
+    const card = dashboard.getActivityVolumeCard();
+    await expect(card.locator("svg").first()).toBeVisible();
+  });
+
+  test("shows Daily Cost chart card", async ({ page }) => {
+    await dashboard.waitForCharts();
+
+    await expect(
+      page.getByRole("heading", { name: "Daily Cost" }),
+    ).toBeVisible();
+
+    // Chart should render an SVG
+    const card = dashboard.getDailyCostCard();
+    await expect(card.locator("svg").first()).toBeVisible();
+  });
+
+  test("charts replaced Quick Actions (no Quick Actions card)", async ({
     page,
   }) => {
+    // Quick Actions should NOT exist on the page anymore
     await expect(
       page.getByRole("heading", { name: "Quick Actions" }),
-    ).toBeVisible();
-
-    await expect(
-      page.getByRole("button", { name: /View Activity Feed/i }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: /View Cost Breakdown/i }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: /Open Real-time Stream/i }),
-    ).toBeVisible();
-  });
-
-  test("quick action navigates to activity feed", async ({ page }) => {
-    await dashboard.clickViewActivityFeed();
-    await page.waitForURL("/activities");
-    expect(page.url()).toContain("/activities");
-  });
-
-  test("quick action navigates to cost breakdown", async ({ page }) => {
-    await dashboard.clickViewCostBreakdown();
-    await page.waitForURL("/costs");
-    expect(page.url()).toContain("/costs");
+    ).not.toBeVisible();
   });
 });

@@ -546,6 +546,48 @@ describe("GET /api/stats", () => {
   });
 });
 
+describe("GET /api/stats/daily", () => {
+  test("should return daily aggregated stats", async () => {
+    // Create activities across two "days" (using raw DB for timestamp control)
+    await logger.log({
+      sessionId: "daily-sess",
+      actor: { type: "agent", id: "a1" },
+      actionType: "tool_call",
+      description: "success activity",
+      status: "success",
+    });
+    await logger.log({
+      sessionId: "daily-sess",
+      actor: { type: "agent", id: "a1" },
+      actionType: "tool_call",
+      description: "failure activity",
+      status: "failure",
+    });
+
+    const { status, body } = await get("/api/stats/daily?days=30");
+    expect(status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(Array.isArray(body.days)).toBe(true);
+    expect(body.days.length).toBeGreaterThan(0);
+
+    const day = body.days[0];
+    expect(day).toHaveProperty("date");
+    expect(day).toHaveProperty("activities");
+    expect(day).toHaveProperty("successCount");
+    expect(day).toHaveProperty("failureCount");
+    expect(day).toHaveProperty("successRate");
+    expect(day).toHaveProperty("cost");
+    expect(day).toHaveProperty("tokens");
+  });
+
+  test("should return empty array when no activities", async () => {
+    const { status, body } = await get("/api/stats/daily?days=1");
+    expect(status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(Array.isArray(body.days)).toBe(true);
+  });
+});
+
 // =============================================================================
 // COST / LLM GENERATION ENDPOINTS
 // =============================================================================

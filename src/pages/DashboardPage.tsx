@@ -16,6 +16,18 @@ import type { Activity } from "@/types/activity";
 import { useProfile } from "@/app/profile-context";
 import { apiFetch } from "@/lib/api-client";
 import { useSSE } from "@/hooks/useSSE";
+import { useDailyStats } from "@/hooks/useDailyStats";
+import {
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 import {
   Activity as ActivityIcon,
   Users,
@@ -28,7 +40,6 @@ import {
   XCircle,
   Clock,
   BarChart3,
-  Zap,
 } from "lucide-react";
 
 interface StatsResponse {
@@ -69,6 +80,12 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const statsRefreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dailyRefreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const {
+    data: dailyStats,
+    loading: dailyLoading,
+    refetch: refetchDaily,
+  } = useDailyStats(profileId);
 
   const refreshStats = useCallback(() => {
     if (statsRefreshTimer.current) clearTimeout(statsRefreshTimer.current);
@@ -99,13 +116,19 @@ export default function DashboardPage() {
         return updated.slice(0, 5);
       });
       refreshStats();
+      // Debounce daily stats refresh on SSE events
+      if (dailyRefreshTimer.current) clearTimeout(dailyRefreshTimer.current);
+      dailyRefreshTimer.current = setTimeout(() => {
+        refetchDaily();
+      }, 2000);
     },
-    [refreshStats],
+    [refreshStats, refetchDaily],
   );
 
   useEffect(() => {
     return () => {
       if (statsRefreshTimer.current) clearTimeout(statsRefreshTimer.current);
+      if (dailyRefreshTimer.current) clearTimeout(dailyRefreshTimer.current);
     };
   }, []);
 
@@ -466,70 +489,159 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Quick Actions Card */}
-        <Card className="lg:col-span-3 shadow-sm">
-          <CardHeader className="pb-4">
-            <div className="flex items-center gap-2">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <Zap className="h-4 w-4 text-primary" />
-              </div>
-              <div>
-                <CardTitle className="text-lg">Quick Actions</CardTitle>
-                <CardDescription>Frequently used actions</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <Separator />
-          <CardContent className="pt-4">
-            <div className="grid gap-2">
-              <Button
-                variant="outline"
-                className="justify-start h-auto py-3 px-4 group"
-                onClick={() => navigate("/activities")}
-              >
-                <div className="p-2 rounded-md bg-primary/10 mr-3 group-hover:bg-primary/20 transition-colors">
-                  <List className="h-4 w-4 text-primary" />
+        {/* Trend Charts */}
+        <div className="lg:col-span-3 space-y-6">
+          {/* Activity Volume Chart */}
+          <Card className="shadow-sm">
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <TrendingUp className="h-4 w-4 text-primary" />
                 </div>
-                <div className="text-left">
-                  <p className="font-medium">View Activity Feed</p>
-                  <p className="text-xs text-muted-foreground">
-                    Browse all system activities
-                  </p>
+                <div>
+                  <CardTitle className="text-lg">Activity Volume</CardTitle>
+                  <CardDescription>Daily activity trend</CardDescription>
                 </div>
-              </Button>
-              <Button
-                variant="outline"
-                className="justify-start h-auto py-3 px-4 group"
-                onClick={() => navigate("/costs")}
-              >
-                <div className="p-2 rounded-md bg-violet-500/10 mr-3 group-hover:bg-violet-500/20 transition-colors">
+              </div>
+            </CardHeader>
+            <Separator />
+            <CardContent className="pt-4">
+              {dailyLoading ? (
+                <div className="h-64 bg-muted animate-pulse rounded" />
+              ) : dailyStats.length === 0 ? (
+                <div className="h-64 flex items-center justify-center text-muted-foreground text-sm">
+                  No activity data yet
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={256}>
+                  <AreaChart data={dailyStats}>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      className="stroke-border"
+                    />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 12 }}
+                      tickFormatter={(value: string) => {
+                        const d = new Date(value + "T00:00:00");
+                        return `${d.getMonth() + 1}/${d.getDate()}`;
+                      }}
+                      interval={6}
+                      className="text-muted-foreground"
+                    />
+                    <YAxis
+                      tick={{ fontSize: 12 }}
+                      className="text-muted-foreground"
+                    />
+                    <Tooltip
+                      content={({ active, payload, label }) => {
+                        if (!active || !payload?.length) return null;
+                        const row = payload[0]?.payload;
+                        return (
+                          <div className="rounded-lg border bg-background p-3 shadow-md text-sm">
+                            <p className="font-medium mb-1">{label}</p>
+                            <p className="text-emerald-600">
+                              Success: {row?.successCount ?? 0}
+                            </p>
+                            <p className="text-red-600">
+                              Failure: {row?.failureCount ?? 0}
+                            </p>
+                            <p className="text-muted-foreground">
+                              Rate: {row?.successRate ?? 0}%
+                            </p>
+                          </div>
+                        );
+                      }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="successCount"
+                      stroke="#10b981"
+                      fill="#10b981"
+                      fillOpacity={0.15}
+                      name="Success"
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="failureCount"
+                      stroke="#ef4444"
+                      fill="#ef4444"
+                      fillOpacity={0.15}
+                      name="Failure"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Daily Cost Chart */}
+          <Card className="shadow-sm">
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-violet-500/10">
                   <DollarSign className="h-4 w-4 text-violet-600 dark:text-violet-400" />
                 </div>
-                <div className="text-left">
-                  <p className="font-medium">View Cost Breakdown</p>
-                  <p className="text-xs text-muted-foreground">
-                    Analyze spending by actor & tool
-                  </p>
+                <div>
+                  <CardTitle className="text-lg">Daily Cost</CardTitle>
+                  <CardDescription>Cost trend over time</CardDescription>
                 </div>
-              </Button>
-              <Button
-                variant="outline"
-                className="justify-start h-auto py-3 px-4 group"
-                onClick={() => window.open("/api/stream", "_blank")}
-              >
-                <div className="p-2 rounded-md bg-amber-500/10 mr-3 group-hover:bg-amber-500/20 transition-colors">
-                  <ActivityIcon className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              </div>
+            </CardHeader>
+            <Separator />
+            <CardContent className="pt-4">
+              {dailyLoading ? (
+                <div className="h-48 bg-muted animate-pulse rounded" />
+              ) : dailyStats.length === 0 ? (
+                <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">
+                  No activity data yet
                 </div>
-                <div className="text-left">
-                  <p className="font-medium">Open Real-time Stream</p>
-                  <p className="text-xs text-muted-foreground">
-                    Watch live activity feed
-                  </p>
-                </div>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+              ) : (
+                <ResponsiveContainer width="100%" height={192}>
+                  <BarChart data={dailyStats}>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      className="stroke-border"
+                    />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 12 }}
+                      tickFormatter={(value: string) => {
+                        const d = new Date(value + "T00:00:00");
+                        return `${d.getMonth() + 1}/${d.getDate()}`;
+                      }}
+                      interval={6}
+                      className="text-muted-foreground"
+                    />
+                    <YAxis
+                      tick={{ fontSize: 12 }}
+                      tickFormatter={(value: number) => `$${value.toFixed(4)}`}
+                      className="text-muted-foreground"
+                    />
+                    <Tooltip
+                      content={({ active, payload, label }) => {
+                        if (!active || !payload?.length) return null;
+                        const row = payload[0]?.payload;
+                        return (
+                          <div className="rounded-lg border bg-background p-3 shadow-md text-sm">
+                            <p className="font-medium mb-1">{label}</p>
+                            <p className="text-violet-600">
+                              ${(row?.cost ?? 0).toFixed(4)}
+                            </p>
+                            <p className="text-muted-foreground">
+                              {(row?.tokens ?? 0).toLocaleString()} tokens
+                            </p>
+                          </div>
+                        );
+                      }}
+                    />
+                    <Bar dataKey="cost" fill="#8b5cf6" radius={[2, 2, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
