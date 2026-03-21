@@ -49,7 +49,7 @@ export interface AgentFullConfig {
  */
 interface OpenClawConfig {
   agents?: {
-    defaults?: Record<string, unknown>;
+    defaults?: Record<string, unknown> & { workspace?: string };
     list?: OpenClawAgentEntry[];
   };
   [key: string]: unknown;
@@ -189,11 +189,13 @@ export class AgentService {
           // Fallback: extractAgentId() may return the basename of the workspace
           // dir (e.g. "workspace") while openclaw.json uses a logical id (e.g.
           // "main"). Match by resolved workspace path when the direct id lookup
-          // misses.
+          // misses. Also check agents.defaults.workspace for single-agent
+          // profiles where the individual entry has no workspace field.
+          const defaultsWorkspace = openclawConfig?.agents?.defaults?.workspace;
           const configEntry =
             configByAgentId.get(agentId) ??
             [...configByAgentId.values()].find((c) => {
-              const ws = c.workspace ?? c.agentDir;
+              const ws = c.workspace ?? c.agentDir ?? defaultsWorkspace;
               return ws && path.resolve(ws) === path.resolve(soulDir);
             });
 
@@ -279,14 +281,17 @@ export class AgentService {
     const openclawConfig = await this.readOpenClawConfig(profileId);
     const agentsList = openclawConfig?.agents?.list ?? [];
 
-    // Find the config entry — direct id match, then workspace path fallback
+    // Find the config entry — direct id match, then workspace path fallback.
+    // Also check agents.defaults.workspace for single-agent profiles where the
+    // individual entry has no workspace set.
+    const defaultsWorkspace = openclawConfig?.agents?.defaults?.workspace;
     let configEntry = agentsList.find((e) => e.id === id);
     if (!configEntry && this.soulPathCache) {
       const soulFile = this.soulPathCache.data.get(id);
       if (soulFile) {
         const soulDir = path.dirname(soulFile);
         configEntry = agentsList.find((c) => {
-          const ws = c.workspace ?? c.agentDir;
+          const ws = c.workspace ?? c.agentDir ?? defaultsWorkspace;
           return ws && path.resolve(ws) === path.resolve(soulDir);
         });
       }
