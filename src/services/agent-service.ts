@@ -113,8 +113,9 @@ export class AgentService {
   private db: Database | null = null;
   private agentsCache: CacheEntry<Agent[]> | null = null;
   private agentsCacheKey: string = "";
-  // Map from agent ID to SOUL.md file path, populated when agents are read
-  private soulPathCache: CacheEntry<Map<string, string>> | null = null;
+  // Map from agent ID to SOUL.md file path, keyed by profileId for isolation
+  private soulPathCache: Map<string, CacheEntry<Map<string, string>>> =
+    new Map();
 
   constructor(db?: Database) {
     if (db) {
@@ -232,7 +233,7 @@ export class AgentService {
     const expiry = Date.now() + CACHE_TTL_MS;
     this.agentsCache = { data: agents, expiry };
     this.agentsCacheKey = cacheKey;
-    this.soulPathCache = { data: soulPaths, expiry };
+    this.soulPathCache.set(cacheKey, { data: soulPaths, expiry });
 
     return agents;
   }
@@ -252,8 +253,10 @@ export class AgentService {
     // Ensure cache is populated with the correct profile scope
     await this.readAgents(profileId);
 
-    if (this.soulPathCache && Date.now() < this.soulPathCache.expiry) {
-      const soulFile = this.soulPathCache.data.get(id);
+    const cacheKey = profileId ?? "__all__";
+    const cached = this.soulPathCache.get(cacheKey);
+    if (cached && Date.now() < cached.expiry) {
+      const soulFile = cached.data.get(id);
       if (soulFile) {
         try {
           return await fs.readFile(soulFile, "utf-8");
@@ -284,10 +287,12 @@ export class AgentService {
     // Find the config entry — direct id match, then workspace path fallback.
     // Also check agents.defaults.workspace for single-agent profiles where the
     // individual entry has no workspace set.
+    const cacheKey = profileId ?? "__all__";
+    const cachedSoulPaths = this.soulPathCache.get(cacheKey);
     const defaultsWorkspace = openclawConfig?.agents?.defaults?.workspace;
     let configEntry = agentsList.find((e) => e.id === id);
-    if (!configEntry && this.soulPathCache) {
-      const soulFile = this.soulPathCache.data.get(id);
+    if (!configEntry && cachedSoulPaths) {
+      const soulFile = cachedSoulPaths.data.get(id);
       if (soulFile) {
         const soulDir = path.dirname(soulFile);
         configEntry = agentsList.find((c) => {
@@ -305,8 +310,8 @@ export class AgentService {
       workspace = configEntry.agentDir;
     } else if (defaultsWorkspace) {
       workspace = defaultsWorkspace;
-    } else if (this.soulPathCache) {
-      const soulFile = this.soulPathCache.data.get(id);
+    } else if (cachedSoulPaths) {
+      const soulFile = cachedSoulPaths.data.get(id);
       if (soulFile) {
         workspace = path.dirname(soulFile);
       }
