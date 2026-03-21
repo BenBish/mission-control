@@ -195,11 +195,13 @@ test.describe("Cost Breakdown", () => {
     expect(await costs.hasCustomDateInputs()).toBe(true);
   });
 
-  test("Custom preset hides inputs when switching back", async () => {
+  test("Custom preset hides inputs when switching back", async ({ page }) => {
     await costs.selectPreset("Custom");
+    await page.locator("#cost-date-from").waitFor({ state: "visible" });
     expect(await costs.hasCustomDateInputs()).toBe(true);
 
     await costs.selectPreset("Last 7 days");
+    await page.locator("#cost-date-from").waitFor({ state: "hidden" });
     expect(await costs.hasCustomDateInputs()).toBe(false);
   });
 });
