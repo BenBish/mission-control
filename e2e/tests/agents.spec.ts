@@ -1,6 +1,10 @@
 /**
  * Agents page E2E tests.
- * Tests the agents listing page, including empty state and page structure.
+ * Tests the agents listing page, including agent cards and page structure.
+ *
+ * Note: the E2E test seeder (db-seeder.ts) creates SOUL.md files for
+ * claude-opus, claude-sonnet, and claude-haiku under $HOME/.openclaw/agents/,
+ * so the agents list is never empty in this environment.
  */
 
 import { test, expect } from "../fixtures/base.js";
@@ -31,9 +35,14 @@ test.describe("Agents Page", () => {
     await expect(page.getByText("Filters:")).toBeVisible();
   });
 
-  test("displays empty state when no agents exist", async () => {
-    // Test environment has no agent files — should show empty state
-    expect(await agents.hasEmptyState()).toBe(true);
+  test("displays seeded agents (not empty state)", async ({ page }) => {
+    // The seeder creates claude-opus, claude-sonnet, claude-haiku agent files
+    // so the page should list agents, not show the empty state.
+    expect(await agents.hasEmptyState()).toBe(false);
+    // At least one of the seeded agents should appear on the page
+    await expect(
+      page.getByText(/claude-opus|claude-sonnet|claude-haiku/i).first(),
+    ).toBeVisible({ timeout: 10_000 });
   });
 
   test("does not show error state", async () => {

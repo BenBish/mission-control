@@ -17,7 +17,6 @@ import { calculateCost, getPricingStatus } from "../types/pricing.js";
 import type { SessionLogScanner } from "../services/session-log-scanner.js";
 import type { CostLinker } from "../services/cost-linker.js";
 import type { Agent, AgentDetail } from "../types/agent.js";
-import { agentService } from "./services/agent-service.js";
 import { CronService, type GatewayOptions } from "../services/cron-service.js";
 import { AgentService } from "../services/agent-service.js";
 import { SkillsService } from "../services/skills-service.js";
@@ -1435,15 +1434,22 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         totalTokens: stats?.totalTokens || 0,
       };
 
-      // Fetch legacy metadata (SOUL.md raw + config from openclaw.json)
-      const metadata = await agentService.getAgentMetadata(agentId);
-      if (metadata) {
-        if (metadata.soulMarkdown) {
-          detail.soulMarkdown = metadata.soulMarkdown;
-        }
-        if (metadata.config) {
-          detail.config = metadata.config;
-        }
+      // Fetch SOUL.md and full config via profile-aware fsAgentService
+      const [soulMarkdown, fullConfig] = await Promise.all([
+        fsAgentService.readAgentSoul(agentId, profileFilter),
+        fsAgentService.readAgentFullConfig(agentId, profileFilter),
+      ]);
+      if (soulMarkdown) {
+        detail.soulMarkdown = soulMarkdown;
+      }
+      if (fullConfig) {
+        detail.config = {
+          workspace: fullConfig.workspace,
+          model: fullConfig.model,
+          gitConfig: fullConfig.gitConfig,
+          identity: fullConfig.identity,
+          skills: fullConfig.skills,
+        };
       }
 
       res.json({
@@ -1472,7 +1478,11 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         });
       }
 
-      const content = await fsAgentService.readAgentSoul(agentId);
+      const profileFilter = req.profileId !== "all" ? req.profileId : undefined;
+      const content = await fsAgentService.readAgentSoul(
+        agentId,
+        profileFilter,
+      );
       if (!content) {
         return res.status(404).json({
           success: false,
@@ -1491,6 +1501,181 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
       });
     }
   });
+
+  /**
+   * GET /api/agents/:id/files
+   * List .md and .json files in the agent's workspace directory
+   */
+  app.get("/api/agents/:id/files", async (req: Request, res: Response) => {
+    try {
+      const agentId = req.params.id;
+      if (!isValidId(agentId)) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid agent ID",
+        });
+      }
+
+      const profileFilter = req.profileId !== "all" ? req.profileId : undefined;
+      const config = await fsAgentService.readAgentFullConfig(
+        agentId,
+        profileFilter,
+      );
+      if (!config?.workspace) {
+        return res.status(404).json({
+          success: false,
+          error: "Agent workspace not found",
+        });
+      }
+
+      const workspacePath = path.resolve(config.workspace);
+      let entries: import("fs").Dirent[];
+      try {
+        entries = await fs.promises.readdir(workspacePath, {
+          withFileTypes: true,
+        });
+      } catch {
+        return res.status(404).json({
+          success: false,
+          error: "Workspace directory not readable",
+        });
+      }
+
+      const files = [];
+      for (const entry of entries) {
+        if (!entry.isFile()) continue;
+        const ext = path.extname(entry.name).toLowerCase();
+        if (ext !== ".md" && ext !== ".json") continue;
+
+        try {
+          const stat = await fs.promises.stat(
+            path.join(workspacePath, entry.name),
+          );
+          files.push({
+            name: entry.name,
+            size: stat.size,
+            modifiedAt: stat.mtime.toISOString(),
+            type: ext === ".md" ? "markdown" : "json",
+          });
+        } catch {
+          // Skip files we can't stat
+        }
+      }
+
+      // Sort: canonical files first, then alphabetical
+      const canonical = new Set([
+        "SOUL.md",
+        "AGENTS.md",
+        "HEARTBEAT.md",
+        "TOOLS.md",
+        "USER.md",
+        "IDENTITY.md",
+      ]);
+      files.sort((a, b) => {
+        const aCanon = canonical.has(a.name) ? 0 : 1;
+        const bCanon = canonical.has(b.name) ? 0 : 1;
+        if (aCanon !== bCanon) return aCanon - bCanon;
+        return a.name.localeCompare(b.name);
+      });
+
+      res.json({
+        success: true,
+        workspacePath,
+        files,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  /**
+   * GET /api/agents/:id/files/:filename
+   * Read a specific .md or .json file from the agent's workspace
+   */
+  app.get(
+    "/api/agents/:id/files/:filename",
+    async (req: Request, res: Response) => {
+      try {
+        const agentId = req.params.id;
+        const filename = req.params.filename;
+
+        if (!isValidId(agentId)) {
+          return res.status(400).json({
+            success: false,
+            error: "Invalid agent ID",
+          });
+        }
+
+        // Validate filename: no path traversal, must be .md or .json
+        if (
+          !filename ||
+          filename.includes("..") ||
+          filename.includes("/") ||
+          filename.includes("\\")
+        ) {
+          return res.status(400).json({
+            success: false,
+            error: "Invalid filename",
+          });
+        }
+
+        const ext = path.extname(filename).toLowerCase();
+        if (ext !== ".md" && ext !== ".json") {
+          return res.status(400).json({
+            success: false,
+            error: "Only .md and .json files are supported",
+          });
+        }
+
+        const profileFilter =
+          req.profileId !== "all" ? req.profileId : undefined;
+        const config = await fsAgentService.readAgentFullConfig(
+          agentId,
+          profileFilter,
+        );
+        if (!config?.workspace) {
+          return res.status(404).json({
+            success: false,
+            error: "Agent workspace not found",
+          });
+        }
+
+        const workspacePath = path.resolve(config.workspace);
+        const filePath = path.join(workspacePath, filename);
+
+        // Security: ensure resolved path stays within workspace
+        if (!filePath.startsWith(workspacePath + path.sep)) {
+          return res.status(400).json({
+            success: false,
+            error: "Invalid filename",
+          });
+        }
+
+        try {
+          const content = await fs.promises.readFile(filePath, "utf-8");
+          res.json({
+            success: true,
+            content,
+            name: filename,
+            type: ext === ".md" ? "markdown" : "json",
+          });
+        } catch {
+          return res.status(404).json({
+            success: false,
+            error: "File not found",
+          });
+        }
+      } catch (error: any) {
+        res.status(500).json({
+          success: false,
+          error: error.message,
+        });
+      }
+    },
+  );
 
   /**
    * GET /api/agents/:id/activity

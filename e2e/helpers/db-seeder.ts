@@ -194,9 +194,57 @@ function splitStatements(sql: string): string[] {
     .filter((s) => s.length > 0);
 }
 
+/**
+ * Create agent workspace files in the E2E test HOME so the API can discover
+ * SOUL.md and workspace files for the seeded agents.
+ */
+function seedAgentFiles(): void {
+  const home = process.env.HOME || "/tmp/mc-e2e-home";
+  // Use .openclaw (not .openclaw-team) because the default profile maps to ~/.openclaw
+  const teamDir = path.join(home, ".openclaw");
+
+  for (const agentId of AGENTS) {
+    const agentDir = path.join(teamDir, "agents", agentId);
+    fs.mkdirSync(agentDir, { recursive: true });
+
+    fs.writeFileSync(
+      path.join(agentDir, "SOUL.md"),
+      `# SOUL.md — ${agentId}
+
+You are the **${agentId}** — you assist with software engineering tasks.
+
+## Role
+AI Software Engineer
+
+Model: openrouter/anthropic/${agentId}
+
+GIT_AUTHOR_NAME = ${agentId}
+GIT_AUTHOR_EMAIL = ${agentId}@test.local
+`,
+    );
+
+    fs.writeFileSync(
+      path.join(agentDir, "AGENTS.md"),
+      `# AGENTS.md
+
+GIT_AUTHOR_NAME = ${agentId}
+GIT_AUTHOR_EMAIL = ${agentId}@test.local
+`,
+    );
+
+    fs.writeFileSync(
+      path.join(agentDir, "config.json"),
+      JSON.stringify({ agent: agentId, version: 1 }, null, 2),
+    );
+  }
+}
+
 export async function seedDatabase(): Promise<void> {
   // Ensure test-data directory exists
   fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+
+  // Seed agent workspace files for SOUL.md and config tab tests
+  seedAgentFiles();
 
   // Remove existing test DB
   for (const ext of ["", "-wal", "-shm"]) {

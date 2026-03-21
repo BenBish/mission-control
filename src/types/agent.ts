@@ -31,7 +31,28 @@ export interface AgentDetail extends Agent {
       name?: string;
       emoji?: string;
     };
+    skills?: string[];
   };
+}
+
+export interface WorkspaceFile {
+  name: string;
+  size: number;
+  modifiedAt: string;
+  type: "markdown" | "json";
+}
+
+export interface AgentFilesResponse {
+  success: boolean;
+  workspacePath: string;
+  files: WorkspaceFile[];
+}
+
+export interface AgentFileContentResponse {
+  success: boolean;
+  content: string;
+  name: string;
+  type: "markdown" | "json";
 }
 
 export interface AgentsResponse {

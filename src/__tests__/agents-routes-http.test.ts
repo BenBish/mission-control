@@ -46,6 +46,20 @@ GIT_AUTHOR_NAME = Test Engineer
 GIT_AUTHOR_EMAIL = engineer@test.local
 `,
   );
+  fs.writeFileSync(
+    path.join(engineerDir, "AGENTS.md"),
+    `# AGENTS.md
+
+GIT_AUTHOR_NAME = Test Engineer
+GIT_AUTHOR_EMAIL = engineer@test.local
+`,
+  );
+  fs.writeFileSync(
+    path.join(engineerDir, "config.json"),
+    JSON.stringify({ version: 1, debug: false }),
+  );
+  // Non-matching file — should be excluded from listing
+  fs.writeFileSync(path.join(engineerDir, "notes.txt"), "private notes");
 
   // Agent: reviewer
   const reviewerDir = path.join(agentsDir, "reviewer");
@@ -416,5 +430,139 @@ describe("GET /api/permissions/matrix", () => {
         expect(typeof cell).toBe("boolean");
       }
     }
+  });
+});
+
+// =============================================================================
+// GET /api/agents/:id/files
+// =============================================================================
+
+describe("GET /api/agents/:id/files", () => {
+  test("should return workspace file listing", async () => {
+    const { status, body } = await api("/api/agents/engineer/files");
+    expect(status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.workspacePath).toBeDefined();
+    expect(Array.isArray(body.files)).toBe(true);
+  });
+
+  test("should only list .md and .json files", async () => {
+    const { body } = await api("/api/agents/engineer/files");
+    for (const file of body.files) {
+      expect(file.name).toMatch(/\.(md|json)$/);
+    }
+    // .txt file should be excluded
+    const names = body.files.map((f: any) => f.name);
+    expect(names).not.toContain("notes.txt");
+  });
+
+  test("files should have expected shape", async () => {
+    const { body } = await api("/api/agents/engineer/files");
+    expect(body.files.length).toBeGreaterThanOrEqual(1);
+    const file = body.files[0];
+    expect(file.name).toBeDefined();
+    expect(typeof file.size).toBe("number");
+    expect(file.modifiedAt).toBeDefined();
+    expect(["markdown", "json"]).toContain(file.type);
+  });
+
+  test("should sort canonical files first", async () => {
+    const { body } = await api("/api/agents/engineer/files");
+    const names = body.files.map((f: any) => f.name);
+    const soulIdx = names.indexOf("SOUL.md");
+    const configIdx = names.indexOf("config.json");
+    // SOUL.md is canonical, config.json is not — SOUL.md should come first
+    if (soulIdx !== -1 && configIdx !== -1) {
+      expect(soulIdx).toBeLessThan(configIdx);
+    }
+  });
+
+  test("should return 404 for non-existent agent", async () => {
+    const { status, body } = await api("/api/agents/nonexistent-agent/files");
+    expect(status).toBe(404);
+    expect(body.success).toBe(false);
+  });
+
+  test("should return 400 for invalid agent ID", async () => {
+    const { status } = await api("/api/agents/bad!id/files");
+    expect(status).toBe(400);
+  });
+});
+
+// =============================================================================
+// GET /api/agents/:id/files/:filename
+// =============================================================================
+
+describe("GET /api/agents/:id/files/:filename", () => {
+  test("should return markdown file content", async () => {
+    const { status, body } = await api("/api/agents/engineer/files/SOUL.md");
+    expect(status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.name).toBe("SOUL.md");
+    expect(body.type).toBe("markdown");
+    expect(body.content).toContain("Senior Software Engineer");
+  });
+
+  test("should return JSON file content", async () => {
+    const { status, body } = await api(
+      "/api/agents/engineer/files/config.json",
+    );
+    expect(status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.name).toBe("config.json");
+    expect(body.type).toBe("json");
+    expect(body.content).toContain("version");
+  });
+
+  test("should return 404 for non-existent file", async () => {
+    const { status, body } = await api("/api/agents/engineer/files/MISSING.md");
+    expect(status).toBe(404);
+    expect(body.success).toBe(false);
+  });
+
+  test("should reject path traversal attempts", async () => {
+    const { status, body } = await api(
+      "/api/agents/engineer/files/..%2F..%2Fetc%2Fpasswd",
+    );
+    expect(status).toBe(400);
+    expect(body.success).toBe(false);
+  });
+
+  test("should reject non-.md/.json files", async () => {
+    const { status, body } = await api("/api/agents/engineer/files/notes.txt");
+    expect(status).toBe(400);
+    expect(body.success).toBe(false);
+  });
+
+  test("should return 400 for invalid agent ID", async () => {
+    const { status } = await api("/api/agents/bad!id/files/SOUL.md");
+    expect(status).toBe(400);
+  });
+});
+
+// =============================================================================
+// GET /api/agents/:id — full config in detail response
+// =============================================================================
+
+describe("GET /api/agents/:id detail with config", () => {
+  test("should include soulMarkdown in agent detail", async () => {
+    const { status, body } = await api("/api/agents/engineer");
+    expect(status).toBe(200);
+    expect(body.agent.soulMarkdown).toBeDefined();
+    expect(body.agent.soulMarkdown).toContain("Senior Software Engineer");
+  });
+
+  test("should include config in agent detail", async () => {
+    const { status, body } = await api("/api/agents/engineer");
+    expect(status).toBe(200);
+    expect(body.agent.config).toBeDefined();
+    expect(body.agent.config.workspace).toBeDefined();
+  });
+
+  test("should include gitConfig from AGENTS.md", async () => {
+    const { body } = await api("/api/agents/engineer");
+    expect(body.agent.config.gitConfig).toBeDefined();
+    expect(body.agent.config.gitConfig.author).toBe("Test Engineer");
+    expect(body.agent.config.gitConfig.email).toBe("engineer@test.local");
   });
 });
