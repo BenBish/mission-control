@@ -18,6 +18,31 @@ import { v7 as uuidv7 } from "uuid";
 import { runMigrations as runSchemaMigrations } from "./migration-runner.js";
 import migration001 from "./migrations/001-add-profile-id.js";
 import migration002 from "./migrations/002-backfill-sessions.js";
+import migration003 from "./migrations/003-backfill-actors.js";
+
+/**
+ * Extract the actor (agent) ID from a session ID.
+ * Session IDs follow the pattern `agent:<agentId>:<type>:<uuid>` or `agent:<agentId>:<uuid>`.
+ */
+export function extractActorFromSessionId(sessionId: string): string | null {
+  const match = sessionId.match(/^agent:([^:]+):/);
+  return match ? match[1] : null;
+}
+
+function buildInitialActorsJson(sessionId: string): string | null {
+  const actorId = extractActorFromSessionId(sessionId);
+  if (!actorId) return null;
+  return JSON.stringify({
+    [actorId]: {
+      id: actorId,
+      type: "orchestrator",
+      actionsCount: 0,
+      successCount: 0,
+      tokensUsed: 0,
+      costUsd: 0,
+    },
+  });
+}
 
 export class Database {
   private db: SqliteDatabase | null = null;
@@ -50,7 +75,11 @@ export class Database {
     }
 
     // Run versioned migrations (ALTER TABLE, backfills, etc.)
-    await runSchemaMigrations(this.db, [migration001, migration002]);
+    await runSchemaMigrations(this.db, [
+      migration001,
+      migration002,
+      migration003,
+    ]);
   }
 
   /**
@@ -94,11 +123,12 @@ export class Database {
     // Auto-create session stub if it doesn't exist
     if (activity.sessionId) {
       await this.db.run(
-        `INSERT OR IGNORE INTO sessions (id, profile_id, start_time)
-         VALUES (?, ?, ?)`,
+        `INSERT OR IGNORE INTO sessions (id, profile_id, start_time, actors_json)
+         VALUES (?, ?, ?, ?)`,
         activity.sessionId,
         profileId,
         activity.timestamp,
+        buildInitialActorsJson(activity.sessionId),
       );
     }
 
@@ -277,10 +307,11 @@ export class Database {
     const profileId = options?.profileId ?? "default";
 
     await this.db.run(
-      `INSERT OR IGNORE INTO sessions (id, profile_id, start_time) VALUES (?, ?, ?)`,
+      `INSERT OR IGNORE INTO sessions (id, profile_id, start_time, actors_json) VALUES (?, ?, ?, ?)`,
       sessionId,
       profileId,
       new Date().toISOString(),
+      buildInitialActorsJson(sessionId),
     );
   }
 
