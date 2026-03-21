@@ -303,6 +303,8 @@ export class AgentService {
       workspace = configEntry.workspace;
     } else if (configEntry?.agentDir) {
       workspace = configEntry.agentDir;
+    } else if (defaultsWorkspace) {
+      workspace = defaultsWorkspace;
     } else if (this.soulPathCache) {
       const soulFile = this.soulPathCache.data.get(id);
       if (soulFile) {
