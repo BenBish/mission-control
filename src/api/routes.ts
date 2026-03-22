@@ -50,14 +50,31 @@ const AGENT_DISPLAY_NAMES: Record<
 
 /**
  * Resolve an actor ID to a human-readable display name and emoji.
- * - Known agents get their mapped name
+ * - First checks the agent's configured identity via AgentService
+ * - Falls back to the static AGENT_DISPLAY_NAMES map
  * - "unknown" gets a generic label
  * - Unmapped IDs are title-cased with a generic robot emoji
  */
-export function resolveActorDisplayName(actorId: string): {
-  displayName: string;
-  emoji: string;
-} {
+export async function resolveActorDisplayName(
+  actorId: string,
+  profileId?: string,
+  agentService?: AgentService,
+): Promise<{ displayName: string; emoji: string }> {
+  // Try profile-aware identity lookup
+  if (agentService && profileId) {
+    try {
+      const config = await agentService.readAgentFullConfig(actorId, profileId);
+      if (config?.identity?.name) {
+        return {
+          displayName: config.identity.name,
+          emoji: config.identity.emoji || "🤖",
+        };
+      }
+    } catch {
+      // Fall through to static map
+    }
+  }
+
   const known = AGENT_DISPLAY_NAMES[actorId];
   if (known) return known;
 
@@ -77,9 +94,17 @@ export function resolveActorDisplayName(actorId: string): {
  * Mutates the activity in-place for efficiency.
  * Safely handles activities without an actor field.
  */
-function enrichActivityActor(activity: any): any {
+async function enrichActivityActor(
+  activity: any,
+  profileId?: string,
+  agentService?: AgentService,
+): Promise<any> {
   if (!activity?.actor?.id) return activity;
-  const { displayName, emoji } = resolveActorDisplayName(activity.actor.id);
+  const { displayName, emoji } = await resolveActorDisplayName(
+    activity.actor.id,
+    profileId,
+    agentService,
+  );
   activity.actor.displayName = displayName;
   activity.actor.emoji = emoji;
   return activity;
@@ -223,8 +248,9 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
       const results = await db.getActivities(filter);
 
       // Enrich actor display names
+      const profileId = req.profileId !== "all" ? req.profileId : undefined;
       for (const activity of results) {
-        enrichActivityActor(activity);
+        await enrichActivityActor(activity, profileId, fsAgentService);
       }
 
       res.json({
@@ -370,7 +396,11 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         }
 
         // Enrich actor display names
-        enrichActivityActor(createdActivity);
+        await enrichActivityActor(
+          createdActivity,
+          resolvedProfileId,
+          fsAgentService,
+        );
         created.push(createdActivity);
 
         // Broadcast to SSE clients
@@ -381,7 +411,11 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
             tokens,
             cost,
           } as Activity;
-          enrichActivityActor(broadcastPayload);
+          await enrichActivityActor(
+            broadcastPayload,
+            resolvedProfileId,
+            fsAgentService,
+          );
           app.locals.broadcastActivity(broadcastPayload);
         }
       }
@@ -490,8 +524,9 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
       );
 
       // Enrich actor display names
+      const profileId = req.profileId !== "all" ? req.profileId : undefined;
       for (const activity of filtered) {
-        enrichActivityActor(activity);
+        await enrichActivityActor(activity, profileId, fsAgentService);
       }
 
       res.json({
@@ -522,7 +557,8 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
       }
 
       // Enrich actor display name
-      enrichActivityActor(activity);
+      const profileId = req.profileId !== "all" ? req.profileId : undefined;
+      await enrichActivityActor(activity, profileId, fsAgentService);
 
       res.json({
         success: true,
@@ -642,8 +678,9 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         const activities = await logger.getSessionActivities(req.params.id);
 
         // Enrich actor display names
+        const profileId = req.profileId !== "all" ? req.profileId : undefined;
         for (const activity of activities) {
-          enrichActivityActor(activity);
+          await enrichActivityActor(activity, profileId, fsAgentService);
         }
 
         res.json({
@@ -752,12 +789,17 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
       }
 
       // Remap actorCosts keys to display names with emoji
+      const costProfileId = req.profileId !== "all" ? req.profileId : undefined;
       const resolvedActorCosts: Record<
         string,
         { cost: number; tokens: number; actions: number }
       > = {};
       for (const [actorId, stats] of Object.entries(actorCosts)) {
-        const { displayName, emoji } = resolveActorDisplayName(actorId);
+        const { displayName, emoji } = await resolveActorDisplayName(
+          actorId,
+          costProfileId,
+          fsAgentService,
+        );
         const label = `${emoji} ${displayName}`;
         if (resolvedActorCosts[label]) {
           resolvedActorCosts[label].cost += stats.cost;
@@ -827,7 +869,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
       });
 
       for (const activity of recentFailures) {
-        enrichActivityActor(activity);
+        await enrichActivityActor(activity, profileId, fsAgentService);
       }
 
       res.json({
@@ -1699,8 +1741,9 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
       const activities = await fsAgentService.getAgentActivity(agentId, limit);
 
       // Enrich actor display names
+      const profileId = req.profileId !== "all" ? req.profileId : undefined;
       for (const activity of activities) {
-        enrichActivityActor(activity);
+        await enrichActivityActor(activity, profileId, fsAgentService);
       }
 
       res.json({
