@@ -1918,7 +1918,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
   app.get("/api/cron/jobs", async (req: Request, res: Response) => {
     try {
       const gateway = await resolveGatewayOptions(req.profileId);
-      const jobs = await CronService.getJobs(gateway);
+      const jobs = await CronService.getJobs(gateway, req.profileId);
       res.json({
         success: true,
         jobs,
@@ -1938,7 +1938,11 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
   app.get("/api/cron/jobs/:id", async (req: Request, res: Response) => {
     try {
       const gateway = await resolveGatewayOptions(req.profileId);
-      const job = await CronService.getJob(req.params.id, gateway);
+      const job = await CronService.getJob(
+        req.params.id,
+        gateway,
+        req.profileId,
+      );
       if (!job) {
         return res.status(404).json({
           success: false,
@@ -1972,6 +1976,7 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         req.params.id,
         limit,
         gateway,
+        req.profileId,
       );
       res.json({
         success: true,
@@ -1992,12 +1997,20 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
   app.post("/api/cron/jobs/:id/enable", async (req: Request, res: Response) => {
     try {
       const gateway = await resolveGatewayOptions(req.profileId);
-      const job = await CronService.getJob(req.params.id, gateway);
+      const job = await CronService.getJob(
+        req.params.id,
+        gateway,
+        req.profileId,
+      );
       if (!job) {
         return res.status(404).json({ success: false, error: "Job not found" });
       }
       // Proxy to `openclaw cron enable --id <id>`
-      const success = await CronService.enableJob(req.params.id, gateway);
+      const success = await CronService.enableJob(
+        req.params.id,
+        gateway,
+        req.profileId,
+      );
       if (!success) {
         return res
           .status(500)
@@ -2021,14 +2034,22 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
     async (req: Request, res: Response) => {
       try {
         const gateway = await resolveGatewayOptions(req.profileId);
-        const job = await CronService.getJob(req.params.id, gateway);
+        const job = await CronService.getJob(
+          req.params.id,
+          gateway,
+          req.profileId,
+        );
         if (!job) {
           return res
             .status(404)
             .json({ success: false, error: "Job not found" });
         }
         // Proxy to `openclaw cron disable --id <id>`
-        const success = await CronService.disableJob(req.params.id, gateway);
+        const success = await CronService.disableJob(
+          req.params.id,
+          gateway,
+          req.profileId,
+        );
         if (!success) {
           return res
             .status(500)
@@ -2051,7 +2072,11 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
   app.post("/api/cron/jobs/:id/run", async (req: Request, res: Response) => {
     try {
       const gateway = await resolveGatewayOptions(req.profileId);
-      const job = await CronService.getJob(req.params.id, gateway);
+      const job = await CronService.getJob(
+        req.params.id,
+        gateway,
+        req.profileId,
+      );
       if (!job) {
         return res.status(404).json({ success: false, error: "Job not found" });
       }
@@ -2062,7 +2087,11 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
         });
       }
       // Proxy to `openclaw cron run --id <id>`
-      const success = await CronService.runJob(req.params.id, gateway);
+      const success = await CronService.runJob(
+        req.params.id,
+        gateway,
+        req.profileId,
+      );
       if (!success) {
         return res
           .status(500)
@@ -2084,12 +2113,20 @@ export function setupRoutes(app: Express, logger: ActivityLogger) {
   app.delete("/api/cron/jobs/:id", async (req: Request, res: Response) => {
     try {
       const gateway = await resolveGatewayOptions(req.profileId);
-      const job = await CronService.getJob(req.params.id, gateway);
+      const job = await CronService.getJob(
+        req.params.id,
+        gateway,
+        req.profileId,
+      );
       if (!job) {
         return res.status(404).json({ success: false, error: "Job not found" });
       }
       // Proxy to `openclaw cron rm --id <id>`
-      const success = await CronService.deleteJob(req.params.id, gateway);
+      const success = await CronService.deleteJob(
+        req.params.id,
+        gateway,
+        req.profileId,
+      );
       if (!success) {
         return res
           .status(500)

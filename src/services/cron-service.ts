@@ -43,6 +43,18 @@ function getGatewayArgs(options?: GatewayOptions): string[] {
 }
 
 /**
+ * Build global CLI args that must appear before the subcommand.
+ * Currently handles `--profile <id>` for multi-profile support.
+ * The "default" profile (or undefined) omits the flag so openclaw uses its default.
+ */
+function getGlobalArgs(profileId?: string): string[] {
+  if (profileId && profileId !== "default") {
+    return ["--profile", profileId];
+  }
+  return [];
+}
+
+/**
  * Run an openclaw CLI command that may not return JSON (mutations).
  * Returns true on success (exit 0), false on failure.
  */
@@ -134,9 +146,12 @@ export class CronService {
     return `${home}/.openclaw-team/cron/jobs.json`;
   }
 
-  static async getJobs(gateway?: GatewayOptions): Promise<CronJob[]> {
+  static async getJobs(
+    gateway?: GatewayOptions,
+    profileId?: string,
+  ): Promise<CronJob[]> {
     // Per-profile cache key
-    const cacheKey = gateway?.gatewayUrl ?? "__default__";
+    const cacheKey = profileId ?? "__default__";
 
     // Check cache
     const cached = cachedJobsByProfile.get(cacheKey);
@@ -144,8 +159,10 @@ export class CronService {
       return cached.data;
     }
 
+    const globalArgs = getGlobalArgs(profileId);
     const gatewayArgs = getGatewayArgs(gateway);
     const response = await runOpenclawJson<CliJobsResponse>([
+      ...globalArgs,
       "cron",
       "list",
       "--all",
@@ -174,8 +191,9 @@ export class CronService {
   static async getJob(
     id: string,
     gateway?: GatewayOptions,
+    profileId?: string,
   ): Promise<CronJob | null> {
-    const jobs = await this.getJobs(gateway);
+    const jobs = await this.getJobs(gateway, profileId);
     return jobs.find((j) => j.id === id) || null;
   }
 
@@ -183,11 +201,14 @@ export class CronService {
     jobId: string,
     limit = 20,
     gateway?: GatewayOptions,
+    profileId?: string,
   ): Promise<RunHistory[]> {
+    const globalArgs = getGlobalArgs(profileId);
     const gatewayArgs = getGatewayArgs(gateway);
     // Note: `cron runs` outputs JSON by default (no --json flag needed),
     // unlike `cron list` which requires the explicit `--json` flag.
     const response = await runOpenclawJson<CliRunsResponse>([
+      ...globalArgs,
       "cron",
       "runs",
       "--id",
@@ -322,9 +343,12 @@ export class CronService {
   static async enableJob(
     id: string,
     gateway?: GatewayOptions,
+    profileId?: string,
   ): Promise<boolean> {
+    const globalArgs = getGlobalArgs(profileId);
     const gatewayArgs = getGatewayArgs(gateway);
     const success = await runOpenclawCommand([
+      ...globalArgs,
       "cron",
       "enable",
       "--id",
@@ -338,9 +362,12 @@ export class CronService {
   static async disableJob(
     id: string,
     gateway?: GatewayOptions,
+    profileId?: string,
   ): Promise<boolean> {
+    const globalArgs = getGlobalArgs(profileId);
     const gatewayArgs = getGatewayArgs(gateway);
     const success = await runOpenclawCommand([
+      ...globalArgs,
       "cron",
       "disable",
       "--id",
@@ -351,9 +378,15 @@ export class CronService {
     return success;
   }
 
-  static async runJob(id: string, gateway?: GatewayOptions): Promise<boolean> {
+  static async runJob(
+    id: string,
+    gateway?: GatewayOptions,
+    profileId?: string,
+  ): Promise<boolean> {
+    const globalArgs = getGlobalArgs(profileId);
     const gatewayArgs = getGatewayArgs(gateway);
     const success = await runOpenclawCommand([
+      ...globalArgs,
       "cron",
       "run",
       "--id",
@@ -367,9 +400,12 @@ export class CronService {
   static async deleteJob(
     id: string,
     gateway?: GatewayOptions,
+    profileId?: string,
   ): Promise<boolean> {
+    const globalArgs = getGlobalArgs(profileId);
     const gatewayArgs = getGatewayArgs(gateway);
     const success = await runOpenclawCommand([
+      ...globalArgs,
       "cron",
       "rm",
       "--id",
