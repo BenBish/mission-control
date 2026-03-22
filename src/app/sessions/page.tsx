@@ -9,24 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { AlertCircle, ChevronLeft, ChevronRight, History } from "lucide-react";
 import { useProfile } from "@/app/profile-context";
 import { formatLastActive } from "@/lib/date-utils";
+import { parseActors } from "@/lib/parse-actors";
 
 const PAGE_SIZE = 50;
-
-interface Actor {
-  id: string;
-  type: string;
-  displayName?: string;
-  emoji?: string;
-}
-
-function parseActors(json: string | null): Actor[] {
-  if (!json) return [];
-  try {
-    return JSON.parse(json);
-  } catch {
-    return [];
-  }
-}
 
 function formatDuration(startTime: string, endTime: string | null): string {
   if (!endTime) return "";
