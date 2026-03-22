@@ -141,6 +141,53 @@ describe("CronService", () => {
   });
 
   // ==========================================================================
+  // getJobs - profile scoping
+  // ==========================================================================
+
+  describe("getJobs profile scoping", () => {
+    test("should prepend --profile flag for non-default profiles", async () => {
+      await CronService.getJobs(undefined, "archie");
+      expect(lastExecArgs[0]).toBe("--profile");
+      expect(lastExecArgs[1]).toBe("archie");
+      expect(lastExecArgs[2]).toBe("cron");
+    });
+
+    test("should not prepend --profile flag for default profile", async () => {
+      await CronService.getJobs(undefined, "default");
+      expect(lastExecArgs[0]).toBe("cron");
+    });
+
+    test("should not prepend --profile flag when profileId is undefined", async () => {
+      await CronService.getJobs();
+      expect(lastExecArgs[0]).toBe("cron");
+    });
+
+    test("should cache separately per profileId", async () => {
+      const defaultJobs = await CronService.getJobs(undefined, "default");
+
+      // Change mock data for archie
+      mockJobsResponse = JSON.stringify({
+        jobs: [
+          {
+            id: "archie-job-1",
+            name: "Archie Job",
+            schedule: { kind: "cron", expr: "0 * * * *" },
+            payload: { kind: "systemEvent", text: "test" },
+            sessionTarget: "main",
+            enabled: true,
+          },
+        ],
+        total: 1,
+      });
+
+      const archieJobs = await CronService.getJobs(undefined, "archie");
+      expect(defaultJobs.length).toBe(2);
+      expect(archieJobs.length).toBe(1);
+      expect(archieJobs[0].id).toBe("archie-job-1");
+    });
+  });
+
+  // ==========================================================================
   // getJob
   // ==========================================================================
 
@@ -483,6 +530,13 @@ describe("CronService", () => {
       expect(lastExecArgs).toContain("https://gw.test");
       expect(lastExecArgs).toContain("--token");
       expect(lastExecArgs).toContain("tok123");
+    });
+
+    test("should prepend --profile flag for non-default profiles", async () => {
+      await CronService.enableJob("job-1", undefined, "archie");
+      expect(lastExecArgs[0]).toBe("--profile");
+      expect(lastExecArgs[1]).toBe("archie");
+      expect(lastExecArgs[2]).toBe("cron");
     });
 
     test("should return false on CLI failure", async () => {
