@@ -60,6 +60,43 @@ test.describe("Agent Detail — Tabs", () => {
     });
   });
 
+  test("Overview tab shows git identity as combined badge", async ({
+    page,
+  }) => {
+    const overviewTab = page.getByRole("tab", { name: "Overview" });
+    await overviewTab.click();
+
+    // Should show "Git Identity" heading (not separate Author/Email lines)
+    await expect(page.getByText("Git Identity")).toBeVisible({
+      timeout: 10_000,
+    });
+
+    // Should show combined Name <email> badge in the Git Identity section
+    // The badge is a direct sibling of the h3 heading
+    const gitSection = page
+      .locator("h3", { hasText: "Git Identity" })
+      .locator("..");
+    const badge = gitSection.locator("div.inline-flex");
+    await expect(badge).toBeVisible({ timeout: 10_000 });
+    const badgeText = await badge.textContent();
+    // Verify it matches the "name <email>" pattern
+    expect(badgeText).toMatch(/.+<.+@.+>/);
+  });
+
+  test("Configuration tab shows git identity as combined badge", async ({
+    page,
+  }) => {
+    const configTab = page.getByRole("tab", { name: "Config" });
+    await configTab.click();
+
+    // Should show "Git Identity" label (not separate "Git Author"/"Git Email")
+    await expect(page.getByText("Git Identity").first()).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(page.getByText("Git Author")).not.toBeVisible();
+    await expect(page.getByText("Git Email")).not.toBeVisible();
+  });
+
   test("clicking a file in tree loads content in viewer", async ({ page }) => {
     const configTab = page.getByRole("tab", { name: "Config" });
     await configTab.click();

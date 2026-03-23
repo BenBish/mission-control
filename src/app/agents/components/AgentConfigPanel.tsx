@@ -6,7 +6,7 @@ import { WorkspaceFileTree } from "./WorkspaceFileTree";
 import { WorkspaceFileViewer } from "./WorkspaceFileViewer";
 import { useAgentFiles, useAgentFileContent } from "../hooks/useAgents";
 import type { AgentDetail } from "@/types/agent";
-import { Cpu, FolderOpen, GitBranch, Mail, User, Zap } from "lucide-react";
+import { Cpu, FolderOpen, GitBranch, User, Zap } from "lucide-react";
 
 interface AgentConfigPanelProps {
   agent: AgentDetail;
@@ -56,28 +56,25 @@ export function AgentConfigPanel({ agent, profileId }: AgentConfigPanelProps) {
                   </div>
                 </div>
               )}
-              {config.gitConfig?.author && (
-                <div className="flex items-start gap-2">
-                  <GitBranch className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Git Author</p>
-                    <p className="font-mono text-sm">
-                      {config.gitConfig.author}
-                    </p>
+              {config.gitConfig &&
+                (config.gitConfig.author || config.gitConfig.email) && (
+                  <div className="flex items-start gap-2">
+                    <GitBranch className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        Git Identity
+                      </p>
+                      <Badge
+                        variant="outline"
+                        className="font-mono text-xs mt-1"
+                      >
+                        {config.gitConfig.author && config.gitConfig.email
+                          ? `${config.gitConfig.author} <${config.gitConfig.email}>`
+                          : config.gitConfig.author || config.gitConfig.email}
+                      </Badge>
+                    </div>
                   </div>
-                </div>
-              )}
-              {config.gitConfig?.email && (
-                <div className="flex items-start gap-2">
-                  <Mail className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Git Email</p>
-                    <p className="font-mono text-sm">
-                      {config.gitConfig.email}
-                    </p>
-                  </div>
-                </div>
-              )}
+                )}
               {config.identity && (
                 <div className="flex items-start gap-2">
                   <User className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />

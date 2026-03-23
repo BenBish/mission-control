@@ -278,31 +278,25 @@ export default function AgentDetail() {
                     </p>
                   </div>
                 )}
-                {agent.config?.gitConfig && (
-                  <div>
-                    <h3 className="text-sm font-semibold text-muted-foreground">
-                      Git Configuration
-                    </h3>
-                    <div className="space-y-1 text-sm">
-                      {agent.config.gitConfig.author && (
-                        <p>
-                          <span className="text-muted-foreground">Author:</span>{" "}
-                          <span className="font-mono">
-                            {agent.config.gitConfig.author}
-                          </span>
-                        </p>
-                      )}
-                      {agent.config.gitConfig.email && (
-                        <p>
-                          <span className="text-muted-foreground">Email:</span>{" "}
-                          <span className="font-mono">
-                            {agent.config.gitConfig.email}
-                          </span>
-                        </p>
-                      )}
+                {agent.config?.gitConfig &&
+                  (agent.config.gitConfig.author ||
+                    agent.config.gitConfig.email) && (
+                    <div>
+                      <h3 className="text-sm font-semibold text-muted-foreground">
+                        Git Identity
+                      </h3>
+                      <Badge
+                        variant="outline"
+                        className="font-mono text-xs mt-1"
+                      >
+                        {agent.config.gitConfig.author &&
+                        agent.config.gitConfig.email
+                          ? `${agent.config.gitConfig.author} <${agent.config.gitConfig.email}>`
+                          : agent.config.gitConfig.author ||
+                            agent.config.gitConfig.email}
+                      </Badge>
                     </div>
-                  </div>
-                )}
+                  )}
               </div>
             </CardContent>
           </Card>
