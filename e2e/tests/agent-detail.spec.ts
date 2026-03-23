@@ -120,3 +120,50 @@ test.describe("Agent Detail — Tabs", () => {
     ).toBeVisible({ timeout: 10_000 });
   });
 });
+
+test.describe("Agent Detail — Activity Feed & Overview", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(`/agents/${AGENT_ID}`);
+    await page.waitForLoadState("domcontentloaded");
+    await page.locator("main").waitFor({ state: "visible" });
+    await expect(
+      page.getByRole("heading", { name: AGENT_ID }).first(),
+    ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("Activity Feed tab renders activity rows or empty state", async ({
+    page,
+  }) => {
+    // Activity Feed is the default tab
+    const activityTab = page.getByRole("tab", { name: "Activity Feed" });
+    await expect(activityTab).toBeVisible();
+    await activityTab.click();
+
+    // Should show either activity items or empty state
+    const hasActivities = await page
+      .locator(".rounded-lg.border.p-3")
+      .first()
+      .isVisible({ timeout: 10_000 })
+      .catch(() => false);
+    const hasEmpty = await page
+      .getByText(/No recent activity|No activities/i)
+      .isVisible()
+      .catch(() => false);
+    expect(hasActivities || hasEmpty).toBe(true);
+  });
+
+  test("Overview tab shows agent info including workspace path", async ({
+    page,
+  }) => {
+    const overviewTab = page.getByRole("tab", { name: "Overview" });
+    await expect(overviewTab).toBeVisible();
+    await overviewTab.click();
+
+    await expect(page.getByText("Agent Overview")).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(page.getByText("Agent ID")).toBeVisible();
+    // Workspace path should be visible
+    await expect(page.getByText("Workspace")).toBeVisible();
+  });
+});

@@ -38,4 +38,5 @@ export const NAV_ITEMS = [
   { label: "Skills", path: "/skills" },
   { label: "Permissions", path: "/permissions" },
   { label: "Cron Jobs", path: "/cron" },
+  { label: "Settings", path: "/settings" },
 ] as const;

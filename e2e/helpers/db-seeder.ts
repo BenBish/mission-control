@@ -266,12 +266,18 @@ export async function seedDatabase(): Promise<void> {
     await db.exec(stmt);
   }
 
-  // Mark migration 001 as already applied so the API won't backfill profile_id
-  await db.run(
-    "INSERT INTO schema_migrations (version, name) VALUES (?, ?)",
-    "001",
-    "add-profile-id",
-  );
+  // Mark migrations as already applied so the API won't re-run backfills
+  for (const [version, name] of [
+    ["001", "add-profile-id"],
+    ["002", "backfill-sessions"],
+    ["003", "backfill-actors"],
+  ]) {
+    await db.run(
+      "INSERT INTO schema_migrations (version, name) VALUES (?, ?)",
+      version,
+      name,
+    );
+  }
 
   // Seed sessions
   const now = new Date();
@@ -336,6 +342,20 @@ export async function seedDatabase(): Promise<void> {
         : null,
     );
   }
+
+  // Backfill session stats from seeded activities
+  await db.exec(`
+    UPDATE sessions SET
+      total_actions = (SELECT COUNT(*) FROM activities WHERE activities.session_id = sessions.id),
+      success_count = (SELECT COUNT(*) FROM activities WHERE activities.session_id = sessions.id AND activities.status = 'success'),
+      failure_count = (SELECT COUNT(*) FROM activities WHERE activities.session_id = sessions.id AND activities.status = 'failure'),
+      total_cost_usd = (SELECT COALESCE(SUM(cost_usd), 0) FROM activities WHERE activities.session_id = sessions.id),
+      total_tokens = (SELECT COALESCE(SUM(total_tokens), 0) FROM activities WHERE activities.session_id = sessions.id),
+      actors_json = (
+        SELECT json_group_array(json_object('id', actor_id, 'displayName', actor_id))
+        FROM (SELECT DISTINCT actor_id FROM activities WHERE activities.session_id = sessions.id)
+      )
+  `);
 
   // Seed LLM generations
   for (let i = 0; i < 30; i++) {

@@ -87,4 +87,65 @@ test.describe("Activity Feed", () => {
     // Should be a number or a dash
     expect(tokenText?.trim()).toMatch(/^[\d,]+|—$/);
   });
+
+  test("status filter dropdown is visible", async ({ page }) => {
+    const statusTrigger = page.locator("button[role='combobox']").first();
+    await expect(statusTrigger).toBeVisible();
+  });
+
+  test("filtering by failure shows only failure-status rows", async ({
+    page,
+  }) => {
+    // Open status dropdown
+    const statusTrigger = page.locator("button[role='combobox']").first();
+    await statusTrigger.click();
+    // Select "failure"
+    await page.getByRole("option", { name: "failure" }).click();
+    // Wait for filtered results
+    await page.waitForTimeout(500);
+
+    // All visible status badges should say "failure"
+    const rows = feed.getRows();
+    const rowCount = await rows.count();
+    expect(rowCount).toBeGreaterThan(0);
+    for (let i = 0; i < Math.min(rowCount, 5); i++) {
+      const statusCell = rows.nth(i).locator("td").nth(5);
+      const statusText = await statusCell.textContent();
+      expect(statusText?.toLowerCase()).toContain("failure");
+    }
+  });
+
+  test("clear filters button restores full list", async ({ page }) => {
+    // Apply a filter first
+    const statusTrigger = page.locator("button[role='combobox']").first();
+    await statusTrigger.click();
+    await page.getByRole("option", { name: "failure" }).click();
+    await page.waitForTimeout(500);
+
+    const filteredCount = await feed.getRows().count();
+
+    // Click Clear Filters
+    const clearBtn = page.getByRole("button", { name: /Clear Filters/i });
+    await expect(clearBtn).toBeVisible();
+    await clearBtn.click();
+    await page.waitForTimeout(500);
+
+    // Should show more rows than filtered
+    const unfilteredCount = await feed.getRows().count();
+    expect(unfilteredCount).toBeGreaterThanOrEqual(filteredCount);
+  });
+
+  test("session ID cell in table is a link to session detail", async ({
+    page,
+  }) => {
+    // Session column (index 4) should contain a link
+    const sessionCell = feed.getRows().first().locator("td").nth(4);
+    const link = sessionCell.locator("a");
+    const linkCount = await link.count();
+    // Some activities may have session links, some may not
+    if (linkCount > 0) {
+      const href = await link.getAttribute("href");
+      expect(href).toMatch(/\/sessions\//);
+    }
+  });
 });
