@@ -21,6 +21,7 @@ import {
 import { useProfile } from "@/app/profile-context";
 import { apiFetch } from "@/lib/api-client";
 import type { Activity } from "@/types/activity";
+import { SessionTimeline } from "../components/SessionTimeline";
 
 function formatDuration(startTime: string, endTime?: string): string {
   if (!endTime) return "Ongoing";
@@ -279,9 +280,10 @@ export default function SessionDetail() {
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="activity">Activity Feed</TabsTrigger>
+          <TabsTrigger value="timeline">Timeline</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -516,6 +518,22 @@ export default function SessionDetail() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Timeline Tab */}
+        <TabsContent value="timeline">
+          {activitiesLoading ? (
+            <Loading />
+          ) : activitiesError ? (
+            <Card>
+              <CardContent className="flex items-center gap-3 py-6 text-destructive">
+                <AlertCircle className="h-5 w-5 flex-shrink-0" />
+                <p className="text-sm">{activitiesError}</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <SessionTimeline activities={activities} session={session} />
+          )}
         </TabsContent>
       </Tabs>
     </div>
