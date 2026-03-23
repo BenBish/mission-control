@@ -83,6 +83,20 @@ test.describe("Agent Detail — Tabs", () => {
     expect(badgeText).toMatch(/.+<.+@.+>/);
   });
 
+  test("Configuration tab shows git identity as combined badge", async ({
+    page,
+  }) => {
+    const configTab = page.getByRole("tab", { name: "Config" });
+    await configTab.click();
+
+    // Should show "Git Identity" label (not separate "Git Author"/"Git Email")
+    await expect(page.getByText("Git Identity").first()).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(page.getByText("Git Author")).not.toBeVisible();
+    await expect(page.getByText("Git Email")).not.toBeVisible();
+  });
+
   test("clicking a file in tree loads content in viewer", async ({ page }) => {
     const configTab = page.getByRole("tab", { name: "Config" });
     await configTab.click();
