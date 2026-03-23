@@ -69,15 +69,14 @@ test.describe("Failure Analysis", () => {
   test("clicking a recent failure row navigates to activity detail", async ({
     page,
   }) => {
-    const recentHeading = page.getByRole("heading", {
-      name: "Recent Failures",
-    });
-    const recentSection = recentHeading.locator(
-      "xpath=ancestor::div[.//table]",
-    );
-    const firstRow = recentSection.locator("tbody tr").first();
+    // Recent Failures rows have cursor-pointer and contain "failure" badge
+    // Find the table that follows the "Recent Failures" heading
+    const recentTable = page
+      .locator("table")
+      .filter({ has: page.locator("th", { hasText: "Description" }) });
+    const firstRow = recentTable.locator("tbody tr").first();
     await firstRow.click();
-    await page.waitForURL(/\/activities\//);
+    await page.waitForURL(/\/activities\//, { timeout: 10_000 });
     expect(page.url()).toContain("/activities/");
   });
 

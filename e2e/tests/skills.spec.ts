@@ -55,10 +55,8 @@ test.describe("Skills Page", () => {
     await page.waitForLoadState("domcontentloaded");
     await page.locator("main").waitFor({ state: "visible" });
     // Should show error state for a non-existent skill
-    await expect(
-      page
-        .getByText("Skill not found")
-        .or(page.getByText("Error loading skill")),
-    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("Skill not found")).toBeVisible({
+      timeout: 15_000,
+    });
   });
 });
