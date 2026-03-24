@@ -117,6 +117,14 @@ export class CostBreakdownPage extends BasePage {
   /** Click a date preset button */
   async selectPreset(label: string) {
     await this.getPresetButton(label).click();
+    if (label === "Custom") {
+      await this.page.locator("#cost-date-from").waitFor({ state: "visible" });
+    } else {
+      await this.page
+        .locator("#cost-date-from")
+        .waitFor({ state: "hidden" })
+        .catch(() => {});
+    }
   }
 
   /** Get the active range label text */
