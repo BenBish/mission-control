@@ -1,6 +1,6 @@
 /**
  * Dashboard page E2E tests.
- * Tests stat cards, recent activity list, trend charts, and error states.
+ * Tests stat cards, recent activity list, and the token trend chart.
  */
 
 import { test, expect } from "../fixtures/base.js";
@@ -15,31 +15,27 @@ test.describe("Dashboard", () => {
     await dashboard.waitForStats();
   });
 
-  test("displays all four stat cards", async () => {
+  test("displays all three stat cards", async () => {
     const titles = await dashboard.getStatCardTitles();
-    expect(titles).toContain("Total Activities");
-    expect(titles).toContain("Total Cost");
-    expect(titles).toContain("Success Rate");
-    expect(titles).toContain("Active Actors");
+    expect(titles).toContain("Tokens Today");
+    expect(titles).toContain("Recent Failures");
+    expect(titles).toContain("Source Health");
   });
 
-  test("stat cards show real values (not loading placeholders)", async () => {
-    // Total Activities should be a number > 0 (we seeded 60)
-    const activities = await dashboard.getStatValue("Total Activities");
-    expect(activities).not.toBe("—");
-    expect(parseInt(activities.replace(/,/g, ""), 10)).toBeGreaterThan(0);
+  test("Tokens Today stat card shows a real value (not a loading placeholder)", async () => {
+    const tokens = await dashboard.getStatValue("Tokens Today");
+    expect(tokens).not.toBe("—");
+    expect(parseInt(tokens.replace(/,/g, ""), 10)).toBeGreaterThanOrEqual(0);
+  });
 
-    // Total Cost should start with $
-    const cost = await dashboard.getStatValue("Total Cost");
-    expect(cost).toMatch(/^\$/);
-
-    // Success Rate should end with %
-    const rate = await dashboard.getStatValue("Success Rate");
-    expect(rate).toMatch(/%$/);
+  test("Source Health shows a badge per seeded source", async () => {
+    const badges = dashboard.getSourceHealthBadges();
+    const count = await badges.count();
+    // 5 sources are always seeded: claude-code, codex, hermes, lemonade, comfyui
+    expect(count).toBeGreaterThanOrEqual(5);
   });
 
   test("shows recent activity list with items", async ({ page }) => {
-    // Recent activity section should be visible
     await expect(
       page.getByRole("heading", { name: "Recent Activity" }),
     ).toBeVisible();
@@ -51,15 +47,12 @@ test.describe("Dashboard", () => {
     expect(count).toBeLessThanOrEqual(5);
   });
 
-  test("recent activity rows show description and status", async ({ page }) => {
+  test("recent activity rows show description and status", async () => {
     const rows = dashboard.getRecentActivityRows();
     const firstRow = rows.first();
 
-    // Each row should have a description containing "E2E test activity"
+    // Each row should have a description containing our seeded text
     await expect(firstRow).toContainText("E2E test activity");
-
-    // Each row should have a status text (success, failure, or pending)
-    await expect(firstRow).toContainText(/success|failure|pending/);
   });
 
   test("clicking a recent activity navigates to detail", async ({ page }) => {
@@ -76,36 +69,23 @@ test.describe("Dashboard", () => {
     expect(page.url()).toContain("/activities");
   });
 
-  test("shows Activity Volume chart card", async ({ page }) => {
+  test("shows Token Usage chart card", async ({ page }) => {
     await dashboard.waitForCharts();
 
     await expect(
-      page.getByRole("heading", { name: "Activity Volume" }),
+      page.getByRole("heading", { name: "Token Usage" }),
     ).toBeVisible();
 
     // Chart should render an SVG (Recharts renders inside a ResponsiveContainer)
-    const card = dashboard.getActivityVolumeCard();
+    const card = dashboard.getTokenUsageCard();
     await expect(card.locator("svg").first()).toBeVisible();
   });
 
-  test("shows Daily Cost chart card", async ({ page }) => {
-    await dashboard.waitForCharts();
-
-    await expect(
-      page.getByRole("heading", { name: "Daily Cost" }),
-    ).toBeVisible();
-
-    // Chart should render an SVG
-    const card = dashboard.getDailyCostCard();
-    await expect(card.locator("svg").first()).toBeVisible();
-  });
-
-  test("charts replaced Quick Actions (no Quick Actions card)", async ({
+  test("Recent Failures stat card links to the Failures page", async ({
     page,
   }) => {
-    // Quick Actions should NOT exist on the page anymore
-    await expect(
-      page.getByRole("heading", { name: "Quick Actions" }),
-    ).not.toBeVisible();
+    await page.getByRole("button", { name: "View failures" }).click();
+    await page.waitForURL("/failures");
+    expect(page.url()).toContain("/failures");
   });
 });

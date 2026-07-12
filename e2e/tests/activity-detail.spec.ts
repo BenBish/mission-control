@@ -83,7 +83,8 @@ test.describe("Activity Detail", () => {
     expect(await detail.hasSessionCard()).toBeTruthy();
 
     const sessionId = await detail.getSessionId();
-    expect(sessionId).toMatch(/^session-e2e-/);
+    // Session ids are source-prefixed: 'claude-code:session-e2e-cc-001' etc.
+    expect(sessionId).toMatch(/^(claude-code|codex):session-e2e-/);
   });
 
   test("back button navigates to activity feed", async ({ page }) => {
