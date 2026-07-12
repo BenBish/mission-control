@@ -18,22 +18,20 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useTheme } from "@/app/providers";
 import { useAuth } from "@/app/auth/AuthContext";
-import { useProfile } from "@/app/profile-context";
-import { ProfileSelector } from "@/components/_shared/ProfileSelector";
+import { SourceFilter } from "@/components/_shared/SourceFilter";
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/activities", icon: List, label: "Activities" },
   { to: "/sessions", icon: History, label: "Sessions" },
   { to: "/failures", icon: AlertTriangle, label: "Failures" },
-  { to: "/costs", icon: DollarSign, label: "Cost Breakdown" },
-  { to: "/cron", icon: Clock, label: "Cron Jobs" },
+  { to: "/consumption", icon: DollarSign, label: "Consumption" },
+  { to: "/jobs", icon: Clock, label: "Jobs" },
   { to: "/settings", icon: Settings, label: "Settings" },
 ];
 
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const location = useLocation();
-  const { activeProfile } = useProfile();
 
   return (
     <div className="flex h-full flex-col">
@@ -47,7 +45,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             Mission Control
           </span>
           <span className="text-xs text-muted-foreground truncate">
-            {activeProfile?.name ?? "Orca Dashboard"}
+            Unified AI usage dashboard
           </span>
         </div>
       </div>
@@ -174,7 +172,7 @@ export function MainLayout() {
 
           <div className="flex-1" />
 
-          <ProfileSelector />
+          <SourceFilter />
           <LogoutButton />
           <ThemeToggle />
         </header>

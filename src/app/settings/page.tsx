@@ -1,10 +1,8 @@
 /**
  * Settings Page
- * Tabbed settings page with Data Retention, Profiles, System, and About tabs.
+ * Sources & Instances (live registry) and About.
  */
 
-import { useState, useEffect, useCallback } from "react";
-import { apiFetch } from "@/lib/api-client";
 import { PageHeader } from "@/components/_shared/PageHeader";
 import { Loading } from "@/components/_shared/Loading";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -12,248 +10,43 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  AlertCircle,
-  Database,
-  HardDrive,
-  Info,
-  RotateCcw,
-  Save,
-  Server,
-  Settings2,
-  Trash2,
-  Users,
-} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { AlertCircle, Info, Server } from "lucide-react";
+import { useSources } from "@/lib/queries";
 
-interface SettingsData {
-  config: {
-    retentionHotDays: number;
-    retentionWarmDays: number;
-    maxOutputSize: number;
-    apiPort: number;
-    dbPath: string;
-    nodeVersion: string;
-  };
-  dbStats: {
-    fileSizeBytes: number;
-    totalActivities: number;
-    hotActivities: number;
-    warmActivities: number;
-    coldActivities: number;
-    totalSessions: number;
-    totalGenerations: number;
-  };
-  profiles: Array<{
-    id: string;
-    name: string;
-    basePath: string;
-    activityCount: number;
-    lastActivity: string | null;
-  }>;
-  scanState: {
-    lastScanTime: string | null;
-    filesTracked: number;
-    generationsScanned: number;
-  };
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return "0 B";
-  const k = 1024;
-  const sizes = ["B", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
-}
+const STATUS_VARIANT: Record<
+  string,
+  "success" | "destructive" | "secondary" | "outline"
+> = {
+  ok: "success",
+  error: "destructive",
+  off: "outline",
+  unknown: "secondary",
+};
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "Never";
   return new Date(dateStr).toLocaleString();
 }
 
-function Toast({
-  message,
-  type,
-}: {
-  message: string;
-  type: "success" | "error";
-}) {
-  return (
-    <div className="fixed bottom-4 right-4 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300">
-      <div
-        className={`rounded-lg border px-4 py-3 shadow-lg ${
-          type === "error"
-            ? "border-destructive bg-destructive/10 text-destructive"
-            : "bg-card text-foreground"
-        }`}
-      >
-        <p className="text-sm">{message}</p>
-      </div>
-    </div>
-  );
-}
-
 export default function SettingsPage() {
-  const [data, setData] = useState<SettingsData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [toast, setToast] = useState<{
-    message: string;
-    type: "success" | "error";
-  } | null>(null);
-
-  // Retention form state
-  const [hotDays, setHotDays] = useState("");
-  const [warmDays, setWarmDays] = useState("");
-  const [maxOutputSize, setMaxOutputSize] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
-  const [isCleaningUp, setIsCleaningUp] = useState(false);
-  const [isResettingScan, setIsResettingScan] = useState(false);
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
-
-  const showToast = useCallback(
-    (message: string, type: "success" | "error") => {
-      setToast({ message, type });
-      setTimeout(() => setToast(null), 3000);
-    },
-    [],
-  );
-
-  const fetchSettings = useCallback(async () => {
-    try {
-      const res = await apiFetch("/api/settings");
-      if (!res.ok) throw new Error("Failed to fetch settings");
-      const json = await res.json();
-      setData(json);
-      setHotDays(String(json.config.retentionHotDays));
-      setWarmDays(String(json.config.retentionWarmDays));
-      setMaxOutputSize(String(json.config.maxOutputSize));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchSettings();
-  }, [fetchSettings]);
-
-  const handleSaveRetention = async () => {
-    setIsSaving(true);
-    try {
-      const res = await apiFetch("/api/settings/retention", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          hotDays: parseInt(hotDays, 10),
-          warmDays: parseInt(warmDays, 10),
-          maxOutputSize: parseInt(maxOutputSize, 10),
-        }),
-      });
-      if (!res.ok) throw new Error("Failed to save settings");
-      showToast("Retention settings saved", "success");
-      await fetchSettings();
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : "Failed to save", "error");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleCleanup = async () => {
-    setIsCleaningUp(true);
-    try {
-      const res = await apiFetch("/api/settings/cleanup", { method: "POST" });
-      if (!res.ok) throw new Error("Cleanup failed");
-      const json = await res.json();
-      showToast(json.message || "Cleanup complete", "success");
-      await fetchSettings();
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : "Cleanup failed", "error");
-    } finally {
-      setIsCleaningUp(false);
-    }
-  };
-
-  const handleResetScan = async () => {
-    setIsResettingScan(true);
-    setShowResetConfirm(false);
-    try {
-      const res = await apiFetch("/api/settings/reset-scan", {
-        method: "POST",
-      });
-      if (!res.ok) throw new Error("Reset failed");
-      showToast("Scan state cleared", "success");
-      await fetchSettings();
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : "Reset failed", "error");
-    } finally {
-      setIsResettingScan(false);
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <PageHeader
-          title="Settings"
-          description="System configuration and database management"
-        />
-        <Loading />
-      </div>
-    );
-  }
-
-  if (error || !data) {
-    return (
-      <div className="space-y-6">
-        <PageHeader
-          title="Settings"
-          description="System configuration and database management"
-        />
-        <Card className="border-destructive">
-          <CardContent className="flex items-center gap-3 py-6">
-            <AlertCircle className="h-5 w-5 text-destructive" />
-            <div>
-              <p className="font-medium text-destructive">
-                Error loading settings
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {error || "No data"}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  const { data: sources, isLoading, error } = useSources();
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Settings"
-        description="System configuration and database management"
+        description="Source registry and application info"
       />
 
-      <Tabs defaultValue="retention">
+      <Tabs defaultValue="sources">
         <TabsList>
-          <TabsTrigger value="retention">
-            <Database className="mr-2 h-4 w-4" />
-            Data Retention
-          </TabsTrigger>
-          <TabsTrigger value="profiles">
-            <Users className="mr-2 h-4 w-4" />
-            Profiles
-          </TabsTrigger>
-          <TabsTrigger value="system">
+          <TabsTrigger value="sources">
             <Server className="mr-2 h-4 w-4" />
-            System
+            Sources & Instances
           </TabsTrigger>
           <TabsTrigger value="about">
             <Info className="mr-2 h-4 w-4" />
@@ -261,202 +54,92 @@ export default function SettingsPage() {
           </TabsTrigger>
         </TabsList>
 
-        {/* Data Retention Tab */}
-        <TabsContent value="retention" className="space-y-4">
+        <TabsContent value="sources" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Settings2 className="h-5 w-5" />
-                Retention Configuration
-              </CardTitle>
+              <CardTitle>Sources</CardTitle>
               <CardDescription>
-                Configure how long activity data is retained
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="space-y-2">
-                  <label htmlFor="hotDays" className="text-sm font-medium">
-                    Hot retention (days)
-                  </label>
-                  <Input
-                    id="hotDays"
-                    type="number"
-                    value={hotDays}
-                    onChange={(e) => setHotDays(e.target.value)}
-                    min={1}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Recent data kept in full detail
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <label htmlFor="warmDays" className="text-sm font-medium">
-                    Warm retention (days)
-                  </label>
-                  <Input
-                    id="warmDays"
-                    type="number"
-                    value={warmDays}
-                    onChange={(e) => setWarmDays(e.target.value)}
-                    min={1}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Older data retained with summaries
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <label
-                    htmlFor="maxOutputSize"
-                    className="text-sm font-medium"
-                  >
-                    Max output size (chars)
-                  </label>
-                  <Input
-                    id="maxOutputSize"
-                    type="number"
-                    value={maxOutputSize}
-                    onChange={(e) => setMaxOutputSize(e.target.value)}
-                    min={100}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Maximum captured output per activity
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter className="flex gap-2">
-              <Button onClick={handleSaveRetention} disabled={isSaving}>
-                <Save className="mr-2 h-4 w-4" />
-                {isSaving ? "Saving..." : "Save"}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={handleCleanup}
-                disabled={isCleaningUp}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                {isCleaningUp ? "Running..." : "Run Cleanup Now"}
-              </Button>
-            </CardFooter>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <HardDrive className="h-5 w-5" />
-                Database Statistics
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="rounded-lg border p-3">
-                  <p className="text-sm text-muted-foreground">File Size</p>
-                  <p className="text-2xl font-bold">
-                    {formatBytes(data.dbStats.fileSizeBytes)}
-                  </p>
-                </div>
-                <div className="rounded-lg border p-3">
-                  <p className="text-sm text-muted-foreground">
-                    Total Activities
-                  </p>
-                  <p className="text-2xl font-bold">
-                    {data.dbStats.totalActivities.toLocaleString()}
-                  </p>
-                </div>
-                <div className="rounded-lg border p-3">
-                  <p className="text-sm text-muted-foreground">Sessions</p>
-                  <p className="text-2xl font-bold">
-                    {data.dbStats.totalSessions.toLocaleString()}
-                  </p>
-                </div>
-                <div className="rounded-lg border p-3">
-                  <p className="text-sm text-muted-foreground">
-                    LLM Generations
-                  </p>
-                  <p className="text-2xl font-bold">
-                    {data.dbStats.totalGenerations.toLocaleString()}
-                  </p>
-                </div>
-              </div>
-              <div className="mt-4 grid gap-4 sm:grid-cols-3">
-                <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-3">
-                  <p className="text-sm text-muted-foreground">
-                    Hot (last 7 days)
-                  </p>
-                  <p className="text-xl font-semibold">
-                    {data.dbStats.hotActivities.toLocaleString()}
-                  </p>
-                </div>
-                <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 p-3">
-                  <p className="text-sm text-muted-foreground">
-                    Warm (7-90 days)
-                  </p>
-                  <p className="text-xl font-semibold">
-                    {data.dbStats.warmActivities.toLocaleString()}
-                  </p>
-                </div>
-                <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-3">
-                  <p className="text-sm text-muted-foreground">
-                    Cold (90+ days)
-                  </p>
-                  <p className="text-xl font-semibold">
-                    {data.dbStats.coldActivities.toLocaleString()}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Profiles Tab */}
-        <TabsContent value="profiles">
-          <Card>
-            <CardHeader>
-              <CardTitle>Profiles</CardTitle>
-              <CardDescription>
-                OpenClaw profiles and their activity statistics
+                Every source and its collector instances, seeded once at server
+                startup. Status/last-seen update as collectors send heartbeats.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {data.profiles.length === 0 ? (
-                <p className="py-6 text-center text-muted-foreground">
-                  No profiles found
-                </p>
+              {isLoading ? (
+                <Loading />
+              ) : error ? (
+                <div className="flex items-center gap-3 text-destructive py-4">
+                  <AlertCircle className="h-5 w-5" />
+                  <p className="text-sm">
+                    {error instanceof Error
+                      ? error.message
+                      : "Failed to load sources"}
+                  </p>
+                </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b">
                         <th className="px-4 py-2 text-left font-medium text-muted-foreground">
-                          Profile ID
+                          Source
                         </th>
                         <th className="px-4 py-2 text-left font-medium text-muted-foreground">
-                          Name
+                          Instance
+                        </th>
+                        <th className="px-4 py-2 text-left font-medium text-muted-foreground">
+                          Machine
+                        </th>
+                        <th className="px-4 py-2 text-left font-medium text-muted-foreground">
+                          Collector
+                        </th>
+                        <th className="px-4 py-2 text-left font-medium text-muted-foreground">
+                          Status
                         </th>
                         <th className="px-4 py-2 text-right font-medium text-muted-foreground">
-                          Activity Count
-                        </th>
-                        <th className="px-4 py-2 text-right font-medium text-muted-foreground">
-                          Last Activity
+                          Last Seen
                         </th>
                       </tr>
                     </thead>
                     <tbody>
-                      {data.profiles.map((profile) => (
-                        <tr key={profile.id} className="border-b last:border-0">
-                          <td className="px-4 py-2 font-mono text-xs">
-                            {profile.id}
-                          </td>
-                          <td className="px-4 py-2">{profile.name}</td>
-                          <td className="px-4 py-2 text-right">
-                            {profile.activityCount.toLocaleString()}
-                          </td>
-                          <td className="px-4 py-2 text-right text-muted-foreground">
-                            {formatDate(profile.lastActivity)}
-                          </td>
-                        </tr>
-                      ))}
+                      {(sources ?? []).flatMap((source) =>
+                        source.instances.map((instance) => (
+                          <tr
+                            key={instance.id}
+                            className="border-b last:border-0"
+                          >
+                            <td className="px-4 py-2 font-medium">
+                              {source.name}
+                            </td>
+                            <td className="px-4 py-2 font-mono text-xs">
+                              {instance.id}
+                            </td>
+                            <td className="px-4 py-2">{instance.machine}</td>
+                            <td className="px-4 py-2">
+                              <Badge variant="outline" className="text-xs">
+                                {instance.collectorKind}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-2">
+                              <Badge
+                                variant={
+                                  STATUS_VARIANT[instance.status] ?? "secondary"
+                                }
+                                className="capitalize"
+                              >
+                                {instance.status}
+                              </Badge>
+                              {instance.lastError && (
+                                <p className="mt-1 text-xs text-destructive">
+                                  {instance.lastError}
+                                </p>
+                              )}
+                            </td>
+                            <td className="px-4 py-2 text-right text-muted-foreground">
+                              {formatDate(instance.lastSeenAt)}
+                            </td>
+                          </tr>
+                        )),
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -465,98 +148,6 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
 
-        {/* System Tab */}
-        <TabsContent value="system" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>System Information</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">API Port</p>
-                  <p className="font-mono">{data.config.apiPort}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">Node Version</p>
-                  <p className="font-mono">{data.config.nodeVersion}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">Database Path</p>
-                  <p
-                    className="truncate font-mono text-xs"
-                    title={data.config.dbPath}
-                  >
-                    {data.config.dbPath}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Scan State</CardTitle>
-              <CardDescription>Session log scanner progress</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">Last Scan</p>
-                  <p className="font-mono text-sm">
-                    {formatDate(data.scanState.lastScanTime)}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">Files Tracked</p>
-                  <p className="font-mono">{data.scanState.filesTracked}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">
-                    Generations Scanned
-                  </p>
-                  <p className="font-mono">
-                    {data.scanState.generationsScanned.toLocaleString()}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter>
-              {showResetConfirm ? (
-                <div className="flex items-center gap-2">
-                  <p className="text-sm text-muted-foreground">
-                    This will trigger a full rescan. Continue?
-                  </p>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={handleResetScan}
-                    disabled={isResettingScan}
-                  >
-                    {isResettingScan ? "Resetting..." : "Confirm"}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowResetConfirm(false)}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              ) : (
-                <Button
-                  variant="outline"
-                  onClick={() => setShowResetConfirm(true)}
-                >
-                  <RotateCcw className="mr-2 h-4 w-4" />
-                  Reset Scan State
-                </Button>
-              )}
-            </CardFooter>
-          </Card>
-        </TabsContent>
-
-        {/* About Tab */}
         <TabsContent value="about">
           <Card>
             <CardHeader>
@@ -571,9 +162,9 @@ export default function SettingsPage() {
                   </span>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Activity monitoring dashboard for the OpenClaw agent system.
-                  Provides real-time visibility into agent activities, costs,
-                  and system health.
+                  A unified dashboard for AI usage across Claude Code, Codex
+                  CLI, and local inference infrastructure (Hermes, Lemonade,
+                  ComfyUI).
                 </p>
               </div>
               <div>
@@ -590,8 +181,6 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
       </Tabs>
-
-      {toast && <Toast message={toast.message} type={toast.type} />}
     </div>
   );
 }

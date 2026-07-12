@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Card,
   CardContent,
@@ -13,15 +14,17 @@ import { PageHeader } from "@/components/_shared/PageHeader";
 import { Loading } from "@/components/_shared/Loading";
 import { Separator } from "@/components/ui/separator";
 import type { Activity } from "@/types/activity";
-import { useProfile } from "@/app/profile-context";
-import { apiFetch } from "@/lib/api-client";
+import { actorIcon, actorTypeLabel } from "@/lib/actor-display";
 import { useSSE } from "@/hooks/useSSE";
-import { useDailyStats } from "@/hooks/useDailyStats";
+import {
+  useActivityList,
+  useConsumption,
+  useFailures,
+  useSources,
+} from "@/lib/queries";
 import {
   AreaChart,
   Area,
-  BarChart,
-  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -30,162 +33,72 @@ import {
 } from "recharts";
 import {
   Activity as ActivityIcon,
-  Users,
-  TrendingUp,
-  DollarSign,
+  Zap,
   List,
   ArrowRight,
   AlertCircle,
+  AlertTriangle,
   CheckCircle2,
   XCircle,
   Clock,
-  BarChart3,
 } from "lucide-react";
 
-interface StatsResponse {
-  success: boolean;
-  stats: {
-    activities: number;
-    sessions: number;
-    successCount: number;
-    failureCount: number;
-    successRate: number;
-    totalCost: number;
-    totalTokens: number;
-    activeActors: number;
-    totalAgents: number;
-  };
-}
-
-interface ActivitiesResponse {
-  success: boolean;
-  count: number;
-  activities: Activity[];
-}
-
-interface StatCard {
-  title: string;
-  value: string;
-  description: string;
-  icon: typeof ActivityIcon;
-  color: string;
-  bgColor: string;
-}
+const STATUS_DOT: Record<string, string> = {
+  ok: "bg-green-500",
+  off: "bg-muted-foreground/40",
+  error: "bg-red-500",
+  unknown: "bg-amber-500",
+};
 
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const { profileId } = useProfile();
-  const [stats, setStats] = useState<StatsResponse["stats"] | null>(null);
-  const [recentActivities, setRecentActivities] = useState<Activity[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const statsRefreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const dailyRefreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const {
-    data: dailyStats,
-    loading: dailyLoading,
-    refetch: refetchDaily,
-  } = useDailyStats(profileId);
+  const queryClient = useQueryClient();
 
-  const refreshStats = useCallback(() => {
-    if (statsRefreshTimer.current) clearTimeout(statsRefreshTimer.current);
-    statsRefreshTimer.current = setTimeout(async () => {
-      try {
-        const res = await apiFetch(
-          `/api/stats?profile=${encodeURIComponent(profileId)}`,
-        );
-        if (res.ok) {
-          const data: StatsResponse = await res.json();
-          if (data.success) setStats(data.stats);
-        }
-      } catch {
-        // silent — don't show error for background refresh
-      }
-    }, 2000);
-  }, [profileId]);
-
-  // Handle real-time activity events from the profile-scoped SSE stream
-  const onActivity = useCallback(
-    (activity: Activity) => {
-      setRecentActivities((prev) => {
-        // Prepend new activity, deduplicate, and keep only the 5 most recent
-        const exists = prev.some((a) => a.id === activity.id);
-        const updated = exists
-          ? prev.map((a) => (a.id === activity.id ? activity : a))
-          : [activity, ...prev];
-        return updated.slice(0, 5);
-      });
-      refreshStats();
-      // Debounce daily stats refresh on SSE events
-      if (dailyRefreshTimer.current) clearTimeout(dailyRefreshTimer.current);
-      dailyRefreshTimer.current = setTimeout(() => {
-        refetchDaily();
-      }, 2000);
-    },
-    [refreshStats, refetchDaily],
+  const { data: sources, isLoading: sourcesLoading } = useSources();
+  const { data: activities, isLoading: activitiesLoading } = useActivityList({
+    limit: 5,
+  });
+  const { data: failures } = useFailures(5);
+  const { data: consumption, isLoading: consumptionLoading } = useConsumption(
+    {},
   );
 
-  useEffect(() => {
-    return () => {
-      if (statsRefreshTimer.current) clearTimeout(statsRefreshTimer.current);
-      if (dailyRefreshTimer.current) clearTimeout(dailyRefreshTimer.current);
-    };
-  }, []);
+  useSSE({
+    onActivity: () => {
+      queryClient.invalidateQueries({ queryKey: ["activities"] });
+      queryClient.invalidateQueries({ queryKey: ["consumption"] });
+      queryClient.invalidateQueries({ queryKey: ["failures"] });
+    },
+  });
 
-  useSSE(profileId, { onActivity });
+  const tokensToday = useMemo(() => {
+    if (!consumption) return 0;
+    const today = new Date().toISOString().slice(0, 10);
+    return consumption
+      .filter((row) => row.day === today)
+      .reduce((sum, row) => sum + row.input_tokens + row.output_tokens, 0);
+  }, [consumption]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const profileParam = `profile=${encodeURIComponent(profileId)}`;
-        // Fetch stats and recent activities in parallel, scoped to profile
-        const [statsRes, activitiesRes] = await Promise.all([
-          apiFetch(`/api/stats?${profileParam}`),
-          apiFetch(`/api/activities?limit=5&${profileParam}`),
-        ]);
-
-        if (!statsRes.ok) {
-          throw new Error(`Failed to fetch stats: ${statsRes.statusText}`);
-        }
-        if (!activitiesRes.ok) {
-          throw new Error(
-            `Failed to fetch activities: ${activitiesRes.statusText}`,
-          );
-        }
-
-        const statsData: StatsResponse = await statsRes.json();
-        const activitiesData: ActivitiesResponse = await activitiesRes.json();
-
-        if (statsData.success) {
-          setStats(statsData.stats);
-        }
-        if (activitiesData.success) {
-          setRecentActivities(activitiesData.activities);
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error occurred");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [profileId]);
-
-  const formatCost = (cost: number) => {
-    return `$${cost.toFixed(4)}`;
-  };
+  const dailyTokens = useMemo(() => {
+    if (!consumption) return [];
+    const byDay = new Map<string, number>();
+    for (const row of consumption) {
+      byDay.set(
+        row.day,
+        (byDay.get(row.day) ?? 0) + row.input_tokens + row.output_tokens,
+      );
+    }
+    return Array.from(byDay.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, tokens]) => ({ date, tokens }));
+  }, [consumption]);
 
   const formatTimestamp = (timestamp: string) => {
     const date = new Date(timestamp);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
+    const diffMs = new Date().getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
-
     if (diffMins < 1) return "Just now";
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
@@ -193,171 +106,16 @@ export default function DashboardPage() {
     return date.toLocaleDateString();
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "success":
-        return (
-          <Badge
-            variant="outline"
-            className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800"
-          >
-            <CheckCircle2 className="h-3 w-3 mr-1" />
-            success
-          </Badge>
-        );
-      case "failure":
-        return (
-          <Badge
-            variant="outline"
-            className="bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-800"
-          >
-            <XCircle className="h-3 w-3 mr-1" />
-            failure
-          </Badge>
-        );
-      case "pending":
-        return (
-          <Badge
-            variant="outline"
-            className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800"
-          >
-            <Clock className="h-3 w-3 mr-1" />
-            pending
-          </Badge>
-        );
-      case "partial":
-        return (
-          <Badge
-            variant="outline"
-            className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-800"
-          >
-            <BarChart3 className="h-3 w-3 mr-1" />
-            partial
-          </Badge>
-        );
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
-  };
-
-  const getSuccessRateColor = (rate: number) => {
-    if (rate >= 90) return "text-emerald-600 dark:text-emerald-400";
-    if (rate >= 70) return "text-amber-600 dark:text-amber-400";
-    return "text-red-600 dark:text-red-400";
-  };
-
-  const getSuccessRateBg = (rate: number) => {
-    if (rate >= 90) return "bg-emerald-500/10 dark:bg-emerald-500/20";
-    if (rate >= 70) return "bg-amber-500/10 dark:bg-amber-500/20";
-    return "bg-red-500/10 dark:bg-red-500/20";
-  };
-
-  // Build stat cards from API data
-  const statCards: StatCard[] = stats
-    ? [
-        {
-          title: "Total Activities",
-          value: stats.activities?.toLocaleString() || "0",
-          description: `${stats.successCount || 0} successful, ${stats.failureCount || 0} failed`,
-          icon: ActivityIcon,
-          color: "text-blue-600 dark:text-blue-400",
-          bgColor: "bg-blue-500/10 dark:bg-blue-500/20",
-        },
-        {
-          title: "Total Cost",
-          value: formatCost(stats.totalCost || 0),
-          description: `${(stats.totalTokens || 0).toLocaleString()} tokens used`,
-          icon: DollarSign,
-          color: "text-violet-600 dark:text-violet-400",
-          bgColor: "bg-violet-500/10 dark:bg-violet-500/20",
-        },
-        {
-          title: "Success Rate",
-          value: `${(stats.successRate || 0).toFixed(1)}%`,
-          description:
-            stats.successRate >= 90
-              ? "Excellent performance"
-              : stats.successRate >= 70
-                ? "Good performance"
-                : "Needs attention",
-          icon: TrendingUp,
-          color: getSuccessRateColor(stats.successRate || 0),
-          bgColor: getSuccessRateBg(stats.successRate || 0),
-        },
-        {
-          title: "Active Actors",
-          value: String(stats.activeActors),
-          description: `${stats.activeActors} of ${stats.totalAgents} agents active`,
-          icon: Users,
-          color: "text-cyan-600 dark:text-cyan-400",
-          bgColor: "bg-cyan-500/10 dark:bg-cyan-500/20",
-        },
-      ]
-    : [
-        {
-          title: "Total Activities",
-          value: "—",
-          description: "Loading...",
-          icon: ActivityIcon,
-          color: "text-muted-foreground",
-          bgColor: "bg-muted",
-        },
-        {
-          title: "Total Cost",
-          value: "—",
-          description: "Loading...",
-          icon: DollarSign,
-          color: "text-muted-foreground",
-          bgColor: "bg-muted",
-        },
-        {
-          title: "Success Rate",
-          value: "—",
-          description: "Loading...",
-          icon: TrendingUp,
-          color: "text-muted-foreground",
-          bgColor: "bg-muted",
-        },
-        {
-          title: "Active Actors",
-          value: "—",
-          description: "Loading...",
-          icon: Users,
-          color: "text-muted-foreground",
-          bgColor: "bg-muted",
-        },
-      ];
+  const isLoading = sourcesLoading && activitiesLoading && consumptionLoading;
 
   if (isLoading) {
     return (
       <div className="space-y-6">
         <PageHeader
           title="Dashboard"
-          description="Overview of your application metrics"
+          description="Overview of AI usage across all sources"
         />
         <Loading />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="space-y-6">
-        <PageHeader
-          title="Dashboard"
-          description="Overview of your application metrics"
-        />
-        <Card className="border-destructive">
-          <CardContent className="flex items-center gap-3 py-6">
-            <AlertCircle className="h-5 w-5 text-destructive" />
-            <div>
-              <p className="font-medium text-destructive">
-                Error loading dashboard
-              </p>
-              <p className="text-sm text-muted-foreground">{error}</p>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     );
   }
@@ -366,36 +124,80 @@ export default function DashboardPage() {
     <div className="space-y-8">
       <PageHeader
         title="Dashboard"
-        description="Overview of your application metrics"
+        description="Overview of AI usage across all sources"
       />
 
       {/* Stats Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {statCards.map((stat) => (
-          <Card
-            key={stat.title}
-            className="shadow-sm hover:shadow-md transition-shadow"
-          >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {stat.title}
-              </CardTitle>
-              <div className={`p-2 rounded-lg ${stat.bgColor}`}>
-                <stat.icon className={`h-4 w-4 ${stat.color}`} />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div
-                className={`text-3xl font-bold tracking-tight ${stat.title === "Success Rate" ? stat.color : ""}`}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Card className="shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Tokens Today
+            </CardTitle>
+            <div className="p-2 rounded-lg bg-blue-500/10 dark:bg-blue-500/20">
+              <Zap className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold tracking-tight">
+              {tokensToday.toLocaleString()}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              input + output, across all sources
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Recent Failures
+            </CardTitle>
+            <div className="p-2 rounded-lg bg-red-500/10 dark:bg-red-500/20">
+              <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold tracking-tight">
+              {failures?.length ?? 0}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              <button
+                className="hover:underline"
+                onClick={() => navigate("/failures")}
               >
-                {stat.value}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {stat.description}
-              </p>
-            </CardContent>
-          </Card>
-        ))}
+                View failures
+              </button>
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-sm sm:col-span-2 lg:col-span-1">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Source Health
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {(sources ?? []).map((source) => {
+                const status = source.instances[0]?.status ?? "unknown";
+                return (
+                  <Badge
+                    key={source.id}
+                    variant="outline"
+                    className="gap-1.5 font-normal"
+                  >
+                    <span
+                      className={`inline-block h-2 w-2 rounded-full ${STATUS_DOT[status] ?? STATUS_DOT.unknown}`}
+                    />
+                    {source.name}
+                  </Badge>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-7">
@@ -425,96 +227,78 @@ export default function DashboardPage() {
           </CardHeader>
           <Separator />
           <CardContent className="pt-4">
-            {recentActivities.length === 0 ? (
+            {!activities || activities.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <ActivityIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
                 <p className="text-sm">No recent activity found.</p>
               </div>
             ) : (
               <div className="space-y-1">
-                {recentActivities.map((activity) => (
-                  <div
-                    key={activity.id}
-                    className="group flex items-center justify-between p-3 rounded-lg cursor-pointer hover:bg-muted/60 transition-colors"
-                    onClick={() => navigate(`/activities/${activity.id}`)}
-                  >
-                    <div className="flex items-start gap-3 min-w-0">
-                      <div
-                        className={`p-1.5 rounded-md ${
-                          activity.status === "success"
-                            ? "bg-emerald-100 dark:bg-emerald-900/30"
-                            : activity.status === "failure"
-                              ? "bg-red-100 dark:bg-red-900/30"
-                              : "bg-amber-100 dark:bg-amber-900/30"
-                        }`}
-                      >
-                        {activity.status === "success" ? (
-                          <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                        ) : activity.status === "failure" ? (
-                          <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
-                        ) : (
-                          <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                        )}
+                {activities.map((activity: Activity) => {
+                  const Icon = actorIcon(activity.actor.type);
+                  return (
+                    <div
+                      key={activity.id}
+                      className="group flex items-center justify-between p-3 rounded-lg cursor-pointer hover:bg-muted/60 transition-colors"
+                      onClick={() => navigate(`/activities/${activity.id}`)}
+                    >
+                      <div className="flex items-start gap-3 min-w-0">
+                        <div
+                          className={`p-1.5 rounded-md ${
+                            activity.status === "success"
+                              ? "bg-emerald-100 dark:bg-emerald-900/30"
+                              : activity.status === "failure"
+                                ? "bg-red-100 dark:bg-red-900/30"
+                                : "bg-amber-100 dark:bg-amber-900/30"
+                          }`}
+                        >
+                          {activity.status === "success" ? (
+                            <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                          ) : activity.status === "failure" ? (
+                            <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                          ) : (
+                            <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                          )}
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">
+                            {activity.description}
+                          </p>
+                          <p className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Icon className="h-3 w-3" />
+                            {activity.actor.id}
+                            <span className="mx-0.5">·</span>
+                            {actorTypeLabel(activity.actor.type)}
+                          </p>
+                        </div>
                       </div>
-                      <div className="flex flex-col min-w-0">
-                        <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">
-                          {activity.description}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          <span>
-                            {activity.actor.emoji && (
-                              <span className="mr-0.5">
-                                {activity.actor.emoji}
-                              </span>
-                            )}
-                            {activity.actor.displayName || activity.actor.id}
-                          </span>
-                          <span className="mx-1">·</span>
-                          <span className="capitalize">
-                            {activity.actor.type}
-                          </span>
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 flex-shrink-0">
-                      {getStatusBadge(activity.status)}
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      <span className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">
                         {formatTimestamp(activity.timestamp)}
                       </span>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Trend Charts */}
-        <div className="lg:col-span-3 space-y-6">
-          {/* Activity Volume Chart */}
+        {/* Token trend chart */}
+        <div className="lg:col-span-3">
           <Card className="shadow-sm">
             <CardHeader className="pb-4">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <TrendingUp className="h-4 w-4 text-primary" />
-                </div>
-                <div>
-                  <CardTitle className="text-lg">Activity Volume</CardTitle>
-                  <CardDescription>Daily activity trend</CardDescription>
-                </div>
-              </div>
+              <CardTitle className="text-lg">Token Usage</CardTitle>
+              <CardDescription>Daily total across all sources</CardDescription>
             </CardHeader>
             <Separator />
             <CardContent className="pt-4">
-              {dailyLoading ? (
-                <div className="h-64 bg-muted animate-pulse rounded" />
-              ) : dailyStats.length === 0 ? (
+              {dailyTokens.length === 0 ? (
                 <div className="h-64 flex items-center justify-center text-muted-foreground text-sm">
-                  No activity data yet
+                  No token usage yet
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height={256}>
-                  <AreaChart data={dailyStats}>
+                  <AreaChart data={dailyTokens}>
                     <CartesianGrid
                       strokeDasharray="3 3"
                       className="stroke-border"
@@ -526,7 +310,6 @@ export default function DashboardPage() {
                         const d = new Date(value + "T00:00:00");
                         return `${d.getMonth() + 1}/${d.getDate()}`;
                       }}
-                      interval={6}
                       className="text-muted-foreground"
                     />
                     <YAxis
@@ -536,18 +319,12 @@ export default function DashboardPage() {
                     <Tooltip
                       content={({ active, payload, label }) => {
                         if (!active || !payload?.length) return null;
-                        const row = payload[0]?.payload;
                         return (
                           <div className="rounded-lg border bg-background p-3 shadow-md text-sm">
                             <p className="font-medium mb-1">{label}</p>
-                            <p className="text-emerald-600">
-                              Success: {row?.successCount ?? 0}
-                            </p>
-                            <p className="text-red-600">
-                              Failure: {row?.failureCount ?? 0}
-                            </p>
-                            <p className="text-muted-foreground">
-                              Rate: {row?.successRate ?? 0}%
+                            <p className="text-blue-600">
+                              {(payload[0]?.value as number)?.toLocaleString()}{" "}
+                              tokens
                             </p>
                           </div>
                         );
@@ -555,94 +332,42 @@ export default function DashboardPage() {
                     />
                     <Area
                       type="monotone"
-                      dataKey="successCount"
-                      stroke="#10b981"
-                      fill="#10b981"
+                      dataKey="tokens"
+                      stroke="#3b82f6"
+                      fill="#3b82f6"
                       fillOpacity={0.15}
-                      name="Success"
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="failureCount"
-                      stroke="#ef4444"
-                      fill="#ef4444"
-                      fillOpacity={0.15}
-                      name="Failure"
                     />
                   </AreaChart>
                 </ResponsiveContainer>
               )}
             </CardContent>
           </Card>
-
-          {/* Daily Cost Chart */}
-          <Card className="shadow-sm">
-            <CardHeader className="pb-4">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-lg bg-violet-500/10">
-                  <DollarSign className="h-4 w-4 text-violet-600 dark:text-violet-400" />
-                </div>
-                <div>
-                  <CardTitle className="text-lg">Daily Cost</CardTitle>
-                  <CardDescription>Cost trend over time</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <Separator />
-            <CardContent className="pt-4">
-              {dailyLoading ? (
-                <div className="h-48 bg-muted animate-pulse rounded" />
-              ) : dailyStats.length === 0 ? (
-                <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">
-                  No activity data yet
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height={192}>
-                  <BarChart data={dailyStats}>
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      className="stroke-border"
-                    />
-                    <XAxis
-                      dataKey="date"
-                      tick={{ fontSize: 12 }}
-                      tickFormatter={(value: string) => {
-                        const d = new Date(value + "T00:00:00");
-                        return `${d.getMonth() + 1}/${d.getDate()}`;
-                      }}
-                      interval={6}
-                      className="text-muted-foreground"
-                    />
-                    <YAxis
-                      tick={{ fontSize: 12 }}
-                      tickFormatter={(value: number) => `$${value.toFixed(4)}`}
-                      className="text-muted-foreground"
-                    />
-                    <Tooltip
-                      content={({ active, payload, label }) => {
-                        if (!active || !payload?.length) return null;
-                        const row = payload[0]?.payload;
-                        return (
-                          <div className="rounded-lg border bg-background p-3 shadow-md text-sm">
-                            <p className="font-medium mb-1">{label}</p>
-                            <p className="text-violet-600">
-                              ${(row?.cost ?? 0).toFixed(4)}
-                            </p>
-                            <p className="text-muted-foreground">
-                              {(row?.tokens ?? 0).toLocaleString()} tokens
-                            </p>
-                          </div>
-                        );
-                      }}
-                    />
-                    <Bar dataKey="cost" fill="#8b5cf6" radius={[2, 2, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </CardContent>
-          </Card>
         </div>
       </div>
+
+      {failures && failures.length > 0 && (
+        <Card className="shadow-sm border-l-4 border-l-red-500">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+              Recent Failures
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {failures.slice(0, 5).map((f) => (
+              <div
+                key={f.id}
+                className="flex items-center justify-between text-sm py-1"
+              >
+                <span className="truncate">{f.summary}</span>
+                <span className="text-xs text-muted-foreground whitespace-nowrap ml-3">
+                  {formatTimestamp(f.timestamp)}
+                </span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

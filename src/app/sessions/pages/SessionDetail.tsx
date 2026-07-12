@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useSession } from "../hooks/useSessions";
+import { useSession } from "@/lib/queries";
 import { PageHeader } from "@/components/_shared/PageHeader";
 import { Loading } from "@/components/_shared/Loading";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,9 +18,7 @@ import {
   XCircle,
   Zap,
 } from "lucide-react";
-import { useProfile } from "@/app/profile-context";
-import { apiFetch } from "@/lib/api-client";
-import type { Activity } from "@/types/activity";
+import { actorIcon } from "@/lib/actor-display";
 import { SessionTimeline } from "../components/SessionTimeline";
 
 function formatDuration(startTime: string, endTime?: string): string {
@@ -52,11 +50,9 @@ function formatTokens(tokens: number): string {
 
 function formatTimestamp(timestamp: string): string {
   const date = new Date(timestamp);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
+  const diffMs = new Date().getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / 60000);
   const diffHours = Math.floor(diffMs / 3600000);
-
   if (diffMins < 1) return "Just now";
   if (diffMins < 60) return `${diffMins}m ago`;
   if (diffHours < 24) return `${diffHours}h ago`;
@@ -66,43 +62,34 @@ function formatTimestamp(timestamp: string): string {
 export default function SessionDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { profileId, isSwitching } = useProfile();
-  const { session, isLoading, error } = useSession(id || "", profileId);
-  const [activities, setActivities] = useState<Activity[]>([]);
-  const [activitiesLoading, setActivitiesLoading] = useState(true);
-  const [activitiesError, setActivitiesError] = useState<string | null>(null);
+  const { data: session, isLoading, error } = useSession(id);
   const [copied, setCopied] = useState(false);
 
-  const fetchActivities = useCallback(async () => {
-    if (!id) return;
-    setActivitiesLoading(true);
-    setActivitiesError(null);
-    try {
-      const params = profileId
-        ? `?profile=${encodeURIComponent(profileId)}`
-        : "";
-      const response = await apiFetch(
-        `/api/sessions/${id}/activities${params}`,
-      );
-      if (!response.ok) {
-        throw new Error(`Failed to fetch activities: ${response.statusText}`);
-      }
-      const data = await response.json();
-      if (data.success) {
-        setActivities(data.activities);
-      }
-    } catch (err) {
-      setActivitiesError(
-        err instanceof Error ? err.message : "Unknown error occurred",
-      );
-    } finally {
-      setActivitiesLoading(false);
-    }
-  }, [id, profileId]);
+  const activities = useMemo(() => session?.activities ?? [], [session]);
 
-  useEffect(() => {
-    fetchActivities();
-  }, [fetchActivities]);
+  const topTools = useMemo(() => {
+    const byTool = new Map<string, number>();
+    for (const a of activities) {
+      if (!a.toolName) continue;
+      byTool.set(a.toolName, (byTool.get(a.toolName) ?? 0) + 1);
+    }
+    return Array.from(byTool.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+  }, [activities]);
+
+  const actorBreakdown = useMemo(() => {
+    const byActor = new Map<string, { type: string; count: number }>();
+    for (const a of activities) {
+      const existing = byActor.get(a.actor.id);
+      if (existing) existing.count++;
+      else byActor.set(a.actor.id, { type: a.actor.type, count: 1 });
+    }
+    return Array.from(byActor.entries()).sort(
+      (a, b) => b[1].count - a[1].count,
+    );
+  }, [activities]);
 
   const handleCopyId = () => {
     if (id) {
@@ -126,7 +113,7 @@ export default function SessionDetail() {
     );
   }
 
-  if (isLoading || isSwitching) {
+  if (isLoading) {
     return (
       <div className="space-y-6">
         <PageHeader title="Session" description="Loading session details..." />
@@ -147,7 +134,7 @@ export default function SessionDetail() {
                 Error loading session
               </p>
               <p className="text-sm text-muted-foreground">
-                {error || "Session not found"}
+                {error instanceof Error ? error.message : "Session not found"}
               </p>
             </div>
           </CardContent>
@@ -187,6 +174,14 @@ export default function SessionDetail() {
     }
   };
 
+  const totalTokens = session.stats.inputTokens + session.stats.outputTokens;
+  const successRate =
+    session.stats.toolCallCount > 0
+      ? ((session.stats.toolCallCount - session.stats.failureCount) /
+          session.stats.toolCallCount) *
+        100
+      : null;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -207,7 +202,7 @@ export default function SessionDetail() {
           <div className="flex items-start justify-between">
             <div>
               <CardTitle className="text-2xl flex items-center gap-2">
-                Session
+                {session.title ?? session.sourceId}
                 <Badge
                   className={
                     session.endTime
@@ -217,6 +212,7 @@ export default function SessionDetail() {
                 >
                   {session.endTime ? "Completed" : "Active"}
                 </Badge>
+                <Badge variant="secondary">{session.sourceId}</Badge>
               </CardTitle>
               <div className="mt-2 flex items-center gap-2">
                 <code className="text-xs text-muted-foreground font-mono bg-muted px-2 py-1 rounded">
@@ -234,6 +230,12 @@ export default function SessionDetail() {
                   <span className="text-xs text-muted-foreground">Copied!</span>
                 )}
               </div>
+              {session.cwd && (
+                <p className="mt-1 text-xs text-muted-foreground font-mono">
+                  {session.cwd}
+                  {session.gitBranch && ` · ${session.gitBranch}`}
+                </p>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -268,17 +270,14 @@ export default function SessionDetail() {
             <div className="space-y-1">
               <p className="flex items-center gap-1 text-sm text-muted-foreground">
                 <Hash className="h-3.5 w-3.5" />
-                Total Actions
+                Turns
               </p>
-              <p className="text-sm font-medium">
-                {session.stats.totalActions}
-              </p>
+              <p className="text-sm font-medium">{session.stats.turnCount}</p>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Tabs */}
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -286,9 +285,7 @@ export default function SessionDetail() {
           <TabsTrigger value="timeline">Timeline</TabsTrigger>
         </TabsList>
 
-        {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-4">
-          {/* Stat Cards */}
           <div className="grid gap-4 md:grid-cols-4">
             <Card>
               <CardContent className="pt-6">
@@ -297,11 +294,9 @@ export default function SessionDetail() {
                     <Hash className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">
-                      Total Actions
-                    </p>
+                    <p className="text-sm text-muted-foreground">Tool Calls</p>
                     <p className="text-2xl font-bold">
-                      {session.stats.totalActions}
+                      {session.stats.toolCallCount}
                     </p>
                   </div>
                 </div>
@@ -318,7 +313,9 @@ export default function SessionDetail() {
                       Success Rate
                     </p>
                     <p className="text-2xl font-bold">
-                      {session.stats.successRate.toFixed(0)}%
+                      {successRate !== null
+                        ? `${successRate.toFixed(0)}%`
+                        : "—"}
                     </p>
                   </div>
                 </div>
@@ -331,9 +328,11 @@ export default function SessionDetail() {
                     <DollarSign className="h-5 w-5 text-amber-600 dark:text-amber-400" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Total Cost</p>
+                    <p className="text-sm text-muted-foreground">Cost</p>
                     <p className="text-2xl font-bold">
-                      {formatCost(session.stats.totalCost)}
+                      {session.stats.costUsd != null
+                        ? formatCost(session.stats.costUsd)
+                        : "—"}
                     </p>
                   </div>
                 </div>
@@ -350,7 +349,7 @@ export default function SessionDetail() {
                       Total Tokens
                     </p>
                     <p className="text-2xl font-bold">
-                      {formatTokens(session.stats.totalTokens)}
+                      {formatTokens(totalTokens)}
                     </p>
                   </div>
                 </div>
@@ -358,8 +357,7 @@ export default function SessionDetail() {
             </Card>
           </div>
 
-          {/* Top Tools */}
-          {session.topTools.length > 0 && (
+          {topTools.length > 0 && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Top Tools</CardTitle>
@@ -374,22 +372,16 @@ export default function SessionDetail() {
                       <th className="text-right py-2 px-4 text-xs font-semibold text-muted-foreground uppercase">
                         Calls
                       </th>
-                      <th className="text-right py-2 px-4 text-xs font-semibold text-muted-foreground uppercase">
-                        Cost
-                      </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {session.topTools.map((tool) => (
+                    {topTools.map((tool) => (
                       <tr key={tool.name} className="border-b last:border-0">
                         <td className="py-2 px-4 text-sm font-mono">
                           {tool.name}
                         </td>
                         <td className="py-2 px-4 text-sm text-right tabular-nums">
                           {tool.count}
-                        </td>
-                        <td className="py-2 px-4 text-sm text-right tabular-nums">
-                          {formatCost(tool.cost)}
                         </td>
                       </tr>
                     ))}
@@ -399,8 +391,7 @@ export default function SessionDetail() {
             </Card>
           )}
 
-          {/* Actor Breakdown */}
-          {Object.keys(session.actors).length > 0 && (
+          {actorBreakdown.length > 0 && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Actor Breakdown</CardTitle>
@@ -413,24 +404,18 @@ export default function SessionDetail() {
                         Actor
                       </th>
                       <th className="text-right py-2 px-4 text-xs font-semibold text-muted-foreground uppercase">
-                        Actions
-                      </th>
-                      <th className="text-right py-2 px-4 text-xs font-semibold text-muted-foreground uppercase">
-                        Cost
+                        Activities
                       </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {Object.entries(session.actors).map(([actorId, actor]) => (
+                    {actorBreakdown.map(([actorId, { count }]) => (
                       <tr key={actorId} className="border-b last:border-0">
                         <td className="py-2 px-4 text-sm font-medium">
-                          {actor.name}
+                          {actorId}
                         </td>
                         <td className="py-2 px-4 text-sm text-right tabular-nums">
-                          {actor.actionsCount}
-                        </td>
-                        <td className="py-2 px-4 text-sm text-right tabular-nums">
-                          {formatCost(actor.costUsd)}
+                          {count}
                         </td>
                       </tr>
                     ))}
@@ -441,99 +426,82 @@ export default function SessionDetail() {
           )}
         </TabsContent>
 
-        {/* Activity Feed Tab */}
         <TabsContent value="activity">
           <Card>
             <CardHeader>
               <CardTitle>Activity Feed ({activities.length})</CardTitle>
             </CardHeader>
             <CardContent>
-              {activitiesLoading ? (
-                <Loading />
-              ) : activitiesError ? (
-                <div className="flex items-center gap-3 text-destructive">
-                  <AlertCircle className="h-5 w-5 flex-shrink-0" />
-                  <p className="text-sm">{activitiesError}</p>
-                </div>
-              ) : activities.length === 0 ? (
+              {activities.length === 0 ? (
                 <p className="text-center text-muted-foreground py-8">
                   No activities recorded for this session yet
                 </p>
               ) : (
                 <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
-                  {activities.map((activity) => (
-                    <div
-                      key={activity.id}
-                      className="flex gap-3 rounded-lg border p-3 hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-start pt-1 flex-shrink-0">
-                        {activity.status === "success" ? (
-                          <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                        ) : activity.status === "failure" ? (
-                          <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
-                        ) : (
-                          <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1">
-                            <p className="font-medium text-sm">
-                              {activity.actionType}
-                              {activity.toolName && (
-                                <span className="text-muted-foreground">
-                                  {" "}
-                                  · {activity.toolName}
-                                </span>
-                              )}
-                            </p>
-                            <p className="text-sm text-muted-foreground truncate">
-                              {activity.description}
-                            </p>
-                          </div>
-                          {getStatusBadge(activity.status)}
-                        </div>
-                        <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {formatTimestamp(activity.timestamp)}
-                          </div>
-                          {activity.tokens && (
-                            <div className="flex items-center gap-1">
-                              <Zap className="h-3 w-3" />
-                              {formatTokens(activity.tokens.totalTokens)} tokens
-                            </div>
-                          )}
-                          {activity.cost && (
-                            <div className="flex items-center gap-1">
-                              <DollarSign className="h-3 w-3" />
-                              {formatCost(activity.cost.usd)}
-                            </div>
+                  {activities.map((activity) => {
+                    const Icon = actorIcon(activity.actor.type);
+                    return (
+                      <div
+                        key={activity.id}
+                        className="flex gap-3 rounded-lg border p-3 hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-start pt-1 flex-shrink-0">
+                          {activity.status === "success" ? (
+                            <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                          ) : activity.status === "failure" ? (
+                            <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                          ) : (
+                            <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                           )}
                         </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1">
+                              <p className="font-medium text-sm flex items-center gap-1.5">
+                                <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                                {activity.actionType}
+                                {activity.toolName && (
+                                  <span className="text-muted-foreground">
+                                    · {activity.toolName}
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-sm text-muted-foreground truncate">
+                                {activity.description}
+                              </p>
+                            </div>
+                            {getStatusBadge(activity.status)}
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
+                            <div className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {formatTimestamp(activity.timestamp)}
+                            </div>
+                            {activity.totalTokens != null && (
+                              <div className="flex items-center gap-1">
+                                <Zap className="h-3 w-3" />
+                                {formatTokens(activity.totalTokens)} tokens
+                              </div>
+                            )}
+                            {activity.costUsd != null && (
+                              <div className="flex items-center gap-1">
+                                <DollarSign className="h-3 w-3" />
+                                {formatCost(activity.costUsd)}
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Timeline Tab */}
         <TabsContent value="timeline">
-          {activitiesLoading ? (
-            <Loading />
-          ) : activitiesError ? (
-            <Card>
-              <CardContent className="flex items-center gap-3 py-6 text-destructive">
-                <AlertCircle className="h-5 w-5 flex-shrink-0" />
-                <p className="text-sm">{activitiesError}</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <SessionTimeline activities={activities} session={session} />
-          )}
+          <SessionTimeline activities={activities} session={session} />
         </TabsContent>
       </Tabs>
     </div>

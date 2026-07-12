@@ -1,60 +1,43 @@
 /**
- * useSSE — Profile-scoped Server-Sent Events hook.
+ * useSSE — Server-Sent Events hook.
  *
- * Connects to `/api/stream?profile=<profileId>` and dispatches typed events
- * (`system`, `activity`, `activity_update`, `profile_status`) to the caller.
+ * Connects to `/api/stream`, a single global broadcast (profiles are gone —
+ * there's nothing to scope the connection by anymore; callers filter
+ * client-side by sourceId the same way they filter the REST list endpoints).
  *
- * When `profileId` changes the old EventSource is closed and a new one opens,
- * ensuring the client only ever receives events for the active profile.
- *
- * Uses the browser's built-in EventSource reconnection for network interruptions,
- * which automatically preserves the `?profile=` query parameter.
+ * Uses the browser's built-in EventSource reconnection for network
+ * interruptions.
  */
 
 import { useEffect, useRef, useState } from "react";
 import type { Activity } from "@/types/activity";
 import { apiUrl } from "@/lib/api-client";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 export interface SSESystemEvent {
   type: "connected" | "heartbeat";
-  profile?: string;
 }
 
 export interface SSEHandlers {
   onActivity?: (activity: Activity) => void;
-  onActivityUpdate?: (data: unknown) => void;
-  onProfileStatus?: (data: unknown) => void;
   onSystem?: (event: SSESystemEvent) => void;
   onError?: (error: Event) => void;
 }
 
 export interface UseSSEResult {
-  /** Whether the SSE connection is currently open */
   connected: boolean;
-  /** The profile this SSE connection is scoped to */
-  profileId: string;
 }
 
-// ─── Hook ─────────────────────────────────────────────────────────────────────
-
-export function useSSE(
-  profileId: string,
-  handlers: SSEHandlers = {},
-): UseSSEResult {
+export function useSSE(handlers: SSEHandlers = {}): UseSSEResult {
   const [connected, setConnected] = useState(false);
 
-  // Keep stable refs to handlers so we don't re-create EventSource on every render
+  // Keep a stable ref to handlers so we don't re-create EventSource on every render
   const handlersRef = useRef(handlers);
   useEffect(() => {
     handlersRef.current = handlers;
   }, [handlers]);
 
   useEffect(() => {
-    const es = new EventSource(
-      apiUrl(`/api/stream?profile=${encodeURIComponent(profileId)}`),
-    );
+    const es = new EventSource(apiUrl("/api/stream"));
 
     es.addEventListener("open", () => {
       setConnected(true);
@@ -78,24 +61,6 @@ export function useSSE(
       }
     });
 
-    es.addEventListener("activity_update", (event: MessageEvent) => {
-      try {
-        const data = JSON.parse(event.data);
-        handlersRef.current.onActivityUpdate?.(data);
-      } catch {
-        // Ignore malformed events
-      }
-    });
-
-    es.addEventListener("profile_status", (event: MessageEvent) => {
-      try {
-        const data = JSON.parse(event.data);
-        handlersRef.current.onProfileStatus?.(data);
-      } catch {
-        // Ignore malformed events
-      }
-    });
-
     es.addEventListener("error", (event: Event) => {
       setConnected(false);
       handlersRef.current.onError?.(event);
@@ -105,7 +70,7 @@ export function useSSE(
       es.close();
       setConnected(false);
     };
-  }, [profileId]);
+  }, []);
 
-  return { connected, profileId };
+  return { connected };
 }
