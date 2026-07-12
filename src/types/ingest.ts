@@ -232,4 +232,19 @@ export interface IngestAck {
 
 export interface Sink {
   send(batch: IngestBatch): Promise<IngestAck>;
+  heartbeat(beat: Heartbeat): Promise<void>;
+}
+
+/**
+ * Sent once per collector tick (independent of whether the tick produced any
+ * events) so the server can keep source_instances.status/last_seen_at fresh
+ * even during idle periods. "off" is a normal, quiet status for a disabled
+ * source (e.g. Lemonade/ComfyUI today) — not an error.
+ */
+export interface Heartbeat {
+  sourceId: string;
+  instanceId: string;
+  status: "ok" | "off" | "error";
+  detail?: string;
+  eventsEmitted: number;
 }
