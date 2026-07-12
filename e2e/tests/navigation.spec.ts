@@ -44,9 +44,9 @@ test.describe("Navigation", () => {
     await sidebar.navigateTo("Activities");
     expect(new URL(page.url()).pathname).toBe("/activities");
 
-    // Navigate to Agents
-    await sidebar.navigateTo("Agents");
-    expect(new URL(page.url()).pathname).toBe("/agents");
+    // Navigate to Sessions
+    await sidebar.navigateTo("Sessions");
+    expect(new URL(page.url()).pathname).toBe("/sessions");
 
     // Go back to Activities
     await page.goBack();

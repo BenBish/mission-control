@@ -5,6 +5,9 @@
 
 import { test, expect } from "../fixtures/base.js";
 import { SessionDetailPage } from "../page-objects/SessionDetailPage.js";
+import { TEST_SESSIONS } from "../fixtures/test-data.js";
+
+const SESSION_ID = TEST_SESSIONS[0];
 
 test.describe("Session Timeline", () => {
   let detail: SessionDetailPage;
@@ -14,7 +17,7 @@ test.describe("Session Timeline", () => {
   });
 
   test("session detail has three tabs including Timeline", async () => {
-    await detail.goto("session-e2e-001");
+    await detail.goto(SESSION_ID);
     await detail.waitForDetail();
 
     const tabs = await detail.getTabNames();
@@ -24,7 +27,7 @@ test.describe("Session Timeline", () => {
   });
 
   test("clicking Timeline tab shows timeline content", async ({ page }) => {
-    await detail.goto("session-e2e-001");
+    await detail.goto(SESSION_ID);
     await detail.waitForDetail();
 
     await detail.clickTab("Timeline");
@@ -43,7 +46,7 @@ test.describe("Session Timeline", () => {
   });
 
   test("timeline shows summary bar with duration info", async ({ page }) => {
-    await detail.goto("session-e2e-001");
+    await detail.goto(SESSION_ID);
     await detail.waitForDetail();
     await detail.clickTab("Timeline");
 
@@ -66,7 +69,7 @@ test.describe("Session Timeline", () => {
   test("timeline pills/dots are clickable and navigate to activity detail", async ({
     page,
   }) => {
-    await detail.goto("session-e2e-001");
+    await detail.goto(SESSION_ID);
     await detail.waitForDetail();
     await detail.clickTab("Timeline");
 

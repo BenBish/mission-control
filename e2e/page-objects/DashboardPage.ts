@@ -17,25 +17,28 @@ export class DashboardPage extends BasePage {
     await super.goto("/");
   }
 
-  /** Wait until stat cards are populated (not showing "—") */
+  /** Wait until stat cards are populated */
   async waitForStats() {
     await this.heading.waitFor({ state: "visible" });
-    // Wait for the "Total Activities" stat card heading to appear
+    // Wait for the "Tokens Today" stat card heading to appear
     await this.page
-      .getByRole("heading", { name: "Total Activities", level: 3 })
+      .getByRole("heading", { name: "Tokens Today", level: 3 })
       .waitFor({ state: "visible" });
   }
 
-  /** Get all 4 stat card titles */
+  /**
+   * Get all 3 stat card titles. Note: "Recent Failures" is ambiguous by
+   * name+level alone — it's also the title of the full failures-list card
+   * further down the page (only rendered when there are failures) — so
+   * every lookup here takes the first match, which is always the stats
+   * grid at the top of the page in DOM order.
+   */
   async getStatCardTitles(): Promise<string[]> {
     const titles: string[] = [];
-    for (const name of [
-      "Total Activities",
-      "Total Cost",
-      "Success Rate",
-      "Active Actors",
-    ]) {
-      const heading = this.page.getByRole("heading", { name, level: 3 });
+    for (const name of ["Tokens Today", "Recent Failures", "Source Health"]) {
+      const heading = this.page
+        .getByRole("heading", { name, level: 3 })
+        .first();
       if (await heading.isVisible()) {
         titles.push(name);
       }
@@ -48,6 +51,7 @@ export class DashboardPage extends BasePage {
     // Navigate from the heading up to the Card component (div.rounded-lg)
     const card = this.page
       .getByRole("heading", { name: title, level: 3 })
+      .first()
       .locator("xpath=ancestor::div[contains(@class, 'rounded-lg')]")
       .first();
     const value = card.locator("div.text-3xl");
@@ -67,37 +71,30 @@ export class DashboardPage extends BasePage {
     return this.page.getByRole("button", { name: "View All" });
   }
 
-  /** Get the Activity Volume chart card */
-  getActivityVolumeCard(): Locator {
+  /** Get the Token Usage chart card */
+  getTokenUsageCard(): Locator {
     return this.page.locator("div").filter({
-      has: this.page.getByRole("heading", { name: "Activity Volume" }),
+      has: this.page.getByRole("heading", { name: "Token Usage" }),
     });
   }
 
-  /** Get the Daily Cost chart card */
-  getDailyCostCard(): Locator {
-    return this.page.locator("div").filter({
-      has: this.page.getByRole("heading", { name: "Daily Cost" }),
-    });
-  }
-
-  /** Wait for chart containers to render (SVGs inside recharts) */
+  /** Wait for the chart container to render (SVG inside recharts) */
   async waitForCharts() {
     await this.page
-      .getByRole("heading", { name: "Activity Volume" })
+      .getByRole("heading", { name: "Token Usage" })
       .waitFor({ state: "visible" });
-    await this.page
-      .getByRole("heading", { name: "Daily Cost" })
-      .waitFor({ state: "visible" });
+  }
+
+  /** Get the Source Health badges (one per source, colored status dot) */
+  getSourceHealthBadges(): Locator {
+    const card = this.page.locator("div").filter({
+      has: this.page.getByRole("heading", { name: "Source Health" }),
+    });
+    return card.locator("span").filter({ hasText: /.+/ });
   }
 
   /** Check if the empty state message is visible */
   async hasEmptyRecentActivity(): Promise<boolean> {
     return this.page.getByText("No recent activity found.").isVisible();
-  }
-
-  /** Check if error state is visible */
-  async hasError(): Promise<boolean> {
-    return this.page.getByText("Error loading dashboard").isVisible();
   }
 }

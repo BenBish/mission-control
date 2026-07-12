@@ -33,7 +33,7 @@ test.describe("Smoke Tests", () => {
     // Key nav items should exist
     await expect(sidebar.getNavLink("Dashboard")).toBeVisible();
     await expect(sidebar.getNavLink("Activities")).toBeVisible();
-    await expect(sidebar.getNavLink("Agents")).toBeVisible();
+    await expect(sidebar.getNavLink("Sessions")).toBeVisible();
   });
 
   test("dashboard renders content after loading", async ({ page }) => {
