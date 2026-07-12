@@ -1,7 +1,6 @@
-import { useState, useEffect } from "react";
+import { createElement } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useProfile } from "@/app/profile-context";
-import { apiFetch } from "@/lib/api-client";
+import { useActivity } from "@/lib/queries";
 import {
   Card,
   CardContent,
@@ -16,7 +15,7 @@ import { Loading } from "@/components/_shared/Loading";
 import { Separator } from "@/components/ui/separator";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
-import type { Activity } from "@/types/activity";
+import { actorIcon } from "@/lib/actor-display";
 import {
   ArrowLeft,
   AlertCircle,
@@ -38,11 +37,6 @@ import {
   Layers,
 } from "lucide-react";
 
-interface ActivityResponse {
-  success: boolean;
-  activity: Activity;
-}
-
 function JsonDisplay({ data }: { data: unknown }) {
   const jsonString = JSON.stringify(data, null, 2);
   return (
@@ -63,45 +57,11 @@ function JsonDisplay({ data }: { data: unknown }) {
 export default function ActivityDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { activeProfile, isSwitching } = useProfile();
-  const [activity, setActivity] = useState<Activity | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchActivity = async () => {
-      if (!id) {
-        setError("No activity ID provided");
-        setIsLoading(false);
-        return;
-      }
-      setIsLoading(true);
-      setError(null);
-      try {
-        const profileParam = activeProfile?.id
-          ? `?profile=${encodeURIComponent(activeProfile.id)}`
-          : "";
-        const response = await apiFetch(`/api/activities/${id}${profileParam}`);
-        if (!response.ok) {
-          if (response.status === 404) throw new Error("Activity not found");
-          throw new Error(`Failed: ${response.statusText}`);
-        }
-        const data: ActivityResponse = await response.json();
-        if (data.success) setActivity(data.activity);
-        else throw new Error("API returned unsuccessful response");
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchActivity();
-  }, [id, activeProfile?.id]);
+  const { data: activity, isLoading, error } = useActivity(id);
 
   const formatTimestamp = (timestamp: string) =>
     new Date(timestamp).toLocaleString();
-  const formatCost = (cost?: { usd: number }) =>
-    cost ? `$${cost.usd.toFixed(4)}` : "$0.0000";
+  const formatCost = (cost: number) => `$${cost.toFixed(4)}`;
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "success":
@@ -153,7 +113,7 @@ export default function ActivityDetail() {
     }
   };
 
-  if (isLoading || isSwitching)
+  if (isLoading)
     return (
       <div className="space-y-6">
         <PageHeader
@@ -175,7 +135,9 @@ export default function ActivityDetail() {
             <AlertCircle className="h-5 w-5 text-destructive" />
             <div>
               <p className="font-medium text-destructive">Error</p>
-              <p className="text-sm text-muted-foreground">{error}</p>
+              <p className="text-sm text-muted-foreground">
+                {error instanceof Error ? error.message : "Unknown error"}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -195,6 +157,8 @@ export default function ActivityDetail() {
         </Card>
       </div>
     );
+
+  const hasTokens = activity.totalTokens != null;
 
   return (
     <div className="space-y-6">
@@ -229,7 +193,7 @@ export default function ActivityDetail() {
         </CardHeader>
         <CardContent>
           <div className="grid gap-6 sm:grid-cols-3">
-            {activity.cost && (
+            {activity.costUsd != null && (
               <div className="flex items-center gap-3 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/30">
                 <div className="p-2 rounded-md bg-emerald-100 dark:bg-emerald-900/50">
                   <DollarSign className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
@@ -237,12 +201,12 @@ export default function ActivityDetail() {
                 <div>
                   <p className="text-xs text-muted-foreground">Cost</p>
                   <p className="text-lg font-semibold tabular-nums">
-                    {formatCost(activity.cost)}
+                    {formatCost(activity.costUsd)}
                   </p>
                 </div>
               </div>
             )}
-            {activity.tokens && (
+            {hasTokens && (
               <div className="flex items-center gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30">
                 <div className="p-2 rounded-md bg-blue-100 dark:bg-blue-900/50">
                   <Cpu className="h-4 w-4 text-blue-600 dark:text-blue-400" />
@@ -250,7 +214,7 @@ export default function ActivityDetail() {
                 <div>
                   <p className="text-xs text-muted-foreground">Tokens</p>
                   <p className="text-lg font-semibold tabular-nums">
-                    {activity.tokens.totalTokens.toLocaleString()}
+                    {activity.totalTokens!.toLocaleString()}
                   </p>
                 </div>
               </div>
@@ -281,20 +245,14 @@ export default function ActivityDetail() {
           </CardHeader>
           <CardContent className="pt-0">
             <div className="space-y-2">
-              {activity.actor.displayName && (
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Name</span>
-                  <span className="text-sm font-medium">
-                    {activity.actor.emoji && (
-                      <span className="mr-1">{activity.actor.emoji}</span>
-                    )}
-                    {activity.actor.displayName}
-                  </span>
-                </div>
-              )}
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Type</span>
-                <Badge variant="outline">{activity.actor.type}</Badge>
+                <Badge variant="outline" className="gap-1">
+                  {createElement(actorIcon(activity.actor.type), {
+                    className: "h-3 w-3",
+                  })}
+                  {activity.actor.type}
+                </Badge>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">ID</span>
@@ -361,7 +319,7 @@ export default function ActivityDetail() {
             </div>
           </CardContent>
         </Card>
-        {activity.tokens && (
+        {hasTokens && (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -374,61 +332,44 @@ export default function ActivityDetail() {
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Total</span>
                   <span className="text-sm font-medium tabular-nums">
-                    {activity.tokens.totalTokens.toLocaleString()}
+                    {activity.totalTokens!.toLocaleString()}
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Input</span>
-                  <span className="text-sm tabular-nums text-blue-600 dark:text-blue-400">
-                    {activity.tokens.inputTokens.toLocaleString()}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Output</span>
-                  <span className="text-sm tabular-nums text-green-600 dark:text-green-400">
-                    {activity.tokens.outputTokens.toLocaleString()}
-                  </span>
-                </div>
-                {activity.tokens.model && (
+                {activity.inputTokens != null && (
                   <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Model</span>
-                    <code className="text-xs font-mono">
-                      {activity.tokens.model}
-                    </code>
+                    <span className="text-sm text-muted-foreground">Input</span>
+                    <span className="text-sm tabular-nums text-blue-600 dark:text-blue-400">
+                      {activity.inputTokens.toLocaleString()}
+                    </span>
                   </div>
                 )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-        {activity.cost?.breakdown && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <DollarSign className="h-4 w-4" />
-                Cost Breakdown
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Total</span>
-                  <span className="text-sm font-medium tabular-nums">
-                    {formatCost(activity.cost)}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Input</span>
-                  <span className="text-sm tabular-nums">
-                    ${activity.cost.breakdown.inputCost.toFixed(6)}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Output</span>
-                  <span className="text-sm tabular-nums">
-                    ${activity.cost.breakdown.outputCost.toFixed(6)}
-                  </span>
-                </div>
+                {activity.outputTokens != null && (
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">
+                      Output
+                    </span>
+                    <span className="text-sm tabular-nums text-green-600 dark:text-green-400">
+                      {activity.outputTokens.toLocaleString()}
+                    </span>
+                  </div>
+                )}
+                {(activity.cacheReadTokens || activity.cacheWriteTokens) && (
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">
+                      Cache read / write
+                    </span>
+                    <span className="text-sm tabular-nums">
+                      {(activity.cacheReadTokens ?? 0).toLocaleString()} /{" "}
+                      {(activity.cacheWriteTokens ?? 0).toLocaleString()}
+                    </span>
+                  </div>
+                )}
+                {activity.model && (
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Model</span>
+                    <code className="text-xs font-mono">{activity.model}</code>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -509,19 +450,6 @@ export default function ActivityDetail() {
                 </pre>
               </div>
             )}
-          </CardContent>
-        </Card>
-      )}
-      {activity.references && Object.keys(activity.references).length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Link2 className="h-5 w-5 text-primary" />
-              References
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <JsonDisplay data={activity.references} />
           </CardContent>
         </Card>
       )}

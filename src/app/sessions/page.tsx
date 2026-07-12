@@ -1,19 +1,18 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useSessions, type SessionRow } from "./hooks/useSessions";
 import { PageHeader } from "@/components/_shared/PageHeader";
 import { Loading } from "@/components/_shared/Loading";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, ChevronLeft, ChevronRight, History } from "lucide-react";
-import { useProfile } from "@/app/profile-context";
+import { ChevronLeft, ChevronRight, History } from "lucide-react";
+import { useSourceFilter } from "@/app/source-context";
+import { useSessionList } from "@/lib/queries";
 import { formatLastActive } from "@/lib/date-utils";
-import { parseActors } from "@/lib/parse-actors";
 
 const PAGE_SIZE = 50;
 
-function formatDuration(startTime: string, endTime: string | null): string {
+function formatDuration(startTime: string, endTime?: string): string {
   if (!endTime) return "";
   const ms = new Date(endTime).getTime() - new Date(startTime).getTime();
   if (ms < 0) return "0s";
@@ -27,13 +26,7 @@ function formatDuration(startTime: string, endTime: string | null): string {
   return `${hours}h ${remainingMinutes}m`;
 }
 
-function formatCost(cost: number): string {
-  if (cost === 0) return "$0.00";
-  if (cost < 0.01) return `$${cost.toFixed(4)}`;
-  return `$${cost.toFixed(2)}`;
-}
-
-function getSuccessRateColor(rate: number): string {
+function successRateColor(rate: number): string {
   if (rate >= 90) return "text-emerald-700 dark:text-emerald-400";
   if (rate >= 70) return "text-amber-700 dark:text-amber-400";
   return "text-red-700 dark:text-red-400";
@@ -42,26 +35,27 @@ function getSuccessRateColor(rate: number): string {
 export default function SessionsPage() {
   const [page, setPage] = useState(1);
   const navigate = useNavigate();
-  const { profileId, isSwitching } = useProfile();
+  const { selectedSourceId } = useSourceFilter();
   const offset = (page - 1) * PAGE_SIZE;
-  const { sessions, total, isLoading, error } = useSessions(
-    profileId,
-    PAGE_SIZE,
-    offset,
-  );
+  const {
+    data: sessions,
+    isLoading,
+    error,
+  } = useSessionList({ sourceId: selectedSourceId, limit: PAGE_SIZE, offset });
 
   if (error) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Sessions" description="View all agent sessions" />
+        <PageHeader title="Sessions" description="View all agentic sessions" />
         <Card className="border-destructive">
           <CardContent className="flex items-center gap-3 py-6">
-            <AlertCircle className="h-5 w-5 text-destructive" />
             <div>
               <p className="font-medium text-destructive">
                 Error loading sessions
               </p>
-              <p className="text-sm text-muted-foreground">{error}</p>
+              <p className="text-sm text-muted-foreground">
+                {error instanceof Error ? error.message : "Unknown error"}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -69,12 +63,13 @@ export default function SessionsPage() {
     );
   }
 
-  const showingFrom = sessions.length > 0 ? offset + 1 : 0;
-  const showingTo = offset + sessions.length;
+  const count = sessions?.length ?? 0;
+  const showingFrom = count > 0 ? offset + 1 : 0;
+  const showingTo = offset + count;
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Sessions" description="View all agent sessions" />
+      <PageHeader title="Sessions" description="View all agentic sessions" />
 
       <Card className="shadow-sm">
         <CardHeader className="pb-4 border-b">
@@ -85,21 +80,19 @@ export default function SessionsPage() {
               </div>
               Sessions
             </CardTitle>
-            {total > 0 && (
+            {count > 0 && (
               <Badge variant="outline" className="font-normal">
-                {total > PAGE_SIZE
-                  ? `Showing ${showingFrom}–${showingTo} of ${total}`
-                  : `${total} sessions`}
+                {count} sessions
               </Badge>
             )}
           </div>
         </CardHeader>
         <CardContent className="pt-0 px-0">
-          {isLoading || isSwitching ? (
+          {isLoading ? (
             <div className="py-12">
               <Loading />
             </div>
-          ) : sessions.length === 0 ? (
+          ) : count === 0 ? (
             <p className="text-center text-sm text-muted-foreground py-12">
               No sessions recorded yet.
             </p>
@@ -112,54 +105,66 @@ export default function SessionsPage() {
                       Started
                     </th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Source
+                    </th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                       Duration
                     </th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                      Actors
+                      cwd
                     </th>
                     <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                      Actions
+                      Turns
                     </th>
                     <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                       Success Rate
                     </th>
                     <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                      Cost
+                      Tokens
                     </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {sessions.map((session: SessionRow, index: number) => {
-                    const actors = parseActors(session.actors_json);
+                  {(sessions ?? []).map((session, index) => {
                     const successRate =
-                      session.total_actions > 0
-                        ? (session.success_count / session.total_actions) * 100
-                        : 0;
+                      session.stats.toolCallCount > 0
+                        ? ((session.stats.toolCallCount -
+                            session.stats.failureCount) /
+                            session.stats.toolCallCount) *
+                          100
+                        : null;
+                    const totalTokens =
+                      session.stats.inputTokens + session.stats.outputTokens;
 
                     return (
                       <tr
-                        key={session.id}
+                        key={session.sessionId}
                         className={`border-b last:border-0 hover:bg-muted/60 cursor-pointer transition-colors ${
                           index % 2 === 1 ? "bg-muted/20" : ""
                         }`}
-                        onClick={() => navigate(`/sessions/${session.id}`)}
+                        onClick={() =>
+                          navigate(`/sessions/${session.sessionId}`)
+                        }
                       >
                         <td className="py-3 px-4 text-sm whitespace-nowrap">
                           <span
                             className="tabular-nums text-muted-foreground"
-                            title={new Date(
-                              session.start_time,
-                            ).toLocaleString()}
+                            title={new Date(session.startTime).toLocaleString()}
                           >
-                            {formatLastActive(session.start_time)}
+                            {formatLastActive(session.startTime)}
                           </span>
                         </td>
+                        <td className="py-3 px-4 text-sm">
+                          <Badge variant="secondary" className="text-xs">
+                            {session.sourceId}
+                          </Badge>
+                        </td>
                         <td className="py-3 px-4 text-sm whitespace-nowrap">
-                          {session.end_time ? (
+                          {session.endTime ? (
                             <span className="tabular-nums">
                               {formatDuration(
-                                session.start_time,
-                                session.end_time,
+                                session.startTime,
+                                session.endTime,
                               )}
                             </span>
                           ) : (
@@ -168,39 +173,16 @@ export default function SessionsPage() {
                             </Badge>
                           )}
                         </td>
-                        <td className="py-3 px-4 text-sm">
-                          <div className="flex flex-wrap gap-1">
-                            {actors.slice(0, 3).map((actor) => (
-                              <Badge
-                                key={actor.id}
-                                variant="secondary"
-                                className="text-xs"
-                              >
-                                {actor.emoji && (
-                                  <span className="mr-0.5">{actor.emoji}</span>
-                                )}
-                                {actor.displayName || actor.id}
-                              </Badge>
-                            ))}
-                            {actors.length > 3 && (
-                              <Badge variant="outline" className="text-xs">
-                                +{actors.length - 3} more
-                              </Badge>
-                            )}
-                            {actors.length === 0 && (
-                              <span className="text-muted-foreground/50">
-                                —
-                              </span>
-                            )}
-                          </div>
+                        <td className="py-3 px-4 text-sm text-muted-foreground truncate max-w-[200px]">
+                          {session.cwd ?? "—"}
                         </td>
                         <td className="py-3 px-4 text-sm text-right tabular-nums">
-                          {session.total_actions}
+                          {session.stats.turnCount}
                         </td>
                         <td className="py-3 px-4 text-sm text-right tabular-nums">
-                          {session.total_actions > 0 ? (
+                          {successRate !== null ? (
                             <span
-                              className={`font-medium ${getSuccessRateColor(successRate)}`}
+                              className={`font-medium ${successRateColor(successRate)}`}
                             >
                               {successRate.toFixed(0)}%
                             </span>
@@ -208,8 +190,8 @@ export default function SessionsPage() {
                             <span className="text-muted-foreground/50">—</span>
                           )}
                         </td>
-                        <td className="py-3 px-4 text-sm text-right font-medium tabular-nums">
-                          {formatCost(session.total_cost_usd)}
+                        <td className="py-3 px-4 text-sm text-right tabular-nums">
+                          {totalTokens.toLocaleString()}
                         </td>
                       </tr>
                     );
@@ -219,8 +201,7 @@ export default function SessionsPage() {
             </div>
           )}
 
-          {/* Pagination */}
-          {!isLoading && sessions.length > 0 && (
+          {!isLoading && count > 0 && (
             <div className="flex items-center justify-between border-t px-4 py-3">
               <span className="text-sm text-muted-foreground">
                 Showing {showingFrom}–{showingTo}
@@ -238,7 +219,7 @@ export default function SessionsPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={sessions.length < PAGE_SIZE}
+                  disabled={count < PAGE_SIZE}
                   onClick={() => setPage((p) => p + 1)}
                 >
                   Next

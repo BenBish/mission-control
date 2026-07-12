@@ -7,12 +7,10 @@ import { Loading } from "@/components/_shared/Loading";
 const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
 const ActivityFeed = lazy(() => import("@/pages/ActivityFeed"));
 const ActivityDetail = lazy(() => import("@/pages/ActivityDetail"));
-const CostBreakdown = lazy(() => import("@/pages/CostBreakdown"));
+const Consumption = lazy(() => import("@/pages/Consumption"));
 const SessionsPage = lazy(() => import("@/app/sessions/page"));
 const SessionDetail = lazy(() => import("@/app/sessions/pages/SessionDetail"));
-const CronPage = lazy(() =>
-  import("@/app/cron/page").then((m) => ({ default: m.CronPage })),
-);
+const JobsPage = lazy(() => import("@/app/jobs/page"));
 const SettingsPage = lazy(() => import("@/app/settings/page"));
 const FailureAnalysis = lazy(() => import("@/pages/FailureAnalysis"));
 
@@ -42,8 +40,8 @@ export const router = createBrowserRouter([
         element: withSuspense(ActivityDetail),
       },
       {
-        path: "costs",
-        element: withSuspense(CostBreakdown),
+        path: "consumption",
+        element: withSuspense(Consumption),
       },
       {
         path: "sessions",
@@ -58,12 +56,12 @@ export const router = createBrowserRouter([
         element: withSuspense(FailureAnalysis),
       },
       {
-        path: "cron",
-        element: withSuspense(CronPage),
+        path: "jobs",
+        element: withSuspense(JobsPage),
       },
       {
-        path: "cron/:jobId",
-        element: withSuspense(CronPage),
+        path: "jobs/:jobId",
+        element: withSuspense(JobsPage),
       },
       {
         path: "settings",

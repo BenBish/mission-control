@@ -1,6 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useSkills } from "../hooks/useSkills";
-import { useProfile } from "@/app/profile-context";
 import { PageHeader } from "@/components/_shared/PageHeader";
 import { Loading } from "@/components/_shared/Loading";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,8 +10,7 @@ import { AlertCircle, ArrowLeft, Wrench } from "lucide-react";
 export default function SkillDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { activeProfile, isSwitching } = useProfile();
-  const { skills, isLoading, error } = useSkills(activeProfile?.id);
+  const { skills, isLoading, error } = useSkills();
 
   if (!id) {
     return (
@@ -28,7 +26,7 @@ export default function SkillDetail() {
     );
   }
 
-  if (isLoading || isSwitching) {
+  if (isLoading) {
     return (
       <div className="space-y-6">
         <PageHeader title="Skill" description="Loading skill details..." />
