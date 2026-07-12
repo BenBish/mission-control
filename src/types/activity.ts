@@ -1,9 +1,14 @@
 /**
  * Core Activity Record Types
- * Implements the data model from MISSION_CONTROL_DESIGN.md
+ *
+ * ActionType/ActivityStatus are source-agnostic and predate this rebuild —
+ * kept verbatim. ActorType drops the OpenClaw-specific "orchestrator" role
+ * in favor of "agent" (the AI actor, regardless of source), since Claude
+ * Code and Codex have no orchestrator/subagent hierarchy of their own
+ * outside of Claude Code's sidechain delegation.
  */
 
-export type ActorType = "orchestrator" | "subagent" | "user" | "system";
+export type ActorType = "user" | "agent" | "subagent" | "system";
 export type ActionType =
   | "tool_call"
   | "delegation"
@@ -22,23 +27,6 @@ export interface Actor {
   id: string;
   role?: string;
   sessionLabel?: string;
-  displayName?: string;
-  emoji?: string;
-}
-
-export interface TokenInfo {
-  inputTokens: number;
-  outputTokens: number;
-  totalTokens: number;
-  model?: string;
-}
-
-export interface CostInfo {
-  usd: number;
-  breakdown?: {
-    inputCost: number;
-    outputCost: number;
-  };
 }
 
 export interface ExecutionResult {
@@ -48,129 +36,75 @@ export interface ExecutionResult {
   exitCode?: number;
 }
 
-export interface ActivityReferences {
-  fileIds?: string[];
-  channelId?: string;
-  messageIds?: string[];
-}
-
 export interface Activity {
-  // Identifiers
   id: string;
-  profileId: string;
+  sourceId: string;
+  instanceId: string;
   sessionId: string;
+  externalId?: string;
   parentActivityId?: string;
+  parentExternalId?: string;
 
-  // Timeline
   timestamp: string; // ISO8601
-  completedAt?: string; // ISO8601
+  completedAt?: string;
   durationMs?: number;
 
-  // Actor Information
   actor: Actor;
 
-  // Action Details
   actionType: ActionType;
   toolName?: string;
   description: string;
   details?: Record<string, unknown>;
 
-  // Outcome
   status: ActivityStatus;
   result?: ExecutionResult;
 
-  // Resource Usage
-  tokens?: TokenInfo;
-  cost?: CostInfo;
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
+  model?: string;
+  /** Only set for genuinely billable sources. Never fabricate a dollar figure. */
+  costUsd?: number;
+  requestId?: string;
 
-  // Context & Traceability
-  references?: ActivityReferences;
-
-  // Metadata
   tags?: string[];
   metadata?: Record<string, unknown>;
 
-  // Timestamps
-  createdAt?: string; // ISO8601
+  createdAt?: string;
 }
 
-/**
- * Activity input for creating new records
- * Most fields are optional to allow flexible logging
- */
-export interface CreateActivityInput {
-  profileId?: string;
-  sessionId: string;
-  parentActivityId?: string;
-  actor: Actor;
-  actionType: ActionType;
-  toolName?: string;
-  description: string;
-  details?: Record<string, unknown>;
-  status?: ActivityStatus;
-  tags?: string[];
-  references?: ActivityReferences;
-  metadata?: Record<string, unknown>;
-}
-
-/**
- * Activity update for completing pending activities
- */
-export interface UpdateActivityInput {
-  status?: ActivityStatus;
-  completedAt?: string;
-  durationMs?: number;
-  result?: ExecutionResult;
-  tokens?: TokenInfo;
-  cost?: CostInfo;
-}
-
-/**
- * Session summary computed from activities
- */
 export interface SessionSummary {
   sessionId: string;
+  sourceId: string;
+  instanceId: string;
+  externalId: string;
+  cwd?: string;
+  gitBranch?: string;
+  title?: string;
   startTime: string;
   endTime?: string;
 
   stats: {
-    totalActions: number;
-    successCount: number;
+    turnCount: number;
+    toolCallCount: number;
     failureCount: number;
-    successRate: number;
-    totalTokens: number;
-    totalCost: number;
-    avgActionDuration: number;
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadTokens: number;
+    cacheWriteTokens: number;
+    costUsd?: number;
   };
 
-  actors: {
-    [actorId: string]: {
-      name: string;
-      actionsCount: number;
-      successCount: number;
-      tokensUsed: number;
-      costUsd: number;
-    };
-  };
-
-  topTools: Array<{
-    name: string;
-    count: number;
-    cost: number;
-  }>;
-
-  events: Array<{
-    timestamp: string;
-    type: string;
-    summary: string;
-  }>;
+  activities: Activity[];
 }
 
 /**
  * Query filters for activity retrieval
  */
 export interface ActivityFilter {
-  profileId?: string;
+  sourceId?: string;
   sessionId?: string;
   actorId?: string;
   actorType?: ActorType;
@@ -179,7 +113,6 @@ export interface ActivityFilter {
   status?: ActivityStatus;
   startTime?: string;
   endTime?: string;
-  tags?: string[];
   limit?: number;
   offset?: number;
 }

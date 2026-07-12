@@ -8,8 +8,10 @@ import { defineConfig, globalIgnores } from "eslint/config";
 export default defineConfig([
   globalIgnores([
     "dist",
-    "src/api/**",
+    "src/server/**",
     "src/db/**",
+    "src/collectors/**",
+    "src/collector-main.ts",
     "src/__tests__/**",
     "**/*.test.ts",
     "**/*.spec.ts",

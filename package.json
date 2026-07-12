@@ -8,7 +8,7 @@
     "build": "bun run tsc -b && bun run vite build",
     "lint": "bun run eslint .",
     "preview": "vite preview",
-    "api": "bun run src/api/server.ts",
+    "api": "bun run src/server/server.ts",
     "collector": "bun run src/collector-main.ts",
     "start": "node dist/index.js",
     "db:migrate": "tsx src/db/migrations.ts",

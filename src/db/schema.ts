@@ -219,7 +219,7 @@ CREATE TABLE IF NOT EXISTS runtime_events (
 CREATE INDEX IF NOT EXISTS idx_runtime_events_timestamp ON runtime_events(timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_runtime_events_kind ON runtime_events(kind);
 
--- Quota telemetry (Codex rate_limits today; Claude Code is a seam for later)
+-- Quota telemetry (Codex rate_limits today -- Claude Code is a seam for later)
 CREATE TABLE IF NOT EXISTS quota_snapshots (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   source_id TEXT NOT NULL,
@@ -268,7 +268,7 @@ CREATE INDEX IF NOT EXISTS idx_generation_jobs_status ON generation_jobs(status)
 
 -- ============================================================================
 -- BACKGROUND JOBS — repurposed Cron UI (Hermes background work + collector
--- self-observation; maps onto types/cron.ts CronJobState/RunHistory)
+-- self-observation -- maps onto types/cron.ts CronJobState/RunHistory)
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS background_jobs (
@@ -301,7 +301,7 @@ CREATE INDEX IF NOT EXISTS idx_job_runs_job ON job_runs(job_id, started_at DESC)
 
 -- ============================================================================
 -- INGEST IDEMPOTENCY — generic dedupe independent of each table's own shape.
--- The collector supplies a stable natural key per event; a PRIMARY KEY
+-- The collector supplies a stable natural key per event -- a PRIMARY KEY
 -- conflict here means "already ingested", regardless of what the entity
 -- table's own UNIQUE constraint looks like.
 -- ============================================================================
@@ -318,10 +318,20 @@ CREATE TABLE IF NOT EXISTS ingest_dedupe (
 `;
 
 /**
- * Split SQL into individual statements for execution
+ * Split SQL into individual statements for execution.
+ * Strips `-- line comments` first so a semicolon inside a comment can't be
+ * mistaken for a statement terminator (this bit us once already).
  */
 export function getSQLStatements(): string[] {
-  return SCHEMA_SQL.split(";")
+  const withoutComments = SCHEMA_SQL.split("\n")
+    .map((line) => {
+      const idx = line.indexOf("--");
+      return idx === -1 ? line : line.slice(0, idx);
+    })
+    .join("\n");
+
+  return withoutComments
+    .split(";")
     .map((stmt) => stmt.trim())
     .filter((stmt) => stmt.length > 0);
 }
