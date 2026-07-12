@@ -7,6 +7,10 @@ Wants=network-online.target
 Type=simple
 WorkingDirectory=%h/Dev/mission-control
 Environment=DATABASE_PATH=%h/.local/share/mission-control/mc.db
+# MC_API_KEY (required so the collector can authenticate) and any other
+# secrets live in this file, not here — it's gitignored, created once per
+# machine. See deploy/server.env.example.
+EnvironmentFile=-%h/.config/mission-control/server.env
 ExecStart=/usr/bin/env bun run api
 Restart=on-failure
 RestartSec=5

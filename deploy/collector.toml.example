@@ -1,9 +1,10 @@
 # Copy to ~/.config/mission-control/collector.toml on the desktop machine.
 
-# Server's ingest endpoint, reachable over Tailscale. No trailing slash.
-server_url = "http://strix-halo:3001"
+# Server's ingest endpoint, reachable over Tailscale (MagicDNS hostname or
+# tailnet IP). No trailing slash.
+server_url = "http://fedora:3001"
 
-# Matches MC_API_KEY on the server (src/api/auth.ts) — grants the ingest
+# Matches MC_API_KEY on the server (src/server/auth.ts) — grants the ingest
 # routes bypass without needing a JWT session.
 api_key = "changeme"
 
