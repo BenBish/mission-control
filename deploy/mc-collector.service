@@ -1,0 +1,14 @@
+[Unit]
+Description=Mission Control desktop collector (Claude Code + Codex)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Dev/mission-control
+ExecStart=/usr/bin/env bun run collector
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
