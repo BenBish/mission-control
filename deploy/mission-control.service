@@ -1,0 +1,15 @@
+[Unit]
+Description=Mission Control server (API + SQLite + static UI)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Dev/mission-control
+Environment=DATABASE_PATH=%h/.local/share/mission-control/mc.db
+ExecStart=/usr/bin/env bun run api
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
