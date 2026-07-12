@@ -6,15 +6,11 @@ import {
   Sun,
   LayoutDashboard,
   Settings,
-  Users,
   List,
   DollarSign,
   Zap,
-  Bot,
-  Wrench,
   Clock,
   History,
-  Shield,
   LogOut,
   AlertTriangle,
 } from "lucide-react";
@@ -30,12 +26,8 @@ const navItems = [
   { to: "/activities", icon: List, label: "Activities" },
   { to: "/sessions", icon: History, label: "Sessions" },
   { to: "/failures", icon: AlertTriangle, label: "Failures" },
-  { to: "/agents", icon: Bot, label: "Agents" },
   { to: "/costs", icon: DollarSign, label: "Cost Breakdown" },
-  { to: "/skills", icon: Wrench, label: "Skills" },
-  { to: "/permissions", icon: Shield, label: "Permissions" },
   { to: "/cron", icon: Clock, label: "Cron Jobs" },
-  { to: "/users", icon: Users, label: "Users" },
   { to: "/settings", icon: Settings, label: "Settings" },
 ];
 

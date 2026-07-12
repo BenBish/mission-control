@@ -2,13 +2,10 @@
  * Skill Types
  */
 
-import type { Agent } from "./agents";
-
 export interface Skill {
   id: string;
   name: string;
   description: string;
-  agents?: Agent[];
   category?: string;
 }
 

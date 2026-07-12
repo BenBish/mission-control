@@ -3,7 +3,6 @@ import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router-dom";
 import { ThemeProvider } from "@/app/providers";
 import { ProfileProvider } from "@/app/profile-context";
-import { ActivityStreamProvider } from "@/app/agents/context/ActivityStreamContext";
 import { AuthProvider } from "@/app/auth/AuthContext";
 import { AuthGuard } from "@/app/auth/AuthGuard";
 import { router } from "@/app/router";
@@ -17,9 +16,7 @@ createRoot(document.getElementById("root")!).render(
         <AuthProvider>
           <AuthGuard>
             <ProfileProvider>
-              <ActivityStreamProvider>
-                <RouterProvider router={router} />
-              </ActivityStreamProvider>
+              <RouterProvider router={router} />
             </ProfileProvider>
           </AuthGuard>
         </AuthProvider>
