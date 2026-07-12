@@ -21,8 +21,16 @@
  *    message.model, message.usage.{input_tokens,output_tokens,
  *    cache_creation_input_tokens,cache_read_input_tokens}, and a
  *    top-level requestId.
- *  - No isSidechain:true records were found in this dataset (no subagent
- *    delegation in practice yet), but the field is honored regardless.
+ *  - isSidechain:true records do occur (subagent/fork delegation) -- some
+ *    live in the main session file, others in a nested
+ *    <sessionId>/subagents/agent-<agentId>.jsonl file. Both cases route to
+ *    the right parent session for free: every message record (in either
+ *    location) carries its own `sessionId` field already set to the parent
+ *    session's id, so no special-case handling of the nested path or the
+ *    subagent file's leading `fork-context-ref` line (which has no
+ *    `sessionId`/`message` and is just skipped as an unrecognized type) is
+ *    needed. Verified against real forked-subagent transcripts on this
+ *    machine, not just inline sidechain records.
  *  - Session title comes from a later 'custom-title' or 'ai-title' record,
  *    not from the session-start record (there isn't a dedicated one —
  *    the first line is typically a 'mode' record).
