@@ -13,11 +13,10 @@ import {
   setupAuthRoutes,
   RateLimiter,
   type AuthConfig,
-} from "../../api/auth.js";
+} from "../../server/auth.js";
 import express from "express";
 import { Database } from "../../db/database.js";
-import { ActivityLogger } from "../../logger/activity-logger.js";
-import { setupRoutes } from "../../api/routes.js";
+import { setupRoutes } from "../../server/routes/index.js";
 import * as fs from "fs";
 import * as http from "http";
 
@@ -234,7 +233,6 @@ describe("Auth Module - Unit Tests", () => {
 
 describe("Auth Module - Integration Tests", () => {
   let db: Database;
-  let logger: ActivityLogger;
   let passwordHash: string;
 
   beforeAll(async () => {
@@ -243,7 +241,6 @@ describe("Auth Module - Integration Tests", () => {
     }
     db = new Database(TEST_DB_PATH);
     await db.initialize();
-    logger = new ActivityLogger(db);
 
     // Generate a real password hash
     passwordHash = await Bun.password.hash("admin123");
@@ -277,24 +274,9 @@ describe("Auth Module - Integration Tests", () => {
     const app = express();
     app.use(express.json());
 
-    // Activity logger for auth events
-    const logActivity = async (
-      event: string,
-      details: Record<string, unknown>,
-    ) => {
-      await db.createActivity({
-        sessionId: "auth",
-        actor: { type: "system", id: "auth" },
-        actionType: "event",
-        description: event,
-        details,
-        status: event.includes("failed") ? "failure" : "success",
-      });
-    };
-
-    setupAuthRoutes(app, config, logActivity);
+    setupAuthRoutes(app, config);
     app.use(authMiddleware(config));
-    setupRoutes(app, logger);
+    setupRoutes(app, db);
 
     return { app, config };
   }
@@ -471,21 +453,17 @@ describe("Auth Module - Integration Tests", () => {
       }
     });
 
-    test("allows POST /api/activities with valid API key", async () => {
+    test("allows POST /api/ingest/batch with valid API key", async () => {
       const { server, close } = await startServer();
       try {
-        const res = await request(server, "POST", "/api/activities", {
+        const res = await request(server, "POST", "/api/ingest/batch", {
           headers: { "X-API-Key": "test-api-key-123" },
           body: {
-            activities: [
-              {
-                type: "tool_execution",
-                sessionId: "test",
-                agentId: "agent-1",
-                toolName: "exec",
-                timestamp: new Date().toISOString(),
-              },
-            ],
+            sourceId: "claude-code",
+            instanceId: "claude-code@arch-desktop",
+            collectorVersion: "test",
+            sentAt: new Date().toISOString(),
+            events: [],
           },
         });
         expect(res.status).toBe(200);
@@ -495,21 +473,17 @@ describe("Auth Module - Integration Tests", () => {
       }
     });
 
-    test("rejects POST /api/activities with wrong API key", async () => {
+    test("rejects POST /api/ingest/batch with wrong API key", async () => {
       const { server, close } = await startServer();
       try {
-        const res = await request(server, "POST", "/api/activities", {
+        const res = await request(server, "POST", "/api/ingest/batch", {
           headers: { "X-API-Key": "wrong-key" },
           body: {
-            activities: [
-              {
-                type: "tool_execution",
-                sessionId: "test",
-                agentId: "agent-1",
-                toolName: "exec",
-                timestamp: new Date().toISOString(),
-              },
-            ],
+            sourceId: "claude-code",
+            instanceId: "claude-code@arch-desktop",
+            collectorVersion: "test",
+            sentAt: new Date().toISOString(),
+            events: [],
           },
         });
         expect(res.status).toBe(401);
@@ -527,7 +501,7 @@ describe("Auth Module - Integration Tests", () => {
         expect(res.status).toBe(200);
         expect(res.body.success).toBe(true);
 
-        const res2 = await request(server, "GET", "/api/stats");
+        const res2 = await request(server, "GET", "/api/sources");
         expect(res2.status).toBe(200);
       } finally {
         await close();
@@ -541,47 +515,6 @@ describe("Auth Module - Integration Tests", () => {
         expect(res.status).toBe(200);
         expect(res.body.authEnabled).toBe(false);
         expect(res.body.user.username).toBe("admin");
-      } finally {
-        await close();
-      }
-    });
-  });
-
-  describe("Activity feed logging", () => {
-    test("logs successful login event", async () => {
-      await db.clear();
-      const { server, close } = await startServer();
-      try {
-        await request(server, "POST", "/api/auth/login", {
-          body: { username: "admin", password: "admin123" },
-        });
-
-        // Check activity feed for login event
-        const activities = await db.getActivities({ limit: 100 });
-        const loginEvent = activities.find(
-          (a) => a.description === "auth:login_success",
-        );
-        expect(loginEvent).toBeTruthy();
-        expect(loginEvent!.status).toBe("success");
-      } finally {
-        await close();
-      }
-    });
-
-    test("logs failed login event", async () => {
-      await db.clear();
-      const { server, close } = await startServer();
-      try {
-        await request(server, "POST", "/api/auth/login", {
-          body: { username: "admin", password: "wrongpass" },
-        });
-
-        const activities = await db.getActivities({ limit: 100 });
-        const failEvent = activities.find(
-          (a) => a.description === "auth:login_failed",
-        );
-        expect(failEvent).toBeTruthy();
-        expect(failEvent!.status).toBe("failure");
       } finally {
         await close();
       }

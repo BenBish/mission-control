@@ -6,7 +6,7 @@
  *   MC_AUTH_ENABLED     – "true" to enable (default: "false")
  *   MC_PASSWORD_HASH    – bcrypt hash of admin password (required when auth enabled)
  *   MC_JWT_SECRET       – HMAC-SHA256 secret for JWT signing (auto-generated if missing)
- *   MC_API_KEY          – API key for plugin ingestion on POST /api/activities
+ *   MC_API_KEY          – API key for collector ingestion on POST /api/ingest/*
  *   MC_SESSION_TTL      – JWT lifetime in seconds (default: 86400 = 24h)
  *   MC_USERNAME         – admin username (default: "admin")
  */
@@ -214,7 +214,7 @@ function parseCookie(
  *   - POST /api/auth/login
  *   - POST /api/auth/logout
  *   - GET  /api/health
- *   - POST /api/activities (when API key provided)
+ *   - POST /api/ingest/batch, POST /api/ingest/heartbeat (when API key provided)
  *   - Non-API routes (SPA static files)
  */
 export function authMiddleware(config: AuthConfig) {
@@ -233,8 +233,11 @@ export function authMiddleware(config: AuthConfig) {
     // Non-API routes (static assets, SPA pages)
     if (!path.startsWith("/api/")) return next();
 
-    // API key auth for plugin ingestion (POST /api/activities only)
-    if (path === "/api/activities" && req.method === "POST") {
+    // API key auth for collector ingestion
+    const isIngestRoute =
+      (path === "/api/ingest/batch" || path === "/api/ingest/heartbeat") &&
+      req.method === "POST";
+    if (isIngestRoute) {
       const apiKeyHeader = req.headers["x-api-key"] as string | undefined;
       if (config.apiKey && apiKeyHeader === config.apiKey) {
         return next();
