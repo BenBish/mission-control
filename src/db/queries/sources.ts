@@ -1,5 +1,21 @@
 import type { Database as SqliteDatabase } from "sqlite";
 
+/**
+ * SQLite's CURRENT_TIMESTAMP (used for last_seen_at in recordHeartbeat)
+ * produces a naive "YYYY-MM-DD HH:MM:SS" string with no timezone marker —
+ * it's UTC, but `new Date("...")` on a space-separated (non-ISO) string
+ * parses it as local time, silently shifting it by the browser's UTC
+ * offset. Found live: a real "Last seen -25199s ago" (~-7h, exactly PDT)
+ * on the Runtime page. Reshape to real ISO8601 before it leaves the
+ * server so every client parses it correctly regardless of timezone.
+ */
+function toIso(sqliteTimestamp: string | null): string | null {
+  if (!sqliteTimestamp) return null;
+  return sqliteTimestamp.includes("T")
+    ? sqliteTimestamp
+    : `${sqliteTimestamp.replace(" ", "T")}Z`;
+}
+
 export interface SourceRow {
   id: string;
   name: string;
@@ -141,7 +157,7 @@ export async function listSources(db: SqliteDatabase) {
         endpoint: i.endpoint,
         collectorKind: i.collector_kind,
         status: i.status,
-        lastSeenAt: i.last_seen_at,
+        lastSeenAt: toIso(i.last_seen_at),
         lastError: i.last_error,
         meta: i.meta ? JSON.parse(i.meta) : null,
       })),
