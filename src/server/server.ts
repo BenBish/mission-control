@@ -14,6 +14,9 @@ import {
   setupAuthRoutes,
   type AuthConfig,
 } from "./auth.js";
+import { Scheduler } from "../collectors/core/scheduler.js";
+import { LocalSink } from "../collectors/core/sinks.js";
+import { buildHermesCollectors } from "../collectors/hermes/collector.js";
 
 // Preserve command-line env vars before dotenv loads
 // (Playwright passes PORT=3051, etc as command-line arguments)
@@ -39,6 +42,7 @@ export class MissionControlServer {
   private db: Database;
   private config: ServerConfig;
   private authConfig: AuthConfig;
+  private hermesScheduler: Scheduler | null = null;
 
   constructor(config: ServerConfig) {
     this.config = config;
@@ -100,6 +104,23 @@ export class MissionControlServer {
     setupRoutes(this.app, this.db);
     console.log("✓ Routes configured");
 
+    // Hermes polling only makes sense colocated with llama-swap/
+    // llama-server on the Strix Halo box — llama-server's individual
+    // backend ports and its systemd journal aren't reachable from
+    // anywhere else. Opt-in (not default-on) so running the server
+    // elsewhere (local dev, tests, a future second deployment without
+    // Hermes) doesn't spend 5s-interval cycles failing to reach
+    // 127.0.0.1:8080/12345/12346/12347 and spawning journalctl for units
+    // that don't exist there.
+    if (process.env.MC_HERMES_POLLING_ENABLED === "true") {
+      console.log("🔥 Hermes polling enabled");
+      this.hermesScheduler = new Scheduler(
+        buildHermesCollectors(),
+        new LocalSink(this.db.raw()),
+      );
+      this.hermesScheduler.start();
+    }
+
     console.log("✓ Server initialized");
   }
 
@@ -125,6 +146,9 @@ export class MissionControlServer {
 
   async stop(): Promise<void> {
     console.log("Shutting down...");
+    if (this.hermesScheduler) {
+      this.hermesScheduler.stop();
+    }
     await this.db.close();
     console.log("✓ Stopped");
   }

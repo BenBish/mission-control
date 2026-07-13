@@ -8,6 +8,8 @@ import { registerConsumptionRoutes } from "./consumption.js";
 import { registerFailureRoutes } from "./failures.js";
 import { registerJobRoutes } from "./jobs.js";
 import { registerStreamRoutes } from "./stream.js";
+import { registerRuntimeRoutes } from "./runtime.js";
+import { registerContentionRoutes } from "./contention.js";
 
 export function setupRoutes(app: Express, db: Database): void {
   app.get("/api/health", (_req: Request, res: Response) => {
@@ -25,6 +27,8 @@ export function setupRoutes(app: Express, db: Database): void {
   registerConsumptionRoutes(app, db);
   registerFailureRoutes(app, db);
   registerJobRoutes(app, db);
+  registerRuntimeRoutes(app, db);
+  registerContentionRoutes(app, db);
   registerStreamRoutes(app);
 
   // SPA fallback — must be last.
