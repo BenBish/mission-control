@@ -181,3 +181,58 @@ export async function listFailedInferenceRequests(
     limit,
   );
 }
+
+export interface InferenceRequestDetailRow extends InferenceRequestRow {
+  prompt_tokens: number | null;
+  completion_tokens: number | null;
+  cached_tokens: number | null;
+  ttft_ms: number | null;
+  duration_ms: number | null;
+  tokens_per_sec: number | null;
+  slot_id: number | null;
+}
+
+/** Recent requests regardless of status — the Runtime page's activity feed. */
+export async function listRecentInferenceRequests(
+  db: SqliteDatabase,
+  limit = 50,
+): Promise<InferenceRequestDetailRow[]> {
+  return db.all<InferenceRequestDetailRow[]>(
+    `SELECT * FROM inference_requests ORDER BY timestamp DESC LIMIT ?`,
+    limit,
+  );
+}
+
+export interface RuntimeSnapshotRow {
+  source_id: string;
+  instance_id: string;
+  timestamp: string;
+  kind: string;
+  slots_total: number | null;
+  slots_busy: number | null;
+  models_loaded: string | null;
+  healthy: number | null;
+  payload: string | null;
+}
+
+/** Latest snapshot per (instance, kind) — the Runtime page's "current
+ *  state" cards (one per backend's slot occupancy, one for llama-swap's
+ *  health/model inventory). */
+export async function latestRuntimeSnapshots(
+  db: SqliteDatabase,
+): Promise<RuntimeSnapshotRow[]> {
+  return db.all<RuntimeSnapshotRow[]>(
+    `SELECT s.* FROM runtime_snapshots s
+     INNER JOIN (
+       SELECT instance_id, kind,
+         -- distinguish per-backend slots snapshots by their JSON payload's
+         -- port so 3 backends' slots rows don't collapse into 1 "latest"
+         json_extract(payload, '$.port') AS port,
+         MAX(timestamp) AS max_ts
+       FROM runtime_snapshots GROUP BY instance_id, kind, port
+     ) latest
+     ON s.instance_id = latest.instance_id AND s.kind = latest.kind
+       AND s.timestamp = latest.max_ts
+       AND (json_extract(s.payload, '$.port') IS latest.port)`,
+  );
+}

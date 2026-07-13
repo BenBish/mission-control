@@ -1,9 +1,14 @@
+import type { Database as SqliteDatabase } from "sqlite";
 import type {
   Heartbeat,
   IngestAck,
   IngestBatch,
   Sink,
 } from "../../types/ingest.js";
+import {
+  processIngestBatch,
+  processHeartbeat,
+} from "../../server/services/ingest-service.js";
 
 export interface HttpSinkConfig {
   /** e.g. 'http://strix-halo.tailnet-name.ts.net:3001' — no trailing slash */
@@ -52,6 +57,29 @@ export class HttpSink implements Sink {
       throw new Error(
         `heartbeat failed: ${res.status} ${res.statusText} ${text}`,
       );
+    }
+  }
+}
+
+/**
+ * Calls the ingest service directly, in-process — no HTTP round-trip, no
+ * separate server to run. For collectors that are colocated with the
+ * server itself (Hermes today; Lemonade/ComfyUI in P3), where a self-HTTP
+ * call would just add latency and a second thing to keep running for no
+ * benefit — same validation/dedupe/upsert path as HttpSink, just invoked
+ * as a function call instead of a fetch.
+ */
+export class LocalSink implements Sink {
+  constructor(private db: SqliteDatabase) {}
+
+  async send(batch: IngestBatch): Promise<IngestAck> {
+    return processIngestBatch(this.db, batch);
+  }
+
+  async heartbeat(beat: Heartbeat): Promise<void> {
+    const result = await processHeartbeat(this.db, beat);
+    if (!result.ok) {
+      throw new Error(`heartbeat failed: ${result.error}`);
     }
   }
 }
