@@ -60,3 +60,13 @@ export async function listGenerationJobs(
     limit,
   );
 }
+
+export async function getGenerationJob(
+  db: SqliteDatabase,
+  id: string,
+): Promise<GenerationJobRow | undefined> {
+  return db.get<GenerationJobRow>(
+    `SELECT * FROM generation_jobs WHERE id = ?`,
+    id,
+  );
+}

@@ -347,3 +347,51 @@ export function useContention(
     refetchInterval: 30_000,
   });
 }
+
+// ─── Generation jobs (ComfyUI) — src/db/queries/generation.ts ─────────────
+
+export type GenerationJobStatus =
+  | "queued"
+  | "running"
+  | "success"
+  | "error"
+  | "interrupted";
+
+export interface GenerationJob {
+  id: string;
+  sourceId: string;
+  instanceId: string;
+  externalId: string;
+  status: GenerationJobStatus;
+  firstSeenAt: string;
+  observedStartedAt: string | null;
+  observedCompletedAt: string | null;
+  workflowHash: string | null;
+  nodeCount: number | null;
+  outputCount: number | null;
+  details: unknown;
+}
+
+export function useGenerations(limit = 50): UseQueryResult<GenerationJob[]> {
+  return useQuery({
+    queryKey: ["generations", limit],
+    queryFn: async () =>
+      (
+        await getJson<{ jobs: GenerationJob[] }>(
+          `/api/generations?limit=${limit}`,
+        )
+      ).jobs,
+    refetchInterval: 15_000,
+  });
+}
+
+export function useGeneration(
+  id: string | undefined,
+): UseQueryResult<GenerationJob> {
+  return useQuery({
+    queryKey: ["generation", id],
+    queryFn: async () =>
+      (await getJson<{ job: GenerationJob }>(`/api/generations/${id}`)).job,
+    enabled: !!id,
+  });
+}

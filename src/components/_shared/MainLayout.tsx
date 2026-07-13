@@ -14,6 +14,7 @@ import {
   LogOut,
   AlertTriangle,
   Server,
+  Image as ImageIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -29,6 +30,7 @@ const navItems = [
   { to: "/failures", icon: AlertTriangle, label: "Failures" },
   { to: "/consumption", icon: DollarSign, label: "Consumption" },
   { to: "/jobs", icon: Clock, label: "Jobs" },
+  { to: "/generations", icon: ImageIcon, label: "Generations" },
   { to: "/settings", icon: Settings, label: "Settings" },
 ];
 
