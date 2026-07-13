@@ -29,6 +29,7 @@ Object.assign(process.env, cliEnvVars);
 
 interface ServerConfig {
   port: number;
+  host: string;
   databasePath: string;
   nodeEnv: string;
 }
@@ -106,11 +107,13 @@ export class MissionControlServer {
     await this.initialize();
 
     return new Promise((resolve) => {
-      this.app.listen(this.config.port, () => {
+      this.app.listen(this.config.port, this.config.host, () => {
         console.log(
-          `✨ Mission Control Server running on http://localhost:${this.config.port}`,
+          `✨ Mission Control Server running on http://${this.config.host}:${this.config.port}`,
         );
-        console.log(`📡 API: http://localhost:${this.config.port}/api`);
+        console.log(
+          `📡 API: http://${this.config.host}:${this.config.port}/api`,
+        );
         resolve();
       });
     });
@@ -130,6 +133,15 @@ export class MissionControlServer {
 async function main() {
   const config: ServerConfig = {
     port: parseInt(process.env.PORT || "3001"),
+    // Loopback-only by default: this is meant to sit behind `tailscale
+    // serve` (which proxies to 127.0.0.1) rather than be reachable
+    // directly on the LAN/tailnet interface. It also sidesteps a real
+    // conflict — binding 0.0.0.0 fails if tailscaled already holds a
+    // specific address on the same port (as it does once `tailscale
+    // serve` is configured), since a wildcard bind overlaps any existing
+    // specific one. Override with HOST=0.0.0.0 if you really want it
+    // reachable on all interfaces.
+    host: process.env.HOST || "127.0.0.1",
     databasePath: process.env.DATABASE_PATH || "./data/mission-control.db",
     nodeEnv: process.env.NODE_ENV || "development",
   };
