@@ -16,7 +16,10 @@ import {
 } from "./auth.js";
 import { Scheduler } from "../collectors/core/scheduler.js";
 import { LocalSink } from "../collectors/core/sinks.js";
+import { CollectorStateStore } from "../collectors/core/state-store.js";
 import { buildHermesCollectors } from "../collectors/hermes/collector.js";
+import { buildComfyUiCollectors } from "../collectors/comfyui/collector.js";
+import { buildLemonadeCollectors } from "../collectors/lemonade/collector.js";
 import { runRuntimeSnapshotRetention } from "../db/queries/retention.js";
 
 const RETENTION_INTERVAL_MS = 60 * 60_000; // hourly
@@ -46,6 +49,8 @@ export class MissionControlServer {
   private config: ServerConfig;
   private authConfig: AuthConfig;
   private hermesScheduler: Scheduler | null = null;
+  private comfyUiScheduler: Scheduler | null = null;
+  private lemonadeScheduler: Scheduler | null = null;
   private retentionTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(config: ServerConfig) {
@@ -108,6 +113,16 @@ export class MissionControlServer {
     setupRoutes(this.app, this.db);
     console.log("✓ Routes configured");
 
+    // One CollectorStateStore shared across every server-side poller
+    // (Hermes, ComfyUI, Lemonade) — all three read/write the same
+    // ~/.local/state/mission-control/cursors.json. Giving each its own
+    // instance would mean each independently loads that file at
+    // construction and persists its own in-memory copy back, silently
+    // clobbering whichever poller's changes lost the race on the next
+    // persist() — sharing one instance means concurrent persists just
+    // re-serialize the same merged state, which is safe.
+    const collectorState = new CollectorStateStore();
+
     // Hermes polling only makes sense colocated with llama-swap/
     // llama-server on the Strix Halo box — llama-server's individual
     // backend ports and its systemd journal aren't reachable from
@@ -119,10 +134,35 @@ export class MissionControlServer {
     if (process.env.MC_HERMES_POLLING_ENABLED === "true") {
       console.log("🔥 Hermes polling enabled");
       this.hermesScheduler = new Scheduler(
-        buildHermesCollectors(),
+        buildHermesCollectors(collectorState),
         new LocalSink(this.db.raw()),
       );
       this.hermesScheduler.start();
+    }
+
+    // ComfyUI and Lemonade are independent services with independent
+    // on/off state (one can be enabled without the other) — separate
+    // flags, not folded into MC_HERMES_POLLING_ENABLED. Both currently
+    // disabled by default in this deployment; both idle as a calm
+    // sourceStatus:'off' (not error spam) when their target service isn't
+    // running, same as every other poller here.
+    if (process.env.MC_COMFYUI_POLLING_ENABLED === "true") {
+      console.log("🎨 ComfyUI polling enabled");
+      this.comfyUiScheduler = new Scheduler(
+        buildComfyUiCollectors(collectorState),
+        new LocalSink(this.db.raw()),
+      );
+      this.comfyUiScheduler.start();
+    }
+    if (process.env.MC_LEMONADE_POLLING_ENABLED === "true") {
+      console.log(
+        "🍋 Lemonade polling enabled (unverified — see src/collectors/lemonade/config.ts)",
+      );
+      this.lemonadeScheduler = new Scheduler(
+        buildLemonadeCollectors(collectorState),
+        new LocalSink(this.db.raw()),
+      );
+      this.lemonadeScheduler.start();
     }
 
     this.startRetentionJob();
@@ -179,6 +219,12 @@ export class MissionControlServer {
     console.log("Shutting down...");
     if (this.hermesScheduler) {
       this.hermesScheduler.stop();
+    }
+    if (this.comfyUiScheduler) {
+      this.comfyUiScheduler.stop();
+    }
+    if (this.lemonadeScheduler) {
+      this.lemonadeScheduler.stop();
     }
     if (this.retentionTimer) {
       clearInterval(this.retentionTimer);

@@ -12,6 +12,7 @@ const Runtime = lazy(() => import("@/pages/Runtime"));
 const SessionsPage = lazy(() => import("@/app/sessions/page"));
 const SessionDetail = lazy(() => import("@/app/sessions/pages/SessionDetail"));
 const JobsPage = lazy(() => import("@/app/jobs/page"));
+const GenerationsPage = lazy(() => import("@/app/generations/page"));
 const SettingsPage = lazy(() => import("@/app/settings/page"));
 const FailureAnalysis = lazy(() => import("@/pages/FailureAnalysis"));
 
@@ -67,6 +68,14 @@ export const router = createBrowserRouter([
       {
         path: "jobs/:jobId",
         element: withSuspense(JobsPage),
+      },
+      {
+        path: "generations",
+        element: withSuspense(GenerationsPage),
+      },
+      {
+        path: "generations/:generationId",
+        element: withSuspense(GenerationsPage),
       },
       {
         path: "settings",
