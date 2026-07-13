@@ -8,6 +8,7 @@ const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
 const ActivityFeed = lazy(() => import("@/pages/ActivityFeed"));
 const ActivityDetail = lazy(() => import("@/pages/ActivityDetail"));
 const Consumption = lazy(() => import("@/pages/Consumption"));
+const Runtime = lazy(() => import("@/pages/Runtime"));
 const SessionsPage = lazy(() => import("@/app/sessions/page"));
 const SessionDetail = lazy(() => import("@/app/sessions/pages/SessionDetail"));
 const JobsPage = lazy(() => import("@/app/jobs/page"));
@@ -50,6 +51,10 @@ export const router = createBrowserRouter([
       {
         path: "sessions/:id",
         element: withSuspense(SessionDetail),
+      },
+      {
+        path: "runtime",
+        element: withSuspense(Runtime),
       },
       {
         path: "failures",

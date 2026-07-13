@@ -13,6 +13,7 @@ import {
   History,
   LogOut,
   AlertTriangle,
+  Server,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -24,6 +25,7 @@ const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/activities", icon: List, label: "Activities" },
   { to: "/sessions", icon: History, label: "Sessions" },
+  { to: "/runtime", icon: Server, label: "Runtime" },
   { to: "/failures", icon: AlertTriangle, label: "Failures" },
   { to: "/consumption", icon: DollarSign, label: "Consumption" },
   { to: "/jobs", icon: Clock, label: "Jobs" },
