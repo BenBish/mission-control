@@ -170,11 +170,14 @@ const RE_SEND_ERROR =
   /srv\s+send_error:\s*task id\s*=\s*(\d+),\s*error:\s*(.+)$/;
 const RE_CANCEL = /srv\s+stop:\s*cancel task,\s*id_task\s*=\s*(\d+)/;
 
-/** RE_EVAL must be tried before this — "prompt eval time" would otherwise
- *  also satisfy a naive "eval time" match. RE_EVAL requires the "(... ms
- *  per token, ... tokens per second)" suffix that "prompt eval time"
- *  lines don't have, so order doesn't actually matter for correctness,
- *  but keeping prompt-eval first reads more naturally. */
+/** Order matters here: RE_PROMPT_EVAL must be tried before RE_EVAL. Real
+ *  "prompt eval time" lines also carry the "(... ms per token, ... tokens
+ *  per second)" suffix (see the test fixtures), so RE_EVAL's pattern
+ *  matches them too — as a substring starting right after "prompt ", since
+ *  neither regex is start-anchored. Trying RE_PROMPT_EVAL first means it
+ *  claims those lines via its earlier, unconditional return; if the order
+ *  were ever swapped, "prompt eval time" lines would be misparsed as
+ *  "eval time" lines instead. */
 export function parseLine(message: string): ParsedLine | null {
   let m = message.match(RE_LAUNCH);
   if (m) return { type: "launch", slot: Number(m[1]), task: Number(m[2]) };

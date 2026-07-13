@@ -6,6 +6,9 @@ Wants=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=%h/Dev/mission-control
+# systemd --user units don't source your shell rc files, so bun (often a
+# per-user install under ~/.bun) isn't on PATH by default — add it.
+Environment=PATH=%h/.bun/bin:/usr/local/bin:/usr/bin:/bin
 ExecStart=/usr/bin/env bun run collector
 Restart=on-failure
 RestartSec=5

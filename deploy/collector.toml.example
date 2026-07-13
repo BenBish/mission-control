@@ -1,8 +1,10 @@
 # Copy to ~/.config/mission-control/collector.toml on the desktop machine.
 
-# Server's ingest endpoint, reachable over Tailscale (MagicDNS hostname or
-# tailnet IP). No trailing slash.
-server_url = "http://fedora:3001"
+# Server's ingest endpoint. The server binds 127.0.0.1:3001 on the server
+# machine and is exposed via `tailscale serve` (TLS termination + tailnet
+# ACLs) at its full MagicDNS name — not the short hostname, and not http://.
+# Check the exposed URL with `tailscale serve status` on the server machine.
+server_url = "https://fedora.taile952db.ts.net:3001"
 
 # Matches MC_API_KEY on the server (src/server/auth.ts) — grants the ingest
 # routes bypass without needing a JWT session.
