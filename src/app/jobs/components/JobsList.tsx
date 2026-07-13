@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/_shared/PageHeader";
 import { Loading } from "@/components/_shared/Loading";
 import { Clock, AlertCircle } from "lucide-react";
 import { useJobs } from "@/lib/queries";
+import { ContentionIncidents } from "./ContentionIncidents";
 
 function formatTimestamp(ms?: number): string {
   if (!ms) return "Never";
@@ -138,6 +139,8 @@ export function JobsList() {
           </CardContent>
         </Card>
       )}
+
+      <ContentionIncidents />
     </div>
   );
 }

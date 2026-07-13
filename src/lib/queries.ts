@@ -233,3 +233,117 @@ export function useJobRuns(
     enabled: !!id,
   });
 }
+
+// ─── Runtime (Hermes telemetry) ────────────────────────────────────────────
+
+export type RuntimeSnapshotKind = "slots" | "health" | "models";
+
+export interface RuntimeSnapshot {
+  sourceId: string;
+  instanceId: string;
+  timestamp: string;
+  kind: RuntimeSnapshotKind;
+  slotsTotal: number | null;
+  slotsBusy: number | null;
+  /** Only present on kind:'models' snapshots. */
+  modelsLoaded:
+    | {
+        model: string;
+        name: string;
+        description?: string;
+        proxy?: string;
+        state?: string;
+      }[]
+    | null;
+  healthy: boolean | null;
+  /** kind:'slots' snapshots carry {port, label} here — the only way to
+   *  tell one backend's occupancy from another's, since slotsTotal/Busy
+   *  alone don't identify which backend they're for. */
+  payload: { port?: number; label?: string } | null;
+}
+
+export interface InferenceRequestSummary {
+  id: string;
+  sourceId: string;
+  instanceId: string;
+  timestamp: string;
+  model: string | null;
+  clientLabel: string | null;
+  workload: "foreground" | "background" | "unknown";
+  promptTokens: number | null;
+  completionTokens: number | null;
+  ttftMs: number | null;
+  durationMs: number | null;
+  tokensPerSec: number | null;
+  slotId: number | null;
+  status: "success" | "cancelled" | "context_overflow" | "error";
+  error: string | null;
+}
+
+export interface RuntimeEvent {
+  id: string;
+  sourceId: string;
+  instanceId: string;
+  timestamp: string;
+  endedAt: string | null;
+  kind:
+    | "slots_saturated"
+    | "model_load"
+    | "model_unload"
+    | "service_down"
+    | "service_up"
+    | "context_overflow"
+    | "request_cancelled";
+  severity: "info" | "warning" | "error";
+  summary: string;
+  details: unknown;
+}
+
+export interface RuntimeData {
+  sources: Source[];
+  snapshots: RuntimeSnapshot[];
+  inferenceRequests: InferenceRequestSummary[];
+  runtimeEvents: RuntimeEvent[];
+}
+
+export function useRuntime(limit = 50): UseQueryResult<RuntimeData> {
+  return useQuery({
+    queryKey: ["runtime", limit],
+    queryFn: () => getJson<RuntimeData>(`/api/runtime?limit=${limit}`),
+    refetchInterval: 5_000,
+  });
+}
+
+// ─── Contention incidents (best-effort — see src/db/queries/contention.ts) ─
+
+export interface ContentionIncident {
+  id: string;
+  instanceId: string;
+  backgroundRequestId: string;
+  backgroundClientLabel: string | null;
+  backgroundModel: string | null;
+  backgroundStartedAt: string;
+  backgroundDurationMs: number | null;
+  saturationEventId: string;
+  saturationSummary: string;
+  saturationStartedAt: string;
+  saturationEndedAt: string;
+  foregroundRequestId: string;
+  foregroundStartedAt: string;
+  foregroundTtftMs: number | null;
+}
+
+export function useContention(
+  limit = 20,
+): UseQueryResult<ContentionIncident[]> {
+  return useQuery({
+    queryKey: ["contention", limit],
+    queryFn: async () =>
+      (
+        await getJson<{ incidents: ContentionIncident[] }>(
+          `/api/contention?limit=${limit}`,
+        )
+      ).incidents,
+    refetchInterval: 30_000,
+  });
+}
