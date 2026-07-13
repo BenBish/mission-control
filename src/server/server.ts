@@ -17,6 +17,9 @@ import {
 import { Scheduler } from "../collectors/core/scheduler.js";
 import { LocalSink } from "../collectors/core/sinks.js";
 import { buildHermesCollectors } from "../collectors/hermes/collector.js";
+import { runRuntimeSnapshotRetention } from "../db/queries/retention.js";
+
+const RETENTION_INTERVAL_MS = 60 * 60_000; // hourly
 
 // Preserve command-line env vars before dotenv loads
 // (Playwright passes PORT=3051, etc as command-line arguments)
@@ -43,6 +46,7 @@ export class MissionControlServer {
   private config: ServerConfig;
   private authConfig: AuthConfig;
   private hermesScheduler: Scheduler | null = null;
+  private retentionTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(config: ServerConfig) {
     this.config = config;
@@ -121,7 +125,34 @@ export class MissionControlServer {
       this.hermesScheduler.start();
     }
 
+    this.startRetentionJob();
+
     console.log("✓ Server initialized");
+  }
+
+  /**
+   * runtime_snapshots is a 5s-interval poll (Hermes slots), the one table
+   * in this schema with no natural event-driven bound on growth — left
+   * alone it accumulates indefinitely for as long as polling runs. Runs
+   * once at startup (covers any backlog from downtime) and then hourly.
+   * Errors are logged, never fatal — a failed prune shouldn't take the
+   * server down, it just tries again next hour.
+   */
+  private startRetentionJob(): void {
+    const run = async () => {
+      try {
+        const result = await runRuntimeSnapshotRetention(this.db.raw());
+        if (result.slotRowsRolledUp > 0 || result.otherRowsDeleted > 0) {
+          console.log(
+            `🧹 Retention: rolled up ${result.slotRowsRolledUp} slot snapshot(s) into ${result.rollupBucketsWritten} hourly bucket(s), pruned ${result.otherRowsDeleted} other snapshot(s)`,
+          );
+        }
+      } catch (err) {
+        console.error("Retention job failed:", err);
+      }
+    };
+    void run();
+    this.retentionTimer = setInterval(() => void run(), RETENTION_INTERVAL_MS);
   }
 
   async start(): Promise<void> {
@@ -148,6 +179,10 @@ export class MissionControlServer {
     console.log("Shutting down...");
     if (this.hermesScheduler) {
       this.hermesScheduler.stop();
+    }
+    if (this.retentionTimer) {
+      clearInterval(this.retentionTimer);
+      this.retentionTimer = null;
     }
     await this.db.close();
     console.log("✓ Stopped");

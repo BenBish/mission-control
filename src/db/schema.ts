@@ -198,6 +198,32 @@ CREATE TABLE IF NOT EXISTS runtime_snapshots (
 
 CREATE INDEX IF NOT EXISTS idx_runtime_snapshots_lookup ON runtime_snapshots(source_id, kind, timestamp DESC);
 
+-- Hourly rollup for 'slots' snapshots — the only kind with a numeric
+-- time series worth summarizing long-term (health/models snapshots only
+-- ever get queried as "latest", so raw history beyond the retention
+-- window is just pruned, not rolled up). Retention job (see
+-- src/db/queries/retention.ts) aggregates raw 'slots' rows older than
+-- RAW_RETENTION_DAYS into one row per (instance, port, hour), then
+-- deletes the raw rows — keeps long-term occupancy trend queryable
+-- without an unbounded 5s-interval table.
+CREATE TABLE IF NOT EXISTS runtime_slot_rollups (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  source_id TEXT NOT NULL,
+  instance_id TEXT NOT NULL,
+  port INTEGER,
+  hour_bucket DATETIME NOT NULL,
+  sample_count INTEGER NOT NULL,
+  slots_total_avg REAL,
+  slots_busy_avg REAL,
+  slots_busy_max INTEGER,
+
+  FOREIGN KEY (source_id) REFERENCES sources(id),
+  FOREIGN KEY (instance_id) REFERENCES source_instances(id),
+  UNIQUE (instance_id, port, hour_bucket)
+);
+
+CREATE INDEX IF NOT EXISTS idx_runtime_slot_rollups_lookup ON runtime_slot_rollups(instance_id, hour_bucket DESC);
+
 CREATE TABLE IF NOT EXISTS runtime_events (
   id TEXT PRIMARY KEY,
   source_id TEXT NOT NULL,
