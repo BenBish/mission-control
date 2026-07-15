@@ -202,7 +202,7 @@ export default function Consumption() {
         </Card>
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="sm:max-w-xs">
             {unit === "tokens" && (
               <Card className="overflow-hidden border-l-4 border-l-blue-500">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

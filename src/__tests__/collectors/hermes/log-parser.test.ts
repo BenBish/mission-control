@@ -288,6 +288,35 @@ describe("HermesLogParser.processEntries — real request lifecycles", () => {
     expect(payload.completionTokens).toBeUndefined();
   });
 
+  test("context_overflow: send_error followed by release (not cancel) still emits context_overflow, not success", () => {
+    const parser = new HermesLogParser(BACKEND);
+    const entries: JournalEntry[] = [
+      entry(
+        "c1",
+        1_000_000,
+        "t I slot launch_slot_: id  0 | task 555 | processing task, is_child = 0",
+      ),
+      entry(
+        "c2",
+        1_001_000,
+        "t E srv    send_error: task id = 555, error: request (69225 tokens) exceeds the available context size (65536 tokens), try increasing it",
+      ),
+      entry(
+        "c3",
+        1_002_000,
+        "t I slot      release: id  0 | task 555 | stop processing: n_tokens = 0, truncated = 0",
+      ),
+    ];
+
+    const { events } = parser.processEntries(entries);
+
+    expect(events).toHaveLength(1);
+    const payload = events[0].payload as InferenceRequestPayload;
+    expect(payload.status).toBe("context_overflow");
+    expect(payload.error).toContain("exceeds the available context size");
+    expect(payload.completionTokens).toBeUndefined();
+  });
+
   test("a bare cancel with no preceding send_error emits status:'cancelled'", () => {
     const parser = new HermesLogParser(BACKEND);
     const entries: JournalEntry[] = [
