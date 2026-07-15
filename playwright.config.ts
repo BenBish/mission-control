@@ -44,7 +44,7 @@ export default defineConfig({
   webServer: [
     {
       command:
-        "mkdir -p test-data && HOME=/tmp/mc-e2e-home DATABASE_PATH=./test-data/playwright.db bun run e2e/seed-db.ts && PORT=3051 DATABASE_PATH=./test-data/playwright.db MC_AUTH_ENABLED=true MC_USERNAME=admin MC_PASSWORD_HASH='$argon2id$v=19$m=65536,t=2,p=1$Q8wa6rNQgE6LEgPI+USz0vYKIBenPFGPROJUlvbrIh4$ED0rkFmZ9sktgbff2/5oXDITf9FC+315SXfGMa4QfXk' MC_JWT_SECRET=test-secret-for-e2e SCAN_INTERVAL_MS=86400000 HOME=/tmp/mc-e2e-home bun run src/api/server.ts",
+        "mkdir -p test-data && DATABASE_PATH=./test-data/playwright.db bun run e2e/seed-db.ts && PORT=3051 DATABASE_PATH=./test-data/playwright.db MC_AUTH_ENABLED=true MC_USERNAME=admin MC_PASSWORD_HASH='$argon2id$v=19$m=65536,t=2,p=1$Q8wa6rNQgE6LEgPI+USz0vYKIBenPFGPROJUlvbrIh4$ED0rkFmZ9sktgbff2/5oXDITf9FC+315SXfGMa4QfXk' MC_JWT_SECRET=test-secret-for-e2e bun run src/server/server.ts",
       port: 3051,
       reuseExistingServer: false,
       timeout: 120_000,

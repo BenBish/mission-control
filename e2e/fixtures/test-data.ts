@@ -2,14 +2,13 @@
  * Test data factory functions for E2E tests.
  */
 
-export const TEST_AGENTS = ["claude-opus", "claude-sonnet", "claude-haiku"];
+import { TEST_SESSIONS as SEEDED_SESSIONS } from "../helpers/db-seeder.js";
 
+/** Full session IDs as ingested (source-prefixed) — derived from the same
+ *  data the seeder writes so this can't drift. */
 export const TEST_SESSIONS = [
-  "session-e2e-001",
-  "session-e2e-002",
-  "session-e2e-003",
-  "session-e2e-004",
-  "session-e2e-005",
+  ...SEEDED_SESSIONS.claudeCode.map((id) => `claude-code:${id}`),
+  ...SEEDED_SESSIONS.codex.map((id) => `codex:${id}`),
 ];
 
 export const TEST_CREDENTIALS = {
@@ -20,11 +19,12 @@ export const TEST_CREDENTIALS = {
 export const TEST_URLS = {
   dashboard: "/",
   activities: "/activities",
-  agents: "/agents",
-  costs: "/costs",
-  skills: "/skills",
-  cron: "/cron",
-  permissions: "/permissions",
+  sessions: "/sessions",
+  runtime: "/runtime",
+  failures: "/failures",
+  consumption: "/consumption",
+  jobs: "/jobs",
+  settings: "/settings",
 } as const;
 
 /** Human-readable labels for nav items as they appear in the sidebar */
@@ -32,10 +32,9 @@ export const NAV_ITEMS = [
   { label: "Dashboard", path: "/" },
   { label: "Activities", path: "/activities" },
   { label: "Sessions", path: "/sessions" },
+  { label: "Runtime", path: "/runtime" },
   { label: "Failures", path: "/failures" },
-  { label: "Agents", path: "/agents" },
-  { label: "Cost Breakdown", path: "/costs" },
-  { label: "Skills", path: "/skills" },
-  { label: "Permissions", path: "/permissions" },
-  { label: "Cron Jobs", path: "/cron" },
+  { label: "Consumption", path: "/consumption" },
+  { label: "Jobs", path: "/jobs" },
+  { label: "Settings", path: "/settings" },
 ] as const;

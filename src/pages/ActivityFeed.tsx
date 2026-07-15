@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useMemo, useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Card,
   CardContent,
@@ -19,15 +20,14 @@ import {
 } from "@/components/ui/select";
 import { PageHeader } from "@/components/_shared/PageHeader";
 import { Loading } from "@/components/_shared/Loading";
-import type { Activity } from "@/types/activity";
-import { useProfile } from "@/app/profile-context";
+import type { Activity, ActionType, ActivityStatus } from "@/types/activity";
+import { actorIcon } from "@/lib/actor-display";
+import { useSourceFilter } from "@/app/source-context";
+import { useActivityList } from "@/lib/queries";
 import { useSSE } from "@/hooks/useSSE";
-import { apiFetch } from "@/lib/api-client";
-import { Link } from "react-router-dom";
 import {
   List,
   ArrowRight,
-  AlertCircle,
   CheckCircle2,
   XCircle,
   Clock,
@@ -37,12 +37,6 @@ import {
   RefreshCw,
   X,
 } from "lucide-react";
-
-interface ActivitiesResponse {
-  success: boolean;
-  count: number;
-  activities: Activity[];
-}
 
 interface Filters {
   status: string;
@@ -79,146 +73,75 @@ const ACTION_TYPE_OPTIONS = [
 ];
 
 export default function ActivityFeed() {
-  const [activities, setActivities] = useState<Activity[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
-  const [debouncedFilters, setDebouncedFilters] =
-    useState<Filters>(EMPTY_FILTERS);
-  const [page, setPage] = useState(1);
-  const [resultCount, setResultCount] = useState(0);
-  const [hasNewActivity, setHasNewActivity] = useState(false);
   const navigate = useNavigate();
-  const { profileId } = useProfile();
-  const debounceTimer = useRef<ReturnType<typeof setTimeout>>(null);
+  const queryClient = useQueryClient();
+  const { selectedSourceId } = useSourceFilter();
+  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+  const [page, setPage] = useState(1);
+  const [hasNewActivity, setHasNewActivity] = useState(false);
 
   const hasActiveFilters = useMemo(
-    () => Object.values(debouncedFilters).some((v) => v !== ""),
-    [debouncedFilters],
-  );
-
-  // Debounce text inputs (actorId, toolName) by 300ms; apply others immediately
-  const updateFilter = useCallback(
-    (key: keyof Filters, value: string) => {
-      const next = { ...filters, [key]: value };
-      setFilters(next);
-
-      if (key === "actorId" || key === "toolName") {
-        if (debounceTimer.current) clearTimeout(debounceTimer.current);
-        debounceTimer.current = setTimeout(() => {
-          setDebouncedFilters(next);
-          setPage(1);
-        }, 300);
-      } else {
-        setDebouncedFilters(next);
-        setPage(1);
-      }
-    },
+    () => Object.values(filters).some((v) => v !== ""),
     [filters],
   );
 
-  const clearFilters = useCallback(() => {
-    if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    setFilters(EMPTY_FILTERS);
-    setDebouncedFilters(EMPTY_FILTERS);
+  const updateFilter = useCallback((key: keyof Filters, value: string) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
     setPage(1);
   }, []);
 
-  // Handle real-time activity events from the profile-scoped SSE stream
-  const onActivity = useCallback(
-    (activity: Activity) => {
-      if (hasActiveFilters) {
+  const clearFilters = useCallback(() => {
+    setFilters(EMPTY_FILTERS);
+    setPage(1);
+  }, []);
+
+  const queryFilter = useMemo(
+    () => ({
+      sourceId: selectedSourceId,
+      limit: PAGE_SIZE,
+      offset: (page - 1) * PAGE_SIZE,
+      status: (filters.status || undefined) as ActivityStatus | undefined,
+      actionType: (filters.actionType || undefined) as ActionType | undefined,
+      actorId: filters.actorId || undefined,
+      toolName: filters.toolName || undefined,
+      startTime: filters.startTime
+        ? new Date(filters.startTime).toISOString()
+        : undefined,
+      endTime: filters.endTime
+        ? new Date(filters.endTime).toISOString()
+        : undefined,
+    }),
+    [selectedSourceId, page, filters],
+  );
+
+  const { data: activities, isLoading, error } = useActivityList(queryFilter);
+
+  useSSE({
+    onActivity: () => {
+      if (hasActiveFilters || page > 1) {
         setHasNewActivity(true);
         return;
       }
-      setActivities((prev) => {
-        const exists = prev.some((a) => a.id === activity.id);
-        const updated = exists
-          ? prev.map((a) => (a.id === activity.id ? activity : a))
-          : [activity, ...prev];
-        return updated
-          .sort(
-            (a, b) =>
-              new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
-          )
-          .slice(0, PAGE_SIZE);
-      });
+      queryClient.invalidateQueries({ queryKey: ["activities"] });
     },
-    [hasActiveFilters],
-  );
+  });
 
-  useSSE(profileId, { onActivity });
-
-  // Fetch activities when filters, page, or profile change
-  useEffect(() => {
-    const fetchActivities = async () => {
-      setIsLoading(true);
-      setError(null);
-      setHasNewActivity(false);
-      try {
-        const params = new URLSearchParams({
-          limit: String(PAGE_SIZE),
-          offset: String((page - 1) * PAGE_SIZE),
-          profile: profileId,
-        });
-        if (debouncedFilters.status)
-          params.set("status", debouncedFilters.status);
-        if (debouncedFilters.actionType)
-          params.set("actionType", debouncedFilters.actionType);
-        if (debouncedFilters.actorId)
-          params.set("actorId", debouncedFilters.actorId);
-        if (debouncedFilters.toolName)
-          params.set("toolName", debouncedFilters.toolName);
-        if (debouncedFilters.startTime)
-          params.set(
-            "startTime",
-            new Date(debouncedFilters.startTime).toISOString(),
-          );
-        if (debouncedFilters.endTime)
-          params.set(
-            "endTime",
-            new Date(debouncedFilters.endTime).toISOString(),
-          );
-
-        const response = await apiFetch(`/api/activities?${params}`);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch activities: ${response.statusText}`);
-        }
-        const data: ActivitiesResponse = await response.json();
-        if (data.success) {
-          setActivities(data.activities);
-          setResultCount(data.count);
-        } else {
-          throw new Error("API returned unsuccessful response");
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error occurred");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchActivities();
-  }, [profileId, page, debouncedFilters]);
+  const handleRefreshBanner = () => {
+    setHasNewActivity(false);
+    queryClient.invalidateQueries({ queryKey: ["activities"] });
+  };
 
   const formatTimestamp = (timestamp: string) => {
     const date = new Date(timestamp);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
+    const diffMs = new Date().getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
-
     if (diffMins < 1) return "Just now";
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays < 7) return `${diffDays}d ago`;
     return date.toLocaleDateString();
-  };
-
-  const formatCost = (cost?: { usd: number }) => {
-    if (!cost) return "$0.0000";
-    return `$${cost.usd.toFixed(4)}`;
   };
 
   const getStatusBadge = (status: string) => {
@@ -272,19 +195,12 @@ export default function ActivityFeed() {
     }
   };
 
-  const handleRowClick = (id: string) => {
-    navigate(`/activities/${id}`);
-  };
+  const handleRowClick = (id: string) => navigate(`/activities/${id}`);
 
-  const handleRefreshBanner = () => {
-    setHasNewActivity(false);
-    setPage(1);
-    setDebouncedFilters({ ...debouncedFilters });
-  };
-
+  const count = activities?.length ?? 0;
   const offset = (page - 1) * PAGE_SIZE;
-  const showingFrom = activities.length > 0 ? offset + 1 : 0;
-  const showingTo = offset + activities.length;
+  const showingFrom = count > 0 ? offset + 1 : 0;
+  const showingTo = offset + count;
 
   if (error) {
     return (
@@ -295,12 +211,14 @@ export default function ActivityFeed() {
         />
         <Card className="border-destructive">
           <CardContent className="flex items-center gap-3 py-6">
-            <AlertCircle className="h-5 w-5 text-destructive" />
+            <X className="h-5 w-5 text-destructive" />
             <div>
               <p className="font-medium text-destructive">
                 Error loading activities
               </p>
-              <p className="text-sm text-muted-foreground">{error}</p>
+              <p className="text-sm text-muted-foreground">
+                {error instanceof Error ? error.message : "Unknown error"}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -425,7 +343,6 @@ export default function ActivityFeed() {
         </CardContent>
       </Card>
 
-      {/* New activity banner */}
       {hasNewActivity && (
         <div
           className="flex items-center justify-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-400 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-950/50 transition-colors"
@@ -448,9 +365,7 @@ export default function ActivityFeed() {
               </CardTitle>
               <CardDescription>
                 <Badge variant="outline" className="font-normal">
-                  {resultCount > PAGE_SIZE
-                    ? `Showing ${showingFrom}–${showingTo} of ${resultCount}`
-                    : `${resultCount} activities`}
+                  {count} activities
                 </Badge>
               </CardDescription>
             </div>
@@ -461,10 +376,10 @@ export default function ActivityFeed() {
             <div className="py-12">
               <Loading />
             </div>
-          ) : activities.length === 0 ? (
+          ) : count === 0 ? (
             <p className="text-center text-sm text-muted-foreground py-12">
-              No activities found. Activities will appear here when the system
-              processes events.
+              No activities found. Activities will appear here when the
+              collectors ingest events.
             </p>
           ) : (
             <div className="overflow-x-auto">
@@ -492,105 +407,92 @@ export default function ActivityFeed() {
                     <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                       Tokens
                     </th>
-                    <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                      Cost
-                    </th>
                     <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider"></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {activities.map((activity, index) => (
-                    <tr
-                      key={activity.id}
-                      className={`border-b last:border-0 hover:bg-muted/60 cursor-pointer transition-colors ${
-                        index % 2 === 1 ? "bg-muted/20" : ""
-                      }`}
-                      onClick={() => handleRowClick(activity.id)}
-                    >
-                      <td className="py-3 px-4 text-sm whitespace-nowrap">
-                        <span className="tabular-nums text-muted-foreground">
-                          {formatTimestamp(activity.timestamp)}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-sm">
-                        <div className="flex flex-col">
-                          <span className="font-medium truncate max-w-[160px]">
-                            {activity.actor.emoji && (
-                              <span className="mr-1">
-                                {activity.actor.emoji}
-                              </span>
-                            )}
-                            {activity.actor.displayName || activity.actor.id}
+                  {(activities as Activity[]).map((activity, index) => {
+                    const Icon = actorIcon(activity.actor.type);
+                    return (
+                      <tr
+                        key={activity.id}
+                        className={`border-b last:border-0 hover:bg-muted/60 cursor-pointer transition-colors ${
+                          index % 2 === 1 ? "bg-muted/20" : ""
+                        }`}
+                        onClick={() => handleRowClick(activity.id)}
+                      >
+                        <td className="py-3 px-4 text-sm whitespace-nowrap">
+                          <span className="tabular-nums text-muted-foreground">
+                            {formatTimestamp(activity.timestamp)}
                           </span>
-                          <span className="text-xs text-muted-foreground">
-                            {activity.actor.type}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 text-sm">
-                        <Badge variant="secondary" className="font-medium">
-                          {activity.actionType}
-                        </Badge>
-                      </td>
-                      <td className="py-3 px-4 text-sm text-muted-foreground">
-                        {activity.toolName ? (
-                          <span className="font-mono text-xs">
-                            {activity.toolName}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground/50">—</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-sm">
-                        {activity.sessionId ? (
-                          <Link
-                            to={`/sessions/${activity.sessionId}`}
-                            className="font-mono text-xs text-primary hover:underline"
-                            onClick={(e) => e.stopPropagation()}
+                        </td>
+                        <td className="py-3 px-4 text-sm">
+                          <div className="flex flex-col">
+                            <span className="font-medium truncate max-w-[160px] flex items-center gap-1.5">
+                              <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                              {activity.actor.id}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {activity.actor.type}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-sm">
+                          <Badge variant="secondary" className="font-medium">
+                            {activity.actionType}
+                          </Badge>
+                        </td>
+                        <td className="py-3 px-4 text-sm text-muted-foreground">
+                          {activity.toolName ? (
+                            <span className="font-mono text-xs">
+                              {activity.toolName}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground/50">—</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-sm">
+                          {activity.sessionId ? (
+                            <Link
+                              to={`/sessions/${activity.sessionId}`}
+                              className="font-mono text-xs text-primary hover:underline"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {activity.sessionId.slice(0, 8)}...
+                            </Link>
+                          ) : (
+                            <span className="text-muted-foreground/50">—</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-sm">
+                          {getStatusBadge(activity.status)}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-right tabular-nums">
+                          {activity.totalTokens?.toLocaleString() ?? (
+                            <span className="text-muted-foreground/50">—</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRowClick(activity.id);
+                            }}
                           >
-                            {activity.sessionId.slice(0, 8)}...
-                          </Link>
-                        ) : (
-                          <span className="text-muted-foreground/50">—</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-sm">
-                        {getStatusBadge(activity.status)}
-                      </td>
-                      <td className="py-3 px-4 text-sm text-right tabular-nums">
-                        {activity.tokens?.totalTokens?.toLocaleString() || (
-                          <span className="text-muted-foreground/50">—</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-sm text-right font-medium tabular-nums">
-                        {activity.cost ? (
-                          formatCost(activity.cost)
-                        ) : (
-                          <span className="text-muted-foreground/50">—</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="opacity-0 group-hover:opacity-100 hover:opacity-100"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleRowClick(activity.id);
-                          }}
-                        >
-                          <ArrowRight className="h-4 w-4" />
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
+                            <ArrowRight className="h-4 w-4" />
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           )}
 
-          {/* Pagination */}
-          {!isLoading && activities.length > 0 && (
+          {!isLoading && count > 0 && (
             <div className="flex items-center justify-between border-t px-4 py-3">
               <span className="text-sm text-muted-foreground">
                 Showing {showingFrom}–{showingTo}
@@ -608,7 +510,7 @@ export default function ActivityFeed() {
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={activities.length < PAGE_SIZE}
+                  disabled={count < PAGE_SIZE}
                   onClick={() => setPage((p) => p + 1)}
                 >
                   Next

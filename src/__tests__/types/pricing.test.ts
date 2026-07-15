@@ -12,11 +12,19 @@ import {
 } from "../../types/pricing.js";
 
 // Mock fetch for API tests
+const realFetch = global.fetch;
 global.fetch = jest.fn();
 
 describe("Pricing", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  afterAll(() => {
+    // This file replaces global.fetch for the whole process (bun test runs
+    // all files in one process) — restore it so later test files that need
+    // a real fetch() aren't left talking to this mock.
+    global.fetch = realFetch;
   });
 
   describe("calculateCost", () => {

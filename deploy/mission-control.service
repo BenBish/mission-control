@@ -1,0 +1,22 @@
+[Unit]
+Description=Mission Control server (API + SQLite + static UI)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Dev/mission-control
+# systemd --user units don't source your shell rc files, so bun (often a
+# per-user install under ~/.bun) isn't on PATH by default — add it.
+Environment=PATH=%h/.bun/bin:/usr/local/bin:/usr/bin:/bin
+Environment=DATABASE_PATH=%h/.local/share/mission-control/mc.db
+# MC_API_KEY (required so the collector can authenticate) and any other
+# secrets live in this file, not here — it's gitignored, created once per
+# machine. See deploy/server.env.example.
+EnvironmentFile=-%h/.config/mission-control/server.env
+ExecStart=/usr/bin/env bun run api
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

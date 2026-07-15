@@ -12,6 +12,7 @@ package-lock.json
 
 node_modules
 dist
+dist-vite
 dist-ssr
 *.local
 

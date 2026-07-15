@@ -131,7 +131,7 @@ export function SessionTimeline({ activities, session }: SessionTimelineProps) {
       if (!actorMap.has(activity.actor.id)) {
         actorMap.set(activity.actor.id, {
           id: activity.actor.id,
-          name: activity.actor.displayName || activity.actor.id,
+          name: activity.actor.id,
         });
       }
     }
@@ -158,14 +158,14 @@ export function SessionTimeline({ activities, session }: SessionTimelineProps) {
     const costs = new Map<string, { name: string; cost: number }>();
     let totalCost = 0;
     for (const a of sortedActivities) {
-      const cost = a.cost?.usd || 0;
+      const cost = a.costUsd || 0;
       totalCost += cost;
       const existing = costs.get(a.actor.id);
       if (existing) {
         existing.cost += cost;
       } else {
         costs.set(a.actor.id, {
-          name: a.actor.displayName || a.actor.id,
+          name: a.actor.id,
           cost,
         });
       }
@@ -244,7 +244,7 @@ export function SessionTimeline({ activities, session }: SessionTimelineProps) {
                         {activity.description}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {activity.actor.displayName || activity.actor.id}
+                        {activity.actor.id}
                         {activity.toolName && ` · ${activity.toolName}`}
                       </p>
                     </div>
@@ -480,9 +480,9 @@ export function SessionTimeline({ activities, session }: SessionTimelineProps) {
                     Duration: {formatMs(tooltip.activity.durationMs)}
                   </p>
                 )}
-                {tooltip.activity.cost && (
+                {tooltip.activity.costUsd != null && (
                   <p className="text-muted-foreground">
-                    Cost: {formatCost(tooltip.activity.cost.usd)}
+                    Cost: {formatCost(tooltip.activity.costUsd)}
                   </p>
                 )}
               </div>

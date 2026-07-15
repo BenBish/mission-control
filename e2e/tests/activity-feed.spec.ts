@@ -32,7 +32,6 @@ test.describe("Activity Feed", () => {
         "Session",
         "Status",
         "Tokens",
-        "Cost",
       ]),
     );
   });
@@ -49,9 +48,10 @@ test.describe("Activity Feed", () => {
     const time = firstRow.locator("td").nth(0);
     await expect(time).not.toBeEmpty();
 
-    // Actor column (index 1) — should show display name like "Claude Opus"
+    // Actor column (index 1) — shows actor.id ('user' or 'assistant' for
+    // seeded data) and actor.type on the line below
     const actor = firstRow.locator("td").nth(1);
-    await expect(actor).toContainText(/Claude/i);
+    await expect(actor).toContainText(/user|assistant/i);
 
     // Action column (index 2) — should have action type text
     const action = firstRow.locator("td").nth(2);
@@ -68,15 +68,6 @@ test.describe("Activity Feed", () => {
     await feed.getRows().first().locator("td").nth(0).click();
     await page.waitForURL(/\/activities\/activity-e2e-/);
     expect(page.url()).toContain("/activities/activity-e2e-");
-  });
-
-  test("rows show cost values with dollar sign", async () => {
-    const rows = feed.getRows();
-    // Cost is column 7
-    const costCell = rows.first().locator("td").nth(7);
-    const costText = await costCell.textContent();
-    // Cost should contain a dollar amount or be a dash
-    expect(costText?.trim()).toMatch(/\$[\d.]+|^—$/);
   });
 
   test("rows show token counts as numbers", async () => {

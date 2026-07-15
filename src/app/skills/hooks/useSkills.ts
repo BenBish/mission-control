@@ -1,19 +1,11 @@
 /**
  * useSkills Hook
- * Fetch skills from ORC-18 backend API with agent access information
+ * Fetch skills from the backend API
  */
 
 import { useState, useEffect, useCallback } from "react";
 import type { Skill, SkillsResponse } from "@/types/skills";
-import type { Agent } from "@/types/agents";
 import { apiFetch } from "@/lib/api-client";
-
-interface PermissionsMatrixResponse {
-  success: boolean;
-  agents: Agent[];
-  skills: Skill[];
-  matrix: boolean[][];
-}
 
 interface UseSkillsReturn {
   skills: Skill[];
@@ -37,11 +29,9 @@ export function useSkills(profileId?: string): UseSkillsReturn {
         : "";
 
       try {
-        // Fetch skills and permissions matrix in parallel
-        const [skillsRes, permissionsRes] = await Promise.all([
-          apiFetch(`/api/skills${profileParam}`, { signal }),
-          apiFetch(`/api/permissions/matrix${profileParam}`, { signal }),
-        ]);
+        const skillsRes = await apiFetch(`/api/skills${profileParam}`, {
+          signal,
+        });
 
         if (!skillsRes.ok) {
           throw new Error(`Failed to fetch skills: ${skillsRes.statusText}`);
@@ -53,49 +43,7 @@ export function useSkills(profileId?: string): UseSkillsReturn {
           throw new Error("Skills API returned unsuccessful response");
         }
 
-        let skillsWithAgents = skillsData.skills;
-
-        // Merge agent access data if permissions endpoint is available
-        if (permissionsRes.ok) {
-          try {
-            const permissionsData: PermissionsMatrixResponse =
-              await permissionsRes.json();
-
-            if (
-              permissionsData.success &&
-              permissionsData.matrix &&
-              permissionsData.agents
-            ) {
-              // Create a map of skill IDs to agent lists
-              const skillAgentsMap = new Map<string, Agent[]>();
-
-              // Iterate through permissions matrix to find which agents have access to each skill
-              permissionsData.skills.forEach((skill, skillIndex) => {
-                const agentsWithAccess: Agent[] = [];
-                permissionsData.agents.forEach((agent, agentIndex) => {
-                  if (permissionsData.matrix[agentIndex]?.[skillIndex]) {
-                    agentsWithAccess.push(agent);
-                  }
-                });
-                skillAgentsMap.set(skill.id, agentsWithAccess);
-              });
-
-              // Merge agent data into skills
-              skillsWithAgents = skillsData.skills.map((skill) => ({
-                ...skill,
-                agents: skillAgentsMap.get(skill.id) || [],
-              }));
-            }
-          } catch (permErr) {
-            console.warn(
-              "[useSkills] Failed to fetch or merge permissions matrix:",
-              permErr,
-            );
-            // Continue with skills only if permissions fetch fails
-          }
-        }
-
-        setSkills(skillsWithAgents);
+        setSkills(skillsData.skills);
       } catch (err) {
         if (err instanceof Error && err.name !== "AbortError") {
           setError(err.message);

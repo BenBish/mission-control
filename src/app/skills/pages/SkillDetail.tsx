@@ -1,18 +1,16 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useSkills } from "../hooks/useSkills";
-import { useProfile } from "@/app/profile-context";
 import { PageHeader } from "@/components/_shared/PageHeader";
 import { Loading } from "@/components/_shared/Loading";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, ArrowLeft, Bot, Wrench } from "lucide-react";
+import { AlertCircle, ArrowLeft, Wrench } from "lucide-react";
 
 export default function SkillDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { activeProfile, isSwitching } = useProfile();
-  const { skills, isLoading, error } = useSkills(activeProfile?.id);
+  const { skills, isLoading, error } = useSkills();
 
   if (!id) {
     return (
@@ -28,7 +26,7 @@ export default function SkillDetail() {
     );
   }
 
-  if (isLoading || isSwitching) {
+  if (isLoading) {
     return (
       <div className="space-y-6">
         <PageHeader title="Skill" description="Loading skill details..." />
@@ -95,32 +93,6 @@ export default function SkillDetail() {
           <p className="text-sm text-muted-foreground">{skill.description}</p>
         </CardContent>
       </Card>
-
-      {/* Agents with access */}
-      {skill.agents && skill.agents.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Bot className="h-5 w-5" />
-              Agents with Access
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              {skill.agents.map((agent) => (
-                <Badge
-                  key={agent.id}
-                  variant="outline"
-                  className="cursor-pointer hover:bg-accent"
-                  onClick={() => navigate(`/agents/${agent.id}`)}
-                >
-                  {agent.name}
-                </Badge>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

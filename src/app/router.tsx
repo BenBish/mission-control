@@ -7,17 +7,12 @@ import { Loading } from "@/components/_shared/Loading";
 const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
 const ActivityFeed = lazy(() => import("@/pages/ActivityFeed"));
 const ActivityDetail = lazy(() => import("@/pages/ActivityDetail"));
-const CostBreakdown = lazy(() => import("@/pages/CostBreakdown"));
-const AgentsPage = lazy(() => import("@/app/agents/page"));
-const AgentDetail = lazy(() => import("@/app/agents/pages/AgentDetail"));
+const Consumption = lazy(() => import("@/pages/Consumption"));
+const Runtime = lazy(() => import("@/pages/Runtime"));
 const SessionsPage = lazy(() => import("@/app/sessions/page"));
 const SessionDetail = lazy(() => import("@/app/sessions/pages/SessionDetail"));
-const SkillsPage = lazy(() => import("@/app/skills/page"));
-const SkillDetail = lazy(() => import("@/app/skills/pages/SkillDetail"));
-const CronPage = lazy(() =>
-  import("@/app/cron/page").then((m) => ({ default: m.CronPage })),
-);
-const PermissionsPage = lazy(() => import("@/app/permissions/page"));
+const JobsPage = lazy(() => import("@/app/jobs/page"));
+const GenerationsPage = lazy(() => import("@/app/generations/page"));
 const SettingsPage = lazy(() => import("@/app/settings/page"));
 const FailureAnalysis = lazy(() => import("@/pages/FailureAnalysis"));
 
@@ -47,8 +42,8 @@ export const router = createBrowserRouter([
         element: withSuspense(ActivityDetail),
       },
       {
-        path: "costs",
-        element: withSuspense(CostBreakdown),
+        path: "consumption",
+        element: withSuspense(Consumption),
       },
       {
         path: "sessions",
@@ -59,44 +54,28 @@ export const router = createBrowserRouter([
         element: withSuspense(SessionDetail),
       },
       {
+        path: "runtime",
+        element: withSuspense(Runtime),
+      },
+      {
         path: "failures",
         element: withSuspense(FailureAnalysis),
       },
       {
-        path: "agents",
-        element: withSuspense(AgentsPage),
+        path: "jobs",
+        element: withSuspense(JobsPage),
       },
       {
-        path: "agents/:id",
-        element: withSuspense(AgentDetail),
+        path: "jobs/:jobId",
+        element: withSuspense(JobsPage),
       },
       {
-        path: "skills",
-        element: withSuspense(SkillsPage),
+        path: "generations",
+        element: withSuspense(GenerationsPage),
       },
       {
-        path: "skills/:id",
-        element: withSuspense(SkillDetail),
-      },
-      {
-        path: "cron",
-        element: withSuspense(CronPage),
-      },
-      {
-        path: "cron/:jobId",
-        element: withSuspense(CronPage),
-      },
-      {
-        path: "permissions",
-        element: withSuspense(PermissionsPage),
-      },
-      {
-        path: "users",
-        element: (
-          <div className="flex h-full items-center justify-center">
-            <p className="text-muted-foreground">Users page (coming soon)</p>
-          </div>
-        ),
+        path: "generations/:generationId",
+        element: withSuspense(GenerationsPage),
       },
       {
         path: "settings",
