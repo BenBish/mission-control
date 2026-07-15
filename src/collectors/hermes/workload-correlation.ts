@@ -43,30 +43,32 @@ export async function anyGatewayCompressionActivity(
   const since = `@${Math.floor(new Date(sinceIso).getTime() / 1000)}`;
   const until = `@${Math.floor(new Date(untilIso).getTime() / 1000)}`;
 
-  for (const unit of HERMES_GATEWAY_UNITS) {
-    try {
-      const { stdout } = await execFileAsync(
-        "journalctl",
-        [
-          "--user",
-          "-u",
-          unit,
-          "--since",
-          since,
-          "--until",
-          until,
-          "-o",
-          "cat",
-          "--no-pager",
-        ],
-        { maxBuffer: 8 * 1024 * 1024 },
-      );
-      if (COMPRESSION_SIGNATURE.test(stdout)) return true;
-    } catch {
-      // Unit might not exist in non-production environments — treat as
-      // "no signal", not an error worth failing the tick over.
-      continue;
-    }
-  }
-  return false;
+  const results = await Promise.all(
+    HERMES_GATEWAY_UNITS.map(async (unit) => {
+      try {
+        const { stdout } = await execFileAsync(
+          "journalctl",
+          [
+            "--user",
+            "-u",
+            unit,
+            "--since",
+            since,
+            "--until",
+            until,
+            "-o",
+            "cat",
+            "--no-pager",
+          ],
+          { maxBuffer: 8 * 1024 * 1024 },
+        );
+        return COMPRESSION_SIGNATURE.test(stdout);
+      } catch {
+        // Unit might not exist in non-production environments — treat as
+        // "no signal", not an error worth failing the tick over.
+        return false;
+      }
+    }),
+  );
+  return results.some(Boolean);
 }

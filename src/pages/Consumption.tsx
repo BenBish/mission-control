@@ -203,51 +203,57 @@ export default function Consumption() {
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-3">
-            <Card className="overflow-hidden border-l-4 border-l-blue-500">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Total Tokens
-                </CardTitle>
-                <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
-                  <Zap className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold tracking-tight tabular-nums">
-                  {totals.tokens.toLocaleString()}
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="overflow-hidden border-l-4 border-l-purple-500">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Compute Time
-                </CardTitle>
-                <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900/30">
-                  <Cpu className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold tracking-tight tabular-nums">
-                  {formatCompute(totals.compute)}
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="overflow-hidden border-l-4 border-l-emerald-500">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Cost
-                </CardTitle>
-                <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
-                  <DollarSign className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold tracking-tight tabular-nums">
-                  {totals.hasCost ? `$${totals.cost.toFixed(4)}` : "—"}
-                </div>
-              </CardContent>
-            </Card>
+            {unit === "tokens" && (
+              <Card className="overflow-hidden border-l-4 border-l-blue-500">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Total Tokens
+                  </CardTitle>
+                  <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
+                    <Zap className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold tracking-tight tabular-nums">
+                    {totals.tokens.toLocaleString()}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            {unit === "compute" && (
+              <Card className="overflow-hidden border-l-4 border-l-purple-500">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Compute Time
+                  </CardTitle>
+                  <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900/30">
+                    <Cpu className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold tracking-tight tabular-nums">
+                    {formatCompute(totals.compute)}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            {unit === "usd" && (
+              <Card className="overflow-hidden border-l-4 border-l-emerald-500">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Cost
+                  </CardTitle>
+                  <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
+                    <DollarSign className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold tracking-tight tabular-nums">
+                    {totals.hasCost ? `$${totals.cost.toFixed(4)}` : "—"}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {bySourceModel.length > 0 ? (
@@ -269,18 +275,26 @@ export default function Consumption() {
                         <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                           Model
                         </th>
-                        <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                          Input
-                        </th>
-                        <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                          Output
-                        </th>
-                        <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                          Compute
-                        </th>
-                        <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                          Cost
-                        </th>
+                        {unit === "tokens" && (
+                          <>
+                            <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                              Input
+                            </th>
+                            <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                              Output
+                            </th>
+                          </>
+                        )}
+                        {unit === "compute" && (
+                          <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            Compute
+                          </th>
+                        )}
+                        {unit === "usd" && (
+                          <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            Cost
+                          </th>
+                        )}
                       </tr>
                     </thead>
                     <tbody>
@@ -295,22 +309,30 @@ export default function Consumption() {
                           <td className="py-3 px-4 text-sm font-mono text-xs">
                             {row.model}
                           </td>
-                          <td className="py-3 px-4 text-sm text-right tabular-nums">
-                            {row.inputTokens.toLocaleString()}
-                          </td>
-                          <td className="py-3 px-4 text-sm text-right tabular-nums">
-                            {row.outputTokens.toLocaleString()}
-                          </td>
-                          <td className="py-3 px-4 text-sm text-right tabular-nums">
-                            {row.computeSeconds > 0
-                              ? formatCompute(row.computeSeconds)
-                              : "—"}
-                          </td>
-                          <td className="py-3 px-4 text-sm text-right tabular-nums">
-                            {row.hasCost
-                              ? `$${(row.costUsd ?? 0).toFixed(4)}`
-                              : "—"}
-                          </td>
+                          {unit === "tokens" && (
+                            <>
+                              <td className="py-3 px-4 text-sm text-right tabular-nums">
+                                {row.inputTokens.toLocaleString()}
+                              </td>
+                              <td className="py-3 px-4 text-sm text-right tabular-nums">
+                                {row.outputTokens.toLocaleString()}
+                              </td>
+                            </>
+                          )}
+                          {unit === "compute" && (
+                            <td className="py-3 px-4 text-sm text-right tabular-nums">
+                              {row.computeSeconds > 0
+                                ? formatCompute(row.computeSeconds)
+                                : "—"}
+                            </td>
+                          )}
+                          {unit === "usd" && (
+                            <td className="py-3 px-4 text-sm text-right tabular-nums">
+                              {row.hasCost
+                                ? `$${(row.costUsd ?? 0).toFixed(4)}`
+                                : "—"}
+                            </td>
+                          )}
                         </tr>
                       ))}
                     </tbody>

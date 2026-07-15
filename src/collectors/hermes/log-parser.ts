@@ -366,7 +366,18 @@ export class HermesLogParser {
       } else if (parsed.type === "total") {
         openTask.totalMs = parsed.ms;
       } else if (parsed.type === "release") {
-        events.push(this.buildEvent(openTask, { status: "success" }));
+        // A send_error may have been recorded for this task before it was
+        // released (e.g. a context-overflow error that the server still
+        // released the slot for, rather than the task being explicitly
+        // cancelled) — don't report it as a plain success in that case.
+        events.push(
+          this.buildEvent(
+            openTask,
+            openTask.sendError
+              ? { status: "context_overflow", error: openTask.sendError }
+              : { status: "success" },
+          ),
+        );
         this.open.delete(key);
       }
     }

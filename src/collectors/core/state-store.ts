@@ -65,9 +65,17 @@ export class CollectorStateStore {
     this.state.sessionAggregates[key] = value;
   }
 
-  /** Only call this after the batch containing these updates has been ACKed. */
+  /**
+   * Only call this after the batch containing these updates has been ACKed.
+   * Writes to a temp file and renames over the target — a crash mid-write
+   * leaves the previous cursors.json intact instead of a truncated/corrupt
+   * file (rename is atomic on the same filesystem, and the temp file lives
+   * in STATE_DIR so it always is).
+   */
   persist(): void {
     fs.mkdirSync(STATE_DIR, { recursive: true });
-    fs.writeFileSync(STATE_FILE, JSON.stringify(this.state, null, 2), "utf-8");
+    const tmpFile = path.join(STATE_DIR, `.cursors.json.${process.pid}.tmp`);
+    fs.writeFileSync(tmpFile, JSON.stringify(this.state, null, 2), "utf-8");
+    fs.renameSync(tmpFile, STATE_FILE);
   }
 }
