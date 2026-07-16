@@ -6,6 +6,7 @@ import {
   cwdFromSessionPath,
   emptyAggregate,
   mergeSessionUpdate,
+  normalizeGrokUsageTokens,
   parseGrokLine,
   readGrokSessionSnapshot,
   sessionExternalIdFromPath,
@@ -144,23 +145,81 @@ describe("Grok parser", () => {
         updates,
       );
 
+      // Grok reports cache-inclusive input (1000) with 800 cache reads;
+      // parser stores Claude-style non-cached input (200).
+      // usage.numTurns must not overwrite session turnCount.
       expect(usage?.sessionUpdate).toMatchObject({
         model: "grok-4.5",
-        turnCount: 3,
-        inputTokens: 1000,
+        inputTokens: 200,
         outputTokens: 50,
         cacheReadTokens: 800,
       });
+      expect(usage?.sessionUpdate?.turnCount).toBeUndefined();
       expect(usage?.activity?.payload).toMatchObject({
         actorType: "system",
         actorId: "grok-usage",
         model: "grok-4.5",
-        inputTokens: 1000,
+        inputTokens: 200,
         outputTokens: 50,
+        cacheReadTokens: 800,
+        totalTokens: 1050,
+        details: { rawInputTokens: 1000, numTurns: 3 },
       });
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }
+  });
+
+  test("normalizeGrokUsageTokens subtracts cache from inclusive input", () => {
+    expect(
+      normalizeGrokUsageTokens({
+        inputTokens: 2234690,
+        outputTokens: 26504,
+        totalTokens: 2261194,
+        cachedReadTokens: 2155264,
+      }),
+    ).toEqual({
+      inputTokens: 79426,
+      outputTokens: 26504,
+      cacheReadTokens: 2155264,
+      totalTokens: 2261194,
+    });
+
+    // total falls back to rawInput + output so exclusive rows keep
+    // total ≈ input + cache + output (not input + output alone).
+    expect(
+      normalizeGrokUsageTokens({
+        inputTokens: 100,
+        outputTokens: 10,
+        cachedReadTokens: 0,
+      }),
+    ).toEqual({
+      inputTokens: 100,
+      outputTokens: 10,
+      cacheReadTokens: 0,
+      totalTokens: 110,
+    });
+
+    expect(
+      normalizeGrokUsageTokens({
+        inputTokens: 1000,
+        outputTokens: 50,
+        cachedReadTokens: 800,
+      }),
+    ).toEqual({
+      inputTokens: 200,
+      outputTokens: 50,
+      cacheReadTokens: 800,
+      totalTokens: 1050,
+    });
+
+    // Never go negative if counters are inconsistent.
+    expect(
+      normalizeGrokUsageTokens({
+        inputTokens: 50,
+        cachedReadTokens: 80,
+      }),
+    ).toMatchObject({ inputTokens: 0, cacheReadTokens: 80 });
   });
 
   test("mergeSessionUpdate preserves cumulative counters from latest updates", () => {

@@ -9,7 +9,12 @@
  *  - tool-call starts are represented as Pending updates with a `toolCallId`.
  *  - tool-call completions reuse the same `toolCallId` with completed/failed
  *    status.
- *  - `_x.ai/session/update` records carry cumulative usage totals.
+ *  - `_x.ai/session/update` records carry per-turn usage totals (one event
+ *    per completed user turn, including multi-step agent loops). Grok's
+ *    `inputTokens` is **inclusive** of `cachedReadTokens` (verified:
+ *    totalTokens ≈ inputTokens + outputTokens). We normalize to Claude-style
+ *    non-cached input so Consumption `SUM(input_tokens)` is comparable
+ *    across sources.
  *
  * The parser is deliberately permissive: it only relies on stable identifiers,
  * timestamps, status, titles, model ids, and usage counters. Transcript content
@@ -237,6 +242,36 @@ function costFor(
   return calculateCost(model, inputTokens, outputTokens);
 }
 
+/**
+ * Normalize Grok usage counters to the same shape as Claude Code activities:
+ * non-cached input in `inputTokens`, cache separately in `cacheReadTokens`.
+ *
+ * Grok CLI reports cache-inclusive input (`totalTokens ≈ input + output`).
+ * Leaving that as-is makes Consumption SUMs look ~20× larger than other
+ * sources when cache hit rates are high (~95% in sampled local sessions).
+ */
+export function normalizeGrokUsageTokens(usage: GrokUsage): {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  totalTokens: number;
+} {
+  const rawInput = usage.inputTokens ?? 0;
+  const cacheReadTokens = usage.cachedReadTokens ?? 0;
+  const outputTokens = usage.outputTokens ?? 0;
+  // Keep total as the full billed/processed count (inclusive input + output)
+  // so post-normalization rows satisfy total ≈ input + cache + output and
+  // migration 001's old-shape predicate (input + output ≈ total) will not
+  // match already-normalized rows.
+  const totalTokens = usage.totalTokens ?? rawInput + outputTokens;
+  return {
+    inputTokens: Math.max(0, rawInput - cacheReadTokens),
+    outputTokens,
+    cacheReadTokens,
+    totalTokens,
+  };
+}
+
 function primaryUsageModel(usage: GrokUsage | undefined): string | undefined {
   const entries = Object.entries(usage?.modelUsage ?? {});
   if (entries.length === 0) return undefined;
@@ -276,7 +311,9 @@ export function readGrokSessionSnapshot(
     snapshot.turnCount = signals.turnCount;
     snapshot.toolCallCount = signals.toolCallCount;
     snapshot.failureCount = signals.toolFailureCount;
-    snapshot.inputTokens = signals.inputTokens ?? signals.contextTokensUsed;
+    // Prefer explicit inputTokens only. `contextTokensUsed` is the current
+    // window size, not total non-cached input — never treat it as input.
+    snapshot.inputTokens = signals.inputTokens;
     snapshot.outputTokens = signals.outputTokens;
   } catch {
     // signals.json is a best-effort cumulative counter source.
@@ -319,9 +356,8 @@ export function parseGrokLine(
     const usage = update?.usage;
     if (!usage) return null;
     const usageModel = primaryUsageModel(usage) ?? model;
-    const inputTokens = usage.inputTokens ?? 0;
-    const outputTokens = usage.outputTokens ?? 0;
-    const cacheReadTokens = usage.cachedReadTokens ?? 0;
+    const { inputTokens, outputTokens, cacheReadTokens, totalTokens } =
+      normalizeGrokUsageTokens(usage);
     const costUsd = costFor(usageModel, inputTokens, outputTokens);
     const activity: ActivityPayload = {
       sessionExternalId,
@@ -335,7 +371,7 @@ export function parseGrokLine(
       inputTokens,
       outputTokens,
       cacheReadTokens,
-      totalTokens: usage.totalTokens,
+      totalTokens,
       model: usageModel,
       costUsd,
       details: {
@@ -343,6 +379,8 @@ export function parseGrokLine(
         modelCalls: usage.modelCalls,
         apiDurationMs: usage.apiDurationMs,
         numTurns: usage.numTurns,
+        // Preserve raw counters for debugging / reprocessing.
+        rawInputTokens: usage.inputTokens,
         modelUsage: usage.modelUsage,
       },
     };
@@ -352,7 +390,8 @@ export function parseGrokLine(
       sessionUpdate: {
         model: usageModel,
         endedAt: timestamp,
-        turnCount: usage.numTurns,
+        // Do not set turnCount from usage.numTurns — that is the per-turn
+        // model-loop count, not session-level user turns (signals.turnCount).
         inputTokens,
         outputTokens,
         cacheReadTokens,

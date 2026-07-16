@@ -165,6 +165,7 @@ describe("GrokCollector", () => {
         2,
       );
       const session = events.find((event) => event.kind === "session");
+      // turnCount comes from signals.json (session-level), not usage.numTurns
       expect(session?.payload).toMatchObject({
         externalId: "019f6879-489f-7350-811c-b045352c43d0",
         cwd: "/home/ben/Dev/mission-control",
@@ -173,7 +174,19 @@ describe("GrokCollector", () => {
         modelProvider: "xai",
         turnCount: 3,
         toolCallCount: 1,
-        inputTokens: 1000,
+        // Non-cached input: 1000 raw - 800 cache
+        inputTokens: 200,
+        outputTokens: 50,
+        cacheReadTokens: 800,
+      });
+
+      const usageActivity = events.find(
+        (event) =>
+          event.kind === "activity" &&
+          (event.payload as { actorId?: string }).actorId === "grok-usage",
+      );
+      expect(usageActivity?.payload).toMatchObject({
+        inputTokens: 200,
         outputTokens: 50,
         cacheReadTokens: 800,
       });
