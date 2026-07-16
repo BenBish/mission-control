@@ -1,6 +1,7 @@
 # Mission Control
 
-A React + TypeScript + Vite application for managing team workflows.
+A React + TypeScript + Vite application for managing team workflows and agent
+usage across Claude Code, Codex, Grok, and local inference sources.
 
 ## Package Manager
 

@@ -47,6 +47,12 @@ const STATIC_PRICING: PricingTable = {
     inputCostPer1kTokens: 0.2,
     outputCostPer1kTokens: 0.8,
   },
+  // xAI/Grok CLI logs include exact usage counters, but this repository does
+  // not currently have a verified official token price for Grok Build/Grok 4.5.
+  // Keep the model keys explicit so callers can distinguish "known model,
+  // unpriced fallback" from a misspelled model without fabricating cost.
+  "grok-4.5": { inputCostPer1kTokens: 0, outputCostPer1kTokens: 0 },
+  "grok-build": { inputCostPer1kTokens: 0, outputCostPer1kTokens: 0 },
   "openrouter/openai/gpt-4-turbo": {
     inputCostPer1kTokens: 10.0,
     outputCostPer1kTokens: 30.0,

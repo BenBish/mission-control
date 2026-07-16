@@ -48,6 +48,7 @@ const SEED_SOURCES: Array<{
     defaultUnit: "quota",
   },
   { id: "codex", name: "Codex CLI", kind: "agentic", defaultUnit: "quota" },
+  { id: "grok", name: "Grok", kind: "agentic", defaultUnit: "quota" },
   { id: "hermes", name: "Hermes", kind: "inference", defaultUnit: "compute" },
   {
     id: "lemonade",
@@ -82,6 +83,14 @@ const SEED_INSTANCES: Array<{
   {
     id: "codex@arch-desktop",
     sourceId: "codex",
+    machine: "arch-desktop",
+    endpoint: null,
+    collectorKind: "jsonl-push",
+    status: "unknown",
+  },
+  {
+    id: "grok@arch-desktop",
+    sourceId: "grok",
     machine: "arch-desktop",
     endpoint: null,
     collectorKind: "jsonl-push",

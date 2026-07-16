@@ -2,7 +2,7 @@
  * SourceContext — global source filter, replacing the old profile system.
  *
  * There is no more multi-tenant "profile" concept. Sources (claude-code,
- * codex, hermes, lemonade, comfyui) are a fixed registry the backend seeds
+ * codex, grok, hermes, lemonade, comfyui) are a fixed registry the backend seeds
  * on boot (GET /api/sources) — this context just tracks which one the user
  * has selected to filter list pages by, defaulting to "all".
  */

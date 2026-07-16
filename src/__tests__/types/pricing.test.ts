@@ -131,6 +131,17 @@ describe("Pricing", () => {
       expect(PRICING["openrouter/openai/gpt-3.5-turbo"]).toBeTruthy();
     });
 
+    test("should recognize Grok models without fabricating fallback cost", () => {
+      expect(PRICING["grok-4.5"]).toEqual({
+        inputCostPer1kTokens: 0,
+        outputCostPer1kTokens: 0,
+      });
+      expect(PRICING["grok-build"]).toEqual({
+        inputCostPer1kTokens: 0,
+        outputCostPer1kTokens: 0,
+      });
+    });
+
     test("should have default pricing entry", () => {
       expect(PRICING["default"]).toBeTruthy();
       expect(PRICING["default"].inputCostPer1kTokens).toBe(0);
