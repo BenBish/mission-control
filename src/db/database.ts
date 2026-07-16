@@ -7,8 +7,46 @@
 import sqlite3 from "sqlite3";
 import { open, Database as SqliteDatabase } from "sqlite";
 import { getSQLStatements } from "./schema.js";
-import { runMigrations as runSchemaMigrations } from "./migration-runner.js";
+import {
+  runMigrations as runSchemaMigrations,
+  type Migration,
+} from "./migration-runner.js";
 import { seedSources } from "./queries/sources.js";
+
+/**
+ * Versioned data/schema migrations. Base tables come from schema.ts;
+ * this list is for changes after the baseline.
+ */
+const MIGRATIONS: Migration[] = [
+  {
+    version: "001",
+    name: "normalize-grok-cache-inclusive-input-tokens",
+    async up(db) {
+      // Pre-BSH-55 Grok collector stored cache-inclusive inputTokens on
+      // activities/sessions while also storing cache_read_tokens. Subtract
+      // cache so SUM(input_tokens) matches Claude-style non-cached input.
+      // Safe on empty tables and on already-normalized rows (no match).
+      await db.run(`
+        UPDATE activities
+        SET input_tokens = input_tokens - cache_read_tokens
+        WHERE source_id = 'grok'
+          AND cache_read_tokens IS NOT NULL
+          AND cache_read_tokens > 0
+          AND input_tokens IS NOT NULL
+          AND input_tokens >= cache_read_tokens
+      `);
+      await db.run(`
+        UPDATE sessions
+        SET input_tokens = input_tokens - cache_read_tokens
+        WHERE source_id = 'grok'
+          AND cache_read_tokens IS NOT NULL
+          AND cache_read_tokens > 0
+          AND input_tokens IS NOT NULL
+          AND input_tokens >= cache_read_tokens
+      `);
+    },
+  },
+];
 
 export class Database {
   private db: SqliteDatabase | null = null;
@@ -35,10 +73,7 @@ export class Database {
       await this.db.exec(stmt);
     }
 
-    // Versioned migrations — none yet. This is a fresh baseline (no
-    // OpenClaw-era history to backfill); the next real schema change gets
-    // its own migration file here.
-    await runSchemaMigrations(this.db, []);
+    await runSchemaMigrations(this.db, MIGRATIONS);
   }
 
   async close(): Promise<void> {
