@@ -165,6 +165,7 @@ describe("GrokCollector", () => {
         2,
       );
       const session = events.find((event) => event.kind === "session");
+      // turnCount comes from signals.json (session-level), not usage.numTurns
       expect(session?.payload).toMatchObject({
         externalId: "019f6879-489f-7350-811c-b045352c43d0",
         cwd: "/home/ben/Dev/mission-control",

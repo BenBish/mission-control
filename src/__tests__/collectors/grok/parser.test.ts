@@ -147,13 +147,14 @@ describe("Grok parser", () => {
 
       // Grok reports cache-inclusive input (1000) with 800 cache reads;
       // parser stores Claude-style non-cached input (200).
+      // usage.numTurns must not overwrite session turnCount.
       expect(usage?.sessionUpdate).toMatchObject({
         model: "grok-4.5",
-        turnCount: 3,
         inputTokens: 200,
         outputTokens: 50,
         cacheReadTokens: 800,
       });
+      expect(usage?.sessionUpdate?.turnCount).toBeUndefined();
       expect(usage?.activity?.payload).toMatchObject({
         actorType: "system",
         actorId: "grok-usage",
@@ -162,7 +163,7 @@ describe("Grok parser", () => {
         outputTokens: 50,
         cacheReadTokens: 800,
         totalTokens: 1050,
-        details: { rawInputTokens: 1000 },
+        details: { rawInputTokens: 1000, numTurns: 3 },
       });
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
@@ -184,6 +185,8 @@ describe("Grok parser", () => {
       totalTokens: 2261194,
     });
 
+    // total falls back to rawInput + output so exclusive rows keep
+    // total ≈ input + cache + output (not input + output alone).
     expect(
       normalizeGrokUsageTokens({
         inputTokens: 100,
@@ -194,7 +197,20 @@ describe("Grok parser", () => {
       inputTokens: 100,
       outputTokens: 10,
       cacheReadTokens: 0,
-      totalTokens: undefined,
+      totalTokens: 110,
+    });
+
+    expect(
+      normalizeGrokUsageTokens({
+        inputTokens: 1000,
+        outputTokens: 50,
+        cachedReadTokens: 800,
+      }),
+    ).toEqual({
+      inputTokens: 200,
+      outputTokens: 50,
+      cacheReadTokens: 800,
+      totalTokens: 1050,
     });
 
     // Never go negative if counters are inconsistent.

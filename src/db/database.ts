@@ -14,6 +14,62 @@ import {
 import { seedSources } from "./queries/sources.js";
 
 /**
+ * BSH-55: Pre-fix Grok collector stored cache-inclusive inputTokens while
+ * also storing cache_read_tokens. Subtract cache on rows that still have the
+ * old shape: input + output ≈ total (cache rolled into input). Already
+ * normalized rows keep total ≈ input + output + cache, so they do not match.
+ */
+export async function normalizeGrokCacheInclusiveInputTokens(
+  db: SqliteDatabase,
+): Promise<void> {
+  await db.run(`
+    UPDATE activities
+    SET input_tokens = input_tokens - cache_read_tokens
+    WHERE source_id = 'grok'
+      AND cache_read_tokens IS NOT NULL
+      AND cache_read_tokens > 0
+      AND input_tokens IS NOT NULL
+      AND total_tokens IS NOT NULL
+      AND ABS(
+        (input_tokens + COALESCE(output_tokens, 0)) - total_tokens
+      ) <= 1
+  `);
+
+  // Sessions have no total_tokens column. Rebuild counters from activities
+  // after the activity fix so we never double-subtract exclusive session rows.
+  await db.run(`
+    UPDATE sessions
+    SET
+      input_tokens = (
+        SELECT COALESCE(SUM(COALESCE(a.input_tokens, 0)), 0)
+        FROM activities a
+        WHERE a.session_id = sessions.id
+      ),
+      output_tokens = (
+        SELECT COALESCE(SUM(COALESCE(a.output_tokens, 0)), 0)
+        FROM activities a
+        WHERE a.session_id = sessions.id
+      ),
+      cache_read_tokens = (
+        SELECT COALESCE(SUM(COALESCE(a.cache_read_tokens, 0)), 0)
+        FROM activities a
+        WHERE a.session_id = sessions.id
+      )
+    WHERE source_id = 'grok'
+      AND EXISTS (
+        SELECT 1
+        FROM activities a
+        WHERE a.session_id = sessions.id
+          AND (
+            COALESCE(a.input_tokens, 0) > 0
+            OR COALESCE(a.output_tokens, 0) > 0
+            OR COALESCE(a.cache_read_tokens, 0) > 0
+          )
+      )
+  `);
+}
+
+/**
  * Versioned data/schema migrations. Base tables come from schema.ts;
  * this list is for changes after the baseline.
  */
@@ -21,30 +77,7 @@ const MIGRATIONS: Migration[] = [
   {
     version: "001",
     name: "normalize-grok-cache-inclusive-input-tokens",
-    async up(db) {
-      // Pre-BSH-55 Grok collector stored cache-inclusive inputTokens on
-      // activities/sessions while also storing cache_read_tokens. Subtract
-      // cache so SUM(input_tokens) matches Claude-style non-cached input.
-      // Safe on empty tables and on already-normalized rows (no match).
-      await db.run(`
-        UPDATE activities
-        SET input_tokens = input_tokens - cache_read_tokens
-        WHERE source_id = 'grok'
-          AND cache_read_tokens IS NOT NULL
-          AND cache_read_tokens > 0
-          AND input_tokens IS NOT NULL
-          AND input_tokens >= cache_read_tokens
-      `);
-      await db.run(`
-        UPDATE sessions
-        SET input_tokens = input_tokens - cache_read_tokens
-        WHERE source_id = 'grok'
-          AND cache_read_tokens IS NOT NULL
-          AND cache_read_tokens > 0
-          AND input_tokens IS NOT NULL
-          AND input_tokens >= cache_read_tokens
-      `);
-    },
+    up: normalizeGrokCacheInclusiveInputTokens,
   },
 ];
 

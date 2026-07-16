@@ -254,15 +254,21 @@ export function normalizeGrokUsageTokens(usage: GrokUsage): {
   inputTokens: number;
   outputTokens: number;
   cacheReadTokens: number;
-  totalTokens: number | undefined;
+  totalTokens: number;
 } {
   const rawInput = usage.inputTokens ?? 0;
   const cacheReadTokens = usage.cachedReadTokens ?? 0;
+  const outputTokens = usage.outputTokens ?? 0;
+  // Keep total as the full billed/processed count (inclusive input + output)
+  // so post-normalization rows satisfy total ≈ input + cache + output and
+  // migration 001's old-shape predicate (input + output ≈ total) will not
+  // match already-normalized rows.
+  const totalTokens = usage.totalTokens ?? rawInput + outputTokens;
   return {
     inputTokens: Math.max(0, rawInput - cacheReadTokens),
-    outputTokens: usage.outputTokens ?? 0,
+    outputTokens,
     cacheReadTokens,
-    totalTokens: usage.totalTokens,
+    totalTokens,
   };
 }
 
@@ -384,7 +390,8 @@ export function parseGrokLine(
       sessionUpdate: {
         model: usageModel,
         endedAt: timestamp,
-        turnCount: usage.numTurns,
+        // Do not set turnCount from usage.numTurns — that is the per-turn
+        // model-loop count, not session-level user turns (signals.turnCount).
         inputTokens,
         outputTokens,
         cacheReadTokens,
