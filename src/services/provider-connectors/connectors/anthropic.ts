@@ -29,17 +29,23 @@ export const anthropicConnector: ProviderConnector = {
 
     const base = providerBaseUrl("anthropic", "https://api.anthropic.com");
     const starting = toUtcDay(window.start) + "T00:00:00Z";
-    const ending = toUtcDay(window.end) + "T00:00:00Z";
+    // ending_at is exclusive; use start of tomorrow UTC so "today" is included.
+    const endDay = new Date(window.end);
+    endDay.setUTCDate(endDay.getUTCDate() + 1);
+    const ending = toUtcDay(endDay) + "T00:00:00Z";
     const headers = {
       "anthropic-version": "2023-06-01",
       "x-api-key": key,
       "User-Agent": "MissionControl/1.0 (provider-connectors)",
     };
 
+    // bucket_width=1d defaults to 7 buckets (max 31) — request the max so a
+    // 30-day window is not silently truncated to one week.
     const usageQs = new URLSearchParams({
       starting_at: starting,
       ending_at: ending,
       bucket_width: "1d",
+      limit: "31",
     });
     usageQs.append("group_by[]", "model");
 
@@ -56,6 +62,7 @@ export const anthropicConnector: ProviderConnector = {
         starting_at: starting,
         ending_at: ending,
         bucket_width: "1d",
+        limit: "31",
       });
       costQs.append("group_by[]", "description");
       const costPayload = await providerFetchJson(

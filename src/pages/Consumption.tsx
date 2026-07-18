@@ -418,7 +418,9 @@ export default function Consumption() {
               <CardDescription className="mt-1">
                 Account-level usage from OpenRouter, Anthropic, OpenAI, and xAI
                 billing APIs — separate from agent session logs above. Not
-                double-counted with source totals.
+                double-counted with source totals. If OpenRouter BYOK and a
+                direct provider (e.g. Anthropic) are both configured, the same
+                spend can appear under both connectors.
               </CardDescription>
             </div>
             <Button

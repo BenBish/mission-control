@@ -48,19 +48,19 @@ function dayFromIso(iso: string | undefined): string | null {
   return iso.slice(0, 10);
 }
 
+/**
+ * Anthropic cost `amount` is in lowest currency units (cents), including
+ * fractional cents as decimal strings (e.g. "123.45" → $1.2345).
+ * Object form `{ value }` is treated as dollars (OpenAI-style compatibility).
+ */
 function parseCostUsd(amount: CostResult["amount"]): number {
   if (amount == null) return 0;
   if (typeof amount === "object" && amount !== null && "value" in amount) {
     const v = Number(amount.value);
     return Number.isFinite(v) ? v : 0;
   }
-  // Anthropic cost API: decimal strings in lowest units (cents)
   const n = Number(amount);
   if (!Number.isFinite(n)) return 0;
-  // Values like "123" or 123 mean cents; values with a decimal may already be dollars.
-  if (typeof amount === "string" && amount.includes(".")) {
-    return n;
-  }
   return n / 100;
 }
 

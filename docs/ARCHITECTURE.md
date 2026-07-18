@@ -233,7 +233,9 @@ Mission Control uses a **multi-source pricing system**:
 | OpenAI | `OPENAI_ADMIN_KEY` | Org Completions usage + Costs APIs |
 | xAI | `XAI_API_KEY` | No public historical usage API; key check via `/v1/models`; optional `MC_XAI_USAGE_ENDPOINT` JSON export |
 
-Scheduled poll: set `MC_PROVIDER_SYNC_ENABLED=true` (interval `MC_PROVIDER_SYNC_INTERVAL_MS`, default 1h). Manual sync always available via POST.
+Scheduled poll: set `MC_PROVIDER_SYNC_ENABLED=true` (interval `MC_PROVIDER_SYNC_INTERVAL_MS`, default 1h; minimum accepted value 60s). Manual sync always available via POST.
+
+**Caveats:** OpenAI cost `line_item` labels may not match completion `model` keys exactly — breakdown can show cost-only rows. OpenRouter `usage` includes BYOK; enabling both OpenRouter and Anthropic/OpenAI admin connectors can double-count the same underlying spend across providers.
 
 ---
 

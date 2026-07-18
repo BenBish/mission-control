@@ -209,11 +209,20 @@ export class MissionControlServer {
     if (process.env.MC_PROVIDER_SYNC_ENABLED !== "true") {
       return;
     }
-    const intervalMs = parseInt(
+    const parsed = parseInt(
       process.env.MC_PROVIDER_SYNC_INTERVAL_MS ||
         String(DEFAULT_PROVIDER_SYNC_INTERVAL_MS),
       10,
     );
+    const intervalMs =
+      Number.isFinite(parsed) && parsed >= 60_000
+        ? parsed
+        : DEFAULT_PROVIDER_SYNC_INTERVAL_MS;
+    if (intervalMs !== parsed) {
+      console.warn(
+        `💳 Invalid MC_PROVIDER_SYNC_INTERVAL_MS; using default ${DEFAULT_PROVIDER_SYNC_INTERVAL_MS}ms`,
+      );
+    }
     console.log(`💳 Provider usage sync enabled (interval ${intervalMs}ms)`);
     const run = async () => {
       try {

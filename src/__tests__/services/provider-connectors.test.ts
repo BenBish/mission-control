@@ -157,6 +157,17 @@ describe("normalizeAnthropicUsage + cost merge", () => {
     });
     expect(cost[0].costUsd).toBeCloseTo(2.5);
 
+    // Fractional-cent string is still cents (docs: lowest units), not dollars.
+    const fractional = normalizeAnthropicCost({
+      data: [
+        {
+          starting_at: "2026-07-02T00:00:00Z",
+          results: [{ model: "claude-sonnet-4-20250514", amount: "123.45" }],
+        },
+      ],
+    });
+    expect(fractional[0].costUsd).toBeCloseTo(1.2345);
+
     const merged = mergeAnthropicRows(usage, cost);
     expect(merged).toHaveLength(1);
     expect(merged[0].inputTokens).toBe(1200);
@@ -311,13 +322,25 @@ describe("anthropic connector fetchUsage", () => {
         ],
       });
     };
+    const requestedUrls: string[] = [];
+    const fetchImplWithCapture: FetchImpl = async (url, init) => {
+      requestedUrls.push(String(url));
+      return fetchImpl(url, init);
+    };
     const result = await anthropicConnector.fetchUsage(
-      { start: new Date("2026-07-01"), end: new Date("2026-07-10") },
-      fetchImpl,
+      {
+        start: new Date("2026-07-01T12:00:00Z"),
+        end: new Date("2026-07-10T15:00:00Z"),
+      },
+      fetchImplWithCapture,
     );
     expect(calls).toBeGreaterThanOrEqual(1);
     expect(result.rows[0].inputTokens).toBe(100);
     expect(result.rows[0].costUsd).toBeCloseTo(1);
+    // limit=31 so 30-day windows are not truncated to the API default of 7.
+    expect(requestedUrls[0]).toContain("limit=31");
+    // ending_at exclusive → day after window.end so "today" is included.
+    expect(requestedUrls[0]).toContain("ending_at=2026-07-11T00%3A00%3A00Z");
   });
 
   test("429 yields ProviderHttpError", async () => {
