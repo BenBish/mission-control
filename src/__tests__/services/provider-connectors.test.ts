@@ -1,0 +1,498 @@
+/**
+ * Provider connector unit tests — normalize + mocked HTTP sync/idempotency.
+ * No live billing API calls; secrets never required.
+ */
+
+import {
+  describe,
+  test,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+} from "bun:test";
+import * as fs from "fs";
+import * as path from "path";
+import * as os from "os";
+import { Database } from "../../db/database.js";
+import {
+  getProviderUsage,
+  getProviderUsageBreakdown,
+  listProviderSyncStatus,
+} from "../../db/queries/provider-usage.js";
+import {
+  mergeAnthropicRows,
+  normalizeAnthropicCost,
+  normalizeAnthropicUsage,
+  normalizeOpenAICompletionsUsage,
+  normalizeOpenAICosts,
+  mergeOpenAIRows,
+  normalizeOpenRouterActivity,
+  normalizeXaiUsage,
+  syncAllProviders,
+  syncProvider,
+  openrouterConnector,
+  anthropicConnector,
+  openaiConnector,
+  xaiConnector,
+  getConnectors,
+  ProviderHttpError,
+  type FetchImpl,
+} from "../../services/provider-connectors/index.js";
+import { sanitizeMessage } from "../../services/provider-connectors/http.js";
+
+let fixtureDir: string;
+let db: Database;
+
+const savedEnv: Record<string, string | undefined> = {};
+
+function setEnv(key: string, value: string | undefined) {
+  if (!(key in savedEnv)) savedEnv[key] = process.env[key];
+  if (value === undefined) delete process.env[key];
+  else process.env[key] = value;
+}
+
+function restoreEnv() {
+  for (const [k, v] of Object.entries(savedEnv)) {
+    if (v === undefined) delete process.env[k];
+    else process.env[k] = v;
+  }
+  for (const k of Object.keys(savedEnv)) delete savedEnv[k];
+}
+
+beforeAll(async () => {
+  fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), "mc-providers-"));
+  db = new Database(path.join(fixtureDir, "test.db"));
+  await db.initialize();
+});
+
+afterAll(async () => {
+  restoreEnv();
+  await db.close().catch(() => {});
+  if (fixtureDir) fs.rmSync(fixtureDir, { recursive: true, force: true });
+});
+
+beforeEach(async () => {
+  restoreEnv();
+  await db.raw().run(`DELETE FROM provider_usage_daily`);
+  await db.raw().run(`DELETE FROM provider_sync_status`);
+});
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+// ─── Normalize (pure) ───────────────────────────────────────────────────────
+
+describe("normalizeOpenRouterActivity", () => {
+  test("aggregates by day+model and sums cost including BYOK", () => {
+    const rows = normalizeOpenRouterActivity({
+      data: [
+        {
+          date: "2026-07-01",
+          model: "anthropic/claude-sonnet-4",
+          prompt_tokens: 100,
+          completion_tokens: 50,
+          usage: 0.01,
+          byok_usage_inference: 0.002,
+          requests: 2,
+        },
+        {
+          date: "2026-07-01",
+          model: "anthropic/claude-sonnet-4",
+          prompt_tokens: 40,
+          completion_tokens: 10,
+          usage: 0.005,
+          byok_usage_inference: 0,
+          requests: 1,
+        },
+      ],
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].provider).toBe("openrouter");
+    expect(rows[0].day).toBe("2026-07-01");
+    expect(rows[0].inputTokens).toBe(140);
+    expect(rows[0].outputTokens).toBe(60);
+    expect(rows[0].costUsd).toBeCloseTo(0.017);
+    expect(rows[0].requestCount).toBe(3);
+  });
+});
+
+describe("normalizeAnthropicUsage + cost merge", () => {
+  test("maps usage buckets and merges cost by day+model", () => {
+    const usage = normalizeAnthropicUsage({
+      data: [
+        {
+          starting_at: "2026-07-02T00:00:00Z",
+          results: [
+            {
+              model: "claude-sonnet-4-20250514",
+              uncached_input_tokens: 1000,
+              cache_read_input_tokens: 200,
+              output_tokens: 300,
+            },
+          ],
+        },
+      ],
+    });
+    expect(usage[0].inputTokens).toBe(1200);
+    expect(usage[0].outputTokens).toBe(300);
+    expect(usage[0].costUsd).toBeNull();
+
+    const cost = normalizeAnthropicCost({
+      data: [
+        {
+          starting_at: "2026-07-02T00:00:00Z",
+          results: [
+            {
+              model: "claude-sonnet-4-20250514",
+              amount: "250",
+            },
+          ],
+        },
+      ],
+    });
+    expect(cost[0].costUsd).toBeCloseTo(2.5);
+
+    const merged = mergeAnthropicRows(usage, cost);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].inputTokens).toBe(1200);
+    expect(merged[0].costUsd).toBeCloseTo(2.5);
+  });
+});
+
+describe("normalizeOpenAICompletionsUsage + costs", () => {
+  test("maps unix buckets and merges line_item costs", () => {
+    const start = Math.floor(Date.parse("2026-07-03T00:00:00Z") / 1000);
+    const usage = normalizeOpenAICompletionsUsage({
+      data: [
+        {
+          start_time: start,
+          results: [
+            {
+              object: "organization.usage.completions.result",
+              model: "gpt-4o",
+              input_tokens: 500,
+              output_tokens: 100,
+              num_model_requests: 4,
+            },
+          ],
+        },
+      ],
+    });
+    expect(usage[0].day).toBe("2026-07-03");
+    expect(usage[0].inputTokens).toBe(500);
+    expect(usage[0].requestCount).toBe(4);
+
+    const cost = normalizeOpenAICosts({
+      data: [
+        {
+          start_time: start,
+          results: [
+            {
+              object: "organization.costs.result",
+              amount: { value: 0.12, currency: "usd" },
+              line_item: "gpt-4o",
+            },
+          ],
+        },
+      ],
+    });
+    const merged = mergeOpenAIRows(usage, cost);
+    expect(merged[0].costUsd).toBeCloseTo(0.12);
+  });
+});
+
+describe("normalizeXaiUsage", () => {
+  test("accepts data[] export shape", () => {
+    const rows = normalizeXaiUsage({
+      data: [
+        {
+          date: "2026-07-04",
+          model: "grok-3",
+          input_tokens: 10,
+          output_tokens: 5,
+          cost_usd: 0.001,
+          requests: 1,
+        },
+      ],
+    });
+    expect(rows[0].provider).toBe("xai");
+    expect(rows[0].model).toBe("grok-3");
+    expect(rows[0].costUsd).toBeCloseTo(0.001);
+  });
+});
+
+describe("sanitizeMessage", () => {
+  test("redacts sk- and Bearer tokens", () => {
+    const s = sanitizeMessage(
+      "auth failed: Bearer sk-ant-admin01-ABCDEFG123456789 and key",
+    );
+    expect(s).not.toContain("ABCDEFG");
+    expect(s).toContain("Bearer ***");
+  });
+});
+
+// ─── Connector fetch (mocked HTTP) ──────────────────────────────────────────
+
+describe("openrouter connector fetchUsage", () => {
+  test("success path yields normalized rows", async () => {
+    setEnv("OPENROUTER_API_KEY", "test-or-key");
+    const fetchImpl: FetchImpl = async () =>
+      jsonResponse({
+        data: [
+          {
+            date: "2026-07-05",
+            model: "openai/gpt-4.1",
+            prompt_tokens: 50,
+            completion_tokens: 25,
+            usage: 0.015,
+            byok_usage_inference: 0,
+            requests: 5,
+          },
+        ],
+      });
+    const result = await openrouterConnector.fetchUsage(
+      { start: new Date("2026-07-01"), end: new Date("2026-07-10") },
+      fetchImpl,
+    );
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0].model).toBe("openai/gpt-4.1");
+    expect(result.rows[0].costUsd).toBeCloseTo(0.015);
+  });
+
+  test("401 yields ProviderHttpError", async () => {
+    setEnv("OPENROUTER_API_KEY", "bad-key");
+    const fetchImpl: FetchImpl = async () =>
+      new Response(JSON.stringify({ error: { message: "Unauthorized" } }), {
+        status: 401,
+      });
+    await expect(
+      openrouterConnector.fetchUsage(
+        { start: new Date(), end: new Date() },
+        fetchImpl,
+      ),
+    ).rejects.toBeInstanceOf(ProviderHttpError);
+  });
+});
+
+describe("anthropic connector fetchUsage", () => {
+  test("success path merges usage", async () => {
+    setEnv("ANTHROPIC_ADMIN_KEY", "sk-ant-admin01-test");
+    let calls = 0;
+    const fetchImpl: FetchImpl = async (url) => {
+      calls++;
+      const u = String(url);
+      if (u.includes("usage_report")) {
+        return jsonResponse({
+          data: [
+            {
+              starting_at: "2026-07-06T00:00:00Z",
+              results: [
+                {
+                  model: "claude-opus-4",
+                  uncached_input_tokens: 100,
+                  output_tokens: 20,
+                },
+              ],
+            },
+          ],
+        });
+      }
+      return jsonResponse({
+        data: [
+          {
+            starting_at: "2026-07-06T00:00:00Z",
+            results: [{ model: "claude-opus-4", amount: "100" }],
+          },
+        ],
+      });
+    };
+    const result = await anthropicConnector.fetchUsage(
+      { start: new Date("2026-07-01"), end: new Date("2026-07-10") },
+      fetchImpl,
+    );
+    expect(calls).toBeGreaterThanOrEqual(1);
+    expect(result.rows[0].inputTokens).toBe(100);
+    expect(result.rows[0].costUsd).toBeCloseTo(1);
+  });
+
+  test("429 yields ProviderHttpError", async () => {
+    setEnv("ANTHROPIC_ADMIN_KEY", "sk-ant-admin01-test");
+    const fetchImpl: FetchImpl = async () =>
+      new Response("rate limited", { status: 429 });
+    await expect(
+      anthropicConnector.fetchUsage(
+        { start: new Date(), end: new Date() },
+        fetchImpl,
+      ),
+    ).rejects.toMatchObject({ status: 429 });
+  });
+});
+
+describe("openai connector fetchUsage", () => {
+  test("success path yields model usage", async () => {
+    setEnv("OPENAI_ADMIN_KEY", "sk-admin-test");
+    const start = Math.floor(Date.parse("2026-07-07T00:00:00Z") / 1000);
+    const fetchImpl: FetchImpl = async (url) => {
+      const u = String(url);
+      if (u.includes("/costs")) {
+        return jsonResponse({
+          data: [
+            {
+              start_time: start,
+              results: [
+                {
+                  object: "organization.costs.result",
+                  amount: { value: 0.06, currency: "usd" },
+                  line_item: "gpt-4o-mini",
+                },
+              ],
+            },
+          ],
+        });
+      }
+      return jsonResponse({
+        data: [
+          {
+            start_time: start,
+            results: [
+              {
+                object: "organization.usage.completions.result",
+                model: "gpt-4o-mini",
+                input_tokens: 80,
+                output_tokens: 20,
+                num_model_requests: 2,
+              },
+            ],
+          },
+        ],
+      });
+    };
+    const result = await openaiConnector.fetchUsage(
+      { start: new Date("2026-07-01"), end: new Date("2026-07-10") },
+      fetchImpl,
+    );
+    expect(result.rows.some((r) => r.model.includes("gpt-4o-mini"))).toBe(true);
+  });
+});
+
+describe("xai connector fetchUsage", () => {
+  test("without usage endpoint returns limited empty rows after models check", async () => {
+    setEnv("XAI_API_KEY", "xai-test-key");
+    setEnv("MC_XAI_USAGE_ENDPOINT", undefined);
+    const fetchImpl: FetchImpl = async () =>
+      jsonResponse({ data: [{ id: "grok-3" }] });
+    const result = await xaiConnector.fetchUsage(
+      { start: new Date(), end: new Date() },
+      fetchImpl,
+    );
+    expect(result.rows).toHaveLength(0);
+    expect(result.limitation).toMatch(/no public historical usage/i);
+  });
+
+  test("MC_XAI_USAGE_ENDPOINT normalizes export JSON", async () => {
+    setEnv("XAI_API_KEY", "xai-test-key");
+    setEnv("MC_XAI_USAGE_ENDPOINT", "https://example.test/xai-usage");
+    const fetchImpl: FetchImpl = async () =>
+      jsonResponse({
+        data: [
+          {
+            date: "2026-07-08",
+            model: "grok-3",
+            input_tokens: 9,
+            output_tokens: 3,
+            cost_usd: 0.002,
+          },
+        ],
+      });
+    const result = await xaiConnector.fetchUsage(
+      { start: new Date(), end: new Date() },
+      fetchImpl,
+    );
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0].inputTokens).toBe(9);
+  });
+});
+
+// ─── Sync orchestration + idempotency ───────────────────────────────────────
+
+describe("syncProvider idempotency", () => {
+  test("second identical sync does not double-count", async () => {
+    setEnv("OPENROUTER_API_KEY", "test-or-key");
+    const fetchImpl: FetchImpl = async () =>
+      jsonResponse({
+        data: [
+          {
+            date: "2026-07-09",
+            model: "meta/llama",
+            prompt_tokens: 1000,
+            completion_tokens: 100,
+            usage: 0.5,
+            byok_usage_inference: 0,
+            requests: 10,
+          },
+        ],
+      });
+
+    const r1 = await syncProvider(db.raw(), openrouterConnector, { fetchImpl });
+    expect(r1.status).toBe("ok");
+    expect(r1.rowsUpserted).toBe(1);
+
+    const r2 = await syncProvider(db.raw(), openrouterConnector, { fetchImpl });
+    expect(r2.status).toBe("ok");
+
+    const usage = await getProviderUsage(db.raw(), { provider: "openrouter" });
+    expect(usage).toHaveLength(1);
+    expect(usage[0].input_tokens).toBe(1000);
+    expect(usage[0].cost_usd).toBeCloseTo(0.5);
+
+    const breakdown = await getProviderUsageBreakdown(db.raw(), {
+      provider: "openrouter",
+    });
+    expect(breakdown[0].input_tokens).toBe(1000);
+  });
+
+  test("auth failure records error status without throwing from syncAll", async () => {
+    setEnv("OPENROUTER_API_KEY", "secret-or-key-value");
+    setEnv("ANTHROPIC_ADMIN_KEY", undefined);
+    setEnv("OPENAI_ADMIN_KEY", undefined);
+    setEnv("XAI_API_KEY", undefined);
+
+    const fetchImpl: FetchImpl = async () =>
+      new Response("nope", { status: 401 });
+
+    const results = await syncAllProviders(db.raw(), {
+      providers: ["openrouter"],
+      fetchImpl,
+    });
+    expect(results[0].status).toBe("error");
+    expect(results[0].error).toMatch(/auth/i);
+
+    const statuses = await listProviderSyncStatus(db.raw());
+    const or = statuses.find((s) => s.provider === "openrouter");
+    expect(or?.status).toBe("error");
+    expect(or?.last_error).toBeTruthy();
+    expect(or?.last_error).not.toContain("secret-or-key-value");
+  });
+
+  test("missing credentials → not_configured", async () => {
+    setEnv("OPENROUTER_API_KEY", undefined);
+    const r = await syncProvider(db.raw(), openrouterConnector);
+    expect(r.status).toBe("not_configured");
+    const statuses = await listProviderSyncStatus(db.raw());
+    expect(statuses.find((s) => s.provider === "openrouter")?.status).toBe(
+      "not_configured",
+    );
+  });
+
+  test("all four connectors registered", () => {
+    const ids = getConnectors()
+      .map((c) => c.id)
+      .sort();
+    expect(ids).toEqual(["anthropic", "openai", "openrouter", "xai"]);
+  });
+});

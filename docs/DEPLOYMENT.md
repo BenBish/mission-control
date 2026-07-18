@@ -187,7 +187,34 @@ ENABLE_COST_TRACKING=true
 
 RETENTION_HOT_DAYS=7
 RETENTION_WARM_DAYS=90
+
+# Provider billing connectors (optional — account-level usage/cost APIs)
+# Distinct from session-log cost tracking. See deploy/server.env.example.
+# OPENROUTER_API_KEY=
+# ANTHROPIC_ADMIN_KEY=
+# OPENAI_ADMIN_KEY=
+# XAI_API_KEY=
+# MC_XAI_USAGE_ENDPOINT=
+# MC_PROVIDER_SYNC_ENABLED=false
+# MC_PROVIDER_SYNC_INTERVAL_MS=3600000
 ```
+
+### Provider API cost connectors
+
+Configure only the providers you use. Missing keys leave that connector in `not_configured` (no errors, no crash).
+
+| Env | Purpose |
+| --- | --- |
+| `OPENROUTER_API_KEY` | OpenRouter activity/usage (management key preferred) |
+| `ANTHROPIC_ADMIN_KEY` | Anthropic Admin Usage & Cost API |
+| `OPENAI_ADMIN_KEY` | OpenAI organization Admin usage/costs |
+| `XAI_API_KEY` | xAI key verification; historical usage needs `MC_XAI_USAGE_ENDPOINT` |
+| `MC_PROVIDER_SYNC_ENABLED` | `true` to poll on interval (default off) |
+| `MC_PROVIDER_SYNC_INTERVAL_MS` | Poll interval (default 3600000) |
+
+Trigger a one-shot sync: `POST /api/providers/sync`. View status: `GET /api/providers/status`. UI: Consumption → **Provider API costs**.
+
+Never commit real keys. Status responses never include secret values.
 
 ### Security Hardening
 

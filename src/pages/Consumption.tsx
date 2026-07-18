@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Card,
   CardContent,
@@ -7,11 +8,17 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/_shared/PageHeader";
 import { Loading } from "@/components/_shared/Loading";
-import { DollarSign, Zap, Cpu, Calendar } from "lucide-react";
+import { DollarSign, Zap, Cpu, Calendar, RefreshCw, Cloud } from "lucide-react";
 import { useSourceFilter } from "@/app/source-context";
-import { useConsumption } from "@/lib/queries";
+import {
+  useConsumption,
+  useProviderBreakdown,
+  useProviderStatus,
+  triggerProviderSync,
+} from "@/lib/queries";
 
 type DatePreset = "today" | "7d" | "30d" | "all";
 type Unit = "tokens" | "compute" | "usd";
@@ -35,10 +42,22 @@ function formatCompute(seconds: number): string {
   return `${(minutes / 60).toFixed(1)}h`;
 }
 
+function statusBadgeVariant(
+  status: string,
+): "default" | "secondary" | "destructive" | "outline" {
+  if (status === "ok") return "default";
+  if (status === "error") return "destructive";
+  if (status === "limited" || status === "syncing") return "secondary";
+  return "outline";
+}
+
 export default function Consumption() {
   const { selectedSourceId } = useSourceFilter();
   const [datePreset, setDatePreset] = useState<DatePreset>("30d");
   const [unit, setUnit] = useState<Unit>("tokens");
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   // Memoized on datePreset only — getSince() reads the current time, so
   // calling it directly in the hook args would produce a new `since` value
@@ -50,6 +69,9 @@ export default function Consumption() {
     isLoading,
     error,
   } = useConsumption({ since, sourceId: selectedSourceId });
+
+  const { data: providerStatus } = useProviderStatus();
+  const { data: providerBreakdown } = useProviderBreakdown({ since });
 
   const bySourceModel = useMemo(() => {
     if (!rows) return [];
@@ -118,6 +140,38 @@ export default function Consumption() {
     { label: "Compute time", value: "compute" },
     { label: "USD", value: "usd" },
   ];
+
+  const providerTotals = useMemo(() => {
+    if (!providerBreakdown) return { tokens: 0, cost: 0, hasCost: false };
+    return providerBreakdown.reduce(
+      (acc, row) => ({
+        tokens: acc.tokens + row.input_tokens + row.output_tokens,
+        cost: acc.cost + (row.cost_usd ?? 0),
+        hasCost: acc.hasCost || row.cost_usd != null,
+      }),
+      { tokens: 0, cost: 0, hasCost: false },
+    );
+  }, [providerBreakdown]);
+
+  async function handleProviderSync() {
+    setSyncing(true);
+    setSyncMessage(null);
+    try {
+      const { results } = await triggerProviderSync();
+      const summary = results
+        .map((r) => `${r.provider}: ${r.status}`)
+        .join(" · ");
+      setSyncMessage(summary);
+      await queryClient.invalidateQueries({ queryKey: ["provider-status"] });
+      await queryClient.invalidateQueries({ queryKey: ["provider-breakdown"] });
+    } catch (err) {
+      setSyncMessage(
+        err instanceof Error ? err.message : "Provider sync failed",
+      );
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   if (isLoading) {
     return (
@@ -351,6 +405,137 @@ export default function Consumption() {
           )}
         </>
       )}
+
+      {/* Provider API billing — distinct from session-log / agent sources above */}
+      <Card className="shadow-sm border-dashed">
+        <CardHeader className="pb-4 border-b">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Cloud className="h-5 w-5" />
+                Provider API costs
+              </CardTitle>
+              <CardDescription className="mt-1">
+                Account-level usage from OpenRouter, Anthropic, OpenAI, and xAI
+                billing APIs — separate from agent session logs above. Not
+                double-counted with source totals.
+              </CardDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void handleProviderSync()}
+              disabled={syncing}
+            >
+              <RefreshCw
+                className={`h-3.5 w-3.5 mr-1.5 ${syncing ? "animate-spin" : ""}`}
+              />
+              {syncing ? "Syncing…" : "Sync now"}
+            </Button>
+          </div>
+          {syncMessage && (
+            <p className="text-xs text-muted-foreground mt-2 font-mono">
+              {syncMessage}
+            </p>
+          )}
+        </CardHeader>
+        <CardContent className="pt-4 space-y-4">
+          {providerStatus && providerStatus.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {providerStatus.map((p) => (
+                <div
+                  key={p.id}
+                  className="flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-sm"
+                  title={p.lastError || p.notes || undefined}
+                >
+                  <span className="font-medium">{p.name}</span>
+                  <Badge variant={statusBadgeVariant(p.status)}>
+                    {p.configured ? p.status : "not configured"}
+                  </Badge>
+                  {p.lastSuccessAt && (
+                    <span className="text-xs text-muted-foreground">
+                      synced {new Date(p.lastSuccessAt).toLocaleString()}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {providerTotals.hasCost || providerTotals.tokens > 0 ? (
+            <>
+              <div className="flex flex-wrap gap-4 text-sm">
+                <span className="tabular-nums">
+                  Tokens:{" "}
+                  <strong>{providerTotals.tokens.toLocaleString()}</strong>
+                </span>
+                {providerTotals.hasCost && (
+                  <span className="tabular-nums">
+                    Cost: <strong>${providerTotals.cost.toFixed(4)}</strong>
+                  </span>
+                )}
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th className="text-left py-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Provider
+                      </th>
+                      <th className="text-left py-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Model
+                      </th>
+                      <th className="text-right py-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Input
+                      </th>
+                      <th className="text-right py-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Output
+                      </th>
+                      <th className="text-right py-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Cost
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(providerBreakdown ?? []).map((row) => (
+                      <tr
+                        key={`${row.provider}:${row.model}`}
+                        className="border-b last:border-0 hover:bg-muted/40"
+                      >
+                        <td className="py-2 px-3 text-sm font-medium">
+                          {row.provider}
+                        </td>
+                        <td className="py-2 px-3 text-xs font-mono">
+                          {row.model}
+                        </td>
+                        <td className="py-2 px-3 text-sm text-right tabular-nums">
+                          {row.input_tokens.toLocaleString()}
+                        </td>
+                        <td className="py-2 px-3 text-sm text-right tabular-nums">
+                          {row.output_tokens.toLocaleString()}
+                        </td>
+                        <td className="py-2 px-3 text-sm text-right tabular-nums">
+                          {row.cost_usd != null
+                            ? `$${row.cost_usd.toFixed(4)}`
+                            : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No provider API usage for this range. Configure{" "}
+              <code className="text-xs">OPENROUTER_API_KEY</code>,{" "}
+              <code className="text-xs">ANTHROPIC_ADMIN_KEY</code>,{" "}
+              <code className="text-xs">OPENAI_ADMIN_KEY</code>, and/or{" "}
+              <code className="text-xs">XAI_API_KEY</code>, then click Sync now.
+            </p>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

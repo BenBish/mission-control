@@ -204,19 +204,36 @@ CREATE TABLE llm_generations (
 
 ### Pricing System
 
-Mission Control uses a **two-tier pricing system**:
+Mission Control uses a **multi-source pricing system**:
 
 1. **Exact Costs from Logs:**
    - Extracted from OpenRouter API responses in JSONL logs
-   - Stored in `llm_generations.cost_total`
+   - Stored in `llm_generations.cost_total` / activity `cost_usd`
    - Includes cache read/write pricing
-   - Most accurate when available
+   - Most accurate when available for agent-attributed spend
 
 2. **Fallback Static Pricing:**
    - Used when exact costs unavailable
    - Defined in `src/types/pricing.ts`
    - Per-model pricing tiers
    - Updated periodically from OpenRouter
+
+3. **Provider API connectors (BSH-63):**
+   - Account-level usage/cost from OpenRouter, Anthropic, OpenAI, and xAI billing APIs
+   - Stored in `provider_usage_daily` (not mixed into session-log tables)
+   - Sync status in `provider_sync_status` (last sync, errors, limited metrics)
+   - REST: `GET /api/providers/status`, `POST /api/providers/sync`, `GET /api/providers/usage`, `GET /api/providers/usage/breakdown`
+   - Code: `src/services/provider-connectors/`
+   - **Do not double-count** with agent source totals in the UI — Consumption shows a separate “Provider API costs” section
+
+| Provider | Credential env | Primary endpoints |
+| --- | --- | --- |
+| OpenRouter | `OPENROUTER_API_KEY` | `GET /api/v1/activity` (management key; last 30 UTC days) |
+| Anthropic | `ANTHROPIC_ADMIN_KEY` | Admin Usage + Cost report APIs |
+| OpenAI | `OPENAI_ADMIN_KEY` | Org Completions usage + Costs APIs |
+| xAI | `XAI_API_KEY` | No public historical usage API; key check via `/v1/models`; optional `MC_XAI_USAGE_ENDPOINT` JSON export |
+
+Scheduled poll: set `MC_PROVIDER_SYNC_ENABLED=true` (interval `MC_PROVIDER_SYNC_INTERVAL_MS`, default 1h). Manual sync always available via POST.
 
 ---
 
