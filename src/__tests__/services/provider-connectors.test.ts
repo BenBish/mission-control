@@ -41,7 +41,10 @@ import {
   ProviderHttpError,
   type FetchImpl,
 } from "../../services/provider-connectors/index.js";
-import { sanitizeMessage } from "../../services/provider-connectors/http.js";
+import {
+  providerFetchJson,
+  sanitizeMessage,
+} from "../../services/provider-connectors/http.js";
 
 let fixtureDir: string;
 let db: Database;
@@ -257,6 +260,53 @@ describe("normalizeOpenAICompletionsUsage + costs", () => {
     expect(merged[0].model).toBe("gpt-4o");
     expect(merged[0].costUsd).toBeCloseTo(0.05);
   });
+
+  test("does not attach gpt-4 cost to gpt-4o via substring match", () => {
+    const start = Math.floor(Date.parse("2026-07-03T00:00:00Z") / 1000);
+    const usage = normalizeOpenAICompletionsUsage({
+      data: [
+        {
+          start_time: start,
+          results: [
+            {
+              object: "organization.usage.completions.result",
+              model: "gpt-4",
+              input_tokens: 10,
+              output_tokens: 1,
+              num_model_requests: 1,
+            },
+            {
+              object: "organization.usage.completions.result",
+              model: "gpt-4o",
+              input_tokens: 20,
+              output_tokens: 2,
+              num_model_requests: 1,
+            },
+          ],
+        },
+      ],
+    });
+    const cost = normalizeOpenAICosts({
+      data: [
+        {
+          start_time: start,
+          results: [
+            {
+              object: "organization.costs.result",
+              amount: { value: 0.09, currency: "usd" },
+              line_item: "gpt-4, input",
+            },
+          ],
+        },
+      ],
+    });
+    const merged = mergeOpenAIRows(usage, cost);
+    const gpt4 = merged.find((r) => r.model === "gpt-4");
+    const gpt4o = merged.find((r) => r.model === "gpt-4o");
+    expect(gpt4?.costUsd).toBeCloseTo(0.09);
+    expect(gpt4o?.costUsd).toBeNull();
+    expect(gpt4o?.inputTokens).toBe(20);
+  });
 });
 
 describe("normalizeXaiUsage", () => {
@@ -286,6 +336,38 @@ describe("sanitizeMessage", () => {
     );
     expect(s).not.toContain("ABCDEFG");
     expect(s).toContain("Bearer ***");
+  });
+});
+
+describe("providerFetchJson timeout", () => {
+  test("hung fetch rejects with timeout without hanging the suite", async () => {
+    const hung: FetchImpl = (_url, init) =>
+      new Promise((_resolve, reject) => {
+        const signal = init?.signal;
+        if (!signal) return;
+        if (signal.aborted) {
+          reject(new DOMException("Aborted", "AbortError"));
+          return;
+        }
+        signal.addEventListener(
+          "abort",
+          () => reject(new DOMException("Aborted", "AbortError")),
+          { once: true },
+        );
+      });
+
+    await expect(
+      providerFetchJson(
+        "openrouter",
+        "https://example.test/hang",
+        {},
+        hung,
+        20,
+      ),
+    ).rejects.toMatchObject({
+      name: "ProviderHttpError",
+      message: expect.stringMatching(/timed out after 20ms/i),
+    });
   });
 });
 
@@ -691,7 +773,9 @@ describe("syncProvider idempotency", () => {
       providers: ["openrouter"],
       fetchImpl,
     });
-    expect(second.every((r) => r.status === "skipped")).toBe(true);
+    expect(second).toHaveLength(1);
+    expect(second[0].provider).toBe("openrouter");
+    expect(second[0].status).toBe("skipped");
     release();
     const firstResults = await first;
     expect(firstResults[0].status).toBe("ok");

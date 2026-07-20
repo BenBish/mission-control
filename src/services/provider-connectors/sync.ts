@@ -94,6 +94,8 @@ export async function syncProvider(
     let maxDay: string | null = null;
 
     // Group models by day so we can prune stale models per day after upsert.
+    // Only days present in this fetch are pruned; historical days outside the
+    // provider window are intentionally retained (we do not wipe missing days).
     const modelsByDay = new Map<string, Set<string>>();
     for (const row of result.rows) {
       await upsertProviderUsage(db, {
@@ -187,9 +189,15 @@ export async function syncAllProviders(
   } = {},
 ): Promise<SyncProviderResult[]> {
   const skipIfInFlight = opts.skipIfInFlight !== false;
+  const list = opts.providers?.length
+    ? opts.providers
+        .map((id) => findConnector(id))
+        .filter((c): c is ProviderConnector => !!c)
+    : ALL_CONNECTORS;
 
   if (skipIfInFlight && syncInFlight) {
-    return ALL_CONNECTORS.map((c) => ({
+    // Only report skipped for the connectors this call would have run.
+    return list.map((c) => ({
       provider: c.id,
       status: "skipped" as const,
       rowsUpserted: 0,
@@ -198,12 +206,6 @@ export async function syncAllProviders(
   }
 
   const run = (async () => {
-    const list = opts.providers?.length
-      ? opts.providers
-          .map((id) => findConnector(id))
-          .filter((c): c is ProviderConnector => !!c)
-      : ALL_CONNECTORS;
-
     const results: SyncProviderResult[] = [];
     for (const connector of list) {
       results.push(await syncProvider(db, connector, opts));

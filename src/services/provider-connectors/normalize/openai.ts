@@ -139,34 +139,25 @@ export function mergeOpenAIRows(
   cost: NormalizedUsageRow[],
 ): NormalizedUsageRow[] {
   const map = new Map<string, NormalizedUsageRow>();
+  // Index usage by day + exact model and day + lowercase model for case-insensitive exact match.
+  // Do NOT use substring matching (gpt-4 vs gpt-4o mis-attribution).
+  const usageByDayLower = new Map<string, NormalizedUsageRow>();
   for (const row of usage) {
-    map.set(`${row.day}|${row.model}`, { ...row });
+    const copy = { ...row };
+    map.set(`${row.day}|${row.model}`, copy);
+    usageByDayLower.set(`${row.day}|${row.model.toLowerCase()}`, copy);
   }
   for (const row of cost) {
     const normalizedModel = normalizeOpenAILineItem(row.model);
-    // Prefer exact day+model match, then day+normalized line_item.
-    let existing = map.get(`${row.day}|${row.model}`);
-    if (!existing && normalizedModel !== row.model) {
-      existing = map.get(`${row.day}|${normalizedModel}`);
-    }
-    // If still no match, try attaching to a single usage model that contains the label.
-    if (!existing) {
-      for (const [key, u] of map) {
-        if (!key.startsWith(`${row.day}|`)) continue;
-        const model = u.model.toLowerCase();
-        if (
-          model === normalizedModel ||
-          model.includes(normalizedModel) ||
-          normalizedModel.includes(model)
-        ) {
-          existing = u;
-          break;
-        }
-      }
-    }
+    const existing =
+      map.get(`${row.day}|${row.model}`) ??
+      usageByDayLower.get(`${row.day}|${row.model.toLowerCase()}`) ??
+      map.get(`${row.day}|${normalizedModel}`) ??
+      usageByDayLower.get(`${row.day}|${normalizedModel}`);
     if (existing) {
       existing.costUsd = (existing.costUsd ?? 0) + (row.costUsd ?? 0);
     } else {
+      // Keep cost-only row rather than guessing among similar model ids.
       map.set(`${row.day}|${normalizedModel}`, {
         ...row,
         model: normalizedModel,

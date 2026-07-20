@@ -10,6 +10,7 @@ export {
   sanitizeMessage,
   dayInWindow,
   PROVIDER_FETCH_TIMEOUT_MS,
+  providerFetchJson,
 } from "./http.js";
 export { normalizeOpenRouterActivity } from "./normalize/openrouter.js";
 export {
