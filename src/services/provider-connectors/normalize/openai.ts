@@ -122,6 +122,18 @@ export function normalizeOpenAICosts(payload: unknown): NormalizedUsageRow[] {
   return Array.from(map.values());
 }
 
+/**
+ * Normalize cost line_item labels toward completion model ids when possible.
+ * OpenAI costs often use labels like "gpt-4o, input" or "GPT-4o mini".
+ */
+export function normalizeOpenAILineItem(lineItem: string): string {
+  let s = lineItem.trim();
+  // Drop trailing ", input|output|cached …" segments common on cost line items.
+  s = s.replace(/,\s*(input|output|cached|cache).*$/i, "").trim();
+  s = s.toLowerCase().replace(/\s+/g, "-");
+  return s || lineItem.trim();
+}
+
 export function mergeOpenAIRows(
   usage: NormalizedUsageRow[],
   cost: NormalizedUsageRow[],
@@ -131,12 +143,34 @@ export function mergeOpenAIRows(
     map.set(`${row.day}|${row.model}`, { ...row });
   }
   for (const row of cost) {
-    const key = `${row.day}|${row.model}`;
-    const existing = map.get(key);
+    const normalizedModel = normalizeOpenAILineItem(row.model);
+    // Prefer exact day+model match, then day+normalized line_item.
+    let existing = map.get(`${row.day}|${row.model}`);
+    if (!existing && normalizedModel !== row.model) {
+      existing = map.get(`${row.day}|${normalizedModel}`);
+    }
+    // If still no match, try attaching to a single usage model that contains the label.
+    if (!existing) {
+      for (const [key, u] of map) {
+        if (!key.startsWith(`${row.day}|`)) continue;
+        const model = u.model.toLowerCase();
+        if (
+          model === normalizedModel ||
+          model.includes(normalizedModel) ||
+          normalizedModel.includes(model)
+        ) {
+          existing = u;
+          break;
+        }
+      }
+    }
     if (existing) {
       existing.costUsd = (existing.costUsd ?? 0) + (row.costUsd ?? 0);
     } else {
-      map.set(key, { ...row });
+      map.set(`${row.day}|${normalizedModel}`, {
+        ...row,
+        model: normalizedModel,
+      });
     }
   }
   return Array.from(map.values());

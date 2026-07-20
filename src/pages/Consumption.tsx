@@ -448,7 +448,7 @@ export default function Consumption() {
                 <div
                   key={p.id}
                   className="flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-sm"
-                  title={p.lastError || p.notes || undefined}
+                  title={p.lastError || p.limitation || p.notes || undefined}
                 >
                   <span className="font-medium">{p.name}</span>
                   <Badge variant={statusBadgeVariant(p.status)}>

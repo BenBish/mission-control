@@ -1,5 +1,5 @@
 import { providerBaseUrl, resolveOpenRouterKey } from "../credentials.js";
-import { providerFetchJson } from "../http.js";
+import { dayInWindow, providerFetchJson } from "../http.js";
 import { normalizeOpenRouterActivity } from "../normalize/openrouter.js";
 import type {
   FetchImpl,
@@ -17,7 +17,7 @@ export const openrouterConnector: ProviderConnector = {
   },
 
   async fetchUsage(
-    _window: FetchWindow,
+    window: FetchWindow,
     fetchImpl: FetchImpl = fetch,
   ): Promise<ProviderFetchResult> {
     const key = resolveOpenRouterKey();
@@ -26,6 +26,7 @@ export const openrouterConnector: ProviderConnector = {
     }
     const base = providerBaseUrl("openrouter", "https://openrouter.ai/api/v1");
     // Activity returns last 30 completed UTC days; optional date filter is per-day only.
+    // We still filter client-side to honor the requested FetchWindow.
     const url = `${base}/activity`;
     const payload = await providerFetchJson(
       "openrouter",
@@ -38,6 +39,9 @@ export const openrouterConnector: ProviderConnector = {
       },
       fetchImpl,
     );
-    return { rows: normalizeOpenRouterActivity(payload) };
+    const rows = normalizeOpenRouterActivity(payload).filter((r) =>
+      dayInWindow(r.day, window),
+    );
+    return { rows };
   },
 };

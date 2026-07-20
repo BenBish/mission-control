@@ -163,6 +163,7 @@ export interface ProviderStatus {
   lastSyncAt: string | null;
   lastSuccessAt: string | null;
   lastError: string | null;
+  limitation: string | null;
   cursorDay: string | null;
 }
 

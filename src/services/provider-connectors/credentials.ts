@@ -61,7 +61,8 @@ export function credentialMeta(provider: ProviderId): ProviderCredentials {
       return {
         configured: !!resolveOpenRouterKey(),
         envVars: ["OPENROUTER_API_KEY"],
-        notes: "Management key recommended for /activity (last 30 UTC days).",
+        notes:
+          "Management key recommended for /activity (provider returns ~last 30 UTC days; filtered to sync window client-side).",
       };
     case "anthropic":
       return {

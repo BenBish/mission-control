@@ -1,10 +1,11 @@
 /**
- * Orchestrates provider connector sync: fetch → upsert → status.
+ * Orchestrates provider connector sync: fetch → upsert → prune → status.
  * Never throws out of syncAllProviders — errors become status=error rows.
  */
 
 import type { Database as SqliteDatabase } from "sqlite";
 import {
+  pruneStaleProviderUsageModels,
   upsertProviderSyncStatus,
   upsertProviderUsage,
 } from "../../db/queries/provider-usage.js";
@@ -29,6 +30,9 @@ const ALL_CONNECTORS: ProviderConnector[] = [
   xaiConnector,
 ];
 
+/** Prevent overlapping scheduled/manual syncs from stacking. */
+let syncInFlight: Promise<SyncProviderResult[]> | null = null;
+
 function findConnector(id: ProviderId): ProviderConnector | undefined {
   return ALL_CONNECTORS.find((c) => c.id === id);
 }
@@ -41,8 +45,9 @@ export function defaultFetchWindow(days = 30): FetchWindow {
 
 export interface SyncProviderResult {
   provider: ProviderId;
-  status: "not_configured" | "ok" | "limited" | "error";
+  status: "not_configured" | "ok" | "limited" | "error" | "skipped";
   rowsUpserted: number;
+  rowsPruned?: number;
   error?: string;
   limitation?: string;
 }
@@ -64,7 +69,7 @@ export async function syncProvider(
       status: "not_configured",
       lastSyncAt: now,
       lastError: null,
-      meta: { envVars: meta.envVars, notes: meta.notes },
+      meta: { envVars: meta.envVars, notes: meta.notes, limitation: null },
     });
     return {
       provider: connector.id,
@@ -78,15 +83,18 @@ export async function syncProvider(
     status: "syncing",
     lastSyncAt: now,
     lastError: null,
-    meta: { envVars: meta.envVars, notes: meta.notes },
+    meta: { envVars: meta.envVars, notes: meta.notes, limitation: null },
   });
 
   try {
     const window = opts.window ?? defaultFetchWindow(30);
     const result = await connector.fetchUsage(window, opts.fetchImpl);
     let rowsUpserted = 0;
+    let rowsPruned = 0;
     let maxDay: string | null = null;
 
+    // Group models by day so we can prune stale models per day after upsert.
+    const modelsByDay = new Map<string, Set<string>>();
     for (const row of result.rows) {
       await upsertProviderUsage(db, {
         provider: row.provider,
@@ -99,6 +107,21 @@ export async function syncProvider(
       });
       rowsUpserted++;
       if (!maxDay || row.day > maxDay) maxDay = row.day;
+      let set = modelsByDay.get(row.day);
+      if (!set) {
+        set = new Set();
+        modelsByDay.set(row.day, set);
+      }
+      set.add(row.model);
+    }
+
+    for (const [day, models] of modelsByDay) {
+      rowsPruned += await pruneStaleProviderUsageModels(
+        db,
+        connector.id,
+        day,
+        Array.from(models),
+      );
     }
 
     const status = result.limitation ? "limited" : "ok";
@@ -107,12 +130,14 @@ export async function syncProvider(
       status,
       lastSyncAt: now,
       lastSuccessAt: now,
-      lastError: result.limitation ?? null,
+      // Real failures only in lastError; limitations live in meta.
+      lastError: null,
       cursorDay: maxDay,
       meta: {
         envVars: meta.envVars,
         notes: meta.notes,
         rowsUpserted,
+        rowsPruned,
         limitation: result.limitation ?? null,
       },
     });
@@ -121,6 +146,7 @@ export async function syncProvider(
       provider: connector.id,
       status,
       rowsUpserted,
+      rowsPruned,
       limitation: result.limitation,
     };
   } catch (err) {
@@ -134,7 +160,11 @@ export async function syncProvider(
       status: "error",
       lastSyncAt: now,
       lastError: message,
-      meta: { envVars: meta.envVars, notes: meta.notes },
+      meta: {
+        envVars: meta.envVars,
+        notes: meta.notes,
+        limitation: null,
+      },
     });
 
     return {
@@ -152,17 +182,46 @@ export async function syncAllProviders(
     providers?: ProviderId[];
     window?: FetchWindow;
     fetchImpl?: FetchImpl;
+    /** When true (default for public entrypoints), skip if a sync is already running. */
+    skipIfInFlight?: boolean;
   } = {},
 ): Promise<SyncProviderResult[]> {
-  const list = opts.providers?.length
-    ? opts.providers
-        .map((id) => findConnector(id))
-        .filter((c): c is ProviderConnector => !!c)
-    : ALL_CONNECTORS;
+  const skipIfInFlight = opts.skipIfInFlight !== false;
 
-  const results: SyncProviderResult[] = [];
-  for (const connector of list) {
-    results.push(await syncProvider(db, connector, opts));
+  if (skipIfInFlight && syncInFlight) {
+    return ALL_CONNECTORS.map((c) => ({
+      provider: c.id,
+      status: "skipped" as const,
+      rowsUpserted: 0,
+      error: "sync already in progress",
+    }));
   }
-  return results;
+
+  const run = (async () => {
+    const list = opts.providers?.length
+      ? opts.providers
+          .map((id) => findConnector(id))
+          .filter((c): c is ProviderConnector => !!c)
+      : ALL_CONNECTORS;
+
+    const results: SyncProviderResult[] = [];
+    for (const connector of list) {
+      results.push(await syncProvider(db, connector, opts));
+    }
+    return results;
+  })();
+
+  if (skipIfInFlight) {
+    syncInFlight = run.finally(() => {
+      syncInFlight = null;
+    });
+    return syncInFlight;
+  }
+
+  return run;
+}
+
+/** Test-only: reset the in-flight guard between suites. */
+export function resetSyncInFlightForTests(): void {
+  syncInFlight = null;
 }

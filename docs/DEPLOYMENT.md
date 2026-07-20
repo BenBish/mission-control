@@ -214,7 +214,9 @@ Configure only the providers you use. Missing keys leave that connector in `not_
 
 Trigger a one-shot sync: `POST /api/providers/sync`. View status: `GET /api/providers/status`. UI: Consumption → **Provider API costs**.
 
-Never commit real keys. Status responses never include secret values.
+**Security:** `POST /api/providers/sync` triggers outbound calls with admin/provider keys and can consume provider rate limits. If the API is reachable beyond loopback/tailnet, enable `MC_AUTH_ENABLED=true` (or keep the service strictly private). Never commit real keys. Status responses never include secret values.
+
+**Accuracy notes:** OpenAI cost `line_item` labels may not match completion `model` ids exactly (MC attempts simple normalization). OpenRouter BYOK spend can also appear under a direct Anthropic/OpenAI connector if both are configured.
 
 ### Security Hardening
 

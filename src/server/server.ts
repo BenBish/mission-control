@@ -209,9 +209,9 @@ export class MissionControlServer {
     if (process.env.MC_PROVIDER_SYNC_ENABLED !== "true") {
       return;
     }
+    const rawInterval = process.env.MC_PROVIDER_SYNC_INTERVAL_MS;
     const parsed = parseInt(
-      process.env.MC_PROVIDER_SYNC_INTERVAL_MS ||
-        String(DEFAULT_PROVIDER_SYNC_INTERVAL_MS),
+      rawInterval || String(DEFAULT_PROVIDER_SYNC_INTERVAL_MS),
       10,
     );
     const intervalMs =
@@ -219,8 +219,14 @@ export class MissionControlServer {
         ? parsed
         : DEFAULT_PROVIDER_SYNC_INTERVAL_MS;
     if (intervalMs !== parsed) {
+      const safeRaw =
+        rawInterval == null
+          ? "(unset)"
+          : rawInterval.length > 32
+            ? `${rawInterval.slice(0, 32)}…`
+            : rawInterval;
       console.warn(
-        `💳 Invalid MC_PROVIDER_SYNC_INTERVAL_MS; using default ${DEFAULT_PROVIDER_SYNC_INTERVAL_MS}ms`,
+        `💳 Invalid MC_PROVIDER_SYNC_INTERVAL_MS=${JSON.stringify(safeRaw)}; using default ${DEFAULT_PROVIDER_SYNC_INTERVAL_MS}ms`,
       );
     }
     console.log(`💳 Provider usage sync enabled (interval ${intervalMs}ms)`);

@@ -5,22 +5,53 @@
 
 import { type FetchImpl, type ProviderId, ProviderHttpError } from "./types.js";
 
+/** Default outbound timeout for provider billing APIs. */
+export const PROVIDER_FETCH_TIMEOUT_MS = 45_000;
+
 export async function providerFetchJson(
   provider: ProviderId,
   url: string,
   init: RequestInit,
   fetchImpl: FetchImpl = fetch,
+  timeoutMs: number = PROVIDER_FETCH_TIMEOUT_MS,
 ): Promise<unknown> {
+  const controller = new AbortController();
+  const externalSignal = init.signal;
+  const onExternalAbort = () => controller.abort();
+  if (externalSignal) {
+    if (externalSignal.aborted) {
+      controller.abort();
+    } else {
+      externalSignal.addEventListener("abort", onExternalAbort, { once: true });
+    }
+  }
+
+  const timer =
+    timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
+
   let res: Response;
   try {
-    res = await fetchImpl(url, init);
+    res = await fetchImpl(url, {
+      ...init,
+      signal: controller.signal,
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    const aborted =
+      (err instanceof Error && err.name === "AbortError") ||
+      controller.signal.aborted;
     throw new ProviderHttpError(
       provider,
       0,
-      `Network error contacting ${provider}: ${sanitizeMessage(msg)}`,
+      aborted
+        ? `${provider} request timed out after ${timeoutMs}ms`
+        : `Network error contacting ${provider}: ${sanitizeMessage(msg)}`,
     );
+  } finally {
+    if (timer) clearTimeout(timer);
+    if (externalSignal) {
+      externalSignal.removeEventListener("abort", onExternalAbort);
+    }
   }
 
   if (!res.ok) {
@@ -60,4 +91,14 @@ export function toUtcDay(date: Date): string {
 
 export function unixSeconds(date: Date): number {
   return Math.floor(date.getTime() / 1000);
+}
+
+/** Inclusive UTC day bounds for filtering normalized activity rows. */
+export function dayInWindow(
+  day: string,
+  window: { start: Date; end: Date },
+): boolean {
+  const startDay = toUtcDay(window.start);
+  const endDay = toUtcDay(window.end);
+  return day >= startDay && day <= endDay;
 }

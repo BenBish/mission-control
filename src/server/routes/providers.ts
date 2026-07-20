@@ -30,6 +30,14 @@ export function registerProviderRoutes(app: Express, db: Database): void {
       const providers = getConnectors().map((c) => {
         const cred = credentialMeta(c.id);
         const row = statusById.get(c.id);
+        let meta: { limitation?: string | null } | null = null;
+        if (row?.meta_json) {
+          try {
+            meta = JSON.parse(row.meta_json) as { limitation?: string | null };
+          } catch {
+            meta = null;
+          }
+        }
         return {
           id: c.id,
           name: c.displayName,
@@ -41,6 +49,8 @@ export function registerProviderRoutes(app: Express, db: Database): void {
           lastSyncAt: toIso(row?.last_sync_at ?? null),
           lastSuccessAt: toIso(row?.last_success_at ?? null),
           lastError: row?.last_error ?? null,
+          /** Non-error limitation (e.g. xAI metrics limited) — separate from lastError. */
+          limitation: meta?.limitation ?? null,
           cursorDay: row?.cursor_day ?? null,
         };
       });

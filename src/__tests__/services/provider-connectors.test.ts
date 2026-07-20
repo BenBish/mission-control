@@ -27,6 +27,7 @@ import {
   normalizeOpenAICompletionsUsage,
   normalizeOpenAICosts,
   mergeOpenAIRows,
+  normalizeOpenAILineItem,
   normalizeOpenRouterActivity,
   normalizeXaiUsage,
   syncAllProviders,
@@ -36,6 +37,7 @@ import {
   openaiConnector,
   xaiConnector,
   getConnectors,
+  resetSyncInFlightForTests,
   ProviderHttpError,
   type FetchImpl,
 } from "../../services/provider-connectors/index.js";
@@ -74,6 +76,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   restoreEnv();
+  resetSyncInFlightForTests();
   await db.raw().run(`DELETE FROM provider_usage_daily`);
   await db.raw().run(`DELETE FROM provider_sync_status`);
 });
@@ -215,6 +218,45 @@ describe("normalizeOpenAICompletionsUsage + costs", () => {
     const merged = mergeOpenAIRows(usage, cost);
     expect(merged[0].costUsd).toBeCloseTo(0.12);
   });
+
+  test("merges cost line_item with trailing , input into usage model", () => {
+    expect(normalizeOpenAILineItem("gpt-4o, input")).toBe("gpt-4o");
+    const start = Math.floor(Date.parse("2026-07-03T00:00:00Z") / 1000);
+    const usage = normalizeOpenAICompletionsUsage({
+      data: [
+        {
+          start_time: start,
+          results: [
+            {
+              object: "organization.usage.completions.result",
+              model: "gpt-4o",
+              input_tokens: 10,
+              output_tokens: 2,
+              num_model_requests: 1,
+            },
+          ],
+        },
+      ],
+    });
+    const cost = normalizeOpenAICosts({
+      data: [
+        {
+          start_time: start,
+          results: [
+            {
+              object: "organization.costs.result",
+              amount: { value: 0.05, currency: "usd" },
+              line_item: "gpt-4o, input",
+            },
+          ],
+        },
+      ],
+    });
+    const merged = mergeOpenAIRows(usage, cost);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].model).toBe("gpt-4o");
+    expect(merged[0].costUsd).toBeCloseTo(0.05);
+  });
 });
 
 describe("normalizeXaiUsage", () => {
@@ -287,6 +329,42 @@ describe("openrouter connector fetchUsage", () => {
         fetchImpl,
       ),
     ).rejects.toBeInstanceOf(ProviderHttpError);
+  });
+
+  test("filters activity rows to the requested FetchWindow", async () => {
+    setEnv("OPENROUTER_API_KEY", "test-or-key");
+    const fetchImpl: FetchImpl = async () =>
+      jsonResponse({
+        data: [
+          {
+            date: "2026-06-01",
+            model: "old/model",
+            prompt_tokens: 1,
+            completion_tokens: 1,
+            usage: 0.001,
+            byok_usage_inference: 0,
+            requests: 1,
+          },
+          {
+            date: "2026-07-05",
+            model: "openai/gpt-4.1",
+            prompt_tokens: 50,
+            completion_tokens: 25,
+            usage: 0.015,
+            byok_usage_inference: 0,
+            requests: 5,
+          },
+        ],
+      });
+    const result = await openrouterConnector.fetchUsage(
+      {
+        start: new Date("2026-07-01T00:00:00Z"),
+        end: new Date("2026-07-10T00:00:00Z"),
+      },
+      fetchImpl,
+    );
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0].day).toBe("2026-07-05");
   });
 });
 
@@ -517,5 +595,105 @@ describe("syncProvider idempotency", () => {
       .map((c) => c.id)
       .sort();
     expect(ids).toEqual(["anthropic", "openai", "openrouter", "xai"]);
+  });
+
+  test("re-sync prunes models removed from a day", async () => {
+    setEnv("OPENROUTER_API_KEY", "test-or-key");
+    const first: FetchImpl = async () =>
+      jsonResponse({
+        data: [
+          {
+            date: "2026-07-09",
+            model: "meta/llama",
+            prompt_tokens: 100,
+            completion_tokens: 10,
+            usage: 0.1,
+            byok_usage_inference: 0,
+            requests: 1,
+          },
+          {
+            date: "2026-07-09",
+            model: "gone/model",
+            prompt_tokens: 50,
+            completion_tokens: 5,
+            usage: 0.05,
+            byok_usage_inference: 0,
+            requests: 1,
+          },
+        ],
+      });
+    await syncProvider(db.raw(), openrouterConnector, { fetchImpl: first });
+    expect(
+      (await getProviderUsage(db.raw(), { provider: "openrouter" })).length,
+    ).toBe(2);
+
+    const second: FetchImpl = async () =>
+      jsonResponse({
+        data: [
+          {
+            date: "2026-07-09",
+            model: "meta/llama",
+            prompt_tokens: 100,
+            completion_tokens: 10,
+            usage: 0.1,
+            byok_usage_inference: 0,
+            requests: 1,
+          },
+        ],
+      });
+    const r2 = await syncProvider(db.raw(), openrouterConnector, {
+      fetchImpl: second,
+    });
+    expect(r2.rowsPruned).toBe(1);
+    const usage = await getProviderUsage(db.raw(), { provider: "openrouter" });
+    expect(usage).toHaveLength(1);
+    expect(usage[0].model).toBe("meta/llama");
+  });
+
+  test("xai limited status keeps lastError null and stores limitation in meta", async () => {
+    setEnv("XAI_API_KEY", "xai-test-key");
+    setEnv("MC_XAI_USAGE_ENDPOINT", undefined);
+    const fetchImpl: FetchImpl = async () =>
+      jsonResponse({ data: [{ id: "grok-3" }] });
+    const r = await syncProvider(db.raw(), xaiConnector, { fetchImpl });
+    expect(r.status).toBe("limited");
+    expect(r.limitation).toBeTruthy();
+    const statuses = await listProviderSyncStatus(db.raw());
+    const row = statuses.find((s) => s.provider === "xai");
+    expect(row?.status).toBe("limited");
+    expect(row?.last_error).toBeNull();
+    const meta = row?.meta_json ? JSON.parse(row.meta_json) : {};
+    expect(meta.limitation).toMatch(/no public historical usage/i);
+  });
+
+  test("concurrent syncAllProviders skips when one is in flight", async () => {
+    setEnv("OPENROUTER_API_KEY", "test-or-key");
+    setEnv("ANTHROPIC_ADMIN_KEY", undefined);
+    setEnv("OPENAI_ADMIN_KEY", undefined);
+    setEnv("XAI_API_KEY", undefined);
+
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const fetchImpl: FetchImpl = async () => {
+      await gate;
+      return jsonResponse({ data: [] });
+    };
+
+    const first = syncAllProviders(db.raw(), {
+      providers: ["openrouter"],
+      fetchImpl,
+    });
+    // Let the first call mark itself in-flight
+    await Promise.resolve();
+    const second = await syncAllProviders(db.raw(), {
+      providers: ["openrouter"],
+      fetchImpl,
+    });
+    expect(second.every((r) => r.status === "skipped")).toBe(true);
+    release();
+    const firstResults = await first;
+    expect(firstResults[0].status).toBe("ok");
   });
 });

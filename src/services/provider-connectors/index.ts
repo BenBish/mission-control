@@ -6,7 +6,11 @@ import type { ProviderConnector, ProviderId } from "./types.js";
 
 export * from "./types.js";
 export { credentialMeta } from "./credentials.js";
-export { sanitizeMessage } from "./http.js";
+export {
+  sanitizeMessage,
+  dayInWindow,
+  PROVIDER_FETCH_TIMEOUT_MS,
+} from "./http.js";
 export { normalizeOpenRouterActivity } from "./normalize/openrouter.js";
 export {
   normalizeAnthropicUsage,
@@ -17,9 +21,15 @@ export {
   normalizeOpenAICompletionsUsage,
   normalizeOpenAICosts,
   mergeOpenAIRows,
+  normalizeOpenAILineItem,
 } from "./normalize/openai.js";
 export { normalizeXaiUsage } from "./normalize/xai.js";
-export { syncAllProviders, syncProvider, defaultFetchWindow } from "./sync.js";
+export {
+  syncAllProviders,
+  syncProvider,
+  defaultFetchWindow,
+  resetSyncInFlightForTests,
+} from "./sync.js";
 
 export {
   openrouterConnector,

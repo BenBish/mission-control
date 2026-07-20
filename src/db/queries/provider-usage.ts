@@ -61,6 +61,36 @@ export async function upsertProviderUsage(
   );
 }
 
+/**
+ * After upserting a sync batch for a given provider+day, remove models that
+ * are no longer present in the latest API response so re-syncs do not inflate
+ * totals with renamed/removed line items.
+ */
+export async function pruneStaleProviderUsageModels(
+  db: SqliteDatabase,
+  provider: ProviderId,
+  day: string,
+  keepModels: string[],
+): Promise<number> {
+  if (keepModels.length === 0) {
+    const result = await db.run(
+      `DELETE FROM provider_usage_daily WHERE provider = ? AND day = ?`,
+      provider,
+      day,
+    );
+    return result.changes ?? 0;
+  }
+  const placeholders = keepModels.map(() => "?").join(", ");
+  const result = await db.run(
+    `DELETE FROM provider_usage_daily
+     WHERE provider = ? AND day = ? AND model NOT IN (${placeholders})`,
+    provider,
+    day,
+    ...keepModels,
+  );
+  return result.changes ?? 0;
+}
+
 export async function upsertProviderSyncStatus(
   db: SqliteDatabase,
   row: {
