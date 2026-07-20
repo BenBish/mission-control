@@ -21,8 +21,11 @@ import { buildHermesCollectors } from "../collectors/hermes/collector.js";
 import { buildComfyUiCollectors } from "../collectors/comfyui/collector.js";
 import { buildLemonadeCollectors } from "../collectors/lemonade/collector.js";
 import { runRuntimeSnapshotRetention } from "../db/queries/retention.js";
+import { syncAllProviders } from "../services/provider-connectors/index.js";
 
 const RETENTION_INTERVAL_MS = 60 * 60_000; // hourly
+/** Provider billing sync interval (default 1h). Override with MC_PROVIDER_SYNC_INTERVAL_MS. */
+const DEFAULT_PROVIDER_SYNC_INTERVAL_MS = 60 * 60_000;
 
 // Preserve command-line env vars before dotenv loads
 // (Playwright passes PORT=3051, etc as command-line arguments)
@@ -52,6 +55,7 @@ export class MissionControlServer {
   private comfyUiScheduler: Scheduler | null = null;
   private lemonadeScheduler: Scheduler | null = null;
   private retentionTimer: ReturnType<typeof setInterval> | null = null;
+  private providerSyncTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(config: ServerConfig) {
     this.config = config;
@@ -166,6 +170,7 @@ export class MissionControlServer {
     }
 
     this.startRetentionJob();
+    this.startProviderSyncJob();
 
     console.log("✓ Server initialized");
   }
@@ -193,6 +198,51 @@ export class MissionControlServer {
     };
     void run();
     this.retentionTimer = setInterval(() => void run(), RETENTION_INTERVAL_MS);
+  }
+
+  /**
+   * Poll provider usage/cost APIs on an interval. Disabled when
+   * MC_PROVIDER_SYNC_ENABLED is not "true" so local dev/tests don't hammer
+   * billing endpoints. Manual POST /api/providers/sync always works.
+   */
+  private startProviderSyncJob(): void {
+    if (process.env.MC_PROVIDER_SYNC_ENABLED !== "true") {
+      return;
+    }
+    const rawInterval = process.env.MC_PROVIDER_SYNC_INTERVAL_MS;
+    const parsed = parseInt(
+      rawInterval || String(DEFAULT_PROVIDER_SYNC_INTERVAL_MS),
+      10,
+    );
+    const intervalMs =
+      Number.isFinite(parsed) && parsed >= 60_000
+        ? parsed
+        : DEFAULT_PROVIDER_SYNC_INTERVAL_MS;
+    if (intervalMs !== parsed) {
+      const safeRaw =
+        rawInterval == null
+          ? "(unset)"
+          : rawInterval.length > 32
+            ? `${rawInterval.slice(0, 32)}…`
+            : rawInterval;
+      console.warn(
+        `💳 Invalid MC_PROVIDER_SYNC_INTERVAL_MS=${JSON.stringify(safeRaw)}; using default ${DEFAULT_PROVIDER_SYNC_INTERVAL_MS}ms`,
+      );
+    }
+    console.log(`💳 Provider usage sync enabled (interval ${intervalMs}ms)`);
+    const run = async () => {
+      try {
+        const results = await syncAllProviders(this.db.raw());
+        const summary = results
+          .map((r) => `${r.provider}:${r.status}(${r.rowsUpserted})`)
+          .join(", ");
+        console.log(`💳 Provider sync: ${summary}`);
+      } catch (err) {
+        console.error("Provider sync job failed:", err);
+      }
+    };
+    void run();
+    this.providerSyncTimer = setInterval(() => void run(), intervalMs);
   }
 
   async start(): Promise<void> {
@@ -229,6 +279,10 @@ export class MissionControlServer {
     if (this.retentionTimer) {
       clearInterval(this.retentionTimer);
       this.retentionTimer = null;
+    }
+    if (this.providerSyncTimer) {
+      clearInterval(this.providerSyncTimer);
+      this.providerSyncTimer = null;
     }
     await this.db.close();
     console.log("✓ Stopped");

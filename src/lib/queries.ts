@@ -151,6 +151,74 @@ export function useConsumption(opts: {
   });
 }
 
+// ─── Provider API usage (billing connectors) ────────────────────────────────
+
+export interface ProviderStatus {
+  id: string;
+  name: string;
+  configured: boolean;
+  envVars: string[];
+  notes: string | null;
+  status: string;
+  lastSyncAt: string | null;
+  lastSuccessAt: string | null;
+  lastError: string | null;
+  limitation: string | null;
+  cursorDay: string | null;
+}
+
+export interface ProviderBreakdownRow {
+  provider: string;
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
+  cost_usd: number | null;
+  request_count: number;
+}
+
+export function useProviderStatus(): UseQueryResult<ProviderStatus[]> {
+  return useQuery({
+    queryKey: ["provider-status"],
+    queryFn: async () =>
+      (await getJson<{ providers: ProviderStatus[] }>("/api/providers/status"))
+        .providers,
+    refetchInterval: 60_000,
+  });
+}
+
+export function useProviderBreakdown(opts: {
+  since?: string;
+  provider?: string;
+}): UseQueryResult<ProviderBreakdownRow[]> {
+  return useQuery({
+    queryKey: ["provider-breakdown", opts],
+    queryFn: async () =>
+      (
+        await getJson<{ breakdown: ProviderBreakdownRow[] }>(
+          `/api/providers/usage/breakdown${toQueryString(opts)}`,
+        )
+      ).breakdown,
+  });
+}
+
+export async function triggerProviderSync(providers?: string[]): Promise<{
+  results: Array<{ provider: string; status: string; rowsUpserted: number }>;
+}> {
+  const res = await apiFetch("/api/providers/sync", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(providers ? { providers } : {}),
+  });
+  if (!res.ok) {
+    throw new Error(`Sync failed: ${res.status} ${res.statusText}`);
+  }
+  const json = await res.json();
+  if (json.success === false) {
+    throw new Error(json.error || "Provider sync failed");
+  }
+  return json;
+}
+
 // ─── Failures ───────────────────────────────────────────────────────────────
 
 export interface FailureItem {

@@ -341,6 +341,38 @@ CREATE TABLE IF NOT EXISTS ingest_dedupe (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (source_id, instance_id, kind, natural_key)
 );
+
+-- ============================================================================
+-- PROVIDER API USAGE — billing/usage from OpenRouter, Anthropic, OpenAI, xAI
+-- Distinct from session-log / activities costs (API-sourced, not agent-attributed).
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS provider_usage_daily (
+  provider TEXT NOT NULL CHECK (provider IN ('openrouter', 'anthropic', 'openai', 'xai')),
+  day TEXT NOT NULL,
+  model TEXT NOT NULL,
+  input_tokens INTEGER NOT NULL DEFAULT 0,
+  output_tokens INTEGER NOT NULL DEFAULT 0,
+  cost_usd REAL,
+  request_count INTEGER NOT NULL DEFAULT 0,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (provider, day, model)
+);
+
+CREATE INDEX IF NOT EXISTS idx_provider_usage_day ON provider_usage_daily(day DESC);
+CREATE INDEX IF NOT EXISTS idx_provider_usage_provider ON provider_usage_daily(provider, day DESC);
+
+CREATE TABLE IF NOT EXISTS provider_sync_status (
+  provider TEXT PRIMARY KEY CHECK (provider IN ('openrouter', 'anthropic', 'openai', 'xai')),
+  status TEXT NOT NULL DEFAULT 'not_configured'
+    CHECK (status IN ('not_configured', 'ok', 'limited', 'error', 'syncing')),
+  last_sync_at DATETIME,
+  last_success_at DATETIME,
+  last_error TEXT,
+  cursor_day TEXT,
+  meta_json TEXT,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
 `;
 
 /**
