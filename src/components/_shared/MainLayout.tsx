@@ -21,6 +21,13 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useTheme } from "@/app/providers";
 import { useAuth } from "@/app/auth/AuthContext";
 import { SourceFilter } from "@/components/_shared/SourceFilter";
+import { useSources } from "@/lib/queries";
+import { useNow } from "@/hooks/useNow";
+import {
+  getSystemHealth,
+  SYSTEM_STATUS_DOT_CLASS,
+  SYSTEM_STATUS_LABEL,
+} from "@/services/sourceHealth";
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
@@ -33,6 +40,32 @@ const navItems = [
   { to: "/generations", icon: ImageIcon, label: "Generations" },
   { to: "/settings", icon: Settings, label: "Settings" },
 ];
+
+function SystemStatusFooter() {
+  const { data: sources, isLoading, isError } = useSources();
+  // Recompute age-based health even when source payloads are unchanged.
+  const now = useNow();
+
+  const instances = (sources ?? []).flatMap((s) => s.instances);
+  const systemStatus = isError
+    ? ("Error" as const)
+    : isLoading && !sources
+      ? ("Unknown" as const)
+      : getSystemHealth(instances, now);
+
+  const label = isError ? "API Unreachable" : SYSTEM_STATUS_LABEL[systemStatus];
+
+  return (
+    <div className="border-t p-4">
+      <div className="flex items-center gap-3 rounded-lg bg-muted/50 px-3 py-2">
+        <div
+          className={`h-2 w-2 rounded-full ${SYSTEM_STATUS_DOT_CLASS[systemStatus]}`}
+        />
+        <span className="text-xs text-muted-foreground">{label}</span>
+      </div>
+    </div>
+  );
+}
 
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const location = useLocation();
@@ -89,13 +122,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         })}
       </nav>
 
-      {/* Footer */}
-      <div className="border-t p-4">
-        <div className="flex items-center gap-3 rounded-lg bg-muted/50 px-3 py-2">
-          <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-          <span className="text-xs text-muted-foreground">System Online</span>
-        </div>
-      </div>
+      <SystemStatusFooter />
     </div>
   );
 }

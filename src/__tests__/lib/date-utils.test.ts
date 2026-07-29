@@ -6,6 +6,8 @@ import { describe, test, expect } from "bun:test";
 import {
   parseDate,
   formatLastActive,
+  formatExactDate,
+  formatRelativeTime,
   compareDates,
 } from "../../lib/date-utils.js";
 
@@ -88,6 +90,38 @@ describe("formatLastActive", () => {
     expect(result).not.toBe("Invalid Date");
     expect(result).not.toBe("Never");
     expect(result.length).toBeGreaterThan(0);
+  });
+});
+
+describe("formatExactDate", () => {
+  test('returns "Never" for null/invalid', () => {
+    expect(formatExactDate(null)).toBe("Never");
+    expect(formatExactDate("not-a-date")).toBe("Never");
+  });
+
+  test("returns a locale datetime for valid timestamps", () => {
+    const iso = "2026-02-23T12:00:00.000Z";
+    const result = formatExactDate(iso);
+    expect(result).not.toBe("Never");
+    expect(result).not.toBe("Invalid Date");
+    expect(result.length).toBeGreaterThan(0);
+  });
+});
+
+describe("formatRelativeTime", () => {
+  test('returns "never" for null/invalid', () => {
+    expect(formatRelativeTime(null)).toBe("never");
+    expect(formatRelativeTime("garbage")).toBe("never");
+  });
+
+  test("returns seconds ago for recent timestamps", () => {
+    const tenSecsAgo = new Date(Date.now() - 10_000).toISOString();
+    expect(formatRelativeTime(tenSecsAgo)).toBe("10s ago");
+  });
+
+  test("returns minutes ago for older timestamps", () => {
+    const fiveMinsAgo = new Date(Date.now() - 5 * 60_000).toISOString();
+    expect(formatRelativeTime(fiveMinsAgo)).toBe("5m ago");
   });
 });
 

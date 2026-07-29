@@ -22,68 +22,60 @@ import {
   type RuntimeEvent,
   type RuntimeSnapshot,
   type Source,
+  type SourceInstance,
 } from "@/lib/queries";
-
-function formatRelativeTime(timestamp: string | null): string {
-  if (!timestamp) return "never";
-  const diffMs = new Date().getTime() - new Date(timestamp).getTime();
-  const diffSecs = Math.floor(diffMs / 1000);
-  if (diffSecs < 60) return `${diffSecs}s ago`;
-  const diffMins = Math.floor(diffSecs / 60);
-  if (diffMins < 60) return `${diffMins}m ago`;
-  const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-  return `${Math.floor(diffHours / 24)}d ago`;
-}
-
-function statusVariant(
-  status: string,
-): "success" | "destructive" | "secondary" | "outline" {
-  if (status === "ok") return "success";
-  if (status === "error") return "destructive";
-  if (status === "off") return "outline";
-  return "secondary";
-}
+import {
+  formatExactDate,
+  formatLastActive,
+  formatRelativeTime,
+} from "@/lib/date-utils";
+import { useNow } from "@/hooks/useNow";
+import {
+  getEffectiveHealth,
+  HEALTH_BADGE_VARIANT,
+  HEALTH_BORDER_CLASS,
+} from "@/services/sourceHealth";
 
 function InstanceHealthCard({
   source,
-  instanceId,
-  status,
-  lastSeenAt,
-  lastError,
+  instance,
+  now,
 }: {
   source: string;
-  instanceId: string;
-  status: string;
-  lastSeenAt: string | null;
-  lastError: string | null;
+  instance: SourceInstance;
+  now: number;
 }) {
+  const health = getEffectiveHealth(instance, now);
+
   return (
     <Card
-      className={`overflow-hidden border-l-4 ${
-        status === "ok"
-          ? "border-l-green-500"
-          : status === "error"
-            ? "border-l-red-500"
-            : "border-l-muted-foreground/30"
-      }`}
+      className={`overflow-hidden border-l-4 ${HEALTH_BORDER_CLASS[health.status]}`}
     >
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">{source}</CardTitle>
-        <Badge variant={statusVariant(status)} className="capitalize">
-          {status}
+        <Badge variant={HEALTH_BADGE_VARIANT[health.status]}>
+          {health.status}
         </Badge>
       </CardHeader>
       <CardContent>
-        <p className="text-xs text-muted-foreground font-mono">{instanceId}</p>
+        <p className="text-xs text-muted-foreground font-mono">{instance.id}</p>
         <p className="mt-1 text-xs text-muted-foreground">
-          {status === "off"
-            ? "Not connected — no collector polling this source yet"
-            : `Last seen ${formatRelativeTime(lastSeenAt)}`}
+          {health.reason && health.status === "Offline" && !instance.lastSeenAt
+            ? health.reason
+            : `Last seen ${formatLastActive(instance.lastSeenAt)}`}
         </p>
-        {lastError && (
+        {instance.lastSeenAt && (
+          <p
+            className="text-xs text-muted-foreground/70"
+            title={formatExactDate(instance.lastSeenAt)}
+          >
+            {formatExactDate(instance.lastSeenAt)}
+          </p>
+        )}
+        {(instance.lastError ||
+          (health.reason && health.status === "Error")) && (
           <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-            {lastError}
+            {instance.lastError ?? health.reason}
           </p>
         )}
       </CardContent>
@@ -227,6 +219,7 @@ function InferenceRequestRow({
 
 export default function Runtime() {
   const { data, isLoading, error } = useRuntime(50);
+  const now = useNow();
 
   if (isLoading) {
     return (
@@ -294,10 +287,8 @@ export default function Runtime() {
                 <InstanceHealthCard
                   key={instance.id}
                   source={source.name}
-                  instanceId={instance.id}
-                  status={instance.status}
-                  lastSeenAt={instance.lastSeenAt}
-                  lastError={instance.lastError}
+                  instance={instance}
+                  now={now}
                 />
               )),
             )}
