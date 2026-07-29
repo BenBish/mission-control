@@ -16,19 +16,16 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { AlertCircle, Info, Server } from "lucide-react";
 import { useSources } from "@/lib/queries";
-import { formatLastActive } from "@/lib/date-utils";
+import { formatExactDate, formatLastActive } from "@/lib/date-utils";
+import { useNow } from "@/hooks/useNow";
 import {
   getEffectiveHealth,
   HEALTH_BADGE_VARIANT,
 } from "@/services/sourceHealth";
 
-function formatExactDate(dateStr: string | null): string {
-  if (!dateStr) return "Never";
-  return new Date(dateStr).toLocaleString();
-}
-
 export default function SettingsPage() {
   const { data: sources, isLoading, error } = useSources();
+  const now = useNow();
 
   return (
     <div className="space-y-6">
@@ -99,7 +96,7 @@ export default function SettingsPage() {
                     <tbody>
                       {(sources ?? []).flatMap((source) =>
                         source.instances.map((instance) => {
-                          const health = getEffectiveHealth(instance);
+                          const health = getEffectiveHealth(instance, now);
                           return (
                             <tr
                               key={instance.id}

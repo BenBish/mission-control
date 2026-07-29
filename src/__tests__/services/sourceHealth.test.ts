@@ -4,6 +4,11 @@
 
 import { describe, expect, test } from "bun:test";
 import {
+  DEFAULT_OFFLINE_MS,
+  DEFAULT_STALE_MS,
+  resolveHeartbeatThresholds,
+} from "../../config/heartbeatThresholds";
+import {
   getEffectiveHealth,
   getSystemHealth,
   type HealthInput,
@@ -192,5 +197,50 @@ describe("getSystemHealth", () => {
 
   test("empty list → Unknown", () => {
     expect(getSystemHealth([], NOW, THRESHOLDS)).toBe("Unknown");
+  });
+});
+
+describe("resolveHeartbeatThresholds", () => {
+  test("returns defaults when called with no args", () => {
+    expect(resolveHeartbeatThresholds()).toEqual({
+      stale: DEFAULT_STALE_MS,
+      offline: DEFAULT_OFFLINE_MS,
+    });
+  });
+
+  test("accepts valid custom thresholds", () => {
+    expect(resolveHeartbeatThresholds(60_000, 180_000)).toEqual({
+      stale: 60_000,
+      offline: 180_000,
+    });
+  });
+
+  test("falls back to defaults when offline <= stale", () => {
+    expect(resolveHeartbeatThresholds(10 * MINUTE, 5 * MINUTE)).toEqual({
+      stale: DEFAULT_STALE_MS,
+      offline: DEFAULT_OFFLINE_MS,
+    });
+    expect(resolveHeartbeatThresholds(5 * MINUTE, 5 * MINUTE)).toEqual({
+      stale: DEFAULT_STALE_MS,
+      offline: DEFAULT_OFFLINE_MS,
+    });
+  });
+
+  test("falls back when non-positive values are provided", () => {
+    expect(resolveHeartbeatThresholds(0, 15 * MINUTE)).toEqual({
+      stale: DEFAULT_STALE_MS,
+      offline: DEFAULT_OFFLINE_MS,
+    });
+  });
+
+  test("getEffectiveHealth normalizes inverted thresholds before aging", () => {
+    // inverted thresholds would make Stale unreachable without normalization
+    const health = getEffectiveHealth(
+      instance({ lastSeenAt: iso(THRESHOLDS.stale + 1) }),
+      NOW,
+      { stale: 15 * MINUTE, offline: 5 * MINUTE },
+    );
+    // falls back to defaults (5m stale / 15m offline) so age past 5m is Stale
+    expect(health.status).toBe("Stale");
   });
 });

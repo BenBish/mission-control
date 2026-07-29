@@ -22,6 +22,7 @@ import { useTheme } from "@/app/providers";
 import { useAuth } from "@/app/auth/AuthContext";
 import { SourceFilter } from "@/components/_shared/SourceFilter";
 import { useSources } from "@/lib/queries";
+import { useNow } from "@/hooks/useNow";
 import {
   getSystemHealth,
   SYSTEM_STATUS_DOT_CLASS,
@@ -42,13 +43,15 @@ const navItems = [
 
 function SystemStatusFooter() {
   const { data: sources, isLoading, isError } = useSources();
+  // Recompute age-based health even when source payloads are unchanged.
+  const now = useNow();
 
   const instances = (sources ?? []).flatMap((s) => s.instances);
   const systemStatus = isError
     ? ("Error" as const)
     : isLoading && !sources
       ? ("Unknown" as const)
-      : getSystemHealth(instances);
+      : getSystemHealth(instances, now);
 
   const label = isError ? "API Unreachable" : SYSTEM_STATUS_LABEL[systemStatus];
 

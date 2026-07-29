@@ -43,6 +43,38 @@ export function formatLastActive(timestamp: string | null | undefined): string {
 }
 
 /**
+ * Format a timestamp as an exact local datetime string.
+ * Returns "Never" for null / undefined / empty / invalid timestamps.
+ */
+export function formatExactDate(timestamp: string | null | undefined): string {
+  const date = parseDate(timestamp);
+  if (!date) return "Never";
+  return date.toLocaleString();
+}
+
+/**
+ * Compact relative time with second precision for recent events
+ * (runtime samples, inference requests). Returns "never" for missing/invalid.
+ */
+export function formatRelativeTime(
+  timestamp: string | null | undefined,
+): string {
+  const date = parseDate(timestamp);
+  if (!date) return "never";
+
+  const diffMs = Date.now() - date.getTime();
+  if (diffMs < 0) return "0s ago";
+
+  const diffSecs = Math.floor(diffMs / 1000);
+  if (diffSecs < 60) return `${diffSecs}s ago`;
+  const diffMins = Math.floor(diffSecs / 60);
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  return `${Math.floor(diffHours / 24)}d ago`;
+}
+
+/**
  * Compare two date strings for sorting purposes.
  *
  * Null / empty / invalid dates sort to the bottom (treated as epoch 0).

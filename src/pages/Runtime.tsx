@@ -24,38 +24,28 @@ import {
   type Source,
   type SourceInstance,
 } from "@/lib/queries";
-import { formatLastActive } from "@/lib/date-utils";
+import {
+  formatExactDate,
+  formatLastActive,
+  formatRelativeTime,
+} from "@/lib/date-utils";
+import { useNow } from "@/hooks/useNow";
 import {
   getEffectiveHealth,
   HEALTH_BADGE_VARIANT,
   HEALTH_BORDER_CLASS,
 } from "@/services/sourceHealth";
 
-function formatRelativeTime(timestamp: string | null): string {
-  if (!timestamp) return "never";
-  const diffMs = new Date().getTime() - new Date(timestamp).getTime();
-  const diffSecs = Math.floor(diffMs / 1000);
-  if (diffSecs < 60) return `${diffSecs}s ago`;
-  const diffMins = Math.floor(diffSecs / 60);
-  if (diffMins < 60) return `${diffMins}m ago`;
-  const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-  return `${Math.floor(diffHours / 24)}d ago`;
-}
-
-function formatExactDate(dateStr: string | null): string {
-  if (!dateStr) return "Never";
-  return new Date(dateStr).toLocaleString();
-}
-
 function InstanceHealthCard({
   source,
   instance,
+  now,
 }: {
   source: string;
   instance: SourceInstance;
+  now: number;
 }) {
-  const health = getEffectiveHealth(instance);
+  const health = getEffectiveHealth(instance, now);
 
   return (
     <Card
@@ -229,6 +219,7 @@ function InferenceRequestRow({
 
 export default function Runtime() {
   const { data, isLoading, error } = useRuntime(50);
+  const now = useNow();
 
   if (isLoading) {
     return (
@@ -297,6 +288,7 @@ export default function Runtime() {
                   key={instance.id}
                   source={source.name}
                   instance={instance}
+                  now={now}
                 />
               )),
             )}

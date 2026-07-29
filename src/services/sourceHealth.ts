@@ -1,7 +1,7 @@
 import {
-  DEFAULT_OFFLINE_MS,
-  DEFAULT_STALE_MS,
   HEARTBEAT_THRESHOLDS,
+  resolveHeartbeatThresholds,
+  type HeartbeatThresholds,
 } from "../config/heartbeatThresholds";
 
 export type HealthStatus =
@@ -58,10 +58,7 @@ export const HEALTH_BORDER_CLASS: Record<HealthStatus, string> = {
 
 const HEALTHY_STATUSES = new Set(["ok", "healthy", "on"]);
 
-export interface Thresholds {
-  stale: number;
-  offline: number;
-}
+export type Thresholds = HeartbeatThresholds;
 
 /**
  * Determine the effective health of a source instance.
@@ -73,20 +70,23 @@ export interface Thresholds {
  *   4. Heartbeat older than offline threshold → Offline
  *   5. Heartbeat older than stale threshold → Stale
  *   6. Persisted healthy status + fresh heartbeat → Healthy
- *   7. Fallback → Unknown (or Offline when status is off-like)
+ *   7. Fallback → Unknown (or offline when status is off-like)
  *
  * `now` and `thresholds` are injectable for deterministic tests.
+ * Callers that keep a page open should pass a ticking `now` (see `useNow`)
+ * so age transitions still re-render when source data is unchanged.
  */
 export function getEffectiveHealth(
   instance: HealthInput,
   now: number = Date.now(),
-  thresholds: Thresholds = {
-    stale: HEARTBEAT_THRESHOLDS.stale,
-    offline: HEARTBEAT_THRESHOLDS.offline,
-  },
+  thresholds: Thresholds = HEARTBEAT_THRESHOLDS,
 ): SourceHealth {
   const { status, lastSeenAt, lastError } = instance;
   const statusLower = (status ?? "").toLowerCase();
+  const { stale: staleMs, offline: offlineMs } = resolveHeartbeatThresholds(
+    thresholds.stale,
+    thresholds.offline,
+  );
 
   if (lastError || statusLower === "error") {
     return {
@@ -120,9 +120,6 @@ export function getEffectiveHealth(
   }
 
   const ageMs = now - lastSeenMs;
-  const staleMs = thresholds.stale > 0 ? thresholds.stale : DEFAULT_STALE_MS;
-  const offlineMs =
-    thresholds.offline > 0 ? thresholds.offline : DEFAULT_OFFLINE_MS;
 
   if (ageMs > offlineMs) {
     return { status: "Offline", lastSeenAt, reason: "Heartbeat expired" };
@@ -151,7 +148,7 @@ export function getEffectiveHealth(
 export function getSystemHealth(
   instances: HealthInput[],
   now: number = Date.now(),
-  thresholds?: Thresholds,
+  thresholds: Thresholds = HEARTBEAT_THRESHOLDS,
 ): SystemStatus {
   const relevant = instances.filter(
     (i) => (i.status ?? "").toLowerCase() !== "off",
