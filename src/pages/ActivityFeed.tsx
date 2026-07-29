@@ -23,6 +23,7 @@ import { Loading } from "@/components/_shared/Loading";
 import type { Activity, ActionType, ActivityStatus } from "@/types/activity";
 import { actorIcon } from "@/lib/actor-display";
 import { useSourceFilter } from "@/app/source-context";
+import { scopePhrase } from "@/config/sourceScope";
 import { useActivityList } from "@/lib/queries";
 import { useSSE } from "@/hooks/useSSE";
 import {
@@ -75,7 +76,8 @@ const ACTION_TYPE_OPTIONS = [
 export default function ActivityFeed() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { selectedSourceId } = useSourceFilter();
+  const { selectedSourceId, sources } = useSourceFilter();
+  const pageDescription = `System activities and events ${scopePhrase(selectedSourceId, sources)}`;
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [page, setPage] = useState(1);
   const [hasNewActivity, setHasNewActivity] = useState(false);
@@ -205,10 +207,7 @@ export default function ActivityFeed() {
   if (error) {
     return (
       <div className="space-y-6">
-        <PageHeader
-          title="Activity Feed"
-          description="View all system activities and events"
-        />
+        <PageHeader title="Activity Feed" description={pageDescription} />
         <Card className="border-destructive">
           <CardContent className="flex items-center gap-3 py-6">
             <X className="h-5 w-5 text-destructive" />
@@ -228,10 +227,7 @@ export default function ActivityFeed() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Activity Feed"
-        description="View all system activities and events"
-      />
+      <PageHeader title="Activity Feed" description={pageDescription} />
 
       {/* Filter bar */}
       <Card className="shadow-sm">

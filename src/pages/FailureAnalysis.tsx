@@ -4,6 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/_shared/PageHeader";
 import { Loading } from "@/components/_shared/Loading";
 import { AlertTriangle } from "lucide-react";
+import { useSourceFilter } from "@/app/source-context";
+import { scopePhrase } from "@/config/sourceScope";
 import { useFailures } from "@/lib/queries";
 
 const KIND_LABEL: Record<string, string> = {
@@ -25,15 +27,18 @@ function formatRelativeTime(timestamp: string): string {
 
 export default function FailureAnalysis() {
   const navigate = useNavigate();
-  const { data: failures, isLoading, error } = useFailures(50);
+  const { selectedSourceId, sources } = useSourceFilter();
+  const pageDescription = `Recent failures ${scopePhrase(selectedSourceId, sources)}`;
+  const {
+    data: failures,
+    isLoading,
+    error,
+  } = useFailures({ limit: 50, sourceId: selectedSourceId });
 
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <PageHeader
-          title="Failure Analysis"
-          description="Recent failures across all sources"
-        />
+        <PageHeader title="Failure Analysis" description={pageDescription} />
         <Loading />
       </div>
     );
@@ -42,10 +47,7 @@ export default function FailureAnalysis() {
   if (error) {
     return (
       <div className="space-y-6">
-        <PageHeader
-          title="Failure Analysis"
-          description="Recent failures across all sources"
-        />
+        <PageHeader title="Failure Analysis" description={pageDescription} />
         <Card className="border-destructive">
           <CardContent className="py-6">
             <p className="font-medium text-destructive">Error</p>
@@ -62,10 +64,7 @@ export default function FailureAnalysis() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Failure Analysis"
-        description="Recent failures across all sources"
-      />
+      <PageHeader title="Failure Analysis" description={pageDescription} />
 
       <Card className="overflow-hidden border-l-4 border-l-red-500 sm:w-64">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

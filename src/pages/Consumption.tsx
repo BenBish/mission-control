@@ -52,12 +52,15 @@ function statusBadgeVariant(
 }
 
 export default function Consumption() {
-  const { selectedSourceId } = useSourceFilter();
+  const { selectedSourceId, sources } = useSourceFilter();
   const [datePreset, setDatePreset] = useState<DatePreset>("30d");
   const [unit, setUnit] = useState<Unit>("tokens");
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const queryClient = useQueryClient();
+  const agentScope = selectedSourceId
+    ? (sources.find((s) => s.id === selectedSourceId)?.name ?? selectedSourceId)
+    : "all sources";
 
   // Memoized on datePreset only — getSince() reads the current time, so
   // calling it directly in the hook args would produce a new `since` value
@@ -173,13 +176,12 @@ export default function Consumption() {
     }
   }
 
+  const pageDescription = `Token, compute, and cost usage for ${agentScope} (agent logs); provider API costs are account-wide`;
+
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <PageHeader
-          title="Consumption"
-          description="Token, compute, and cost usage by source"
-        />
+        <PageHeader title="Consumption" description={pageDescription} />
         <Loading />
       </div>
     );
@@ -188,10 +190,7 @@ export default function Consumption() {
   if (error) {
     return (
       <div className="space-y-6">
-        <PageHeader
-          title="Consumption"
-          description="Token, compute, and cost usage by source"
-        />
+        <PageHeader title="Consumption" description={pageDescription} />
         <Card className="border-destructive">
           <CardContent className="py-6">
             <p className="font-medium text-destructive">Error</p>
@@ -206,10 +205,7 @@ export default function Consumption() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Consumption"
-        description="Token, compute, and cost usage by source"
-      />
+      <PageHeader title="Consumption" description={pageDescription} />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2">
@@ -406,7 +402,7 @@ export default function Consumption() {
         </>
       )}
 
-      {/* Provider API billing — distinct from session-log / agent sources above */}
+      {/* Provider API billing — account-wide; never filtered by source selector */}
       <Card className="shadow-sm border-dashed">
         <CardHeader className="pb-4 border-b">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -414,12 +410,18 @@ export default function Consumption() {
               <CardTitle className="text-lg flex items-center gap-2">
                 <Cloud className="h-5 w-5" />
                 Provider API costs
+                <Badge variant="outline" className="text-xs font-normal">
+                  Account-wide · not filtered by source
+                </Badge>
               </CardTitle>
               <CardDescription className="mt-1">
                 Account-level usage from OpenRouter, Anthropic, OpenAI, and xAI
-                billing APIs — separate from agent session logs above. Not
-                double-counted with source totals. If OpenRouter BYOK and a
-                direct provider (e.g. Anthropic) are both configured, the same
+                billing APIs — separate from agent session logs above
+                {selectedSourceId
+                  ? ` (still account-wide while “${agentScope}” is selected)`
+                  : ""}
+                . Not double-counted with source totals. If OpenRouter BYOK and
+                a direct provider (e.g. Anthropic) are both configured, the same
                 spend can appear under both connectors.
               </CardDescription>
             </div>

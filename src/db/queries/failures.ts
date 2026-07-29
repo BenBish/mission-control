@@ -28,11 +28,13 @@ export interface FailureItem {
 export async function listRecentFailures(
   db: SqliteDatabase,
   limit = 50,
+  sourceId?: string,
 ): Promise<FailureItem[]> {
+  // Filter in SQL (not post-slice) so LIMIT applies per-source correctly.
   const [activities, inferenceRequests, runtimeEvents] = await Promise.all([
-    listFailedActivities(db, limit),
-    listFailedInferenceRequests(db, limit),
-    listRecentRuntimeEvents(db, limit),
+    listFailedActivities(db, limit, sourceId),
+    listFailedInferenceRequests(db, limit, sourceId),
+    listRecentRuntimeEvents(db, limit, sourceId),
   ]);
 
   const items: FailureItem[] = [

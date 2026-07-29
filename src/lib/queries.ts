@@ -230,13 +230,19 @@ export interface FailureItem {
   detail?: string;
 }
 
-export function useFailures(limit = 50): UseQueryResult<FailureItem[]> {
+export function useFailures(
+  opts: {
+    limit?: number;
+    sourceId?: string;
+  } = {},
+): UseQueryResult<FailureItem[]> {
+  const limit = opts.limit ?? 50;
   return useQuery({
-    queryKey: ["failures", limit],
+    queryKey: ["failures", { limit, sourceId: opts.sourceId }],
     queryFn: async () =>
       (
         await getJson<{ failures: FailureItem[] }>(
-          `/api/failures?limit=${limit}`,
+          `/api/failures${toQueryString({ limit, sourceId: opts.sourceId })}`,
         )
       ).failures,
   });
@@ -271,11 +277,19 @@ export interface JobRun {
   error?: string;
 }
 
-export function useJobs(): UseQueryResult<BackgroundJob[]> {
+export function useJobs(
+  opts: {
+    sourceId?: string;
+  } = {},
+): UseQueryResult<BackgroundJob[]> {
   return useQuery({
-    queryKey: ["jobs"],
+    queryKey: ["jobs", opts],
     queryFn: async () =>
-      (await getJson<{ jobs: BackgroundJob[] }>("/api/jobs")).jobs,
+      (
+        await getJson<{ jobs: BackgroundJob[] }>(
+          `/api/jobs${toQueryString(opts)}`,
+        )
+      ).jobs,
     refetchInterval: 30_000,
   });
 }
@@ -440,13 +454,19 @@ export interface GenerationJob {
   details: unknown;
 }
 
-export function useGenerations(limit = 50): UseQueryResult<GenerationJob[]> {
+export function useGenerations(
+  opts: {
+    limit?: number;
+    sourceId?: string;
+  } = {},
+): UseQueryResult<GenerationJob[]> {
+  const limit = opts.limit ?? 50;
   return useQuery({
-    queryKey: ["generations", limit],
+    queryKey: ["generations", { limit, sourceId: opts.sourceId }],
     queryFn: async () =>
       (
         await getJson<{ jobs: GenerationJob[] }>(
-          `/api/generations?limit=${limit}`,
+          `/api/generations${toQueryString({ limit, sourceId: opts.sourceId })}`,
         )
       ).jobs,
     refetchInterval: 15_000,

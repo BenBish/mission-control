@@ -188,7 +188,15 @@ export async function listSessionActivities(
 export async function listFailedActivities(
   db: SqliteDatabase,
   limit = 50,
+  sourceId?: string,
 ): Promise<ActivityRow[]> {
+  if (sourceId) {
+    return db.all<ActivityRow[]>(
+      `SELECT * FROM activities WHERE status = 'failure' AND source_id = ? ORDER BY timestamp DESC LIMIT ?`,
+      sourceId,
+      limit,
+    );
+  }
   return db.all<ActivityRow[]>(
     `SELECT * FROM activities WHERE status = 'failure' ORDER BY timestamp DESC LIMIT ?`,
     limit,

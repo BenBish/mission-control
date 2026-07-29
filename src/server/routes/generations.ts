@@ -34,7 +34,9 @@ function toApiShape(row: GenerationJobRow) {
 export function registerGenerationRoutes(app: Express, db: Database): void {
   app.get("/api/generations", async (req: Request, res: Response) => {
     const limit = req.query.limit ? Number(req.query.limit) : undefined;
-    const jobs = await listGenerationJobs(db.raw(), limit);
+    const sourceId =
+      typeof req.query.sourceId === "string" ? req.query.sourceId : undefined;
+    const jobs = await listGenerationJobs(db.raw(), { limit, sourceId });
     res.json({ success: true, jobs: jobs.map(toApiShape) });
   });
 

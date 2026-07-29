@@ -58,7 +58,14 @@ export interface JobRunRow {
 
 export async function listBackgroundJobs(
   db: SqliteDatabase,
+  opts: { sourceId?: string } = {},
 ): Promise<BackgroundJobRow[]> {
+  if (opts.sourceId) {
+    return db.all<BackgroundJobRow[]>(
+      `SELECT * FROM background_jobs WHERE source_id = ? ORDER BY name`,
+      opts.sourceId,
+    );
+  }
   return db.all<BackgroundJobRow[]>(
     `SELECT * FROM background_jobs ORDER BY name`,
   );

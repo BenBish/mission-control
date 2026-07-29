@@ -4,6 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/_shared/PageHeader";
 import { Loading } from "@/components/_shared/Loading";
 import { Clock, AlertCircle } from "lucide-react";
+import { useSourceFilter } from "@/app/source-context";
+import { scopePhrase } from "@/config/sourceScope";
 import { useJobs } from "@/lib/queries";
 import { ContentionIncidents } from "./ContentionIncidents";
 
@@ -14,15 +16,20 @@ function formatTimestamp(ms?: number): string {
 
 export function JobsList() {
   const navigate = useNavigate();
-  const { data: jobs, isLoading, error } = useJobs();
+  const { selectedSourceId, sources } = useSourceFilter();
+  const pageDescription = `Background work ${scopePhrase(selectedSourceId, sources)} — Hermes jobs and collector self-observation`;
+  const {
+    data: jobs,
+    isLoading,
+    error,
+  } = useJobs({
+    sourceId: selectedSourceId,
+  });
 
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <PageHeader
-          title="Jobs"
-          description="Background work — Hermes jobs and collector self-observation"
-        />
+        <PageHeader title="Jobs" description={pageDescription} />
         <Loading />
       </div>
     );
@@ -31,10 +38,7 @@ export function JobsList() {
   if (error) {
     return (
       <div className="space-y-6">
-        <PageHeader
-          title="Jobs"
-          description="Background work — Hermes jobs and collector self-observation"
-        />
+        <PageHeader title="Jobs" description={pageDescription} />
         <Card className="border-destructive">
           <CardContent className="flex items-center gap-3 py-6">
             <AlertCircle className="h-5 w-5 text-destructive" />
@@ -51,10 +55,7 @@ export function JobsList() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Jobs"
-        description="Background work — Hermes jobs and collector self-observation"
-      />
+      <PageHeader title="Jobs" description={pageDescription} />
 
       {count === 0 ? (
         <Card>

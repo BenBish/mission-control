@@ -150,7 +150,15 @@ export interface RuntimeEventRow {
 export async function listRecentRuntimeEvents(
   db: SqliteDatabase,
   limit = 50,
+  sourceId?: string,
 ): Promise<RuntimeEventRow[]> {
+  if (sourceId) {
+    return db.all<RuntimeEventRow[]>(
+      `SELECT * FROM runtime_events WHERE source_id = ? ORDER BY timestamp DESC LIMIT ?`,
+      sourceId,
+      limit,
+    );
+  }
   return db.all<RuntimeEventRow[]>(
     `SELECT * FROM runtime_events ORDER BY timestamp DESC LIMIT ?`,
     limit,
@@ -175,7 +183,15 @@ export interface InferenceRequestRow {
 export async function listFailedInferenceRequests(
   db: SqliteDatabase,
   limit = 50,
+  sourceId?: string,
 ): Promise<InferenceRequestRow[]> {
+  if (sourceId) {
+    return db.all<InferenceRequestRow[]>(
+      `SELECT * FROM inference_requests WHERE status != 'success' AND source_id = ? ORDER BY timestamp DESC LIMIT ?`,
+      sourceId,
+      limit,
+    );
+  }
   return db.all<InferenceRequestRow[]>(
     `SELECT * FROM inference_requests WHERE status != 'success' ORDER BY timestamp DESC LIMIT ?`,
     limit,

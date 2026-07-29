@@ -233,7 +233,7 @@ export default function Runtime() {
       <div className="space-y-6">
         <PageHeader
           title="Runtime"
-          description="Inference backend health, slot occupancy, and recent requests"
+          description="Fleet-wide inference telemetry (not filtered by source)"
         />
         <Loading />
       </div>
@@ -245,7 +245,7 @@ export default function Runtime() {
       <div className="space-y-6">
         <PageHeader
           title="Runtime"
-          description="Inference backend health, slot occupancy, and recent requests"
+          description="Fleet-wide inference telemetry (not filtered by source)"
         />
         <Card className="border-destructive">
           <CardContent className="flex items-center gap-3 py-6">
@@ -274,7 +274,7 @@ export default function Runtime() {
     <div className="space-y-6">
       <PageHeader
         title="Runtime"
-        description="Inference backend health, slot occupancy, and recent requests"
+        description="Fleet-wide inference telemetry (not filtered by source)"
       />
 
       {!anyInstances ? (

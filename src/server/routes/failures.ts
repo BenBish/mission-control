@@ -5,7 +5,9 @@ import { listRecentFailures } from "../../db/queries/failures.js";
 export function registerFailureRoutes(app: Express, db: Database): void {
   app.get("/api/failures", async (req: Request, res: Response) => {
     const limit = req.query.limit ? Number(req.query.limit) : undefined;
-    const failures = await listRecentFailures(db.raw(), limit);
+    const sourceId =
+      typeof req.query.sourceId === "string" ? req.query.sourceId : undefined;
+    const failures = await listRecentFailures(db.raw(), limit, sourceId);
     res.json({ success: true, failures });
   });
 }

@@ -1,18 +1,25 @@
 import { Image as ImageIcon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/_shared/PageHeader";
+import { useSourceFilter } from "@/app/source-context";
+import { scopePhrase } from "@/config/sourceScope";
 import { useGenerations } from "@/lib/queries";
 import { GenerationCard } from "./GenerationCard";
 
 export function GenerationsList() {
-  const { data: jobs, isLoading, error } = useGenerations();
+  const { selectedSourceId, sources } = useSourceFilter();
+  const {
+    data: jobs,
+    isLoading,
+    error,
+  } = useGenerations({
+    sourceId: selectedSourceId,
+  });
+  const pageDescription = `Image/video generation jobs (ComfyUI) ${scopePhrase(selectedSourceId, sources)}`;
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Generations"
-        description="Image/video generation jobs (ComfyUI)"
-      />
+      <PageHeader title="Generations" description={pageDescription} />
 
       {isLoading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
