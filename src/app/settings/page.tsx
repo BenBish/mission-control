@@ -16,18 +16,13 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { AlertCircle, Info, Server } from "lucide-react";
 import { useSources } from "@/lib/queries";
+import { formatLastActive } from "@/lib/date-utils";
+import {
+  getEffectiveHealth,
+  HEALTH_BADGE_VARIANT,
+} from "@/services/sourceHealth";
 
-const STATUS_VARIANT: Record<
-  string,
-  "success" | "destructive" | "secondary" | "outline"
-> = {
-  ok: "success",
-  error: "destructive",
-  off: "outline",
-  unknown: "secondary",
-};
-
-function formatDate(dateStr: string | null): string {
+function formatExactDate(dateStr: string | null): string {
   if (!dateStr) return "Never";
   return new Date(dateStr).toLocaleString();
 }
@@ -60,7 +55,8 @@ export default function SettingsPage() {
               <CardTitle>Sources</CardTitle>
               <CardDescription>
                 Every source and its collector instances, seeded once at server
-                startup. Status/last-seen update as collectors send heartbeats.
+                startup. Effective status uses heartbeat age so stale collectors
+                cannot stay green indefinitely.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -102,43 +98,57 @@ export default function SettingsPage() {
                     </thead>
                     <tbody>
                       {(sources ?? []).flatMap((source) =>
-                        source.instances.map((instance) => (
-                          <tr
-                            key={instance.id}
-                            className="border-b last:border-0"
-                          >
-                            <td className="px-4 py-2 font-medium">
-                              {source.name}
-                            </td>
-                            <td className="px-4 py-2 font-mono text-xs">
-                              {instance.id}
-                            </td>
-                            <td className="px-4 py-2">{instance.machine}</td>
-                            <td className="px-4 py-2">
-                              <Badge variant="outline" className="text-xs">
-                                {instance.collectorKind}
-                              </Badge>
-                            </td>
-                            <td className="px-4 py-2">
-                              <Badge
-                                variant={
-                                  STATUS_VARIANT[instance.status] ?? "secondary"
-                                }
-                                className="capitalize"
-                              >
-                                {instance.status}
-                              </Badge>
-                              {instance.lastError && (
-                                <p className="mt-1 text-xs text-destructive">
-                                  {instance.lastError}
-                                </p>
-                              )}
-                            </td>
-                            <td className="px-4 py-2 text-right text-muted-foreground">
-                              {formatDate(instance.lastSeenAt)}
-                            </td>
-                          </tr>
-                        )),
+                        source.instances.map((instance) => {
+                          const health = getEffectiveHealth(instance);
+                          return (
+                            <tr
+                              key={instance.id}
+                              className="border-b last:border-0"
+                            >
+                              <td className="px-4 py-2 font-medium">
+                                {source.name}
+                              </td>
+                              <td className="px-4 py-2 font-mono text-xs">
+                                {instance.id}
+                              </td>
+                              <td className="px-4 py-2">{instance.machine}</td>
+                              <td className="px-4 py-2">
+                                <Badge variant="outline" className="text-xs">
+                                  {instance.collectorKind}
+                                </Badge>
+                              </td>
+                              <td className="px-4 py-2">
+                                <Badge
+                                  variant={HEALTH_BADGE_VARIANT[health.status]}
+                                >
+                                  {health.status}
+                                </Badge>
+                                {instance.lastError && (
+                                  <p className="mt-1 text-xs text-destructive">
+                                    {instance.lastError}
+                                  </p>
+                                )}
+                              </td>
+                              <td className="px-4 py-2 text-right text-muted-foreground">
+                                <div className="flex flex-col items-end gap-0.5">
+                                  <span>
+                                    {formatLastActive(instance.lastSeenAt)}
+                                  </span>
+                                  {instance.lastSeenAt && (
+                                    <span
+                                      className="text-xs opacity-70"
+                                      title={formatExactDate(
+                                        instance.lastSeenAt,
+                                      )}
+                                    >
+                                      {formatExactDate(instance.lastSeenAt)}
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        }),
                       )}
                     </tbody>
                   </table>
