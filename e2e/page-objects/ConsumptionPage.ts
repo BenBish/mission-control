@@ -126,4 +126,16 @@ export class ConsumptionPage extends BasePage {
   async selectAllSourcesFilter() {
     await this.selectSourceFilter("All sources");
   }
+
+  /** Select a source from the global source filter (header combobox) */
+  async selectSourceFilter(sourceName: string) {
+    const trigger = this.page.getByRole("combobox").first();
+    await trigger.click();
+    await this.page.getByRole("option", { name: sourceName }).click();
+  }
+
+  /** Reset source filter to all sources */
+  async selectAllSourcesFilter() {
+    await this.selectSourceFilter("All sources");
+  }
 }

@@ -48,7 +48,6 @@ import {
   Clock,
   DollarSign,
 } from "lucide-react";
-
 const STATUS_DOT: Record<string, string> = {
   ok: "bg-green-500",
   off: "bg-muted-foreground/40",
