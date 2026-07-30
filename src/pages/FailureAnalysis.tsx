@@ -7,6 +7,7 @@ import { AlertTriangle } from "lucide-react";
 import { useFilterableSourceId, useSourceFilter } from "@/app/source-context";
 import { scopePhrase } from "@/config/sourceScope";
 import { useFailures } from "@/lib/queries";
+import { failureStatusScopeLabel } from "@/types/failures";
 
 const KIND_LABEL: Record<string, string> = {
   activity: "Activity",
@@ -63,9 +64,26 @@ export default function FailureAnalysis() {
 
   const failures = failuresData?.failures ?? [];
   const summary = failuresData?.summary;
-  const total = summary?.total ?? 0;
-  const last24Hours = summary?.last24Hours ?? 0;
-  const openRuntime = summary?.openRuntimeEvents ?? 0;
+  // useFailures throws when summary is missing; still guard for typing.
+  if (!summary) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Failure Analysis" description={pageDescription} />
+        <Card className="border-destructive">
+          <CardContent className="py-6">
+            <p className="font-medium text-destructive">Error</p>
+            <p className="text-sm text-muted-foreground">
+              Failures API response missing summary aggregates
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+  const total = summary.total;
+  const last24Hours = summary.last24Hours;
+  const openRuntime = summary.openRuntimeEvents;
+  const scopeLabel = failureStatusScopeLabel(summary);
 
   return (
     <div className="space-y-6">
@@ -86,8 +104,7 @@ export default function FailureAnalysis() {
               {total.toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              All time · activity failure · inference non-success · runtime
-              non-info
+              All time · {scopeLabel}
             </p>
           </CardContent>
         </Card>
@@ -106,8 +123,7 @@ export default function FailureAnalysis() {
               {last24Hours.toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Last 24 hours · activity failure · inference non-success · runtime
-              non-info
+              Last 24 hours · {scopeLabel}
             </p>
           </CardContent>
         </Card>
@@ -207,10 +223,9 @@ export default function FailureAnalysis() {
             {total > failures.length && (
               <p className="px-4 py-3 text-xs text-muted-foreground border-t">
                 Showing {failures.length.toLocaleString()} of{" "}
-                {total.toLocaleString()} failures
-                {summary?.byKind
-                  ? ` (${summary.byKind.activity} activity · ${summary.byKind.inference_request} inference · ${summary.byKind.runtime_event} runtime)`
-                  : ""}
+                {total.toLocaleString()} failures ({summary.byKind.activity}{" "}
+                activity · {summary.byKind.inference_request} inference ·{" "}
+                {summary.byKind.runtime_event} runtime)
               </p>
             )}
           </CardContent>

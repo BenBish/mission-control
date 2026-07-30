@@ -1,30 +1,7 @@
 import type { Database as SqliteDatabase } from "sqlite";
+import type { FailureItem, FailureSummary } from "../../types/failures.js";
 
-export interface FailureItem {
-  kind: "activity" | "inference_request" | "runtime_event";
-  id: string;
-  sourceId: string;
-  timestamp: string;
-  summary: string;
-  detail?: string;
-}
-
-export interface FailureSummary {
-  total: number;
-  last24Hours: number;
-  openRuntimeEvents: number;
-  byKind: {
-    activity: number;
-    inference_request: number;
-    runtime_event: number;
-  };
-  definitions: {
-    total: string;
-    last24Hours: string;
-    openRuntimeEvents: string;
-    statusScope: string;
-  };
-}
+export type { FailureItem, FailureSummary };
 
 interface FailureUnionRow {
   kind: "activity" | "inference_request" | "runtime_event";
@@ -35,13 +12,13 @@ interface FailureUnionRow {
   detail: string | null;
 }
 
-const FAILURE_DEFINITIONS = {
+const FAILURE_DEFINITIONS: FailureSummary["definitions"] = {
   total: "all-time matching failures",
   last24Hours: "matching failures with timestamp >= now-24h",
   openRuntimeEvents:
     "runtime_events with severity != info and ended_at IS NULL",
   statusScope: "activity failure | inference non-success | runtime non-info",
-} as const;
+};
 
 /**
  * Union of activity failures + inference failures + runtime_events.
