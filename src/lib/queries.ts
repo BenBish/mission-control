@@ -270,7 +270,7 @@ export interface SpendAnomaly {
 export interface SpendSyncWarning {
   provider: string;
   status: string;
-  reason: "error" | "stale" | "not_configured" | "limited";
+  reason: "error" | "stale" | "not_configured" | "limited" | "no_sync_data";
   lastSuccessAt: string | null;
   lastError: string | null;
 }

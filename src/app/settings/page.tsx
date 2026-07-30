@@ -4,6 +4,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/_shared/PageHeader";
 import { Loading } from "@/components/_shared/Loading";
@@ -18,6 +19,13 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { AlertCircle, DollarSign, Info, Server } from "lucide-react";
 import {
   updateProviderBudget,
@@ -30,6 +38,13 @@ import {
   getEffectiveHealth,
   HEALTH_BADGE_VARIANT,
 } from "@/services/sourceHealth";
+
+type SettingsTab = "sources" | "budgets" | "about";
+
+function parseSettingsTab(raw: string | null): SettingsTab {
+  if (raw === "budgets" || raw === "about" || raw === "sources") return raw;
+  return "sources";
+}
 
 const COMMON_TIMEZONES = [
   "UTC",
@@ -52,12 +67,26 @@ export default function SettingsPage() {
   } = useProviderBudget();
   const queryClient = useQueryClient();
   const now = useNow();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = parseSettingsTab(searchParams.get("tab"));
 
   const [budgetInput, setBudgetInput] = useState("");
   const [timezone, setTimezone] = useState("UTC");
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  function setActiveTab(tab: SettingsTab) {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (tab === "sources") next.delete("tab");
+        else next.set("tab", tab);
+        return next;
+      },
+      { replace: true },
+    );
+  }
 
   useEffect(() => {
     if (!budget) return;
@@ -107,7 +136,10 @@ export default function SettingsPage() {
         description="Source registry, provider budget, and application info"
       />
 
-      <Tabs defaultValue="sources">
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(parseSettingsTab(v))}
+      >
         <TabsList>
           <TabsTrigger value="sources">
             <Server className="mr-2 h-4 w-4" />
@@ -284,20 +316,20 @@ export default function SettingsPage() {
                       >
                         Month timezone
                       </label>
-                      <select
-                        id="budget-timezone"
-                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                        value={timezone}
-                        onChange={(e) => setTimezone(e.target.value)}
-                      >
-                        {[...new Set([timezone, ...COMMON_TIMEZONES])].map(
-                          (tz) => (
-                            <option key={tz} value={tz}>
-                              {tz}
-                            </option>
-                          ),
-                        )}
-                      </select>
+                      <Select value={timezone} onValueChange={setTimezone}>
+                        <SelectTrigger id="budget-timezone" className="w-full">
+                          <SelectValue placeholder="Select timezone" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[...new Set([timezone, ...COMMON_TIMEZONES])].map(
+                            (tz) => (
+                              <SelectItem key={tz} value={tz}>
+                                {tz}
+                              </SelectItem>
+                            ),
+                          )}
+                        </SelectContent>
+                      </Select>
                       <p className="text-xs text-muted-foreground">
                         Calendar month boundaries for MTD and forecast use this
                         IANA timezone (default UTC).

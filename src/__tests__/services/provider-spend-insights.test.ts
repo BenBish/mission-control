@@ -202,6 +202,44 @@ describe("computeSpendInsights", () => {
       ),
     ).toBe(true);
   });
+
+  test("fresh sync history without env keys is still reliable", () => {
+    const insights = computeSpendInsights({
+      usage: [
+        row({
+          provider: "openrouter",
+          day: "2026-07-01",
+          model: "a",
+          cost_usd: 2,
+        }),
+      ],
+      syncStatus: [
+        {
+          provider: "openrouter",
+          status: "ok",
+          last_sync_at: "2026-07-15 12:00:00",
+          last_success_at: "2026-07-15 12:00:00",
+          last_error: null,
+          cursor_day: null,
+          meta_json: null,
+          updated_at: null,
+        },
+      ],
+      configuredProviderIds: [], // no env keys
+      budget: { monthlyBudgetUsd: 50, timezone: "UTC" },
+      now,
+    });
+    expect(insights.meta.forecastReliable).toBe(true);
+    expect(insights.syncWarnings.some((w) => w.reason === "no_sync_data")).toBe(
+      false,
+    );
+    // Still surfaces not_configured for re-sync awareness
+    expect(
+      insights.syncWarnings.some(
+        (w) => w.provider === "openrouter" && w.reason === "not_configured",
+      ),
+    ).toBe(true);
+  });
 });
 
 describe("detectAnomalies", () => {
@@ -265,10 +303,30 @@ describe("detectAnomalies", () => {
     expect(anomalies.every((a) => a.valueUsd >= ANOMALY_MIN_USD)).toBe(true);
     expect(anomalies.filter((a) => a.day === "2026-07-08")).toHaveLength(0);
   });
+
+  test("does not flag early sparse days without enough baseline samples", () => {
+    const usage: ProviderUsageRow[] = [
+      row({
+        provider: "openrouter",
+        day: "2026-07-01",
+        model: "m",
+        cost_usd: 12,
+      }),
+      row({
+        provider: "openrouter",
+        day: "2026-07-10",
+        model: "m",
+        cost_usd: 50,
+      }),
+    ];
+    const anomalies = detectAnomalies(usage, "2026-07-01", "2026-07-15");
+    // Only two non-zero history days total — neither day has ≥3 prior non-zero samples
+    expect(anomalies).toHaveLength(0);
+  });
 });
 
 describe("evaluateSyncWarnings", () => {
-  test("no configured providers is unreliable", () => {
+  test("no observed sync history is unreliable with no_sync_data", () => {
     const { forecastReliable, warnings } = evaluateSyncWarnings(
       [],
       [],
@@ -276,6 +334,31 @@ describe("evaluateSyncWarnings", () => {
       36 * 60 * 60 * 1000,
     );
     expect(forecastReliable).toBe(false);
+    expect(warnings.some((w) => w.reason === "no_sync_data")).toBe(true);
     expect(warnings.some((w) => w.reason === "not_configured")).toBe(true);
+  });
+
+  test("error in DB without env keys still surfaces as error", () => {
+    const { forecastReliable, warnings } = evaluateSyncWarnings(
+      [
+        {
+          provider: "anthropic",
+          status: "error",
+          last_sync_at: "2026-07-15 17:00:00",
+          last_success_at: "2026-07-15 17:00:00",
+          last_error: "401",
+          cursor_day: null,
+          meta_json: null,
+          updated_at: null,
+        },
+      ],
+      [],
+      new Date("2026-07-15T18:00:00Z"),
+      36 * 60 * 60 * 1000,
+    );
+    expect(forecastReliable).toBe(false);
+    expect(
+      warnings.some((w) => w.reason === "error" && w.provider === "anthropic"),
+    ).toBe(true);
   });
 });

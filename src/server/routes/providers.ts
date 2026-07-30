@@ -235,7 +235,10 @@ export function registerProviderRoutes(app: Express, db: Database): void {
       console.error("PUT /api/providers/budget failed:", err);
       const message =
         err instanceof Error ? err.message : "Failed to update provider budget";
-      res.status(400).json({
+      const isValidation = /non-negative|Invalid IANA|must be a valid/i.test(
+        message,
+      );
+      res.status(isValidation ? 400 : 500).json({
         success: false,
         error: message,
       });

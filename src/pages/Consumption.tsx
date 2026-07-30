@@ -34,6 +34,7 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  Legend,
 } from "recharts";
 import { useSourceFilter } from "@/app/source-context";
 import {
@@ -587,7 +588,7 @@ export default function Consumption() {
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button variant="outline" size="sm" asChild>
-                    <Link to="/settings">Configure budget</Link>
+                    <Link to="/settings?tab=budgets">Configure budget</Link>
                   </Button>
                   <Button
                     variant="outline"
@@ -652,7 +653,8 @@ export default function Consumption() {
                     (w) =>
                       w.reason === "error" ||
                       w.reason === "stale" ||
-                      w.reason === "limited",
+                      w.reason === "limited" ||
+                      w.reason === "no_sync_data",
                   ).length > 0 && (
                     <div className="space-y-2">
                       {spendInsights.syncWarnings
@@ -660,37 +662,58 @@ export default function Consumption() {
                           (w) =>
                             w.reason === "error" ||
                             w.reason === "stale" ||
-                            w.reason === "limited",
+                            w.reason === "limited" ||
+                            w.reason === "no_sync_data",
                         )
                         .map((w) => (
                           <div
                             key={`${w.provider}-${w.reason}`}
                             className={`flex items-start gap-2 rounded-md border px-3 py-2 text-sm ${
-                              w.reason === "error" || w.reason === "stale"
+                              w.reason === "error" ||
+                              w.reason === "stale" ||
+                              w.reason === "no_sync_data"
                                 ? "border-amber-500/50 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200"
                                 : "border-border bg-muted/40"
                             }`}
                           >
                             <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
                             <div>
-                              <p className="font-medium">
-                                {w.provider}: {w.reason}
-                                {w.status ? ` (${w.status})` : ""}
-                              </p>
-                              {w.lastError && (
-                                <p className="text-xs opacity-90 mt-0.5">
-                                  {w.lastError}
-                                </p>
-                              )}
-                              {w.reason === "stale" && (
-                                <p className="text-xs opacity-90 mt-0.5">
-                                  Last success:{" "}
-                                  {w.lastSuccessAt
-                                    ? new Date(w.lastSuccessAt).toLocaleString()
-                                    : "never"}
-                                  . Forecast marked unreliable until sync is
-                                  fresh.
-                                </p>
+                              {w.reason === "no_sync_data" ? (
+                                <>
+                                  <p className="font-medium">
+                                    No usable provider sync history
+                                  </p>
+                                  <p className="text-xs opacity-90 mt-0.5">
+                                    Configure provider credentials and sync, or
+                                    wait for a successful connector run.
+                                    Forecast is marked unreliable until at least
+                                    one provider has a recent successful sync.
+                                  </p>
+                                </>
+                              ) : (
+                                <>
+                                  <p className="font-medium">
+                                    {w.provider}: {w.reason}
+                                    {w.status ? ` (${w.status})` : ""}
+                                  </p>
+                                  {w.lastError && (
+                                    <p className="text-xs opacity-90 mt-0.5">
+                                      {w.lastError}
+                                    </p>
+                                  )}
+                                  {w.reason === "stale" && (
+                                    <p className="text-xs opacity-90 mt-0.5">
+                                      Last success:{" "}
+                                      {w.lastSuccessAt
+                                        ? new Date(
+                                            w.lastSuccessAt,
+                                          ).toLocaleString()
+                                        : "never"}
+                                      . Forecast marked unreliable until sync is
+                                      fresh.
+                                    </p>
+                                  )}
+                                </>
                               )}
                             </div>
                           </div>
@@ -732,7 +755,7 @@ export default function Consumption() {
                             <div className="text-2xl font-bold">—</div>
                             <p className="text-xs text-muted-foreground mt-1">
                               <Link
-                                to="/settings"
+                                to="/settings?tab=budgets"
                                 className="underline hover:text-foreground"
                               >
                                 Set a monthly budget
@@ -825,7 +848,11 @@ export default function Consumption() {
                         <p className="text-xs text-muted-foreground mt-1">
                           {spendInsights.meta.forecastReliable
                             ? "Extrapolated from current burn"
-                            : "Stale/failed sync — do not trust this figure"}
+                            : spendInsights.syncWarnings.some(
+                                  (w) => w.reason === "no_sync_data",
+                                )
+                              ? "No sync history — do not trust this figure"
+                              : "Stale/failed sync — do not trust this figure"}
                         </p>
                       </CardContent>
                     </Card>
@@ -849,7 +876,12 @@ export default function Consumption() {
                       ) : (
                         <div className="h-56 w-full min-w-0">
                           <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={spendInsights.dailyTrend}>
+                            <AreaChart
+                              data={spendInsights.dailyTrend.map((p) => ({
+                                ...p,
+                                priorPlot: p.priorPeriodCostUsd ?? undefined,
+                              }))}
+                            >
                               <CartesianGrid
                                 strokeDasharray="3 3"
                                 className="stroke-border"
@@ -900,6 +932,17 @@ export default function Consumption() {
                                     </div>
                                   );
                                 }}
+                              />
+                              <Legend />
+                              <Area
+                                type="monotone"
+                                dataKey="priorPlot"
+                                stroke="#94a3b8"
+                                fill="#94a3b8"
+                                fillOpacity={0.08}
+                                strokeDasharray="4 4"
+                                name="Prior month"
+                                connectNulls={false}
                               />
                               <Area
                                 type="monotone"

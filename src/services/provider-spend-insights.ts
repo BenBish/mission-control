@@ -11,10 +11,11 @@
  *   treat them as calendar days in the budget timezone for MTD windows.
  * - Burn rate uses days elapsed in the month (including today as a full day
  *   for partial-month safety). Forecast = burnRate × daysInMonth.
- * - Delayed provider finalization can understate MTD; when any configured
- *   connector is error/stale, forecastReliable is false.
- * - Missing / not_configured connectors are listed but do not alone mark
- *   forecasts unreliable unless at least one configured connector is bad.
+ * - Delayed provider finalization can understate MTD; when any *observed*
+ *   connector (configured or with sync history) is error/stale, or when
+ *   there is no usable sync/usage signal at all, forecastReliable is false.
+ * - Missing env credentials alone do not mark forecasts unreliable if
+ *   provider_sync_status shows a recent successful sync.
  */
 
 import type { Database as SqliteDatabase } from "sqlite";
@@ -41,6 +42,12 @@ export const ANOMALY_MULTIPLIER = 2;
 
 /** Absolute floor so tiny noise does not flag. */
 export const ANOMALY_MIN_USD = 1;
+
+/**
+ * Require this many non-zero baseline days before flagging a spike.
+ * Avoids noisy “first day of data” anomalies without a real baseline.
+ */
+export const ANOMALY_MIN_BASELINE_SAMPLES = 3;
 
 export interface DailySpendPoint {
   day: string;
@@ -72,10 +79,19 @@ export interface SpendAnomaly {
   message: string;
 }
 
+export type SyncWarningReason =
+  | "error"
+  | "stale"
+  | "not_configured"
+  | "limited"
+  /** No configured connectors and no usable sync history to trust. */
+  | "no_sync_data";
+
 export interface SyncWarning {
+  /** Connector id, or `*` for account-level warnings (e.g. no_sync_data). */
   provider: string;
   status: string;
-  reason: "error" | "stale" | "not_configured" | "limited";
+  reason: SyncWarningReason;
   lastSuccessAt: string | null;
   lastError: string | null;
 }
@@ -206,6 +222,28 @@ function toIsoMaybe(sqliteTimestamp: string | null): string | null {
     : `${sqliteTimestamp.replace(" ", "T")}Z`;
 }
 
+/**
+ * Providers we can use for forecast reliability:
+ * - currently configured (env credentials present), or
+ * - have sync history (last_success_at or a non-idle status).
+ * Env-only not_configured without history is awareness only.
+ */
+function isObservedProvider(
+  id: string,
+  configured: Set<string>,
+  row: ProviderSyncStatusRow | undefined,
+): boolean {
+  if (configured.has(id)) return true;
+  if (!row) return false;
+  if (row.last_success_at) return true;
+  return (
+    row.status === "ok" ||
+    row.status === "error" ||
+    row.status === "limited" ||
+    row.status === "syncing"
+  );
+}
+
 export function evaluateSyncWarnings(
   syncStatus: ProviderSyncStatusRow[],
   configuredProviderIds: string[],
@@ -216,10 +254,35 @@ export function evaluateSyncWarnings(
   const byId = new Map(syncStatus.map((r) => [r.provider, r]));
   const warnings: SyncWarning[] = [];
   let forecastReliable = true;
+  let observedCount = 0;
+  let healthyObserved = 0;
 
-  for (const id of configured) {
+  const allIds = new Set<string>([
+    ...configured,
+    ...syncStatus.map((r) => r.provider),
+    ...getConnectors().map((c) => c.id),
+  ]);
+
+  for (const id of allIds) {
     const row = byId.get(id);
-    const status = row?.status ?? "unknown";
+    const isConfigured = configured.has(id);
+    const observed = isObservedProvider(id, configured, row);
+
+    if (!observed) {
+      if (!isConfigured) {
+        warnings.push({
+          provider: id,
+          status: "not_configured",
+          reason: "not_configured",
+          lastSuccessAt: null,
+          lastError: null,
+        });
+      }
+      continue;
+    }
+
+    observedCount += 1;
+    const status = row?.status ?? (isConfigured ? "unknown" : "unknown");
     const lastSuccessIso = toIsoMaybe(row?.last_success_at ?? null);
     const lastSuccessMs = lastSuccessIso
       ? new Date(lastSuccessIso).getTime()
@@ -255,25 +318,36 @@ export function evaluateSyncWarnings(
         lastSuccessAt: lastSuccessIso,
         lastError: row?.last_error ?? null,
       });
+      healthyObserved += 1;
       // limited still has data — do not kill forecast reliability alone
+    } else {
+      healthyObserved += 1;
     }
-  }
 
-  // Surface not_configured for awareness (does not affect reliability alone)
-  for (const c of getConnectors()) {
-    if (!configured.has(c.id)) {
+    // Still note missing credentials for operators who cannot re-sync
+    if (!isConfigured) {
       warnings.push({
-        provider: c.id,
+        provider: id,
         status: "not_configured",
         reason: "not_configured",
-        lastSuccessAt: null,
+        lastSuccessAt: lastSuccessIso,
         lastError: null,
       });
     }
   }
 
-  // If nothing is configured, forecasts are not reliable
-  if (configured.size === 0) {
+  // No observed connectors at all → cannot trust a forecast
+  if (observedCount === 0) {
+    forecastReliable = false;
+    warnings.unshift({
+      provider: "*",
+      status: "unknown",
+      reason: "no_sync_data",
+      lastSuccessAt: null,
+      lastError: null,
+    });
+  } else if (healthyObserved === 0) {
+    // All observed are error/stale — already marked unreliable above
     forecastReliable = false;
   }
 
@@ -306,24 +380,10 @@ export function detectAnomalies(
       if (d < minDay) continue;
       baselineDays.push(dayTotals.get(d) ?? 0);
     }
-    if (baselineDays.length === 0) continue;
+    const nonzeroSamples = baselineDays.filter((v) => v > 0).length;
+    if (nonzeroSamples < ANOMALY_MIN_BASELINE_SAMPLES) continue;
     const baseline = meanOf(baselineDays);
-    if (baseline <= 0) {
-      // No prior spend: only flag very large absolute spikes
-      if (value >= ANOMALY_MIN_USD * 5) {
-        anomalies.push({
-          kind: "daily",
-          day,
-          provider: null,
-          model: null,
-          valueUsd: value,
-          baselineUsd: 0,
-          ratio: Infinity,
-          message: `Daily spend $${value.toFixed(2)} on ${day} with no prior 7-day baseline`,
-        });
-      }
-      continue;
-    }
+    if (baseline <= 0) continue;
     const ratio = value / baseline;
     if (ratio >= ANOMALY_MULTIPLIER) {
       anomalies.push({
@@ -354,6 +414,8 @@ export function detectAnomalies(
       const d = addDays(r.day, -i);
       baselineDays.push(pmTotals.get(`${d}\0${r.provider}\0${r.model}`) ?? 0);
     }
+    const nonzeroSamples = baselineDays.filter((v) => v > 0).length;
+    if (nonzeroSamples < ANOMALY_MIN_BASELINE_SAMPLES) continue;
     const baseline = meanOf(baselineDays);
     if (baseline <= 0) continue;
     const ratio = value / baseline;
@@ -515,7 +577,7 @@ export function computeSpendInsights(
     `Month window is ${monthStart} → ${monthEnd} in timezone ${timezone}.`,
     "Burn rate = MTD spend ÷ days elapsed (including today). Forecast = burn × days in month.",
     "Prior period compares the same day-of-month range in the previous calendar month.",
-    `Anomalies: daily or provider/model spend ≥ ${ANOMALY_MULTIPLIER}× rolling ${ANOMALY_BASELINE_DAYS}-day mean and ≥ $${ANOMALY_MIN_USD}.`,
+    `Anomalies: daily or provider/model spend ≥ ${ANOMALY_MULTIPLIER}× rolling ${ANOMALY_BASELINE_DAYS}-day mean, ≥ $${ANOMALY_MIN_USD}, and ≥ ${ANOMALY_MIN_BASELINE_SAMPLES} non-zero baseline days.`,
   ];
   if (partialMonth) {
     notes.push(
@@ -524,7 +586,7 @@ export function computeSpendInsights(
   }
   if (!forecastReliable) {
     notes.push(
-      "Forecast marked unreliable due to stale/error/missing configured provider syncs or no connectors configured.",
+      "Forecast marked unreliable due to stale/error observed syncs, or no usable provider sync history.",
     );
   }
   notes.push(
