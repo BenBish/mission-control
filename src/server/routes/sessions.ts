@@ -9,11 +9,11 @@ import {
   listSessionActivities,
   rowToActivity,
 } from "../../db/queries/activities.js";
+import { optionalQueryString } from "../query.js";
 
 export function registerSessionRoutes(app: Express, db: Database): void {
   app.get("/api/sessions", async (req: Request, res: Response) => {
-    const sourceId =
-      typeof req.query.sourceId === "string" ? req.query.sourceId : undefined;
+    const sourceId = optionalQueryString(req.query.sourceId);
     const limit = req.query.limit ? Number(req.query.limit) : undefined;
     const offset = req.query.offset ? Number(req.query.offset) : undefined;
     const rows = await listSessions(db.raw(), { sourceId, limit, offset });

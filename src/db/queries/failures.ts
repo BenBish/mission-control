@@ -1,13 +1,4 @@
 import type { Database as SqliteDatabase } from "sqlite";
-import {
-  listFailedActivities,
-  rowToActivity,
-  type ActivityRow,
-} from "./activities.js";
-import {
-  listFailedInferenceRequests,
-  listRecentRuntimeEvents,
-} from "./telemetry.js";
 
 export interface FailureItem {
   kind: "activity" | "inference_request" | "runtime_event";
@@ -18,57 +9,84 @@ export interface FailureItem {
   detail?: string;
 }
 
+interface FailureUnionRow {
+  kind: "activity" | "inference_request" | "runtime_event";
+  id: string;
+  source_id: string;
+  timestamp: string;
+  summary: string;
+  detail: string | null;
+}
+
 /**
  * Union of activity failures + inference failures + runtime_events.
- * P1 only has activities (Claude Code/Codex) actually populated — inference
- * and runtime tables stay empty until the Hermes collector lands in P2, so
- * this naturally degrades to activities-only for now rather than fabricating
- * placeholder rows.
+ * Single ordered UNION ALL + LIMIT so we do not over-fetch `limit` rows
+ * from each table then re-slice. Optional sourceId is applied in SQL.
  */
 export async function listRecentFailures(
   db: SqliteDatabase,
   limit = 50,
   sourceId?: string,
 ): Promise<FailureItem[]> {
-  // Filter in SQL (not post-slice) so LIMIT applies per-source correctly.
-  const [activities, inferenceRequests, runtimeEvents] = await Promise.all([
-    listFailedActivities(db, limit, sourceId),
-    listFailedInferenceRequests(db, limit, sourceId),
-    listRecentRuntimeEvents(db, limit, sourceId),
-  ]);
+  const sourceClause = sourceId ? "AND source_id = ?" : "";
+  const sourceParams = sourceId ? [sourceId] : [];
 
-  const items: FailureItem[] = [
-    ...activities.map((row: ActivityRow) => {
-      const activity = rowToActivity(row);
-      return {
-        kind: "activity" as const,
-        id: activity.id,
-        sourceId: activity.sourceId,
-        timestamp: activity.timestamp,
-        summary: activity.description,
-        detail: activity.result?.error,
-      };
-    }),
-    ...inferenceRequests.map((row) => ({
-      kind: "inference_request" as const,
-      id: row.id,
-      sourceId: row.source_id,
-      timestamp: row.timestamp,
-      summary: `${row.status} on ${row.model ?? "unknown model"} (${row.client_label ?? "unknown client"})`,
-      detail: row.error ?? undefined,
-    })),
-    ...runtimeEvents
-      .filter((row) => row.severity !== "info")
-      .map((row) => ({
-        kind: "runtime_event" as const,
-        id: row.id,
-        sourceId: row.source_id,
-        timestamp: row.timestamp,
-        summary: row.summary,
-        detail: row.details ?? undefined,
-      })),
-  ];
+  // Each arm projects a common shape; runtime info severity is excluded
+  // (same as the previous post-filter on severity !== 'info').
+  const sql = `
+    SELECT kind, id, source_id, timestamp, summary, detail FROM (
+      SELECT
+        'activity' AS kind,
+        id,
+        source_id,
+        timestamp,
+        description AS summary,
+        json_extract(result, '$.error') AS detail
+      FROM activities
+      WHERE status = 'failure' ${sourceClause}
 
-  items.sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1));
-  return items.slice(0, limit);
+      UNION ALL
+
+      SELECT
+        'inference_request' AS kind,
+        id,
+        source_id,
+        timestamp,
+        (status || ' on ' || COALESCE(model, 'unknown model') ||
+          ' (' || COALESCE(client_label, 'unknown client') || ')') AS summary,
+        error AS detail
+      FROM inference_requests
+      WHERE status != 'success' ${sourceClause}
+
+      UNION ALL
+
+      SELECT
+        'runtime_event' AS kind,
+        id,
+        source_id,
+        timestamp,
+        summary,
+        details AS detail
+      FROM runtime_events
+      WHERE severity != 'info' ${sourceClause}
+    )
+    ORDER BY timestamp DESC
+    LIMIT ?
+  `;
+
+  // Each UNION arm needs its own source param when filtering.
+  const params = sourceId
+    ? [...sourceParams, ...sourceParams, ...sourceParams, limit]
+    : [limit];
+
+  const rows = await db.all<FailureUnionRow[]>(sql, ...(params as []));
+
+  return rows.map((row) => ({
+    kind: row.kind,
+    id: row.id,
+    sourceId: row.source_id,
+    timestamp: row.timestamp,
+    summary: row.summary,
+    detail: row.detail ?? undefined,
+  }));
 }

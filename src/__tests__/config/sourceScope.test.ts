@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   DATASET_SCOPES,
+  FILTERABLE_QUERY_KEYS,
   getRouteScope,
   isSourceSelectorEnabled,
   scopePhrase,
@@ -13,6 +14,19 @@ describe("source scope contract", () => {
     expect(modes.has("account-wide")).toBe(true);
     expect(DATASET_SCOPES.some((d) => d.id === "provider-billing")).toBe(true);
     expect(DATASET_SCOPES.some((d) => d.id === "failures")).toBe(true);
+  });
+
+  test("filterable query keys list the scoped React Query roots", () => {
+    expect(FILTERABLE_QUERY_KEYS.sort()).toEqual(
+      [
+        "activities",
+        "consumption",
+        "failures",
+        "generations",
+        "jobs",
+        "sessions",
+      ].sort(),
+    );
   });
 
   test("filterable routes keep the source selector enabled", () => {

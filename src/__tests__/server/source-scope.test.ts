@@ -160,4 +160,13 @@ describe("source-scoped list endpoints", () => {
     expect(body.success).toBe(true);
     expect(Array.isArray(body.consumption)).toBe(true);
   });
+
+  test("empty sourceId query is treated as all sources", async () => {
+    const all = await getJson("/api/failures?limit=20");
+    const empty = await getJson("/api/failures?limit=20&sourceId=");
+    const whitespace = await getJson("/api/failures?limit=20&sourceId=%20");
+    expect(empty.failures.length).toBe(all.failures.length);
+    expect(whitespace.failures.length).toBe(all.failures.length);
+    expect(empty.failures.length).toBeGreaterThanOrEqual(3);
+  });
 });

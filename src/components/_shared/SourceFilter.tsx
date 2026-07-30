@@ -47,13 +47,21 @@ export function SourceFilter() {
       : undefined;
 
   return (
-    <div className="flex items-center gap-2" title={title}>
+    <div
+      className="flex items-center gap-2"
+      title={title}
+      data-testid="source-filter"
+    >
       <Select
         value={selectedSourceId ?? "all"}
         onValueChange={(v) => setSelectedSourceId(v === "all" ? undefined : v)}
         disabled={disabled}
       >
-        <SelectTrigger className="h-9 w-44 gap-2 text-sm">
+        <SelectTrigger
+          className="h-9 w-44 gap-2 text-sm"
+          aria-label="Filter by source"
+          data-testid="source-filter-trigger"
+        >
           <SelectValue placeholder="All sources">
             <span className="flex items-center gap-2">
               {selected && (
@@ -88,12 +96,12 @@ export function SourceFilter() {
         </SelectContent>
       </Select>
       {disabled && (
-        <span className="hidden text-xs text-muted-foreground sm:inline max-w-[10rem] truncate">
+        <span className="text-xs text-muted-foreground max-w-[7rem] sm:max-w-[10rem] truncate">
           Not filtered
         </span>
       )}
       {scope.mode === "mixed" && selectedSourceId && (
-        <span className="hidden text-xs text-muted-foreground sm:inline max-w-[10rem] truncate">
+        <span className="text-xs text-muted-foreground max-w-[7rem] sm:max-w-[10rem] truncate">
           Partial scope
         </span>
       )}

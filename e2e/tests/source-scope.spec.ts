@@ -9,9 +9,13 @@ import { test, expect } from "../fixtures/base.js";
 
 const SOURCE_STORAGE_KEY = "mc-selected-source";
 
+/** Header source selector — stable test id, not the first combobox on the page. */
+function sourceFilterTrigger(page: Page) {
+  return page.getByTestId("source-filter-trigger");
+}
+
 async function selectSource(page: Page, sourceName: string) {
-  // Header source filter is a Radix Select (combobox).
-  const trigger = page.getByRole("combobox").first();
+  const trigger = sourceFilterTrigger(page);
   await expect(trigger).toBeEnabled();
   await trigger.click();
   await page.getByRole("option", { name: new RegExp(sourceName, "i") }).click();
@@ -40,9 +44,16 @@ function sourceIdFrom(req: Request): string | null {
 
 test.describe("Source filter scope", () => {
   test.beforeEach(async ({ page }) => {
-    // Clear persisted selection so each test starts from "all sources".
+    // Clear once per browser context so subsequent navigations keep the
+    // selection (sessionStorage survives same-tab navigations; localStorage
+    // holds the real app key). A plain addInitScript that always removes the
+    // key would wipe the filter on every goto — breaking persistence checks.
     await page.addInitScript((key) => {
-      localStorage.removeItem(key);
+      const flag = "mc-e2e-source-cleared";
+      if (!sessionStorage.getItem(flag)) {
+        localStorage.removeItem(key);
+        sessionStorage.setItem(flag, "1");
+      }
     }, SOURCE_STORAGE_KEY);
   });
 
@@ -92,6 +103,8 @@ test.describe("Source filter scope", () => {
     await selectSource(page, "Claude Code");
     await activitiesReq;
 
+    // Selection is persisted in localStorage — must still be present after
+    // navigation (init script must not re-clear on this load).
     const sessionsReq = page.waitForRequest(
       (r) => isApi(r, "/api/sessions") && sourceIdFrom(r) === "claude-code",
     );
@@ -99,7 +112,6 @@ test.describe("Source filter scope", () => {
     await page
       .getByRole("heading", { name: "Sessions", level: 1 })
       .waitFor({ state: "visible" });
-    // Source is persisted — sessions should request with sourceId on load.
     await sessionsReq;
   });
 
@@ -149,7 +161,7 @@ test.describe("Source filter scope", () => {
       .getByRole("heading", { name: "Runtime", level: 1 })
       .waitFor({ state: "visible" });
 
-    const trigger = page.getByRole("combobox").first();
+    const trigger = sourceFilterTrigger(page);
     await expect(trigger).toBeDisabled();
     await expect(page.getByText(/Not filtered/i)).toBeVisible();
     await expect(

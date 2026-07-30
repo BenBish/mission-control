@@ -1,13 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -359,11 +353,12 @@ export default function ActivityFeed() {
                 </div>
                 Recent Activities
               </CardTitle>
-              <CardDescription>
+              {/* div, not CardDescription (<p>): Badge renders a div */}
+              <div className="text-sm text-muted-foreground">
                 <Badge variant="outline" className="font-normal">
                   {count} activities
                 </Badge>
-              </CardDescription>
+              </div>
             </div>
           </div>
         </CardHeader>

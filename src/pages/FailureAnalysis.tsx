@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/_shared/PageHeader";
 import { Loading } from "@/components/_shared/Loading";
 import { AlertTriangle } from "lucide-react";
-import { useSourceFilter } from "@/app/source-context";
+import { useFilterableSourceId, useSourceFilter } from "@/app/source-context";
 import { scopePhrase } from "@/config/sourceScope";
 import { useFailures } from "@/lib/queries";
 
@@ -27,7 +27,8 @@ function formatRelativeTime(timestamp: string): string {
 
 export default function FailureAnalysis() {
   const navigate = useNavigate();
-  const { selectedSourceId, sources } = useSourceFilter();
+  const { sources } = useSourceFilter();
+  const selectedSourceId = useFilterableSourceId();
   const pageDescription = `Recent failures ${scopePhrase(selectedSourceId, sources)}`;
   const {
     data: failures,

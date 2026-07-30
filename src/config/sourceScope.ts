@@ -32,6 +32,10 @@ export interface DatasetScope {
 /**
  * Per-dataset contract. Keep in sync with hooks in `src/lib/queries.ts`
  * and page components under `src/pages` / `src/app`.
+ *
+ * Filterable datasets: pass `useSourceFilter().selectedSourceId` (or
+ * `useFilterableSourceId()`) into the matching React Query hook and include
+ * it in the query key so a source change refetches only scoped data.
  */
 export const DATASET_SCOPES: readonly DatasetScope[] = [
   {
@@ -106,6 +110,12 @@ export const DATASET_SCOPES: readonly DatasetScope[] = [
     description: "Hermes inference fleet telemetry (slots, requests, events)",
   },
 ] as const;
+
+/** React Query root keys that must include `sourceId` when a source is selected. */
+export const FILTERABLE_QUERY_KEYS = DATASET_SCOPES.filter(
+  (d): d is DatasetScope & { queryKey: string; mode: "filterable" } =>
+    d.mode === "filterable" && typeof d.queryKey === "string",
+).map((d) => d.queryKey);
 
 export interface RouteScope {
   mode: RouteScopeMode;

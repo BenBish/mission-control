@@ -16,7 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import type { Activity } from "@/types/activity";
 import { actorIcon, actorTypeLabel } from "@/lib/actor-display";
 import { useSSE } from "@/hooks/useSSE";
-import { useSourceFilter } from "@/app/source-context";
+import { useFilterableSourceId, useSourceFilter } from "@/app/source-context";
 import { scopePhrase } from "@/config/sourceScope";
 import {
   useActivityList,
@@ -55,7 +55,8 @@ const STATUS_DOT: Record<string, string> = {
 export default function DashboardPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { selectedSourceId, sources: filterSources } = useSourceFilter();
+  const { sources: filterSources } = useSourceFilter();
+  const selectedSourceId = useFilterableSourceId();
   const scopeLabel = scopePhrase(selectedSourceId, filterSources);
 
   const { data: sources, isLoading: sourcesLoading } = useSources();
@@ -189,6 +190,7 @@ export default function DashboardPage() {
             <div className="flex flex-wrap gap-2">
               {(sources ?? []).map((source) => {
                 const status = source.instances[0]?.status ?? "unknown";
+                // Opacity is emphasis only — health stays fleet-wide, not filtered.
                 const isSelected =
                   !selectedSourceId || source.id === selectedSourceId;
                 return (
