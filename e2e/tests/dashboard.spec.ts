@@ -15,11 +15,23 @@ test.describe("Dashboard", () => {
     await dashboard.waitForStats();
   });
 
-  test("displays all three stat cards", async () => {
+  test("displays all four stat cards", async () => {
     const titles = await dashboard.getStatCardTitles();
     expect(titles).toContain("Tokens Today");
+    expect(titles).toContain("API Spend (30d)");
     expect(titles).toContain("Failures (24h)");
     expect(titles).toContain("Source Health");
+  });
+
+  test("API Spend card navigates to Direct API Spend on Consumption", async ({
+    page,
+  }) => {
+    await dashboard.clickApiSpendCard();
+    await page.waitForURL(/\/consumption\?.*view=direct-api/);
+    expect(page.url()).toContain("view=direct-api");
+    await expect(
+      page.getByRole("tab", { name: "Direct API Spend" }),
+    ).toHaveAttribute("data-state", "active");
   });
 
   test("Tokens Today stat card shows a real value (not a loading placeholder)", async () => {

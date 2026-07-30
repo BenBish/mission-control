@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Card,
@@ -23,6 +23,7 @@ import {
   useActivityList,
   useConsumption,
   useFailures,
+  useProviderBreakdown,
   useSources,
 } from "@/lib/queries";
 import { failureStatusScopeLabel } from "@/types/failures";
@@ -45,6 +46,7 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
+  DollarSign,
 } from "lucide-react";
 
 const STATUS_DOT: Record<string, string> = {
@@ -89,12 +91,23 @@ export default function DashboardPage() {
     sourceId: selectedSourceId,
   });
 
+  // Last 30 days of provider API billing for the homepage spend card.
+  // useState initializer runs once (impure clock OK there; not during render).
+  const [providerSince] = useState(() =>
+    new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+  );
+  const { data: providerBreakdown, isPending: providerSpendPending } =
+    useProviderBreakdown({
+      since: providerSince,
+    });
+
   useSSE({
     onActivity: () => {
       // Prefix invalidation: only active query keys (incl. sourceId) refetch.
       queryClient.invalidateQueries({ queryKey: ["activities"] });
       queryClient.invalidateQueries({ queryKey: ["consumption"] });
       queryClient.invalidateQueries({ queryKey: ["failures"] });
+      queryClient.invalidateQueries({ queryKey: ["provider-breakdown"] });
     },
   });
 
@@ -105,6 +118,17 @@ export default function DashboardPage() {
       .filter((row) => row.day === today)
       .reduce((sum, row) => sum + row.input_tokens + row.output_tokens, 0);
   }, [consumption]);
+
+  const providerSpend30d = useMemo(() => {
+    if (!providerBreakdown) return { cost: 0, hasCost: false };
+    return providerBreakdown.reduce(
+      (acc, row) => ({
+        cost: acc.cost + (row.cost_usd ?? 0),
+        hasCost: acc.hasCost || row.cost_usd != null,
+      }),
+      { cost: 0, hasCost: false },
+    );
+  }, [providerBreakdown]);
 
   const dailyTokens = useMemo(() => {
     if (!consumption) return [];
@@ -150,7 +174,7 @@ export default function DashboardPage() {
       <PageHeader title="Dashboard" description={pageDescription} />
 
       {/* Stats Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card className="shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -169,6 +193,35 @@ export default function DashboardPage() {
             </p>
           </CardContent>
         </Card>
+
+        <Link
+          to="/consumption?view=direct-api&range=30d"
+          className="block rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          aria-label="API Spend last 30 days — view Direct API Spend"
+        >
+          <Card className="shadow-sm h-full transition-colors hover:bg-muted/40">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                API Spend (30d)
+              </CardTitle>
+              <div className="p-2 rounded-lg bg-emerald-500/10 dark:bg-emerald-500/20">
+                <DollarSign className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold tracking-tight tabular-nums">
+                {providerSpendPending
+                  ? "…"
+                  : providerSpend30d.hasCost
+                    ? `$${providerSpend30d.cost.toFixed(4)}`
+                    : "$0.0000"}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Direct provider billing · account-wide · View spend
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
 
         <Card className="shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
@@ -204,7 +257,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm sm:col-span-2 lg:col-span-1">
+        <Card className="shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Source Health
