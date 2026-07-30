@@ -163,7 +163,12 @@ test.describe("Source filter scope", () => {
 
     const trigger = sourceFilterTrigger(page);
     await expect(trigger).toBeDisabled();
-    await expect(page.getByText(/Not filtered/i)).toBeVisible();
+    // Scope to the header control — page copy also says "not filtered by source".
+    await expect(
+      page
+        .getByTestId("source-filter")
+        .getByText("Not filtered", { exact: true }),
+    ).toBeVisible();
     await expect(
       page.getByText(/Fleet-wide inference telemetry/i),
     ).toBeVisible();
