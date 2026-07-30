@@ -23,13 +23,15 @@ export function aggregateProviderCost(
   rows: ProviderCostRow[] | null | undefined,
 ): AggregatedProviderCost {
   if (!rows?.length) return { cost: 0, hasCost: false };
-  return rows.reduce(
-    (acc, row) => ({
-      cost: acc.cost + (row.cost_usd ?? 0),
-      hasCost: acc.hasCost || row.cost_usd != null,
-    }),
-    { cost: 0, hasCost: false },
-  );
+  let cost = 0;
+  let hasCost = false;
+  for (const row of rows) {
+    if (row.cost_usd != null) {
+      hasCost = true;
+      cost += row.cost_usd;
+    }
+  }
+  return { cost, hasCost };
 }
 
 export type ProviderSyncSummaryInput = {
