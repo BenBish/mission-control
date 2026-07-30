@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -19,10 +19,6 @@ import { useSSE } from "@/hooks/useSSE";
 import { useNow } from "@/hooks/useNow";
 import { useFilterableSourceId, useSourceFilter } from "@/app/source-context";
 import { scopePhrase } from "@/config/sourceScope";
-import {
-  createDashboardInvalidationScheduler,
-  type DashboardQueryFamily,
-} from "@/lib/dashboard-sse-invalidation";
 import {
   useActivityList,
   useConsumption,
@@ -104,39 +100,13 @@ export default function DashboardPage() {
       since: providerSince,
     });
 
-  // Batched selective SSE invalidation (BSH-75): coalesce over the freshness
-  // window and only invalidate families the event can affect. See
-  // DASHBOARD_SSE_INVALIDATION_DEBOUNCE_MS in dashboard-sse-invalidation.ts.
-  // Scheduler is created in an effect (not during render) so refs stay
-  // write-only outside render; declared before useSSE so mount order is
-  // ready before EventSource can fire system:connected.
-  const schedulerRef = useRef<ReturnType<
-    typeof createDashboardInvalidationScheduler
-  > | null>(null);
-
-  useEffect(() => {
-    const scheduler = createDashboardInvalidationScheduler({
-      invalidate: (family: DashboardQueryFamily) => {
-        queryClient.invalidateQueries({ queryKey: [family] });
-      },
-    });
-    schedulerRef.current = scheduler;
-    return () => {
-      scheduler.dispose();
-      schedulerRef.current = null;
-    };
-  }, [queryClient]);
-
   useSSE({
-    onActivity: (activity) => {
-      schedulerRef.current?.noteActivity(activity);
-    },
-    onSystem: (event) => {
-      // Server sends system:connected on every (re)connect — recover any
-      // families that may have changed while the stream was down.
-      if (event.type === "connected") {
-        schedulerRef.current?.noteReconnect();
-      }
+    onActivity: () => {
+      // Prefix invalidation: only active query keys (incl. sourceId) refetch.
+      queryClient.invalidateQueries({ queryKey: ["activities"] });
+      queryClient.invalidateQueries({ queryKey: ["consumption"] });
+      queryClient.invalidateQueries({ queryKey: ["failures"] });
+      queryClient.invalidateQueries({ queryKey: ["provider-breakdown"] });
     },
   });
 
