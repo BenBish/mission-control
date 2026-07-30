@@ -34,7 +34,7 @@ export class DashboardPage extends BasePage {
     const titles: string[] = [];
     for (const name of [
       "Tokens Today",
-      "API Spend (30d)",
+      "Direct API Spend",
       "Failures (24h)",
       "Source Health",
     ]) {
@@ -48,11 +48,28 @@ export class DashboardPage extends BasePage {
     return titles;
   }
 
-  /** Click the API Spend card (navigates to Direct API Spend on Consumption) */
-  async clickApiSpendCard() {
+  /** Click the Direct API Spend card (opens provider billing for today) */
+  async clickDirectApiSpendCard() {
     await this.page
-      .getByRole("link", { name: /API Spend last 30 days/i })
+      .getByRole("link", { name: /Direct API Spend today/i })
       .click();
+  }
+
+  /** @deprecated Prefer clickDirectApiSpendCard */
+  async clickApiSpendCard() {
+    await this.clickDirectApiSpendCard();
+  }
+
+  getDirectApiSpendToday(): Locator {
+    return this.page.getByTestId("direct-api-spend-today");
+  }
+
+  getDirectApiSpendMeta(): Locator {
+    return this.page.getByTestId("direct-api-spend-meta");
+  }
+
+  getDirectApiSpendSync(): Locator {
+    return this.page.getByTestId("direct-api-spend-sync");
   }
 
   /** Get stat card value by title */

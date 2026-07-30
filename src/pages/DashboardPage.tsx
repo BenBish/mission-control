@@ -28,8 +28,19 @@ import {
   useConsumption,
   useFailures,
   useProviderBreakdown,
+  useProviderStatus,
   useSources,
 } from "@/lib/queries";
+import { formatLastActive } from "@/lib/date-utils";
+import {
+  aggregateProviderCost,
+  daysAgoIso,
+  directApiSpendSyncStatusKind,
+  formatDirectApiSpend30d,
+  formatDirectApiSpendPrimary,
+  startOfLocalDayIso,
+  summarizeProviderSync,
+} from "@/lib/direct-api-spend";
 import { failureStatusScopeLabel } from "@/types/failures";
 import {
   AreaChart,
@@ -94,15 +105,23 @@ export default function DashboardPage() {
     sourceId: selectedSourceId,
   });
 
-  // Last 30 days of provider API billing for the homepage spend card.
+  // Provider billing windows — frozen at mount so query keys stay stable.
   // useState initializer runs once (impure clock OK there; not during render).
-  const [providerSince] = useState(() =>
-    new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-  );
-  const { data: providerBreakdown, isPending: providerSpendPending } =
-    useProviderBreakdown({
-      since: providerSince,
-    });
+  const [providerWindows] = useState(() => {
+    const nowMs = Date.now();
+    return {
+      todaySince: startOfLocalDayIso(nowMs),
+      days30Since: daysAgoIso(30, nowMs),
+    };
+  });
+  const { data: providerBreakdownToday, isPending: providerTodayPending } =
+    useProviderBreakdown({ since: providerWindows.todaySince });
+  const { data: providerBreakdown30d, isPending: provider30dPending } =
+    useProviderBreakdown({ since: providerWindows.days30Since });
+  const { data: providerStatus, isPending: providerStatusPending } =
+    useProviderStatus();
+  const providerSpendPending =
+    providerTodayPending || provider30dPending || providerStatusPending;
 
   // Batched selective SSE invalidation (BSH-75): coalesce over the freshness
   // window and only invalidate families the event can affect. See
@@ -148,16 +167,37 @@ export default function DashboardPage() {
       .reduce((sum, row) => sum + row.input_tokens + row.output_tokens, 0);
   }, [consumption]);
 
-  const providerSpend30d = useMemo(() => {
-    if (!providerBreakdown) return { cost: 0, hasCost: false };
-    return providerBreakdown.reduce(
-      (acc, row) => ({
-        cost: acc.cost + (row.cost_usd ?? 0),
-        hasCost: acc.hasCost || row.cost_usd != null,
-      }),
-      { cost: 0, hasCost: false },
-    );
-  }, [providerBreakdown]);
+  const providerSpendToday = useMemo(
+    () => aggregateProviderCost(providerBreakdownToday),
+    [providerBreakdownToday],
+  );
+  const providerSpend30d = useMemo(
+    () => aggregateProviderCost(providerBreakdown30d),
+    [providerBreakdown30d],
+  );
+  const providerSyncHealth = useMemo(
+    () => summarizeProviderSync(providerStatus, nowMs),
+    [providerStatus, nowMs],
+  );
+  const spendPrimary = formatDirectApiSpendPrimary(
+    providerSpendToday,
+    providerSyncHealth,
+    providerSpendPending,
+  );
+  const spend30dLabel = formatDirectApiSpend30d(
+    providerSpend30d,
+    providerSyncHealth,
+    providerSpendPending,
+  );
+  const spendSyncKind = directApiSpendSyncStatusKind(providerSyncHealth);
+  const spendSyncLabel =
+    spendSyncKind === "error"
+      ? "Sync error"
+      : spendSyncKind === "stale"
+        ? "Stale sync"
+        : spendSyncKind === "synced"
+          ? `Synced ${formatLastActive(providerSyncHealth.lastSuccessAt)}`
+          : "Not synced";
 
   const dailyTokens = useMemo(() => {
     if (!consumption) return [];
@@ -224,29 +264,52 @@ export default function DashboardPage() {
         </Card>
 
         <Link
-          to="/consumption?view=direct-api&range=30d"
+          to="/consumption?view=direct-api&range=today"
           className="block rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          aria-label="API Spend last 30 days — view Direct API Spend"
+          aria-label="Direct API Spend today — account-wide provider billing"
         >
           <Card className="min-w-0 h-full shadow-sm transition-colors hover:bg-muted/40">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                API Spend (30d)
+                Direct API Spend
               </CardTitle>
               <div className="p-2 rounded-lg bg-emerald-500/10 dark:bg-emerald-500/20">
                 <DollarSign className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold tracking-tight tabular-nums">
-                {providerSpendPending
-                  ? "…"
-                  : providerSpend30d.hasCost
-                    ? `$${providerSpend30d.cost.toFixed(4)}`
-                    : "$0.0000"}
+              <div
+                className="text-3xl font-bold tracking-tight tabular-nums"
+                data-testid="direct-api-spend-today"
+              >
+                {spendPrimary}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Direct provider billing · account-wide · View spend
+              <p
+                className="text-xs text-muted-foreground mt-1"
+                data-testid="direct-api-spend-meta"
+              >
+                <span className="tabular-nums">30d {spend30dLabel}</span>
+                {" · "}
+                <span
+                  className={
+                    spendSyncKind === "error"
+                      ? "text-red-600 dark:text-red-400"
+                      : spendSyncKind === "stale"
+                        ? "text-amber-700 dark:text-amber-400"
+                        : undefined
+                  }
+                  data-testid="direct-api-spend-sync"
+                  title={
+                    spendSyncKind === "error"
+                      ? (providerSyncHealth.errorMessage ?? "Connector error")
+                      : undefined
+                  }
+                >
+                  {spendSyncLabel}
+                </span>
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Account-wide · independent of source filter
               </p>
             </CardContent>
           </Card>
