@@ -64,10 +64,12 @@ export default function DashboardPage() {
     limit: 5,
     sourceId: selectedSourceId,
   });
-  const { data: failures } = useFailures({
+  const { data: failuresData } = useFailures({
     limit: 5,
     sourceId: selectedSourceId,
   });
+  const failures = failuresData?.failures;
+  const failureSummary = failuresData?.summary;
   const { data: consumption, isLoading: consumptionLoading } = useConsumption({
     sourceId: selectedSourceId,
   });
@@ -156,7 +158,7 @@ export default function DashboardPage() {
         <Card className="shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Recent Failures
+              Failures (24h)
             </CardTitle>
             <div className="p-2 rounded-lg bg-red-500/10 dark:bg-red-500/20">
               <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
@@ -164,15 +166,26 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold tracking-tight">
-              {failures?.length ?? 0}
+              {(failureSummary?.last24Hours ?? 0).toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
+              Last 24 hours · activity failure · inference non-success · runtime
+              non-info
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
               <button
                 className="hover:underline"
                 onClick={() => navigate("/failures")}
               >
                 View failures
               </button>
+              {failureSummary && failureSummary.openRuntimeEvents > 0 && (
+                <span>
+                  {" "}
+                  · {failureSummary.openRuntimeEvents.toLocaleString()} open
+                  runtime
+                </span>
+              )}
             </p>
           </CardContent>
         </Card>

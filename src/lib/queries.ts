@@ -230,21 +230,44 @@ export interface FailureItem {
   detail?: string;
 }
 
+export interface FailureSummary {
+  total: number;
+  last24Hours: number;
+  openRuntimeEvents: number;
+  byKind: {
+    activity: number;
+    inference_request: number;
+    runtime_event: number;
+  };
+  definitions: {
+    total: string;
+    last24Hours: string;
+    openRuntimeEvents: string;
+    statusScope: string;
+  };
+}
+
+export interface FailuresResponse {
+  failures: FailureItem[];
+  summary: FailureSummary;
+}
+
 export function useFailures(
   opts: {
     limit?: number;
     sourceId?: string;
   } = {},
-): UseQueryResult<FailureItem[]> {
+): UseQueryResult<FailuresResponse> {
   const limit = opts.limit ?? 50;
   return useQuery({
     queryKey: ["failures", { limit, sourceId: opts.sourceId }],
-    queryFn: async () =>
-      (
-        await getJson<{ failures: FailureItem[] }>(
-          `/api/failures${toQueryString({ limit, sourceId: opts.sourceId })}`,
-        )
-      ).failures,
+    queryFn: async () => {
+      const body = await getJson<{
+        failures: FailureItem[];
+        summary: FailureSummary;
+      }>(`/api/failures${toQueryString({ limit, sourceId: opts.sourceId })}`);
+      return { failures: body.failures, summary: body.summary };
+    },
   });
 }
 
