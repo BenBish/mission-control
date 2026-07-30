@@ -208,8 +208,8 @@ export function MainLayout() {
           <ThemeToggle />
         </header>
 
-        {/* Page Content */}
-        <main className="flex-1 p-4 lg:p-6">
+        {/* Page Content — min-w-0 lets flex children shrink; do not clip overflow globally */}
+        <main className="min-w-0 flex-1 p-4 lg:p-6">
           <Outlet />
         </main>
       </div>

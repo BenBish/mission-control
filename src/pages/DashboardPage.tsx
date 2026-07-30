@@ -169,12 +169,12 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="min-w-0 space-y-8">
       <PageHeader title="Dashboard" description={pageDescription} />
 
       {/* Stats Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card className="shadow-sm">
+      <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Card className="min-w-0 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Tokens Today
@@ -198,7 +198,7 @@ export default function DashboardPage() {
           className="block rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           aria-label="API Spend last 30 days — view Direct API Spend"
         >
-          <Card className="shadow-sm h-full transition-colors hover:bg-muted/40">
+          <Card className="min-w-0 h-full shadow-sm transition-colors hover:bg-muted/40">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 API Spend (30d)
@@ -222,7 +222,7 @@ export default function DashboardPage() {
           </Card>
         </Link>
 
-        <Card className="shadow-sm">
+        <Card className="min-w-0 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Failures (24h)
@@ -256,7 +256,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm">
+        <Card className="min-w-0 shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Source Health
@@ -292,16 +292,16 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-7">
+      <div className="grid min-w-0 gap-6 lg:grid-cols-7">
         {/* Recent Activity Card */}
-        <Card className="lg:col-span-4 shadow-sm">
+        <Card className="min-w-0 overflow-hidden lg:col-span-4 shadow-sm">
           <CardHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-lg bg-primary/10">
+            <div className="flex min-w-0 items-center justify-between gap-2">
+              <div className="flex min-w-0 items-center gap-2">
+                <div className="shrink-0 p-2 rounded-lg bg-primary/10">
                   <List className="h-4 w-4 text-primary" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <CardTitle className="text-lg">Recent Activity</CardTitle>
                   <CardDescription>Your most recent actions</CardDescription>
                 </div>
@@ -310,7 +310,7 @@ export default function DashboardPage() {
                 variant="ghost"
                 size="sm"
                 onClick={() => navigate("/activities")}
-                className="gap-1"
+                className="shrink-0 gap-1"
               >
                 View All
                 <ArrowRight className="h-4 w-4" />
@@ -318,25 +318,25 @@ export default function DashboardPage() {
             </div>
           </CardHeader>
           <Separator />
-          <CardContent className="pt-4">
+          <CardContent className="min-w-0 pt-4">
             {!activities || activities.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <ActivityIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
                 <p className="text-sm">No recent activity found.</p>
               </div>
             ) : (
-              <div className="space-y-1">
+              <div className="min-w-0 space-y-1">
                 {activities.map((activity: Activity) => {
                   const Icon = actorIcon(activity.actor.type);
                   return (
                     <div
                       key={activity.id}
-                      className="group flex items-center justify-between p-3 rounded-lg cursor-pointer hover:bg-muted/60 transition-colors"
+                      className="group flex min-w-0 items-center gap-3 p-3 rounded-lg cursor-pointer hover:bg-muted/60 transition-colors"
                       onClick={() => navigate(`/activities/${activity.id}`)}
                     >
-                      <div className="flex items-start gap-3 min-w-0">
+                      <div className="flex min-w-0 flex-1 items-start gap-3">
                         <div
-                          className={`p-1.5 rounded-md ${
+                          className={`shrink-0 p-1.5 rounded-md ${
                             activity.status === "success"
                               ? "bg-emerald-100 dark:bg-emerald-900/30"
                               : activity.status === "failure"
@@ -352,19 +352,23 @@ export default function DashboardPage() {
                             <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                           )}
                         </div>
-                        <div className="flex flex-col min-w-0">
-                          <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">
+                        <div className="flex min-w-0 flex-col overflow-hidden">
+                          <p className="truncate text-sm font-medium group-hover:text-primary transition-colors">
                             {activity.description}
                           </p>
-                          <p className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Icon className="h-3 w-3" />
-                            {activity.actor.id}
-                            <span className="mx-0.5">·</span>
-                            {actorTypeLabel(activity.actor.type)}
+                          <p className="flex min-w-0 items-center gap-1 truncate text-xs text-muted-foreground">
+                            <Icon className="h-3 w-3 shrink-0" />
+                            <span className="truncate">
+                              {activity.actor.id}
+                            </span>
+                            <span className="mx-0.5 shrink-0">·</span>
+                            <span className="shrink-0">
+                              {actorTypeLabel(activity.actor.type)}
+                            </span>
                           </p>
                         </div>
                       </div>
-                      <span className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">
+                      <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">
                         {formatTimestamp(activity.timestamp)}
                       </span>
                     </div>
@@ -376,61 +380,65 @@ export default function DashboardPage() {
         </Card>
 
         {/* Token trend chart */}
-        <div className="lg:col-span-3">
-          <Card className="shadow-sm">
+        <div className="min-w-0 lg:col-span-3">
+          <Card className="min-w-0 overflow-hidden shadow-sm">
             <CardHeader className="pb-4">
               <CardTitle className="text-lg">Token Usage</CardTitle>
               <CardDescription>Daily total {scopeLabel}</CardDescription>
             </CardHeader>
             <Separator />
-            <CardContent className="pt-4">
+            <CardContent className="min-w-0 pt-4">
               {dailyTokens.length === 0 ? (
-                <div className="h-64 flex items-center justify-center text-muted-foreground text-sm">
+                <div className="flex h-64 items-center justify-center text-muted-foreground text-sm">
                   No token usage yet
                 </div>
               ) : (
-                <ResponsiveContainer width="100%" height={256}>
-                  <AreaChart data={dailyTokens}>
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      className="stroke-border"
-                    />
-                    <XAxis
-                      dataKey="date"
-                      tick={{ fontSize: 12 }}
-                      tickFormatter={(value: string) => {
-                        const d = new Date(value + "T00:00:00");
-                        return `${d.getMonth() + 1}/${d.getDate()}`;
-                      }}
-                      className="text-muted-foreground"
-                    />
-                    <YAxis
-                      tick={{ fontSize: 12 }}
-                      className="text-muted-foreground"
-                    />
-                    <Tooltip
-                      content={({ active, payload, label }) => {
-                        if (!active || !payload?.length) return null;
-                        return (
-                          <div className="rounded-lg border bg-background p-3 shadow-md text-sm">
-                            <p className="font-medium mb-1">{label}</p>
-                            <p className="text-blue-600">
-                              {(payload[0]?.value as number)?.toLocaleString()}{" "}
-                              tokens
-                            </p>
-                          </div>
-                        );
-                      }}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="tokens"
-                      stroke="#3b82f6"
-                      fill="#3b82f6"
-                      fillOpacity={0.15}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+                <div className="h-64 w-full min-w-0 overflow-hidden">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={dailyTokens}>
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        className="stroke-border"
+                      />
+                      <XAxis
+                        dataKey="date"
+                        tick={{ fontSize: 12 }}
+                        tickFormatter={(value: string) => {
+                          const d = new Date(value + "T00:00:00");
+                          return `${d.getMonth() + 1}/${d.getDate()}`;
+                        }}
+                        className="text-muted-foreground"
+                      />
+                      <YAxis
+                        tick={{ fontSize: 12 }}
+                        className="text-muted-foreground"
+                      />
+                      <Tooltip
+                        content={({ active, payload, label }) => {
+                          if (!active || !payload?.length) return null;
+                          return (
+                            <div className="rounded-lg border bg-background p-3 shadow-md text-sm">
+                              <p className="font-medium mb-1">{label}</p>
+                              <p className="text-blue-600">
+                                {(
+                                  payload[0]?.value as number
+                                )?.toLocaleString()}{" "}
+                                tokens
+                              </p>
+                            </div>
+                          );
+                        }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="tokens"
+                        stroke="#3b82f6"
+                        fill="#3b82f6"
+                        fillOpacity={0.15}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -438,21 +446,21 @@ export default function DashboardPage() {
       </div>
 
       {failuresLast24h.length > 0 && (
-        <Card className="shadow-sm border-l-4 border-l-red-500">
+        <Card className="min-w-0 overflow-hidden border-l-4 border-l-red-500 shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
               <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
               Failures in last 24 hours
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="min-w-0 space-y-2">
             {failuresLast24h.map((f) => (
               <div
                 key={`${f.kind}:${f.id}`}
-                className="flex items-center justify-between text-sm py-1"
+                className="flex min-w-0 items-center justify-between gap-3 py-1 text-sm"
               >
-                <span className="truncate">{f.summary}</span>
-                <span className="text-xs text-muted-foreground whitespace-nowrap ml-3">
+                <span className="min-w-0 truncate">{f.summary}</span>
+                <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">
                   {formatTimestamp(f.timestamp)}
                 </span>
               </div>
