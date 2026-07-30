@@ -30,6 +30,16 @@ export async function listRecentFailures(
   limit = 50,
   sourceId?: string,
 ): Promise<FailureItem[]> {
+  // Only bind finite positive integers into LIMIT — NaN/0/negative crash
+  // some SQLite/Bun bindings with SQLITE_MISMATCH (BSH-79).
+  const safeLimit =
+    typeof limit === "number" &&
+    Number.isFinite(limit) &&
+    Number.isInteger(limit) &&
+    limit > 0
+      ? limit
+      : 50;
+
   const sourceClause = sourceId ? "AND source_id = ?" : "";
   const sourceParams = sourceId ? [sourceId] : [];
 
@@ -78,8 +88,8 @@ export async function listRecentFailures(
 
   // Each UNION arm needs its own source param when filtering.
   const params = sourceId
-    ? [...sourceParams, ...sourceParams, ...sourceParams, limit]
-    : [limit];
+    ? [...sourceParams, ...sourceParams, ...sourceParams, safeLimit]
+    : [safeLimit];
 
   const rows = await db.all<FailureUnionRow[]>(sql, ...(params as []));
 
