@@ -151,3 +151,121 @@ test.describe("Dashboard", () => {
     await expect(page.getByText(/Last 24 hours/i).first()).toBeVisible();
   });
 });
+
+/**
+ * Mobile viewport regression (BSH-67): Dashboard must not introduce horizontal
+ * page scroll at 390×844. Long activity text and the Token Usage chart are the
+ * historical overflow sources — both must stay within the document width.
+ */
+test.describe("Dashboard mobile overflow", () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  const LONG_DESCRIPTION =
+    "E2E long activity description that would force horizontal overflow if the row cannot shrink: " +
+    "abcdefghijklmnopqrstuvwxyz-".repeat(20);
+
+  test("no horizontal document overflow with long activity text and token chart", async ({
+    page,
+  }) => {
+    // Seed a deliberately long description so truncation/shrink constraints
+    // are exercised — short seeded copy can hide the regression.
+    await page.route("**/api/activities**", async (route) => {
+      const url = new URL(route.request().url());
+      // Only intercept list requests (not /api/activities/:id).
+      if (url.pathname !== "/api/activities") {
+        await route.continue();
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          success: true,
+          activities: [
+            {
+              id: "activity-e2e-long-0",
+              sourceId: "claude-code",
+              instanceId: "claude-code@arch-desktop",
+              sessionId: "claude-code:session-e2e-cc-001",
+              timestamp: new Date().toISOString(),
+              actor: { type: "agent", id: "assistant" },
+              actionType: "tool_call",
+              description: LONG_DESCRIPTION,
+              status: "success",
+              inputTokens: 100,
+              outputTokens: 50,
+              totalTokens: 150,
+            },
+          ],
+        }),
+      });
+    });
+
+    const dashboard = new DashboardPage(page);
+    await dashboard.goto();
+    await dashboard.waitForStats();
+    await dashboard.waitForCharts();
+
+    await expect(
+      page.getByRole("heading", { name: "Dashboard", level: 1 }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Recent Activity" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Token Usage" }),
+    ).toBeVisible();
+
+    // Long text must appear (truncated) in Recent Activity without expanding
+    // the document width.
+    const recentCard = page
+      .locator("div")
+      .filter({
+        has: page.getByRole("heading", { name: "Recent Activity" }),
+      })
+      .first();
+    await expect(recentCard).toContainText("E2E long activity description");
+
+    const metrics = await page.evaluate(() => {
+      const docEl = document.documentElement;
+      const body = document.body;
+      const scrollWidth = Math.max(docEl.scrollWidth, body?.scrollWidth ?? 0);
+      const clientWidth = docEl.clientWidth;
+      const innerWidth = window.innerWidth;
+
+      const tokenHeading = Array.from(document.querySelectorAll("h3")).find(
+        (h) => h.textContent?.trim() === "Token Usage",
+      );
+      const tokenCard = tokenHeading?.closest(
+        "div.rounded-lg, [class*='rounded-lg']",
+      ) as HTMLElement | null;
+      const chartSvg = tokenCard?.querySelector("svg") as SVGElement | null;
+
+      const chartWidth = chartSvg ? chartSvg.getBoundingClientRect().width : 0;
+      const cardWidth = tokenCard ? tokenCard.getBoundingClientRect().width : 0;
+
+      return {
+        scrollWidth,
+        clientWidth,
+        innerWidth,
+        chartWidth,
+        cardWidth,
+        hasChart: !!chartSvg,
+      };
+    });
+
+    // Allow 1px subpixel rounding; document must not meaningfully scroll sideways.
+    expect(
+      metrics.scrollWidth,
+      `document scrollWidth (${metrics.scrollWidth}) exceeded viewport (${metrics.innerWidth})`,
+    ).toBeLessThanOrEqual(metrics.innerWidth + 1);
+
+    expect(metrics.hasChart).toBe(true);
+    expect(metrics.chartWidth).toBeGreaterThan(0);
+    expect(
+      metrics.chartWidth,
+      `chart width (${metrics.chartWidth}) exceeded card (${metrics.cardWidth})`,
+    ).toBeLessThanOrEqual(metrics.cardWidth + 1);
+    expect(metrics.cardWidth).toBeLessThanOrEqual(metrics.innerWidth + 1);
+  });
+});
