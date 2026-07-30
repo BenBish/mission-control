@@ -1,6 +1,11 @@
 import type { Express, Request, Response } from "express";
 import type { Database } from "../../db/database.js";
 import {
+  getProviderBudgetConfig,
+  isValidIanaTimeZone,
+  setProviderBudgetConfig,
+} from "../../db/queries/app-settings.js";
+import {
   getProviderUsage,
   getProviderUsageBreakdown,
   listProviderSyncStatus,
@@ -12,6 +17,7 @@ import {
   syncAllProviders,
   type ProviderId,
 } from "../../services/provider-connectors/index.js";
+import { loadSpendInsights } from "../../services/provider-spend-insights.js";
 
 function toIso(sqliteTimestamp: string | null): string | null {
   if (!sqliteTimestamp) return null;
@@ -139,6 +145,121 @@ export function registerProviderRoutes(app: Express, db: Database): void {
         res.status(500).json({
           success: false,
           error: "Failed to load provider usage breakdown",
+        });
+      }
+    },
+  );
+
+  /**
+   * Monthly provider-spend budget config (account-wide Direct API Spend only).
+   * Does not apply to Agent Usage / session-log costs.
+   */
+  app.get("/api/providers/budget", async (_req: Request, res: Response) => {
+    try {
+      const budget = await getProviderBudgetConfig(db.raw());
+      res.json({
+        success: true,
+        source: "provider-api",
+        budget,
+      });
+    } catch (err) {
+      console.error("GET /api/providers/budget failed:", err);
+      res.status(500).json({
+        success: false,
+        error: "Failed to load provider budget",
+      });
+    }
+  });
+
+  app.put("/api/providers/budget", async (req: Request, res: Response) => {
+    try {
+      const body = req.body ?? {};
+      let monthlyBudgetUsd: number | null;
+      if (body.monthlyBudgetUsd === null || body.monthlyBudgetUsd === "") {
+        monthlyBudgetUsd = null;
+      } else if (typeof body.monthlyBudgetUsd === "number") {
+        monthlyBudgetUsd = body.monthlyBudgetUsd;
+      } else if (
+        typeof body.monthlyBudgetUsd === "string" &&
+        body.monthlyBudgetUsd.trim() !== ""
+      ) {
+        monthlyBudgetUsd = Number(body.monthlyBudgetUsd);
+      } else if (body.monthlyBudgetUsd === undefined) {
+        // Keep existing budget amount; only timezone may change
+        const existing = await getProviderBudgetConfig(db.raw());
+        monthlyBudgetUsd = existing.monthlyBudgetUsd;
+      } else {
+        res.status(400).json({
+          success: false,
+          error: "monthlyBudgetUsd must be a non-negative number or null",
+        });
+        return;
+      }
+
+      if (
+        monthlyBudgetUsd !== null &&
+        (!Number.isFinite(monthlyBudgetUsd) || monthlyBudgetUsd < 0)
+      ) {
+        res.status(400).json({
+          success: false,
+          error: "monthlyBudgetUsd must be a non-negative number or null",
+        });
+        return;
+      }
+
+      let timezone: string | undefined;
+      if (body.timezone !== undefined) {
+        if (
+          typeof body.timezone !== "string" ||
+          !isValidIanaTimeZone(body.timezone)
+        ) {
+          res.status(400).json({
+            success: false,
+            error: "timezone must be a valid IANA timezone string",
+          });
+          return;
+        }
+        timezone = body.timezone;
+      }
+
+      const budget = await setProviderBudgetConfig(db.raw(), {
+        monthlyBudgetUsd,
+        timezone,
+      });
+      res.json({
+        success: true,
+        source: "provider-api",
+        budget,
+      });
+    } catch (err) {
+      console.error("PUT /api/providers/budget failed:", err);
+      const message =
+        err instanceof Error ? err.message : "Failed to update provider budget";
+      res.status(400).json({
+        success: false,
+        error: message,
+      });
+    }
+  });
+
+  /**
+   * Budget progress, burn rate, forecast, daily trend, prior-period breakdown,
+   * anomalies, and sync reliability for Direct API Spend.
+   */
+  app.get(
+    "/api/providers/spend-insights",
+    async (_req: Request, res: Response) => {
+      try {
+        const insights = await loadSpendInsights(db.raw());
+        res.json({
+          success: true,
+          ...insights,
+        });
+      } catch (err) {
+        console.error("GET /api/providers/spend-insights failed:", err);
+        res.status(500).json({
+          success: false,
+          error: "Failed to load provider spend insights",
         });
       }
     },

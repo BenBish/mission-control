@@ -230,6 +230,125 @@ export async function triggerProviderSync(providers?: string[]): Promise<{
   return json;
 }
 
+// ─── Provider budget & spend insights ───────────────────────────────────────
+
+export interface ProviderBudgetConfig {
+  monthlyBudgetUsd: number | null;
+  timezone: string;
+}
+
+export interface SpendInsightsDailyPoint {
+  day: string;
+  costUsd: number;
+  priorPeriodCostUsd: number | null;
+  deltaUsd: number | null;
+  deltaPct: number | null;
+}
+
+export interface SpendInsightsBreakdownRow {
+  provider: string;
+  model: string;
+  costUsd: number;
+  inputTokens: number;
+  outputTokens: number;
+  priorPeriodCostUsd: number;
+  deltaUsd: number;
+  deltaPct: number | null;
+}
+
+export interface SpendAnomaly {
+  kind: "daily" | "provider_model";
+  day: string;
+  provider: string | null;
+  model: string | null;
+  valueUsd: number;
+  baselineUsd: number;
+  ratio: number;
+  message: string;
+}
+
+export interface SpendSyncWarning {
+  provider: string;
+  status: string;
+  reason: "error" | "stale" | "not_configured" | "limited";
+  lastSuccessAt: string | null;
+  lastError: string | null;
+}
+
+export interface SpendInsights {
+  budget: {
+    monthlyBudgetUsd: number | null;
+    consumedUsd: number;
+    remainingUsd: number | null;
+    consumedPct: number | null;
+  };
+  burnRateUsdPerDay: number;
+  forecastMonthEndUsd: number;
+  dailyTrend: SpendInsightsDailyPoint[];
+  topBreakdown: SpendInsightsBreakdownRow[];
+  anomalies: SpendAnomaly[];
+  syncWarnings: SpendSyncWarning[];
+  meta: {
+    source: "provider-api";
+    timezone: string;
+    monthStart: string;
+    monthEnd: string;
+    today: string;
+    daysElapsed: number;
+    daysInMonth: number;
+    partialMonth: boolean;
+    forecastReliable: boolean;
+    notes: string[];
+  };
+}
+
+export function useProviderBudget(): UseQueryResult<ProviderBudgetConfig> {
+  return useQuery({
+    queryKey: ["provider-budget"],
+    queryFn: async () =>
+      (await getJson<{ budget: ProviderBudgetConfig }>("/api/providers/budget"))
+        .budget,
+  });
+}
+
+export async function updateProviderBudget(body: {
+  monthlyBudgetUsd?: number | null;
+  timezone?: string;
+}): Promise<ProviderBudgetConfig> {
+  const res = await apiFetch("/api/providers/budget", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const json = await res.json();
+  if (!res.ok || json.success === false) {
+    throw new Error(json.error || `Budget update failed: ${res.status}`);
+  }
+  return json.budget as ProviderBudgetConfig;
+}
+
+export function useProviderSpendInsights(): UseQueryResult<SpendInsights> {
+  return useQuery({
+    queryKey: ["provider-spend-insights"],
+    queryFn: async () => {
+      const body = await getJson<SpendInsights & { success?: boolean }>(
+        "/api/providers/spend-insights",
+      );
+      return {
+        budget: body.budget,
+        burnRateUsdPerDay: body.burnRateUsdPerDay,
+        forecastMonthEndUsd: body.forecastMonthEndUsd,
+        dailyTrend: body.dailyTrend,
+        topBreakdown: body.topBreakdown,
+        anomalies: body.anomalies,
+        syncWarnings: body.syncWarnings,
+        meta: body.meta,
+      };
+    },
+    refetchInterval: 60_000,
+  });
+}
+
 // ─── Failures ───────────────────────────────────────────────────────────────
 
 export function useFailures(
