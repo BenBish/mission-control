@@ -373,6 +373,16 @@ CREATE TABLE IF NOT EXISTS provider_sync_status (
   meta_json TEXT,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+-- ============================================================================
+-- APP SETTINGS — key/value config (e.g. provider monthly budget)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS app_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
 `;
 
 /**

@@ -101,6 +101,92 @@ describe("GET /api/providers/usage/breakdown", () => {
   });
 });
 
+describe("GET/PUT /api/providers/budget", () => {
+  test("defaults to null budget and UTC timezone", async () => {
+    const res = await fetch(`${baseUrl}/api/providers/budget`);
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.source).toBe("provider-api");
+    expect(body.budget.monthlyBudgetUsd).toBeNull();
+    expect(body.budget.timezone).toBe("UTC");
+  });
+
+  test("updates and clears monthly budget", async () => {
+    const put = await fetch(`${baseUrl}/api/providers/budget`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        monthlyBudgetUsd: 250,
+        timezone: "America/New_York",
+      }),
+    });
+    const putBody = await put.json();
+    expect(put.status).toBe(200);
+    expect(putBody.budget.monthlyBudgetUsd).toBe(250);
+    expect(putBody.budget.timezone).toBe("America/New_York");
+
+    const get = await fetch(`${baseUrl}/api/providers/budget`);
+    const getBody = await get.json();
+    expect(getBody.budget.monthlyBudgetUsd).toBe(250);
+
+    const clear = await fetch(`${baseUrl}/api/providers/budget`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ monthlyBudgetUsd: null }),
+    });
+    const clearBody = await clear.json();
+    expect(clear.status).toBe(200);
+    expect(clearBody.budget.monthlyBudgetUsd).toBeNull();
+    // timezone preserved when omitted
+    expect(clearBody.budget.timezone).toBe("America/New_York");
+  });
+
+  test("rejects invalid budget and timezone", async () => {
+    const neg = await fetch(`${baseUrl}/api/providers/budget`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ monthlyBudgetUsd: -1 }),
+    });
+    expect(neg.status).toBe(400);
+
+    const tz = await fetch(`${baseUrl}/api/providers/budget`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ timezone: "Not/A_Zone" }),
+    });
+    expect(tz.status).toBe(400);
+  });
+});
+
+describe("GET /api/providers/spend-insights", () => {
+  test("returns budget progress meta and provider-api source", async () => {
+    await fetch(`${baseUrl}/api/providers/budget`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ monthlyBudgetUsd: 100, timezone: "UTC" }),
+    });
+
+    const res = await fetch(`${baseUrl}/api/providers/spend-insights`);
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.meta.source).toBe("provider-api");
+    expect(body.meta.timezone).toBe("UTC");
+    expect(typeof body.budget.consumedUsd).toBe("number");
+    expect(typeof body.burnRateUsdPerDay).toBe("number");
+    expect(typeof body.forecastMonthEndUsd).toBe("number");
+    expect(Array.isArray(body.dailyTrend)).toBe(true);
+    expect(Array.isArray(body.topBreakdown)).toBe(true);
+    expect(Array.isArray(body.anomalies)).toBe(true);
+    expect(Array.isArray(body.syncWarnings)).toBe(true);
+    expect(Array.isArray(body.meta.notes)).toBe(true);
+    expect(body.meta.notes.some((n: string) => n.includes("session-log"))).toBe(
+      true,
+    );
+  });
+});
+
 describe("POST /api/providers/sync", () => {
   test("without keys marks not_configured and does not crash", async () => {
     const prev = {
