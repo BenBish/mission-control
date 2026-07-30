@@ -187,28 +187,44 @@ export interface ProviderBreakdownRow {
   request_count: number;
 }
 
-export function useProviderStatus(): UseQueryResult<ProviderStatus[]> {
+/**
+ * Default retry for provider billing queries.
+ * Fail-fast keeps the homepage spend card from lingering on "…"; override via
+ * hook options when a caller wants more resilient retries (e.g. background sync).
+ */
+export const PROVIDER_QUERY_DEFAULT_RETRY = 1;
+
+export function useProviderStatus(opts?: {
+  /** React Query retry count/boolean. Default: PROVIDER_QUERY_DEFAULT_RETRY. */
+  retry?: number | boolean;
+}): UseQueryResult<ProviderStatus[]> {
   return useQuery({
     queryKey: ["provider-status"],
     queryFn: async () =>
       (await getJson<{ providers: ProviderStatus[] }>("/api/providers/status"))
         .providers,
     refetchInterval: 60_000,
+    retry: opts?.retry ?? PROVIDER_QUERY_DEFAULT_RETRY,
   });
 }
 
 export function useProviderBreakdown(opts: {
   since?: string;
   provider?: string;
+  /** React Query retry count/boolean. Default: PROVIDER_QUERY_DEFAULT_RETRY. */
+  retry?: number | boolean;
 }): UseQueryResult<ProviderBreakdownRow[]> {
+  const { since, provider, retry } = opts;
   return useQuery({
-    queryKey: ["provider-breakdown", opts],
+    // Keep since/provider only in the key — retry is not part of cache identity.
+    queryKey: ["provider-breakdown", { since, provider }],
     queryFn: async () =>
       (
         await getJson<{ breakdown: ProviderBreakdownRow[] }>(
-          `/api/providers/usage/breakdown${toQueryString(opts)}`,
+          `/api/providers/usage/breakdown${toQueryString({ since, provider })}`,
         )
       ).breakdown,
+    retry: retry ?? PROVIDER_QUERY_DEFAULT_RETRY,
   });
 }
 

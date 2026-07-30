@@ -18,17 +18,18 @@ test.describe("Dashboard", () => {
   test("displays all four stat cards", async () => {
     const titles = await dashboard.getStatCardTitles();
     expect(titles).toContain("Tokens Today");
-    expect(titles).toContain("API Spend (30d)");
+    expect(titles).toContain("Direct API Spend");
     expect(titles).toContain("Failures (24h)");
     expect(titles).toContain("Source Health");
   });
 
-  test("API Spend card navigates to Direct API Spend on Consumption", async ({
+  test("Direct API Spend card navigates to provider billing for today", async ({
     page,
   }) => {
-    await dashboard.clickApiSpendCard();
+    await dashboard.clickDirectApiSpendCard();
     await page.waitForURL(/\/consumption\?.*view=direct-api/);
     expect(page.url()).toContain("view=direct-api");
+    expect(page.url()).toContain("range=today");
     await expect(
       page.getByRole("tab", { name: "Direct API Spend" }),
     ).toHaveAttribute("data-state", "active");
@@ -149,6 +150,282 @@ test.describe("Dashboard", () => {
     expect(value).toBe("42");
     expect(value).not.toBe("5");
     await expect(page.getByText(/Last 24 hours/i).first()).toBeVisible();
+  });
+});
+
+/**
+ * Direct API Spend card states (BSH-69).
+ * Provider billing is mocked so empty / stale / error never depend on live keys.
+ */
+test.describe("Dashboard Direct API Spend states", () => {
+  type ProviderStatusMock = {
+    id: string;
+    name: string;
+    configured: boolean;
+    envVars: string[];
+    notes: string | null;
+    status: string;
+    lastSyncAt: string | null;
+    lastSuccessAt: string | null;
+    lastError: string | null;
+    limitation: string | null;
+    cursorDay: string | null;
+  };
+
+  function baseProvider(
+    overrides: Partial<ProviderStatusMock> = {},
+  ): ProviderStatusMock {
+    return {
+      id: "openrouter",
+      name: "OpenRouter",
+      configured: true,
+      envVars: ["OPENROUTER_API_KEY"],
+      notes: null,
+      status: "ok",
+      lastSyncAt: new Date().toISOString(),
+      lastSuccessAt: new Date().toISOString(),
+      lastError: null,
+      limitation: null,
+      cursorDay: null,
+      ...overrides,
+    };
+  }
+
+  async function mockProviderApis(
+    page: import("@playwright/test").Page,
+    opts: {
+      todayCost: number | null;
+      days30Cost: number | null;
+      providers: ProviderStatusMock[];
+      /** Simulate HTTP failure for status and/or breakdown endpoints. */
+      failStatus?: boolean;
+      failBreakdown?: boolean;
+    },
+  ) {
+    await page.route("**/api/providers/status**", async (route) => {
+      if (opts.failStatus) {
+        await route.fulfill({
+          status: 500,
+          contentType: "application/json",
+          body: JSON.stringify({
+            success: false,
+            error: "Failed to load provider status",
+          }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ success: true, providers: opts.providers }),
+      });
+    });
+
+    await page.route("**/api/providers/usage/breakdown**", async (route) => {
+      if (opts.failBreakdown) {
+        await route.fulfill({
+          status: 500,
+          contentType: "application/json",
+          body: JSON.stringify({
+            success: false,
+            error: "Failed to load provider usage breakdown",
+          }),
+        });
+        return;
+      }
+      const url = new URL(route.request().url());
+      const since = url.searchParams.get("since");
+      const sinceMs = since ? Date.parse(since) : 0;
+      // Today window starts at local midnight (≤ ~24h ago); 30d is ~30 days ago.
+      const isTodayWindow = Date.now() - sinceMs < 36 * 60 * 60 * 1000;
+      const cost = isTodayWindow ? opts.todayCost : opts.days30Cost;
+      const breakdown =
+        cost == null
+          ? []
+          : [
+              {
+                provider: "openrouter",
+                model: "test-model",
+                input_tokens: 100,
+                output_tokens: 50,
+                cost_usd: cost,
+                request_count: 1,
+              },
+            ];
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          success: true,
+          source: "provider-api",
+          breakdown,
+        }),
+      });
+    });
+  }
+
+  test("populated: shows today + 30d + last sync", async ({ page }) => {
+    await mockProviderApis(page, {
+      todayCost: 1.095,
+      days30Cost: 7.9466,
+      providers: [baseProvider()],
+    });
+
+    const dashboard = new DashboardPage(page);
+    await dashboard.goto();
+    await dashboard.waitForStats();
+
+    await expect(dashboard.getDirectApiSpendToday()).toHaveText("$1.0950");
+    await expect(dashboard.getDirectApiSpendMeta()).toContainText(
+      "30d $7.9466",
+    );
+    await expect(dashboard.getDirectApiSpendSync()).toContainText(/Synced/i);
+    await expect(
+      page.getByText(/Account-wide · independent of source filter/i),
+    ).toBeVisible();
+  });
+
+  test("empty: never synced shows No synced spend (not $0)", async ({
+    page,
+  }) => {
+    await mockProviderApis(page, {
+      todayCost: null,
+      days30Cost: null,
+      providers: [
+        baseProvider({
+          configured: false,
+          status: "not_configured",
+          lastSyncAt: null,
+          lastSuccessAt: null,
+        }),
+      ],
+    });
+
+    const dashboard = new DashboardPage(page);
+    await dashboard.goto();
+    await dashboard.waitForStats();
+
+    await expect(dashboard.getDirectApiSpendToday()).toHaveText(
+      "No synced spend",
+    );
+    await expect(dashboard.getDirectApiSpendToday()).not.toHaveText("$0.0000");
+    await expect(dashboard.getDirectApiSpendMeta()).toContainText("30d —");
+    await expect(dashboard.getDirectApiSpendSync()).toHaveText("Not synced");
+  });
+
+  test("true zero after sync is distinguishable from missing data", async ({
+    page,
+  }) => {
+    await mockProviderApis(page, {
+      todayCost: null,
+      days30Cost: null,
+      providers: [baseProvider()],
+    });
+
+    const dashboard = new DashboardPage(page);
+    await dashboard.goto();
+    await dashboard.waitForStats();
+
+    await expect(dashboard.getDirectApiSpendToday()).toHaveText("$0.0000");
+    await expect(dashboard.getDirectApiSpendMeta()).toContainText(
+      "30d $0.0000",
+    );
+    await expect(dashboard.getDirectApiSpendSync()).toContainText(/Synced/i);
+  });
+
+  test("stale sync is labeled when last success is old", async ({ page }) => {
+    const staleAt = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+    await mockProviderApis(page, {
+      todayCost: 0.5,
+      days30Cost: 3.25,
+      providers: [
+        baseProvider({
+          lastSuccessAt: staleAt,
+          lastSyncAt: staleAt,
+          status: "ok",
+        }),
+      ],
+    });
+
+    const dashboard = new DashboardPage(page);
+    await dashboard.goto();
+    await dashboard.waitForStats();
+
+    await expect(dashboard.getDirectApiSpendToday()).toHaveText("$0.5000");
+    await expect(dashboard.getDirectApiSpendSync()).toHaveText("Stale sync");
+  });
+
+  test("connector error is labeled and does not look like zero", async ({
+    page,
+  }) => {
+    await mockProviderApis(page, {
+      todayCost: 2.5,
+      days30Cost: 9.0,
+      providers: [
+        baseProvider({
+          status: "error",
+          lastError: "Admin key rejected",
+          lastSuccessAt: new Date().toISOString(),
+        }),
+      ],
+    });
+
+    const dashboard = new DashboardPage(page);
+    await dashboard.goto();
+    await dashboard.waitForStats();
+
+    await expect(dashboard.getDirectApiSpendToday()).toHaveText("$2.5000");
+    await expect(dashboard.getDirectApiSpendSync()).toHaveText("Sync error");
+    await expect(dashboard.getDirectApiSpendSync()).toHaveAttribute(
+      "title",
+      "Admin key rejected",
+    );
+  });
+
+  test("breakdown HTTP failure shows em dash, not $0", async ({ page }) => {
+    await mockProviderApis(page, {
+      todayCost: 1.0,
+      days30Cost: 5.0,
+      providers: [baseProvider()],
+      failBreakdown: true,
+    });
+
+    const dashboard = new DashboardPage(page);
+    await dashboard.goto();
+    await dashboard.waitForStats();
+
+    // retry: 1 on provider hooks — wait past the single retry for isError.
+    await expect(dashboard.getDirectApiSpendToday()).toHaveText("—", {
+      timeout: 15_000,
+    });
+    await expect(dashboard.getDirectApiSpendToday()).not.toHaveText("$0.0000");
+    await expect(dashboard.getDirectApiSpendMeta()).toContainText("30d —");
+  });
+
+  test("status HTTP failure still shows spend when breakdown succeeds", async ({
+    page,
+  }) => {
+    await mockProviderApis(page, {
+      todayCost: 3.25,
+      days30Cost: 11.0,
+      providers: [baseProvider()],
+      failStatus: true,
+    });
+
+    const dashboard = new DashboardPage(page);
+    await dashboard.goto();
+    await dashboard.waitForStats();
+
+    await expect(dashboard.getDirectApiSpendToday()).toHaveText("$3.2500", {
+      timeout: 15_000,
+    });
+    await expect(dashboard.getDirectApiSpendMeta()).toContainText(
+      "30d $11.0000",
+    );
+    await expect(dashboard.getDirectApiSpendSync()).toHaveText(
+      "Sync status unavailable",
+      { timeout: 15_000 },
+    );
   });
 });
 

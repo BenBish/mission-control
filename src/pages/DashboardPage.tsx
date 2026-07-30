@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -28,8 +28,21 @@ import {
   useConsumption,
   useFailures,
   useProviderBreakdown,
+  useProviderStatus,
   useSources,
 } from "@/lib/queries";
+import { formatLastActive } from "@/lib/date-utils";
+import {
+  aggregateProviderCost,
+  daysAgoIso,
+  directApiSpendSyncStatusKind,
+  formatDirectApiSpend30d,
+  formatDirectApiSpendPrimary,
+  isCompactSpendPrimary,
+  localDayKey,
+  startOfLocalDayIso,
+  summarizeProviderSync,
+} from "@/lib/direct-api-spend";
 import { failureStatusScopeLabel } from "@/types/failures";
 import {
   AreaChart,
@@ -94,15 +107,39 @@ export default function DashboardPage() {
     sourceId: selectedSourceId,
   });
 
-  // Last 30 days of provider API billing for the homepage spend card.
-  // useState initializer runs once (impure clock OK there; not during render).
-  const [providerSince] = useState(() =>
-    new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+  // Provider billing windows keyed by local calendar day so "today" rolls
+  // over at midnight without remounting (query keys stay stable within a day).
+  const dayKey = localDayKey(nowMs);
+  const providerWindows = useMemo(
+    () => ({
+      todaySince: startOfLocalDayIso(nowMs),
+      days30Since: daysAgoIso(30, nowMs),
+    }),
+    // dayKey gates refresh; nowMs is sampled when the local day changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- midnight rollover
+    [dayKey],
   );
-  const { data: providerBreakdown, isPending: providerSpendPending } =
-    useProviderBreakdown({
-      since: providerSince,
-    });
+  const {
+    data: providerBreakdownToday,
+    isPending: providerTodayPending,
+    isError: providerTodayError,
+    isSuccess: providerTodaySuccess,
+  } = useProviderBreakdown({ since: providerWindows.todaySince });
+  const {
+    data: providerBreakdown30d,
+    isPending: provider30dPending,
+    isError: provider30dError,
+    isSuccess: provider30dSuccess,
+  } = useProviderBreakdown({ since: providerWindows.days30Since });
+  const {
+    data: providerStatus,
+    isPending: providerStatusPending,
+    isError: providerStatusError,
+  } = useProviderStatus();
+  // Amount pending is per-window; do not block dollar display on status retries.
+  const todayAmountPending = providerTodayPending && !providerTodayError;
+  const days30AmountPending = provider30dPending && !provider30dError;
+  const statusPending = providerStatusPending && !providerStatusError;
 
   // Batched selective SSE invalidation (BSH-75): coalesce over the freshness
   // window and only invalidate families the event can affect. See
@@ -148,16 +185,51 @@ export default function DashboardPage() {
       .reduce((sum, row) => sum + row.input_tokens + row.output_tokens, 0);
   }, [consumption]);
 
-  const providerSpend30d = useMemo(() => {
-    if (!providerBreakdown) return { cost: 0, hasCost: false };
-    return providerBreakdown.reduce(
-      (acc, row) => ({
-        cost: acc.cost + (row.cost_usd ?? 0),
-        hasCost: acc.hasCost || row.cost_usd != null,
-      }),
-      { cost: 0, hasCost: false },
-    );
-  }, [providerBreakdown]);
+  const providerSpendToday = useMemo(
+    () => aggregateProviderCost(providerBreakdownToday),
+    [providerBreakdownToday],
+  );
+  const providerSpend30d = useMemo(
+    () => aggregateProviderCost(providerBreakdown30d),
+    [providerBreakdown30d],
+  );
+  const providerSyncHealth = useMemo(
+    () => summarizeProviderSync(providerStatus, nowMs),
+    [providerStatus, nowMs],
+  );
+  const spendPrimary = formatDirectApiSpendPrimary({
+    totals: providerSpendToday,
+    pending: todayAmountPending,
+    loadError: providerTodayError,
+    statusError: providerStatusError,
+    statusPending,
+    hasSuccessfulSync: providerSyncHealth.hasSuccessfulSync,
+    breakdownLoaded: providerTodaySuccess,
+  });
+  const spend30dLabel = formatDirectApiSpend30d({
+    totals: providerSpend30d,
+    pending: days30AmountPending,
+    loadError: provider30dError,
+    statusError: providerStatusError,
+    statusPending,
+    hasSuccessfulSync: providerSyncHealth.hasSuccessfulSync,
+    breakdownLoaded: provider30dSuccess,
+  });
+  const spendSyncKind = directApiSpendSyncStatusKind(
+    providerSyncHealth,
+    providerStatusError,
+  );
+  const spendSyncLabel = statusPending
+    ? "…"
+    : spendSyncKind === "status-unavailable"
+      ? "Sync status unavailable"
+      : spendSyncKind === "error"
+        ? "Sync error"
+        : spendSyncKind === "stale"
+          ? "Stale sync"
+          : spendSyncKind === "synced"
+            ? `Synced ${formatLastActive(providerSyncHealth.lastSuccessAt)}`
+            : "Not synced";
 
   const dailyTokens = useMemo(() => {
     if (!consumption) return [];
@@ -224,29 +296,59 @@ export default function DashboardPage() {
         </Card>
 
         <Link
-          to="/consumption?view=direct-api&range=30d"
+          to="/consumption?view=direct-api&range=today"
           className="block rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          aria-label="API Spend last 30 days — view Direct API Spend"
+          aria-label="Direct API Spend today — account-wide provider billing"
         >
           <Card className="min-w-0 h-full shadow-sm transition-colors hover:bg-muted/40">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                API Spend (30d)
+                Direct API Spend
               </CardTitle>
               <div className="p-2 rounded-lg bg-emerald-500/10 dark:bg-emerald-500/20">
                 <DollarSign className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold tracking-tight tabular-nums">
-                {providerSpendPending
-                  ? "…"
-                  : providerSpend30d.hasCost
-                    ? `$${providerSpend30d.cost.toFixed(4)}`
-                    : "$0.0000"}
+              <div
+                className={
+                  isCompactSpendPrimary(spendPrimary)
+                    ? "text-xl font-bold tracking-tight tabular-nums"
+                    : "text-3xl font-bold tracking-tight tabular-nums"
+                }
+                data-testid="direct-api-spend-today"
+              >
+                {spendPrimary}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Direct provider billing · account-wide · View spend
+              <p
+                className="text-xs text-muted-foreground mt-1"
+                data-testid="direct-api-spend-meta"
+              >
+                <span className="tabular-nums">30d {spend30dLabel}</span>
+                {" · "}
+                <span
+                  className={
+                    spendSyncKind === "error" ||
+                    spendSyncKind === "status-unavailable"
+                      ? "text-red-600 dark:text-red-400"
+                      : spendSyncKind === "stale"
+                        ? "text-amber-700 dark:text-amber-400"
+                        : undefined
+                  }
+                  data-testid="direct-api-spend-sync"
+                  title={
+                    spendSyncKind === "error"
+                      ? (providerSyncHealth.errorMessage ?? "Connector error")
+                      : spendSyncKind === "status-unavailable"
+                        ? "Could not load provider sync status"
+                        : undefined
+                  }
+                >
+                  {spendSyncLabel}
+                </span>
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Account-wide · independent of source filter
               </p>
             </CardContent>
           </Card>

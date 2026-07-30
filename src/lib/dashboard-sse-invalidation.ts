@@ -19,7 +19,8 @@ export type DashboardQueryFamily =
   | "activities"
   | "consumption"
   | "failures"
-  | "provider-breakdown";
+  | "provider-breakdown"
+  | "provider-status";
 
 /**
  * Freshness target for SSE-driven Dashboard invalidations.
@@ -36,6 +37,7 @@ export const ALL_DASHBOARD_QUERY_FAMILIES: readonly DashboardQueryFamily[] = [
   "consumption",
   "failures",
   "provider-breakdown",
+  "provider-status",
 ] as const;
 
 /**
@@ -44,8 +46,8 @@ export const ALL_DASHBOARD_QUERY_FAMILIES: readonly DashboardQueryFamily[] = [
  * - activities: always — the recent list may change.
  * - failures: only when status is `failure` (matches failures SQL filter).
  * - consumption: only when token/cost fields can change daily totals.
- * - provider-breakdown: never from activity events — that data comes from
- *   provider billing sync, not activity ingest.
+ * - provider-breakdown / provider-status: never from activity events — that
+ *   data comes from provider billing sync, not activity ingest.
  */
 export function queryFamiliesForActivity(
   activity: Pick<
