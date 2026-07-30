@@ -27,12 +27,17 @@ export class DashboardPage extends BasePage {
   }
 
   /**
-   * Get all 3 stat card titles. "Failures (24h)" is the aggregate summary
-   * card (not the optional recent-list card further down the page).
+   * Get stat card titles. "Failures (24h)" is the aggregate summary card
+   * (not the optional recent-list card further down the page).
    */
   async getStatCardTitles(): Promise<string[]> {
     const titles: string[] = [];
-    for (const name of ["Tokens Today", "Failures (24h)", "Source Health"]) {
+    for (const name of [
+      "Tokens Today",
+      "API Spend (30d)",
+      "Failures (24h)",
+      "Source Health",
+    ]) {
       const heading = this.page
         .getByRole("heading", { name, level: 3 })
         .first();
@@ -41,6 +46,13 @@ export class DashboardPage extends BasePage {
       }
     }
     return titles;
+  }
+
+  /** Click the API Spend card (navigates to Direct API Spend on Consumption) */
+  async clickApiSpendCard() {
+    await this.page
+      .getByRole("link", { name: /API Spend last 30 days/i })
+      .click();
   }
 
   /** Get stat card value by title */

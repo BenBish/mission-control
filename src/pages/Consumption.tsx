@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Card,
@@ -9,9 +10,19 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/_shared/PageHeader";
 import { Loading } from "@/components/_shared/Loading";
-import { DollarSign, Zap, Cpu, Calendar, RefreshCw, Cloud } from "lucide-react";
+import {
+  DollarSign,
+  Zap,
+  Cpu,
+  Calendar,
+  RefreshCw,
+  Cloud,
+  Bot,
+  Info,
+} from "lucide-react";
 import { useSourceFilter } from "@/app/source-context";
 import {
   useConsumption,
@@ -22,6 +33,36 @@ import {
 
 type DatePreset = "today" | "7d" | "30d" | "all";
 type Unit = "tokens" | "compute" | "usd";
+type ConsumptionView = "agent" | "direct-api";
+
+const DATE_PRESETS: { label: string; value: DatePreset }[] = [
+  { label: "Today", value: "today" },
+  { label: "Last 7 days", value: "7d" },
+  { label: "Last 30 days", value: "30d" },
+  { label: "All time", value: "all" },
+];
+
+const UNITS: { label: string; value: Unit }[] = [
+  { label: "Tokens", value: "tokens" },
+  { label: "Compute time", value: "compute" },
+  { label: "USD", value: "usd" },
+];
+
+function parseView(raw: string | null): ConsumptionView {
+  return raw === "direct-api" ? "direct-api" : "agent";
+}
+
+function parseRange(raw: string | null): DatePreset {
+  if (raw === "today" || raw === "7d" || raw === "30d" || raw === "all") {
+    return raw;
+  }
+  return "30d";
+}
+
+function parseUnit(raw: string | null): Unit {
+  if (raw === "tokens" || raw === "compute" || raw === "usd") return raw;
+  return "tokens";
+}
 
 function getSince(preset: DatePreset): string | undefined {
   if (preset === "all") return undefined;
@@ -53,14 +94,67 @@ function statusBadgeVariant(
 
 export default function Consumption() {
   const { selectedSourceId, sources } = useSourceFilter();
-  const [datePreset, setDatePreset] = useState<DatePreset>("30d");
-  const [unit, setUnit] = useState<Unit>("tokens");
+  const [searchParams, setSearchParams] = useSearchParams();
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const agentScope = selectedSourceId
     ? (sources.find((s) => s.id === selectedSourceId)?.name ?? selectedSourceId)
     : "all sources";
+
+  const view = parseView(searchParams.get("view"));
+  const datePreset = parseRange(searchParams.get("range"));
+  const unit = parseUnit(searchParams.get("unit"));
+
+  const updateParams = useCallback(
+    (patch: { view?: ConsumptionView; range?: DatePreset; unit?: Unit }) => {
+      // Push history when changing view so Back restores the previous tab;
+      // range/unit/normalize updates replace to avoid cluttering history.
+      const replace = patch.view === undefined;
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          const nextView = patch.view ?? parseView(prev.get("view"));
+          const nextRange = patch.range ?? parseRange(prev.get("range"));
+          const nextUnit = patch.unit ?? parseUnit(prev.get("unit"));
+
+          // Always encode view + range so the URL is shareable and stable.
+          next.set("view", nextView);
+          next.set("range", nextRange);
+
+          if (nextView === "agent") {
+            next.set("unit", nextUnit);
+          } else {
+            // Unit only applies to Agent Usage.
+            next.delete("unit");
+          }
+          return next;
+        },
+        { replace },
+      );
+    },
+    [setSearchParams],
+  );
+
+  // Normalize missing/invalid query params so the URL always reflects selection.
+  useEffect(() => {
+    const rawView = searchParams.get("view");
+    const rawRange = searchParams.get("range");
+    const rawUnit = searchParams.get("unit");
+    const viewOk = rawView === "agent" || rawView === "direct-api";
+    const rangeOk =
+      rawRange === "today" ||
+      rawRange === "7d" ||
+      rawRange === "30d" ||
+      rawRange === "all";
+    const unitOk =
+      parseView(rawView) === "direct-api"
+        ? rawUnit == null
+        : rawUnit === "tokens" || rawUnit === "compute" || rawUnit === "usd";
+    if (!viewOk || !rangeOk || !unitOk) {
+      updateParams({});
+    }
+  }, [searchParams, updateParams]);
 
   // Memoized on datePreset only — getSince() reads the current time, so
   // calling it directly in the hook args would produce a new `since` value
@@ -74,7 +168,8 @@ export default function Consumption() {
   } = useConsumption({ since, sourceId: selectedSourceId });
 
   const { data: providerStatus } = useProviderStatus();
-  const { data: providerBreakdown } = useProviderBreakdown({ since });
+  const { data: providerBreakdown, isLoading: providerLoading } =
+    useProviderBreakdown({ since });
 
   const bySourceModel = useMemo(() => {
     if (!rows) return [];
@@ -131,19 +226,6 @@ export default function Consumption() {
     );
   }, [bySourceModel]);
 
-  const presets: { label: string; value: DatePreset }[] = [
-    { label: "Today", value: "today" },
-    { label: "Last 7 days", value: "7d" },
-    { label: "Last 30 days", value: "30d" },
-    { label: "All time", value: "all" },
-  ];
-
-  const units: { label: string; value: Unit }[] = [
-    { label: "Tokens", value: "tokens" },
-    { label: "Compute time", value: "compute" },
-    { label: "USD", value: "usd" },
-  ];
-
   const providerTotals = useMemo(() => {
     if (!providerBreakdown) return { tokens: 0, cost: 0, hasCost: false };
     return providerBreakdown.reduce(
@@ -176,9 +258,11 @@ export default function Consumption() {
     }
   }
 
-  const pageDescription = `Token, compute, and cost usage for ${agentScope} (agent logs); provider API costs are account-wide`;
+  const rangeLabel =
+    DATE_PRESETS.find((p) => p.value === datePreset)?.label ?? "Last 30 days";
+  const pageDescription = `Agent session usage for ${agentScope}; Direct API Spend is account-wide — separate datasets, not summed together`;
 
-  if (isLoading) {
+  if (isLoading && view === "agent") {
     return (
       <div className="space-y-6">
         <PageHeader title="Consumption" description={pageDescription} />
@@ -187,7 +271,7 @@ export default function Consumption() {
     );
   }
 
-  if (error) {
+  if (error && view === "agent") {
     return (
       <div className="space-y-6">
         <PageHeader title="Consumption" description={pageDescription} />
@@ -207,339 +291,412 @@ export default function Consumption() {
     <div className="space-y-6">
       <PageHeader title="Consumption" description={pageDescription} />
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-2">
-          {presets.map((p) => (
-            <Button
-              key={p.value}
-              variant={datePreset === p.value ? "default" : "outline"}
-              size="sm"
-              onClick={() => setDatePreset(p.value)}
-            >
-              {p.label}
-            </Button>
-          ))}
-        </div>
-        <div className="flex gap-2">
-          {units.map((u) => (
-            <Button
-              key={u.value}
-              variant={unit === u.value ? "default" : "outline"}
-              size="sm"
-              onClick={() => setUnit(u.value)}
-            >
-              {u.label}
-            </Button>
-          ))}
-        </div>
-      </div>
-      <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-        <Calendar className="h-3.5 w-3.5" />
-        Showing: {presets.find((p) => p.value === datePreset)?.label}
-      </p>
+      <Tabs
+        value={view}
+        onValueChange={(v) => updateParams({ view: parseView(v) })}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <TabsList>
+            <TabsTrigger value="agent" className="gap-1.5">
+              <Bot className="h-4 w-4" />
+              Agent Usage
+            </TabsTrigger>
+            <TabsTrigger value="direct-api" className="gap-1.5">
+              <Cloud className="h-4 w-4" />
+              Direct API Spend
+            </TabsTrigger>
+          </TabsList>
 
-      {unit === "usd" && !totals.hasCost ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <div className="flex flex-col items-center gap-2">
-              <DollarSign className="h-12 w-12 text-muted-foreground/30" />
-              <p className="text-muted-foreground">
-                No billable usage — all current sources are subscription or
-                local.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <>
-          <div className="sm:max-w-xs">
-            {unit === "tokens" && (
-              <Card className="overflow-hidden border-l-4 border-l-blue-500">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Total Tokens
-                  </CardTitle>
-                  <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
-                    <Zap className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold tracking-tight tabular-nums">
-                    {totals.tokens.toLocaleString()}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-            {unit === "compute" && (
-              <Card className="overflow-hidden border-l-4 border-l-purple-500">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Compute Time
-                  </CardTitle>
-                  <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900/30">
-                    <Cpu className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold tracking-tight tabular-nums">
-                    {formatCompute(totals.compute)}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-            {unit === "usd" && (
-              <Card className="overflow-hidden border-l-4 border-l-emerald-500">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Cost
-                  </CardTitle>
-                  <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
-                    <DollarSign className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold tracking-tight tabular-nums">
-                    {totals.hasCost ? `$${totals.cost.toFixed(4)}` : "—"}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+          <div className="flex flex-wrap gap-2">
+            {DATE_PRESETS.map((p) => (
+              <Button
+                key={p.value}
+                variant={datePreset === p.value ? "default" : "outline"}
+                size="sm"
+                onClick={() => updateParams({ range: p.value })}
+              >
+                {p.label}
+              </Button>
+            ))}
           </div>
+        </div>
 
-          {bySourceModel.length > 0 ? (
-            <Card className="shadow-sm">
-              <CardHeader className="pb-4 border-b">
-                <CardTitle className="text-lg">By Source & Model</CardTitle>
-                <CardDescription>
-                  Grouped over the selected date range
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pt-4 px-0">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b bg-muted/50">
-                        <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                          Source
-                        </th>
-                        <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                          Model
-                        </th>
-                        {unit === "tokens" && (
-                          <>
-                            <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                              Input
-                            </th>
-                            <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                              Output
-                            </th>
-                          </>
-                        )}
-                        {unit === "compute" && (
-                          <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                            Compute
-                          </th>
-                        )}
-                        {unit === "usd" && (
-                          <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                            Cost
-                          </th>
-                        )}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {bySourceModel.map((row) => (
-                        <tr
-                          key={`${row.sourceId}:${row.model}`}
-                          className="border-b last:border-0 hover:bg-muted/40"
-                        >
-                          <td className="py-3 px-4 text-sm">
-                            <span className="font-medium">{row.sourceId}</span>
-                          </td>
-                          <td className="py-3 px-4 text-sm font-mono text-xs">
-                            {row.model}
-                          </td>
-                          {unit === "tokens" && (
-                            <>
-                              <td className="py-3 px-4 text-sm text-right tabular-nums">
-                                {row.inputTokens.toLocaleString()}
-                              </td>
-                              <td className="py-3 px-4 text-sm text-right tabular-nums">
-                                {row.outputTokens.toLocaleString()}
-                              </td>
-                            </>
-                          )}
-                          {unit === "compute" && (
-                            <td className="py-3 px-4 text-sm text-right tabular-nums">
-                              {row.computeSeconds > 0
-                                ? formatCompute(row.computeSeconds)
-                                : "—"}
-                            </td>
-                          )}
-                          {unit === "usd" && (
-                            <td className="py-3 px-4 text-sm text-right tabular-nums">
-                              {row.hasCost
-                                ? `$${(row.costUsd ?? 0).toFixed(4)}`
-                                : "—"}
-                            </td>
-                          )}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <p className="text-muted-foreground">
-                  No consumption data for this range yet.
-                </p>
-              </CardContent>
-            </Card>
-          )}
-        </>
-      )}
+        <p className="text-sm text-muted-foreground flex items-center gap-1.5 mt-3">
+          <Calendar className="h-3.5 w-3.5" />
+          Showing: {rangeLabel}
+        </p>
 
-      {/* Provider API billing — account-wide; never filtered by source selector */}
-      <Card className="shadow-sm border-dashed">
-        <CardHeader className="pb-4 border-b">
+        <TabsContent value="agent" className="space-y-4 mt-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Cloud className="h-5 w-5" />
-                Provider API costs
-                <Badge variant="outline" className="text-xs font-normal">
-                  Account-wide · not filtered by source
-                </Badge>
-              </CardTitle>
-              <CardDescription className="mt-1">
-                Account-level usage from OpenRouter, Anthropic, OpenAI, and xAI
-                billing APIs — separate from agent session logs above
-                {selectedSourceId
-                  ? ` (still account-wide while “${agentScope}” is selected)`
-                  : ""}
-                . Not double-counted with source totals. If OpenRouter BYOK and
-                a direct provider (e.g. Anthropic) are both configured, the same
-                spend can appear under both connectors.
-              </CardDescription>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void handleProviderSync()}
-              disabled={syncing}
-            >
-              <RefreshCw
-                className={`h-3.5 w-3.5 mr-1.5 ${syncing ? "animate-spin" : ""}`}
-              />
-              {syncing ? "Syncing…" : "Sync now"}
-            </Button>
-          </div>
-          {syncMessage && (
-            <p className="text-xs text-muted-foreground mt-2 font-mono">
-              {syncMessage}
+            <p className="text-sm text-muted-foreground max-w-2xl">
+              Session-derived usage from agent sources (Claude Code, Codex,
+              Grok, Hermes, etc.) for {agentScope}. Honors the global source
+              filter. Not the same as account-level provider billing.
             </p>
-          )}
-        </CardHeader>
-        <CardContent className="pt-4 space-y-4">
-          {providerStatus && providerStatus.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {providerStatus.map((p) => (
-                <div
-                  key={p.id}
-                  className="flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-sm"
-                  title={p.lastError || p.limitation || p.notes || undefined}
+            <div className="flex gap-2">
+              {UNITS.map((u) => (
+                <Button
+                  key={u.value}
+                  variant={unit === u.value ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => updateParams({ unit: u.value })}
                 >
-                  <span className="font-medium">{p.name}</span>
-                  <Badge variant={statusBadgeVariant(p.status)}>
-                    {p.configured ? p.status : "not configured"}
-                  </Badge>
-                  {p.lastSuccessAt && (
-                    <span className="text-xs text-muted-foreground">
-                      synced {new Date(p.lastSuccessAt).toLocaleString()}
-                    </span>
-                  )}
-                </div>
+                  {u.label}
+                </Button>
               ))}
             </div>
-          )}
+          </div>
 
-          {providerTotals.hasCost || providerTotals.tokens > 0 ? (
+          {unit === "usd" && !totals.hasCost ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <div className="flex flex-col items-center gap-2 max-w-md mx-auto">
+                  <DollarSign className="h-12 w-12 text-muted-foreground/30" />
+                  <p className="text-muted-foreground">
+                    No billable agent usage in this range
+                    {selectedSourceId ? ` for ${agentScope}` : ""}. Sources here
+                    are subscription or local, or no{" "}
+                    <code className="text-xs">cost_usd</code> was recorded in
+                    session logs.
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Provider account billing is under the{" "}
+                    <button
+                      type="button"
+                      className="underline hover:text-foreground"
+                      onClick={() => updateParams({ view: "direct-api" })}
+                    >
+                      Direct API Spend
+                    </button>{" "}
+                    view — it is a separate dataset.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
             <>
-              <div className="flex flex-wrap gap-4 text-sm">
-                <span className="tabular-nums">
-                  Tokens:{" "}
-                  <strong>{providerTotals.tokens.toLocaleString()}</strong>
-                </span>
-                {providerTotals.hasCost && (
-                  <span className="tabular-nums">
-                    Cost: <strong>${providerTotals.cost.toFixed(4)}</strong>
-                  </span>
+              <div className="sm:max-w-xs">
+                {unit === "tokens" && (
+                  <Card className="overflow-hidden border-l-4 border-l-blue-500">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">
+                        Total Tokens
+                      </CardTitle>
+                      <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
+                        <Zap className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold tracking-tight tabular-nums">
+                        {totals.tokens.toLocaleString()}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                {unit === "compute" && (
+                  <Card className="overflow-hidden border-l-4 border-l-purple-500">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">
+                        Compute Time
+                      </CardTitle>
+                      <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900/30">
+                        <Cpu className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold tracking-tight tabular-nums">
+                        {formatCompute(totals.compute)}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                {unit === "usd" && (
+                  <Card className="overflow-hidden border-l-4 border-l-emerald-500">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">
+                        Cost
+                      </CardTitle>
+                      <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
+                        <DollarSign className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold tracking-tight tabular-nums">
+                        {totals.hasCost ? `$${totals.cost.toFixed(4)}` : "—"}
+                      </div>
+                    </CardContent>
+                  </Card>
                 )}
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b bg-muted/50">
-                      <th className="text-left py-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                        Provider
-                      </th>
-                      <th className="text-left py-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                        Model
-                      </th>
-                      <th className="text-right py-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                        Input
-                      </th>
-                      <th className="text-right py-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                        Output
-                      </th>
-                      <th className="text-right py-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                        Cost
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(providerBreakdown ?? []).map((row) => (
-                      <tr
-                        key={`${row.provider}:${row.model}`}
-                        className="border-b last:border-0 hover:bg-muted/40"
-                      >
-                        <td className="py-2 px-3 text-sm font-medium">
-                          {row.provider}
-                        </td>
-                        <td className="py-2 px-3 text-xs font-mono">
-                          {row.model}
-                        </td>
-                        <td className="py-2 px-3 text-sm text-right tabular-nums">
-                          {row.input_tokens.toLocaleString()}
-                        </td>
-                        <td className="py-2 px-3 text-sm text-right tabular-nums">
-                          {row.output_tokens.toLocaleString()}
-                        </td>
-                        <td className="py-2 px-3 text-sm text-right tabular-nums">
-                          {row.cost_usd != null
-                            ? `$${row.cost_usd.toFixed(4)}`
-                            : "—"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+
+              {bySourceModel.length > 0 ? (
+                <Card className="shadow-sm">
+                  <CardHeader className="pb-4 border-b">
+                    <CardTitle className="text-lg">By Source & Model</CardTitle>
+                    <CardDescription>
+                      Agent Usage over the selected date range
+                      {selectedSourceId ? ` · filtered to ${agentScope}` : ""}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="pt-4 px-0">
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b bg-muted/50">
+                            <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                              Source
+                            </th>
+                            <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                              Model
+                            </th>
+                            {unit === "tokens" && (
+                              <>
+                                <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                  Input
+                                </th>
+                                <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                  Output
+                                </th>
+                              </>
+                            )}
+                            {unit === "compute" && (
+                              <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                Compute
+                              </th>
+                            )}
+                            {unit === "usd" && (
+                              <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                Cost
+                              </th>
+                            )}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {bySourceModel.map((row) => (
+                            <tr
+                              key={`${row.sourceId}:${row.model}`}
+                              className="border-b last:border-0 hover:bg-muted/40"
+                            >
+                              <td className="py-3 px-4 text-sm">
+                                <span className="font-medium">
+                                  {row.sourceId}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 text-sm font-mono text-xs">
+                                {row.model}
+                              </td>
+                              {unit === "tokens" && (
+                                <>
+                                  <td className="py-3 px-4 text-sm text-right tabular-nums">
+                                    {row.inputTokens.toLocaleString()}
+                                  </td>
+                                  <td className="py-3 px-4 text-sm text-right tabular-nums">
+                                    {row.outputTokens.toLocaleString()}
+                                  </td>
+                                </>
+                              )}
+                              {unit === "compute" && (
+                                <td className="py-3 px-4 text-sm text-right tabular-nums">
+                                  {row.computeSeconds > 0
+                                    ? formatCompute(row.computeSeconds)
+                                    : "—"}
+                                </td>
+                              )}
+                              {unit === "usd" && (
+                                <td className="py-3 px-4 text-sm text-right tabular-nums">
+                                  {row.hasCost
+                                    ? `$${(row.costUsd ?? 0).toFixed(4)}`
+                                    : "—"}
+                                </td>
+                              )}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card>
+                  <CardContent className="py-12 text-center">
+                    <p className="text-muted-foreground">
+                      No Agent Usage data for this range
+                      {selectedSourceId ? ` and ${agentScope}` : ""} yet.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
             </>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              No provider API usage for this range. Configure{" "}
-              <code className="text-xs">OPENROUTER_API_KEY</code>,{" "}
-              <code className="text-xs">ANTHROPIC_ADMIN_KEY</code>,{" "}
-              <code className="text-xs">OPENAI_ADMIN_KEY</code>, and/or{" "}
-              <code className="text-xs">XAI_API_KEY</code>, then click Sync now.
-            </p>
           )}
-        </CardContent>
-      </Card>
+        </TabsContent>
+
+        <TabsContent value="direct-api" className="space-y-4 mt-4">
+          <Card className="shadow-sm border-dashed">
+            <CardHeader className="pb-4 border-b">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Cloud className="h-5 w-5" />
+                      Direct API Spend
+                    </CardTitle>
+                    <Badge variant="secondary">Account-wide</Badge>
+                  </div>
+                  <CardDescription className="max-w-2xl">
+                    Account-level usage from OpenRouter, Anthropic, OpenAI, and
+                    xAI billing APIs — separate from agent session logs. Not
+                    double-counted with Agent Usage totals.
+                  </CardDescription>
+                  {selectedSourceId && (
+                    <p className="text-xs text-amber-700 dark:text-amber-400 flex items-start gap-1.5">
+                      <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                      Source filter “{agentScope}” does not apply here —
+                      provider billing is account-wide and cannot be scoped to a
+                      single agent source.
+                    </p>
+                  )}
+                  <p className="text-xs text-muted-foreground flex items-start gap-1.5">
+                    <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    If OpenRouter BYOK and a direct provider (e.g. Anthropic)
+                    are both configured, the same spend can appear under both
+                    connectors.
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void handleProviderSync()}
+                  disabled={syncing}
+                >
+                  <RefreshCw
+                    className={`h-3.5 w-3.5 mr-1.5 ${syncing ? "animate-spin" : ""}`}
+                  />
+                  {syncing ? "Syncing…" : "Sync now"}
+                </Button>
+              </div>
+              {syncMessage && (
+                <p className="text-xs text-muted-foreground mt-2 font-mono">
+                  {syncMessage}
+                </p>
+              )}
+            </CardHeader>
+            <CardContent className="pt-4 space-y-4">
+              {providerStatus && providerStatus.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {providerStatus.map((p) => (
+                    <div
+                      key={p.id}
+                      className="flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-sm"
+                      title={
+                        p.lastError || p.limitation || p.notes || undefined
+                      }
+                    >
+                      <span className="font-medium">{p.name}</span>
+                      <Badge variant={statusBadgeVariant(p.status)}>
+                        {p.configured ? p.status : "not configured"}
+                      </Badge>
+                      {p.lastSuccessAt && (
+                        <span className="text-xs text-muted-foreground">
+                          synced {new Date(p.lastSuccessAt).toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {providerLoading ? (
+                <Loading />
+              ) : providerTotals.hasCost || providerTotals.tokens > 0 ? (
+                <>
+                  <div className="flex flex-wrap gap-4 text-sm">
+                    <span className="tabular-nums">
+                      Tokens:{" "}
+                      <strong>{providerTotals.tokens.toLocaleString()}</strong>
+                    </span>
+                    {providerTotals.hasCost && (
+                      <span className="tabular-nums">
+                        Cost: <strong>${providerTotals.cost.toFixed(4)}</strong>
+                      </span>
+                    )}
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b bg-muted/50">
+                          <th className="text-left py-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            Provider
+                          </th>
+                          <th className="text-left py-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            Model
+                          </th>
+                          <th className="text-right py-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            Input
+                          </th>
+                          <th className="text-right py-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            Output
+                          </th>
+                          <th className="text-right py-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            Cost
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(providerBreakdown ?? []).map((row) => (
+                          <tr
+                            key={`${row.provider}:${row.model}`}
+                            className="border-b last:border-0 hover:bg-muted/40"
+                          >
+                            <td className="py-2 px-3 text-sm font-medium">
+                              {row.provider}
+                            </td>
+                            <td className="py-2 px-3 text-xs font-mono">
+                              {row.model}
+                            </td>
+                            <td className="py-2 px-3 text-sm text-right tabular-nums">
+                              {row.input_tokens.toLocaleString()}
+                            </td>
+                            <td className="py-2 px-3 text-sm text-right tabular-nums">
+                              {row.output_tokens.toLocaleString()}
+                            </td>
+                            <td className="py-2 px-3 text-sm text-right tabular-nums">
+                              {row.cost_usd != null
+                                ? `$${row.cost_usd.toFixed(4)}`
+                                : "—"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              ) : (
+                <div className="py-6 text-center space-y-1">
+                  <p className="text-sm text-muted-foreground">
+                    No Direct API Spend for this range.
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Configure{" "}
+                    <code className="text-xs">OPENROUTER_API_KEY</code>,{" "}
+                    <code className="text-xs">ANTHROPIC_ADMIN_KEY</code>,{" "}
+                    <code className="text-xs">OPENAI_ADMIN_KEY</code>, and/or{" "}
+                    <code className="text-xs">XAI_API_KEY</code>, then click
+                    Sync now. Agent session usage is under the{" "}
+                    <button
+                      type="button"
+                      className="underline hover:text-foreground"
+                      onClick={() => updateParams({ view: "agent" })}
+                    >
+                      Agent Usage
+                    </button>{" "}
+                    view.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
