@@ -206,9 +206,7 @@ test.describe("Dashboard mobile overflow", () => {
     await dashboard.waitForStats();
     await dashboard.waitForCharts();
 
-    await expect(
-      page.getByRole("heading", { name: "Dashboard", level: 1 }),
-    ).toBeVisible();
+    await expect(dashboard.heading).toBeVisible();
     await expect(
       page.getByRole("heading", { name: "Recent Activity" }),
     ).toBeVisible();
@@ -218,41 +216,11 @@ test.describe("Dashboard mobile overflow", () => {
 
     // Long text must appear (truncated) in Recent Activity without expanding
     // the document width.
-    const recentCard = page
-      .locator("div")
-      .filter({
-        has: page.getByRole("heading", { name: "Recent Activity" }),
-      })
-      .first();
-    await expect(recentCard).toContainText("E2E long activity description");
+    await expect(dashboard.getRecentActivityCard()).toContainText(
+      "E2E long activity description",
+    );
 
-    const metrics = await page.evaluate(() => {
-      const docEl = document.documentElement;
-      const body = document.body;
-      const scrollWidth = Math.max(docEl.scrollWidth, body?.scrollWidth ?? 0);
-      const clientWidth = docEl.clientWidth;
-      const innerWidth = window.innerWidth;
-
-      const tokenHeading = Array.from(document.querySelectorAll("h3")).find(
-        (h) => h.textContent?.trim() === "Token Usage",
-      );
-      const tokenCard = tokenHeading?.closest(
-        "div.rounded-lg, [class*='rounded-lg']",
-      ) as HTMLElement | null;
-      const chartSvg = tokenCard?.querySelector("svg") as SVGElement | null;
-
-      const chartWidth = chartSvg ? chartSvg.getBoundingClientRect().width : 0;
-      const cardWidth = tokenCard ? tokenCard.getBoundingClientRect().width : 0;
-
-      return {
-        scrollWidth,
-        clientWidth,
-        innerWidth,
-        chartWidth,
-        cardWidth,
-        hasChart: !!chartSvg,
-      };
-    });
+    const metrics = await dashboard.getOverflowLayoutMetrics();
 
     // Allow 1px subpixel rounding; document must not meaningfully scroll sideways.
     expect(

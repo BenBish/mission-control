@@ -412,7 +412,6 @@ export default function DashboardPage() {
                       <YAxis
                         tick={{ fontSize: 12 }}
                         className="text-muted-foreground"
-                        width={40}
                       />
                       <Tooltip
                         content={({ active, payload, label }) => {
