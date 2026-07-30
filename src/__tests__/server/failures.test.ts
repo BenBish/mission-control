@@ -59,30 +59,39 @@ beforeEach(async () => {
   await raw.run("DELETE FROM runtime_events");
 });
 
+type FailuresBody = {
+  success: boolean;
+  error?: string;
+  failures?: Array<{
+    kind: string;
+    id: string;
+    sourceId: string;
+    timestamp: string;
+    summary: string;
+  }>;
+  summary?: {
+    total: number;
+    last24Hours: number;
+    openRuntimeEvents: number;
+    byKind: {
+      activity: number;
+      inference_request: number;
+      runtime_event: number;
+    };
+    definitions: Record<string, string>;
+  };
+};
+
 async function getJson(pathAndQuery: string) {
   const res = await fetch(`${baseUrl}${pathAndQuery}`);
   expect(res.ok).toBe(true);
-  return res.json() as Promise<{
-    success: boolean;
-    failures: Array<{
-      kind: string;
-      id: string;
-      sourceId: string;
-      timestamp: string;
-      summary: string;
-    }>;
-    summary: {
-      total: number;
-      last24Hours: number;
-      openRuntimeEvents: number;
-      byKind: {
-        activity: number;
-        inference_request: number;
-        runtime_event: number;
-      };
-      definitions: Record<string, string>;
-    };
-  }>;
+  return res.json() as Promise<FailuresBody & { success: true }>;
+}
+
+async function getJsonStatus(pathAndQuery: string) {
+  const res = await fetch(`${baseUrl}${pathAndQuery}`);
+  const body = (await res.json()) as FailuresBody;
+  return { status: res.status, body };
 }
 
 async function ensureSession(sourceId: string, instanceId: string) {
@@ -300,5 +309,61 @@ describe("GET /api/failures summary aggregates", () => {
     const cc = await getJson("/api/failures?limit=1&sourceId=claude-code");
     expect(cc.failures).toHaveLength(1);
     expect(cc.summary.total).toBe(1);
+  });
+});
+
+describe("GET /api/failures invalid query (BSH-79)", () => {
+  test("limit=notanumber returns 400 JSON and keeps server alive", async () => {
+    const bad = await getJsonStatus("/api/failures?limit=notanumber");
+    expect(bad.status).toBe(400);
+    expect(bad.body.success).toBe(false);
+    expect(bad.body.error).toMatch(/limit/i);
+
+    // Process must still serve subsequent requests
+    const healthy = await getJsonStatus("/api/failures?limit=5");
+    expect(healthy.status).toBe(200);
+    expect(healthy.body.success).toBe(true);
+    expect(Array.isArray(healthy.body.failures)).toBe(true);
+    expect(healthy.body.summary).toBeDefined();
+  });
+
+  test("non-positive and non-integer limits are rejected", async () => {
+    for (const limit of ["0", "-3", "1.5", "NaN", "Infinity"]) {
+      const res = await getJsonStatus(`/api/failures?limit=${limit}`);
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toMatch(/limit/i);
+    }
+  });
+
+  test("repeated sourceId (array) returns 400 without crashing", async () => {
+    const res = await getJsonStatus(
+      "/api/failures?sourceId=hermes&sourceId=grok",
+    );
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error).toMatch(/sourceId/i);
+
+    const ok = await getJsonStatus("/api/failures?limit=1");
+    expect(ok.status).toBe(200);
+    expect(ok.body.success).toBe(true);
+  });
+
+  test("after bad limit, multi-page totals still exceed page length", async () => {
+    const now = new Date().toISOString();
+    for (let i = 0; i < 8; i++) {
+      await insertActivityFailure({
+        id: `act-bsh79-${i}`,
+        timestamp: now,
+      });
+    }
+
+    const bad = await getJsonStatus("/api/failures?limit=notanumber");
+    expect(bad.status).toBe(400);
+
+    const body = await getJson("/api/failures?limit=3");
+    expect(body.failures).toHaveLength(3);
+    expect(body.summary.total).toBe(8);
+    expect(body.summary.total).not.toBe(body.failures!.length);
   });
 });
