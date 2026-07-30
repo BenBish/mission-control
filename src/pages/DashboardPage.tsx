@@ -16,6 +16,8 @@ import { Separator } from "@/components/ui/separator";
 import type { Activity } from "@/types/activity";
 import { actorIcon, actorTypeLabel } from "@/lib/actor-display";
 import { useSSE } from "@/hooks/useSSE";
+import { useFilterableSourceId, useSourceFilter } from "@/app/source-context";
+import { scopePhrase } from "@/config/sourceScope";
 import {
   useActivityList,
   useConsumption,
@@ -53,18 +55,26 @@ const STATUS_DOT: Record<string, string> = {
 export default function DashboardPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { sources: filterSources } = useSourceFilter();
+  const selectedSourceId = useFilterableSourceId();
+  const scopeLabel = scopePhrase(selectedSourceId, filterSources);
 
   const { data: sources, isLoading: sourcesLoading } = useSources();
   const { data: activities, isLoading: activitiesLoading } = useActivityList({
     limit: 5,
+    sourceId: selectedSourceId,
   });
-  const { data: failures } = useFailures(5);
-  const { data: consumption, isLoading: consumptionLoading } = useConsumption(
-    {},
-  );
+  const { data: failures } = useFailures({
+    limit: 5,
+    sourceId: selectedSourceId,
+  });
+  const { data: consumption, isLoading: consumptionLoading } = useConsumption({
+    sourceId: selectedSourceId,
+  });
 
   useSSE({
     onActivity: () => {
+      // Prefix invalidation: only active query keys (incl. sourceId) refetch.
       queryClient.invalidateQueries({ queryKey: ["activities"] });
       queryClient.invalidateQueries({ queryKey: ["consumption"] });
       queryClient.invalidateQueries({ queryKey: ["failures"] });
@@ -107,14 +117,12 @@ export default function DashboardPage() {
   };
 
   const isLoading = sourcesLoading && activitiesLoading && consumptionLoading;
+  const pageDescription = `Overview of AI usage ${scopeLabel}`;
 
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <PageHeader
-          title="Dashboard"
-          description="Overview of AI usage across all sources"
-        />
+        <PageHeader title="Dashboard" description={pageDescription} />
         <Loading />
       </div>
     );
@@ -122,10 +130,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <PageHeader
-        title="Dashboard"
-        description="Overview of AI usage across all sources"
-      />
+      <PageHeader title="Dashboard" description={pageDescription} />
 
       {/* Stats Grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -143,7 +148,7 @@ export default function DashboardPage() {
               {tokensToday.toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              input + output, across all sources
+              input + output, {scopeLabel}
             </p>
           </CardContent>
         </Card>
@@ -177,16 +182,24 @@ export default function DashboardPage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Source Health
             </CardTitle>
+            <CardDescription className="text-xs">
+              All sources (fleet-wide)
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-2">
               {(sources ?? []).map((source) => {
                 const status = source.instances[0]?.status ?? "unknown";
+                // Opacity is emphasis only — health stays fleet-wide, not filtered.
+                const isSelected =
+                  !selectedSourceId || source.id === selectedSourceId;
                 return (
                   <Badge
                     key={source.id}
                     variant="outline"
-                    className="gap-1.5 font-normal"
+                    className={`gap-1.5 font-normal ${
+                      isSelected ? "" : "opacity-50"
+                    }`}
                   >
                     <span
                       className={`inline-block h-2 w-2 rounded-full ${STATUS_DOT[status] ?? STATUS_DOT.unknown}`}
@@ -288,7 +301,7 @@ export default function DashboardPage() {
           <Card className="shadow-sm">
             <CardHeader className="pb-4">
               <CardTitle className="text-lg">Token Usage</CardTitle>
-              <CardDescription>Daily total across all sources</CardDescription>
+              <CardDescription>Daily total {scopeLabel}</CardDescription>
             </CardHeader>
             <Separator />
             <CardContent className="pt-4">

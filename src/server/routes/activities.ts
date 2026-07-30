@@ -11,27 +11,21 @@ import type {
   ActionType,
   ActivityStatus,
 } from "../../types/activity.js";
+import { optionalQueryString } from "../query.js";
 
 export function registerActivityRoutes(app: Express, db: Database): void {
   app.get("/api/activities", async (req: Request, res: Response) => {
     const q = req.query;
     const filter: ActivityFilter = {
-      sourceId: typeof q.sourceId === "string" ? q.sourceId : undefined,
-      sessionId: typeof q.sessionId === "string" ? q.sessionId : undefined,
-      actorId: typeof q.actorId === "string" ? q.actorId : undefined,
-      actorType:
-        typeof q.actorType === "string"
-          ? (q.actorType as ActorType)
-          : undefined,
-      actionType:
-        typeof q.actionType === "string"
-          ? (q.actionType as ActionType)
-          : undefined,
-      toolName: typeof q.toolName === "string" ? q.toolName : undefined,
-      status:
-        typeof q.status === "string" ? (q.status as ActivityStatus) : undefined,
-      startTime: typeof q.startTime === "string" ? q.startTime : undefined,
-      endTime: typeof q.endTime === "string" ? q.endTime : undefined,
+      sourceId: optionalQueryString(q.sourceId),
+      sessionId: optionalQueryString(q.sessionId),
+      actorId: optionalQueryString(q.actorId),
+      actorType: optionalQueryString(q.actorType) as ActorType | undefined,
+      actionType: optionalQueryString(q.actionType) as ActionType | undefined,
+      toolName: optionalQueryString(q.toolName),
+      status: optionalQueryString(q.status) as ActivityStatus | undefined,
+      startTime: optionalQueryString(q.startTime),
+      endTime: optionalQueryString(q.endTime),
       limit: q.limit ? Number(q.limit) : undefined,
       offset: q.offset ? Number(q.offset) : undefined,
     };

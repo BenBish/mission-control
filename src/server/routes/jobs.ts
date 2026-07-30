@@ -7,6 +7,7 @@ import {
   latestJobRun,
   type JobRunRow,
 } from "../../db/queries/jobs.js";
+import { optionalQueryString } from "../query.js";
 
 /**
  * Backs the repurposed Cron UI (src/app/cron/**, src/types/cron.ts). Field
@@ -38,8 +39,9 @@ function countConsecutiveErrors(runs: JobRunRow[]): number {
 }
 
 export function registerJobRoutes(app: Express, db: Database): void {
-  app.get("/api/jobs", async (_req: Request, res: Response) => {
-    const jobs = await listBackgroundJobs(db.raw());
+  app.get("/api/jobs", async (req: Request, res: Response) => {
+    const sourceId = optionalQueryString(req.query.sourceId);
+    const jobs = await listBackgroundJobs(db.raw(), { sourceId });
     const withState = await Promise.all(
       jobs.map(async (job) => {
         const recentRuns = await listJobRuns(db.raw(), job.id, 10);

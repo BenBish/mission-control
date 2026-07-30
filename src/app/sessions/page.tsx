@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, ChevronRight, History } from "lucide-react";
 import { useSourceFilter } from "@/app/source-context";
+import { scopePhrase } from "@/config/sourceScope";
 import { useSessionList } from "@/lib/queries";
 import { formatLastActive } from "@/lib/date-utils";
 
@@ -35,7 +36,8 @@ function successRateColor(rate: number): string {
 export default function SessionsPage() {
   const [page, setPage] = useState(1);
   const navigate = useNavigate();
-  const { selectedSourceId } = useSourceFilter();
+  const { selectedSourceId, sources } = useSourceFilter();
+  const pageDescription = `Agentic sessions ${scopePhrase(selectedSourceId, sources)}`;
   const offset = (page - 1) * PAGE_SIZE;
   const {
     data: sessions,
@@ -46,7 +48,7 @@ export default function SessionsPage() {
   if (error) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Sessions" description="View all agentic sessions" />
+        <PageHeader title="Sessions" description={pageDescription} />
         <Card className="border-destructive">
           <CardContent className="flex items-center gap-3 py-6">
             <div>
@@ -69,7 +71,7 @@ export default function SessionsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Sessions" description="View all agentic sessions" />
+      <PageHeader title="Sessions" description={pageDescription} />
 
       <Card className="shadow-sm">
         <CardHeader className="pb-4 border-b">

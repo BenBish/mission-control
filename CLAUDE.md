@@ -92,6 +92,6 @@ Element refs from `snapshot` show the actual rendered DOM structure — use thes
 
 ## Git
 
-- Commit messages: `[ORC-XX] Description`
+- Commit messages: `[BSH-XX] Description` (Linear issue key)
 - Create PRs with `gh pr create`
-- Branch naming: `feat/ORC-XX-slug` or `fix/ORC-XX-slug`
+- Branch naming: `BSH-XX-slug` (or `feat/BSH-XX-slug` / `fix/BSH-XX-slug`)

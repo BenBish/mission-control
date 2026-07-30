@@ -53,8 +53,16 @@ export interface GenerationJobRow {
 
 export async function listGenerationJobs(
   db: SqliteDatabase,
-  limit = 50,
+  opts: { limit?: number; sourceId?: string } = {},
 ): Promise<GenerationJobRow[]> {
+  const limit = opts.limit ?? 50;
+  if (opts.sourceId) {
+    return db.all<GenerationJobRow[]>(
+      `SELECT * FROM generation_jobs WHERE source_id = ? ORDER BY first_seen_at DESC LIMIT ?`,
+      opts.sourceId,
+      limit,
+    );
+  }
   return db.all<GenerationJobRow[]>(
     `SELECT * FROM generation_jobs ORDER BY first_seen_at DESC LIMIT ?`,
     limit,

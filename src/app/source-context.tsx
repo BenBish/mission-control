@@ -78,3 +78,12 @@ export function useSourceFilter() {
   }
   return context;
 }
+
+/**
+ * Selected source for filterable list hooks (see `DATASET_SCOPES`).
+ * Prefer this at call sites that only need the id so scope intent is obvious.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function useFilterableSourceId(): string | undefined {
+  return useSourceFilter().selectedSourceId;
+}

@@ -5,6 +5,7 @@ import {
   getGenerationJob,
 } from "../../db/queries/generation.js";
 import type { GenerationJobRow } from "../../db/queries/generation.js";
+import { optionalQueryString } from "../query.js";
 
 function toApiShape(row: GenerationJobRow) {
   return {
@@ -34,7 +35,8 @@ function toApiShape(row: GenerationJobRow) {
 export function registerGenerationRoutes(app: Express, db: Database): void {
   app.get("/api/generations", async (req: Request, res: Response) => {
     const limit = req.query.limit ? Number(req.query.limit) : undefined;
-    const jobs = await listGenerationJobs(db.raw(), limit);
+    const sourceId = optionalQueryString(req.query.sourceId);
+    const jobs = await listGenerationJobs(db.raw(), { limit, sourceId });
     res.json({ success: true, jobs: jobs.map(toApiShape) });
   });
 
