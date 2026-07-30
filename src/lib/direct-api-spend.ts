@@ -107,6 +107,8 @@ export type DirectApiSpendFormatInput = {
   loadError: boolean;
   /** Status query failed — may still show breakdown totals when loaded. */
   statusError: boolean;
+  /** Status still loading — avoid flashing "No synced spend" before true zero. */
+  statusPending: boolean;
   hasSuccessfulSync: boolean;
   /** Successful breakdown response received (including empty array). */
   breakdownLoaded: boolean;
@@ -114,7 +116,7 @@ export type DirectApiSpendFormatInput = {
 
 /**
  * Format the primary (today) spend value.
- * - Pending: ellipsis
+ * - Pending / status pending (empty totals): ellipsis
  * - Breakdown load error: em dash (not $0)
  * - Cost rows present: dollar amount (even if status failed)
  * - Successful sync + loaded empty: true $0.0000
@@ -129,11 +131,14 @@ export function formatDirectApiSpendPrimary(
   if (input.totals.hasCost) {
     return `$${input.totals.cost.toFixed(4)}`;
   }
+  // Empty totals: wait for status before deciding zero vs never-synced.
+  if (input.statusPending && !input.hasSuccessfulSync) return "…";
   if (input.breakdownLoaded && input.hasSuccessfulSync) {
     return "$0.0000";
   }
   if (input.statusError) return "—";
   if (!input.hasSuccessfulSync) return "No synced spend";
+  // hasSuccessfulSync but breakdown not loaded and not pending/error — rare.
   return "—";
 }
 
@@ -148,6 +153,7 @@ export function formatDirectApiSpend30d(
   if (input.totals.hasCost) {
     return `$${input.totals.cost.toFixed(4)}`;
   }
+  if (input.statusPending && !input.hasSuccessfulSync) return "…";
   if (input.breakdownLoaded && input.hasSuccessfulSync) {
     return "$0.0000";
   }

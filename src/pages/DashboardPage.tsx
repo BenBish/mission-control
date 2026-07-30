@@ -110,15 +110,15 @@ export default function DashboardPage() {
   // Provider billing windows keyed by local calendar day so "today" rolls
   // over at midnight without remounting (query keys stay stable within a day).
   const dayKey = localDayKey(nowMs);
-  const providerWindows = useMemo(() => {
-    const t = Date.now();
-    return {
-      todaySince: startOfLocalDayIso(t),
-      days30Since: daysAgoIso(30, t),
-    };
-    // dayKey intentionally gates refresh; t is only read when the day changes.
+  const providerWindows = useMemo(
+    () => ({
+      todaySince: startOfLocalDayIso(nowMs),
+      days30Since: daysAgoIso(30, nowMs),
+    }),
+    // dayKey gates refresh; nowMs is sampled when the local day changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- midnight rollover
-  }, [dayKey]);
+    [dayKey],
+  );
   const {
     data: providerBreakdownToday,
     isPending: providerTodayPending,
@@ -139,6 +139,7 @@ export default function DashboardPage() {
   // Amount pending is per-window; do not block dollar display on status retries.
   const todayAmountPending = providerTodayPending && !providerTodayError;
   const days30AmountPending = provider30dPending && !provider30dError;
+  const statusPending = providerStatusPending && !providerStatusError;
 
   // Batched selective SSE invalidation (BSH-75): coalesce over the freshness
   // window and only invalidate families the event can affect. See
@@ -201,6 +202,7 @@ export default function DashboardPage() {
     pending: todayAmountPending,
     loadError: providerTodayError,
     statusError: providerStatusError,
+    statusPending,
     hasSuccessfulSync: providerSyncHealth.hasSuccessfulSync,
     breakdownLoaded: providerTodaySuccess,
   });
@@ -209,6 +211,7 @@ export default function DashboardPage() {
     pending: days30AmountPending,
     loadError: provider30dError,
     statusError: providerStatusError,
+    statusPending,
     hasSuccessfulSync: providerSyncHealth.hasSuccessfulSync,
     breakdownLoaded: provider30dSuccess,
   });
@@ -216,18 +219,17 @@ export default function DashboardPage() {
     providerSyncHealth,
     providerStatusError,
   );
-  const spendSyncLabel =
-    providerStatusPending && !providerStatusError
-      ? "…"
-      : spendSyncKind === "status-unavailable"
-        ? "Sync status unavailable"
-        : spendSyncKind === "error"
-          ? "Sync error"
-          : spendSyncKind === "stale"
-            ? "Stale sync"
-            : spendSyncKind === "synced"
-              ? `Synced ${formatLastActive(providerSyncHealth.lastSuccessAt)}`
-              : "Not synced";
+  const spendSyncLabel = statusPending
+    ? "…"
+    : spendSyncKind === "status-unavailable"
+      ? "Sync status unavailable"
+      : spendSyncKind === "error"
+        ? "Sync error"
+        : spendSyncKind === "stale"
+          ? "Stale sync"
+          : spendSyncKind === "synced"
+            ? `Synced ${formatLastActive(providerSyncHealth.lastSuccessAt)}`
+            : "Not synced";
 
   const dailyTokens = useMemo(() => {
     if (!consumption) return [];

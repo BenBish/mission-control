@@ -24,6 +24,7 @@ function formatInput(
     pending: false,
     loadError: false,
     statusError: false,
+    statusPending: false,
     hasSuccessfulSync: false,
     breakdownLoaded: false,
     ...overrides,
@@ -234,6 +235,52 @@ describe("formatDirectApiSpendPrimary", () => {
       ),
     ).toBe("—");
   });
+
+  test("status pending + empty totals → ellipsis (not No synced spend)", () => {
+    expect(
+      formatDirectApiSpendPrimary(
+        formatInput({
+          breakdownLoaded: true,
+          statusPending: true,
+          hasSuccessfulSync: false,
+        }),
+      ),
+    ).toBe("…");
+  });
+
+  test("status pending then success settles to true zero", () => {
+    expect(
+      formatDirectApiSpendPrimary(
+        formatInput({
+          breakdownLoaded: true,
+          statusPending: true,
+          hasSuccessfulSync: false,
+        }),
+      ),
+    ).toBe("…");
+    expect(
+      formatDirectApiSpendPrimary(
+        formatInput({
+          breakdownLoaded: true,
+          statusPending: false,
+          hasSuccessfulSync: true,
+        }),
+      ),
+    ).toBe("$0.0000");
+  });
+
+  test("status pending still shows cost when present", () => {
+    expect(
+      formatDirectApiSpendPrimary(
+        formatInput({
+          totals: { cost: 1.5, hasCost: true },
+          breakdownLoaded: true,
+          statusPending: true,
+          hasSuccessfulSync: false,
+        }),
+      ),
+    ).toBe("$1.5000");
+  });
 });
 
 describe("formatDirectApiSpend30d", () => {
@@ -268,6 +315,18 @@ describe("formatDirectApiSpend30d", () => {
         }),
       ),
     ).toBe("—");
+  });
+
+  test("status pending + empty → ellipsis", () => {
+    expect(
+      formatDirectApiSpend30d(
+        formatInput({
+          breakdownLoaded: true,
+          statusPending: true,
+          hasSuccessfulSync: false,
+        }),
+      ),
+    ).toBe("…");
   });
 });
 
