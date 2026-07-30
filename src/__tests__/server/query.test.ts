@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  MAX_QUERY_LIMIT,
   optionalQueryString,
   parseOptionalPositiveInt,
 } from "../../server/query.js";
@@ -64,5 +65,24 @@ describe("parseOptionalPositiveInt", () => {
         expect(result.error).toContain("limit");
       }
     }
+  });
+
+  test("clamps oversized positive integers to MAX_QUERY_LIMIT", () => {
+    expect(parseOptionalPositiveInt(String(MAX_QUERY_LIMIT + 1))).toEqual({
+      ok: true,
+      value: MAX_QUERY_LIMIT,
+    });
+    expect(parseOptionalPositiveInt("1000000000")).toEqual({
+      ok: true,
+      value: MAX_QUERY_LIMIT,
+    });
+    expect(parseOptionalPositiveInt("50")).toEqual({ ok: true, value: 50 });
+  });
+
+  test("respects a custom max ceiling", () => {
+    expect(parseOptionalPositiveInt("999", "limit", 100)).toEqual({
+      ok: true,
+      value: 100,
+    });
   });
 });

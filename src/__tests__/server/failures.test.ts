@@ -336,6 +336,15 @@ describe("GET /api/failures invalid query (BSH-79)", () => {
     }
   });
 
+  test("huge limit is clamped and still returns 200 (not crash)", async () => {
+    const res = await getJsonStatus("/api/failures?limit=1000000000");
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(Array.isArray(res.body.failures)).toBe(true);
+    // Clamped to MAX_QUERY_LIMIT (1000); empty fixture has 0 rows
+    expect(res.body.failures!.length).toBeLessThanOrEqual(1000);
+  });
+
   test("repeated sourceId (array) returns 400 without crashing", async () => {
     const res = await getJsonStatus(
       "/api/failures?sourceId=hermes&sourceId=grok",

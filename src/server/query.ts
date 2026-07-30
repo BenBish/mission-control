@@ -13,10 +13,17 @@ export type OptionalPositiveIntResult =
   | { ok: false; error: string };
 
 /**
+ * Upper bound for optional positive int query params such as `limit`.
+ * Prevents pathologically large LIMIT values from stressing SQLite/list endpoints.
+ */
+export const MAX_QUERY_LIMIT = 1000;
+
+/**
  * Parse an optional positive integer query param (e.g. `limit`).
  *
  * - Missing / empty → `{ ok: true, value: undefined }` (caller uses default)
  * - Valid positive integer string or number → `{ ok: true, value: n }`
+ *   (clamped to `max`, default {@link MAX_QUERY_LIMIT})
  * - Non-finite, non-integer, ≤0, or non-scalar → `{ ok: false, error }`
  *
  * Never returns NaN. Safe to bind the result into SQL LIMIT only when ok.
@@ -24,6 +31,7 @@ export type OptionalPositiveIntResult =
 export function parseOptionalPositiveInt(
   value: unknown,
   paramName = "limit",
+  max: number = MAX_QUERY_LIMIT,
 ): OptionalPositiveIntResult {
   if (value === undefined || value === null || value === "") {
     return { ok: true, value: undefined };
@@ -71,5 +79,13 @@ export function parseOptionalPositiveInt(
     };
   }
 
-  return { ok: true, value: n };
+  const ceiling =
+    typeof max === "number" &&
+    Number.isFinite(max) &&
+    Number.isInteger(max) &&
+    max > 0
+      ? max
+      : MAX_QUERY_LIMIT;
+
+  return { ok: true, value: Math.min(n, ceiling) };
 }
