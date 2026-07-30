@@ -7,6 +7,7 @@ import { AlertTriangle } from "lucide-react";
 import { useFilterableSourceId, useSourceFilter } from "@/app/source-context";
 import { scopePhrase } from "@/config/sourceScope";
 import { useFailures } from "@/lib/queries";
+import { failureStatusScopeLabel } from "@/types/failures";
 
 const KIND_LABEL: Record<string, string> = {
   activity: "Activity",
@@ -31,7 +32,7 @@ export default function FailureAnalysis() {
   const selectedSourceId = useFilterableSourceId();
   const pageDescription = `Recent failures ${scopePhrase(selectedSourceId, sources)}`;
   const {
-    data: failures,
+    data: failuresData,
     isLoading,
     error,
   } = useFailures({ limit: 50, sourceId: selectedSourceId });
@@ -61,29 +62,95 @@ export default function FailureAnalysis() {
     );
   }
 
-  const count = failures?.length ?? 0;
+  const failures = failuresData?.failures ?? [];
+  const summary = failuresData?.summary;
+  // useFailures throws when summary is missing; still guard for typing.
+  if (!summary) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Failure Analysis" description={pageDescription} />
+        <Card className="border-destructive">
+          <CardContent className="py-6">
+            <p className="font-medium text-destructive">Error</p>
+            <p className="text-sm text-muted-foreground">
+              Failures API response missing summary aggregates
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+  const total = summary.total;
+  const last24Hours = summary.last24Hours;
+  const openRuntime = summary.openRuntimeEvents;
+  const scopeLabel = failureStatusScopeLabel(summary);
 
   return (
     <div className="space-y-6">
       <PageHeader title="Failure Analysis" description={pageDescription} />
 
-      <Card className="overflow-hidden border-l-4 border-l-red-500 sm:w-64">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            Recent Failures
-          </CardTitle>
-          <div className="p-2 rounded-lg bg-red-100 dark:bg-red-900/30">
-            <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="text-3xl font-bold tracking-tight tabular-nums">
-            {count}
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex flex-wrap gap-4">
+        <Card className="overflow-hidden border-l-4 border-l-red-500 sm:w-64">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total Failures
+            </CardTitle>
+            <div className="p-2 rounded-lg bg-red-100 dark:bg-red-900/30">
+              <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold tracking-tight tabular-nums">
+              {total.toLocaleString()}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              All time · {scopeLabel}
+            </p>
+          </CardContent>
+        </Card>
 
-      {count === 0 ? (
+        <Card className="overflow-hidden border-l-4 border-l-orange-500 sm:w-64">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Last 24 Hours
+            </CardTitle>
+            <div className="p-2 rounded-lg bg-orange-100 dark:bg-orange-900/30">
+              <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold tracking-tight tabular-nums">
+              {last24Hours.toLocaleString()}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Last 24 hours · {scopeLabel}
+            </p>
+          </CardContent>
+        </Card>
+
+        {openRuntime > 0 && (
+          <Card className="overflow-hidden border-l-4 border-l-amber-500 sm:w-64">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Open Runtime
+              </CardTitle>
+              <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-900/30">
+                <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold tracking-tight tabular-nums">
+                {openRuntime.toLocaleString()}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Unresolved · severity ≠ info, no end time
+              </p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {total === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <div className="flex flex-col items-center gap-2">
@@ -118,7 +185,7 @@ export default function FailureAnalysis() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(failures ?? []).map((f) => (
+                  {failures.map((f) => (
                     <tr
                       key={`${f.kind}:${f.id}`}
                       className={`border-b last:border-0 hover:bg-muted/40 ${
@@ -153,6 +220,14 @@ export default function FailureAnalysis() {
                 </tbody>
               </table>
             </div>
+            {total > failures.length && (
+              <p className="px-4 py-3 text-xs text-muted-foreground border-t">
+                Showing {failures.length.toLocaleString()} of{" "}
+                {total.toLocaleString()} failures ({summary.byKind.activity}{" "}
+                activity · {summary.byKind.inference_request} inference ·{" "}
+                {summary.byKind.runtime_event} runtime)
+              </p>
+            )}
           </CardContent>
         </Card>
       )}

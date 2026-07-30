@@ -18,7 +18,7 @@ test.describe("Dashboard", () => {
   test("displays all three stat cards", async () => {
     const titles = await dashboard.getStatCardTitles();
     expect(titles).toContain("Tokens Today");
-    expect(titles).toContain("Recent Failures");
+    expect(titles).toContain("Failures (24h)");
     expect(titles).toContain("Source Health");
   });
 
@@ -81,11 +81,61 @@ test.describe("Dashboard", () => {
     await expect(card.locator("svg").first()).toBeVisible();
   });
 
-  test("Recent Failures stat card links to the Failures page", async ({
+  test("Failures (24h) stat card links to the Failures page", async ({
     page,
   }) => {
     await page.getByRole("button", { name: "View failures" }).click();
     await page.waitForURL("/failures");
     expect(page.url()).toContain("/failures");
+  });
+
+  test("Failures (24h) shows server aggregate, not page length", async ({
+    page,
+  }) => {
+    // Page fetches limit=5 rows; summary last24Hours is deliberately larger
+    // so a saturated page cannot masquerade as the total.
+    await page.route("**/api/failures**", async (route) => {
+      const failures = Array.from({ length: 5 }, (_, i) => ({
+        kind: "activity",
+        id: `mock-fail-${i}`,
+        sourceId: "claude-code",
+        timestamp: new Date().toISOString(),
+        summary: `Mock failure ${i}`,
+      }));
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          success: true,
+          failures,
+          summary: {
+            total: 120,
+            last24Hours: 42,
+            openRuntimeEvents: 0,
+            byKind: {
+              activity: 100,
+              inference_request: 15,
+              runtime_event: 5,
+            },
+            definitions: {
+              total: "all-time matching failures",
+              last24Hours: "matching failures with timestamp >= now-24h",
+              openRuntimeEvents:
+                "runtime_events with severity != info and ended_at IS NULL",
+              statusScope:
+                "activity failure | inference non-success | runtime non-info",
+            },
+          },
+        }),
+      });
+    });
+
+    await dashboard.goto();
+    await dashboard.waitForStats();
+
+    const value = await dashboard.getStatValue("Failures (24h)");
+    expect(value).toBe("42");
+    expect(value).not.toBe("5");
+    await expect(page.getByText(/Last 24 hours/i).first()).toBeVisible();
   });
 });

@@ -27,15 +27,12 @@ export class DashboardPage extends BasePage {
   }
 
   /**
-   * Get all 3 stat card titles. Note: "Recent Failures" is ambiguous by
-   * name+level alone — it's also the title of the full failures-list card
-   * further down the page (only rendered when there are failures) — so
-   * every lookup here takes the first match, which is always the stats
-   * grid at the top of the page in DOM order.
+   * Get all 3 stat card titles. "Failures (24h)" is the aggregate summary
+   * card (not the optional recent-list card further down the page).
    */
   async getStatCardTitles(): Promise<string[]> {
     const titles: string[] = [];
-    for (const name of ["Tokens Today", "Recent Failures", "Source Health"]) {
+    for (const name of ["Tokens Today", "Failures (24h)", "Source Health"]) {
       const heading = this.page
         .getByRole("heading", { name, level: 3 })
         .first();

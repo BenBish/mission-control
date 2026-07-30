@@ -16,6 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import type { Activity } from "@/types/activity";
 import { actorIcon, actorTypeLabel } from "@/lib/actor-display";
 import { useSSE } from "@/hooks/useSSE";
+import { useNow } from "@/hooks/useNow";
 import { useFilterableSourceId, useSourceFilter } from "@/app/source-context";
 import { scopePhrase } from "@/config/sourceScope";
 import {
@@ -24,6 +25,7 @@ import {
   useFailures,
   useSources,
 } from "@/lib/queries";
+import { failureStatusScopeLabel } from "@/types/failures";
 import {
   AreaChart,
   Area,
@@ -64,10 +66,25 @@ export default function DashboardPage() {
     limit: 5,
     sourceId: selectedSourceId,
   });
-  const { data: failures } = useFailures({
+  const { data: failuresData } = useFailures({
     limit: 5,
     sourceId: selectedSourceId,
   });
+  const failures = failuresData?.failures;
+  const failureSummary = failuresData?.summary;
+  const failureScopeLabel = failureStatusScopeLabel(failureSummary);
+  const nowMs = useNow();
+  // List preview matches the 24h card — never mix older rows into the metric.
+  const failuresLast24h = useMemo(() => {
+    if (!failures?.length) return [];
+    const cutoffMs = nowMs - 24 * 60 * 60 * 1000;
+    return failures
+      .filter((f) => {
+        const t = new Date(f.timestamp).getTime();
+        return !Number.isNaN(t) && t >= cutoffMs;
+      })
+      .slice(0, 5);
+  }, [failures, nowMs]);
   const { data: consumption, isLoading: consumptionLoading } = useConsumption({
     sourceId: selectedSourceId,
   });
@@ -156,7 +173,7 @@ export default function DashboardPage() {
         <Card className="shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Recent Failures
+              Failures (24h)
             </CardTitle>
             <div className="p-2 rounded-lg bg-red-500/10 dark:bg-red-500/20">
               <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
@@ -164,15 +181,25 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold tracking-tight">
-              {failures?.length ?? 0}
+              {(failureSummary?.last24Hours ?? 0).toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
+              Last 24 hours · {failureScopeLabel}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
               <button
                 className="hover:underline"
                 onClick={() => navigate("/failures")}
               >
                 View failures
               </button>
+              {failureSummary && failureSummary.openRuntimeEvents > 0 && (
+                <span>
+                  {" "}
+                  · {failureSummary.openRuntimeEvents.toLocaleString()} open
+                  runtime
+                </span>
+              )}
             </p>
           </CardContent>
         </Card>
@@ -358,18 +385,18 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {failures && failures.length > 0 && (
+      {failuresLast24h.length > 0 && (
         <Card className="shadow-sm border-l-4 border-l-red-500">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
               <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
-              Recent Failures
+              Failures in last 24 hours
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {failures.slice(0, 5).map((f) => (
+            {failuresLast24h.map((f) => (
               <div
-                key={f.id}
+                key={`${f.kind}:${f.id}`}
                 className="flex items-center justify-between text-sm py-1"
               >
                 <span className="truncate">{f.summary}</span>

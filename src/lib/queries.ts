@@ -12,6 +12,17 @@ import type {
   ActivityFilter,
   SessionSummary,
 } from "@/types/activity";
+import type {
+  FailureItem,
+  FailureSummary,
+  FailuresResponse,
+} from "@/types/failures";
+
+export type {
+  FailureItem,
+  FailureSummary,
+  FailuresResponse,
+} from "@/types/failures";
 
 async function getJson<T>(path: string): Promise<T> {
   const res = await apiFetch(path);
@@ -221,30 +232,28 @@ export async function triggerProviderSync(providers?: string[]): Promise<{
 
 // ─── Failures ───────────────────────────────────────────────────────────────
 
-export interface FailureItem {
-  kind: "activity" | "inference_request" | "runtime_event";
-  id: string;
-  sourceId: string;
-  timestamp: string;
-  summary: string;
-  detail?: string;
-}
-
 export function useFailures(
   opts: {
     limit?: number;
     sourceId?: string;
   } = {},
-): UseQueryResult<FailureItem[]> {
+): UseQueryResult<FailuresResponse> {
   const limit = opts.limit ?? 50;
   return useQuery({
     queryKey: ["failures", { limit, sourceId: opts.sourceId }],
-    queryFn: async () =>
-      (
-        await getJson<{ failures: FailureItem[] }>(
-          `/api/failures${toQueryString({ limit, sourceId: opts.sourceId })}`,
-        )
-      ).failures,
+    queryFn: async () => {
+      const body = await getJson<{
+        failures?: FailureItem[];
+        summary?: FailureSummary;
+      }>(`/api/failures${toQueryString({ limit, sourceId: opts.sourceId })}`);
+      if (!body.summary) {
+        throw new Error("Failures API response missing summary aggregates");
+      }
+      return {
+        failures: body.failures ?? [],
+        summary: body.summary,
+      };
+    },
   });
 }
 
