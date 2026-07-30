@@ -148,9 +148,11 @@ test.describe("Source filter scope", () => {
     await selectSource(page, "Claude Code");
     await consumptionReq;
 
-    // Provider section must not look source-filtered.
+    // Direct API Spend is a separate tab and stays account-wide.
+    await page.getByRole("tab", { name: "Direct API Spend" }).click();
+    await expect(page.getByText("Account-wide").first()).toBeVisible();
     await expect(
-      page.getByText(/Account-wide · not filtered by source/i),
+      page.getByText(/Source filter “Claude Code” does not apply here/i),
     ).toBeVisible();
     await expect(page.getByText(/Partial scope/i)).toBeVisible();
   });
