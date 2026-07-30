@@ -197,9 +197,23 @@ test.describe("Dashboard Direct API Spend states", () => {
       todayCost: number | null;
       days30Cost: number | null;
       providers: ProviderStatusMock[];
+      /** Simulate HTTP failure for status and/or breakdown endpoints. */
+      failStatus?: boolean;
+      failBreakdown?: boolean;
     },
   ) {
     await page.route("**/api/providers/status**", async (route) => {
+      if (opts.failStatus) {
+        await route.fulfill({
+          status: 500,
+          contentType: "application/json",
+          body: JSON.stringify({
+            success: false,
+            error: "Failed to load provider status",
+          }),
+        });
+        return;
+      }
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -208,6 +222,17 @@ test.describe("Dashboard Direct API Spend states", () => {
     });
 
     await page.route("**/api/providers/usage/breakdown**", async (route) => {
+      if (opts.failBreakdown) {
+        await route.fulfill({
+          status: 500,
+          contentType: "application/json",
+          body: JSON.stringify({
+            success: false,
+            error: "Failed to load provider usage breakdown",
+          }),
+        });
+        return;
+      }
       const url = new URL(route.request().url());
       const since = url.searchParams.get("since");
       const sinceMs = since ? Date.parse(since) : 0;
@@ -354,6 +379,52 @@ test.describe("Dashboard Direct API Spend states", () => {
     await expect(dashboard.getDirectApiSpendSync()).toHaveAttribute(
       "title",
       "Admin key rejected",
+    );
+  });
+
+  test("breakdown HTTP failure shows em dash, not $0", async ({ page }) => {
+    await mockProviderApis(page, {
+      todayCost: 1.0,
+      days30Cost: 5.0,
+      providers: [baseProvider()],
+      failBreakdown: true,
+    });
+
+    const dashboard = new DashboardPage(page);
+    await dashboard.goto();
+    await dashboard.waitForStats();
+
+    // retry: 1 on provider hooks — wait past the single retry for isError.
+    await expect(dashboard.getDirectApiSpendToday()).toHaveText("—", {
+      timeout: 15_000,
+    });
+    await expect(dashboard.getDirectApiSpendToday()).not.toHaveText("$0.0000");
+    await expect(dashboard.getDirectApiSpendMeta()).toContainText("30d —");
+  });
+
+  test("status HTTP failure still shows spend when breakdown succeeds", async ({
+    page,
+  }) => {
+    await mockProviderApis(page, {
+      todayCost: 3.25,
+      days30Cost: 11.0,
+      providers: [baseProvider()],
+      failStatus: true,
+    });
+
+    const dashboard = new DashboardPage(page);
+    await dashboard.goto();
+    await dashboard.waitForStats();
+
+    await expect(dashboard.getDirectApiSpendToday()).toHaveText("$3.2500", {
+      timeout: 15_000,
+    });
+    await expect(dashboard.getDirectApiSpendMeta()).toContainText(
+      "30d $11.0000",
+    );
+    await expect(dashboard.getDirectApiSpendSync()).toHaveText(
+      "Sync status unavailable",
+      { timeout: 15_000 },
     );
   });
 });

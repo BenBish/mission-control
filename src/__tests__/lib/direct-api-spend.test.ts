@@ -8,10 +8,27 @@ import {
   formatDirectApiSpendPrimary,
   formatDirectApiSpend30d,
   directApiSpendSyncStatusKind,
+  isCompactSpendPrimary,
+  localDayKey,
   startOfLocalDayIso,
   daysAgoIso,
   PROVIDER_SYNC_STALE_MS,
+  type DirectApiSpendFormatInput,
 } from "../../lib/direct-api-spend.js";
+
+function formatInput(
+  overrides: Partial<DirectApiSpendFormatInput> = {},
+): DirectApiSpendFormatInput {
+  return {
+    totals: { cost: 0, hasCost: false },
+    pending: false,
+    loadError: false,
+    statusError: false,
+    hasSuccessfulSync: false,
+    breakdownLoaded: false,
+    ...overrides,
+  };
+}
 
 describe("aggregateProviderCost", () => {
   test("empty / null rows → zero without cost", () => {
@@ -129,9 +146,12 @@ describe("formatDirectApiSpendPrimary", () => {
   test("pending shows ellipsis", () => {
     expect(
       formatDirectApiSpendPrimary(
-        { cost: 1, hasCost: true },
-        { hasSuccessfulSync: true },
-        true,
+        formatInput({
+          totals: { cost: 1, hasCost: true },
+          pending: true,
+          hasSuccessfulSync: true,
+          breakdownLoaded: true,
+        }),
       ),
     ).toBe("…");
   });
@@ -139,9 +159,10 @@ describe("formatDirectApiSpendPrimary", () => {
   test("never synced → No synced spend (not $0)", () => {
     expect(
       formatDirectApiSpendPrimary(
-        { cost: 0, hasCost: false },
-        { hasSuccessfulSync: false },
-        false,
+        formatInput({
+          breakdownLoaded: true,
+          hasSuccessfulSync: false,
+        }),
       ),
     ).toBe("No synced spend");
   });
@@ -149,9 +170,10 @@ describe("formatDirectApiSpendPrimary", () => {
   test("true zero after sync → $0.0000", () => {
     expect(
       formatDirectApiSpendPrimary(
-        { cost: 0, hasCost: false },
-        { hasSuccessfulSync: true },
-        false,
+        formatInput({
+          breakdownLoaded: true,
+          hasSuccessfulSync: true,
+        }),
       ),
     ).toBe("$0.0000");
   });
@@ -159,11 +181,58 @@ describe("formatDirectApiSpendPrimary", () => {
   test("populated cost formats to 4 decimals", () => {
     expect(
       formatDirectApiSpendPrimary(
-        { cost: 1.095, hasCost: true },
-        { hasSuccessfulSync: true },
-        false,
+        formatInput({
+          totals: { cost: 1.095, hasCost: true },
+          breakdownLoaded: true,
+          hasSuccessfulSync: true,
+        }),
       ),
     ).toBe("$1.0950");
+  });
+
+  test("breakdown load error → em dash (not $0)", () => {
+    expect(
+      formatDirectApiSpendPrimary(
+        formatInput({
+          loadError: true,
+          hasSuccessfulSync: true,
+          breakdownLoaded: false,
+        }),
+      ),
+    ).toBe("—");
+    expect(
+      formatDirectApiSpendPrimary(
+        formatInput({
+          loadError: true,
+          hasSuccessfulSync: true,
+        }),
+      ),
+    ).not.toBe("$0.0000");
+  });
+
+  test("status error still shows cost when breakdown has spend", () => {
+    expect(
+      formatDirectApiSpendPrimary(
+        formatInput({
+          totals: { cost: 2.5, hasCost: true },
+          statusError: true,
+          breakdownLoaded: true,
+          hasSuccessfulSync: false,
+        }),
+      ),
+    ).toBe("$2.5000");
+  });
+
+  test("status error without cost → em dash", () => {
+    expect(
+      formatDirectApiSpendPrimary(
+        formatInput({
+          statusError: true,
+          breakdownLoaded: true,
+          hasSuccessfulSync: false,
+        }),
+      ),
+    ).toBe("—");
   });
 });
 
@@ -171,9 +240,10 @@ describe("formatDirectApiSpend30d", () => {
   test("never synced → em dash", () => {
     expect(
       formatDirectApiSpend30d(
-        { cost: 0, hasCost: false },
-        { hasSuccessfulSync: false },
-        false,
+        formatInput({
+          breakdownLoaded: true,
+          hasSuccessfulSync: false,
+        }),
       ),
     ).toBe("—");
   });
@@ -181,15 +251,43 @@ describe("formatDirectApiSpend30d", () => {
   test("synced zero → $0.0000", () => {
     expect(
       formatDirectApiSpend30d(
-        { cost: 0, hasCost: false },
-        { hasSuccessfulSync: true },
-        false,
+        formatInput({
+          breakdownLoaded: true,
+          hasSuccessfulSync: true,
+        }),
       ),
     ).toBe("$0.0000");
+  });
+
+  test("load error → em dash", () => {
+    expect(
+      formatDirectApiSpend30d(
+        formatInput({
+          loadError: true,
+          hasSuccessfulSync: true,
+        }),
+      ),
+    ).toBe("—");
   });
 });
 
 describe("directApiSpendSyncStatusKind", () => {
+  test("statusError wins over connector state", () => {
+    expect(
+      directApiSpendSyncStatusKind(
+        {
+          lastSuccessAt: "2026-07-30T11:00:00.000Z",
+          isStale: false,
+          hasError: true,
+          errorMessage: "boom",
+          hasSuccessfulSync: true,
+          anyConfigured: true,
+        },
+        true,
+      ),
+    ).toBe("status-unavailable");
+  });
+
   test("error wins over stale", () => {
     expect(
       directApiSpendSyncStatusKind({
@@ -243,6 +341,18 @@ describe("directApiSpendSyncStatusKind", () => {
   });
 });
 
+describe("isCompactSpendPrimary", () => {
+  test("dollar amounts and pending are full size", () => {
+    expect(isCompactSpendPrimary("$1.0950")).toBe(false);
+    expect(isCompactSpendPrimary("…")).toBe(false);
+  });
+
+  test("unavailable strings are compact", () => {
+    expect(isCompactSpendPrimary("No synced spend")).toBe(true);
+    expect(isCompactSpendPrimary("—")).toBe(true);
+  });
+});
+
 describe("window helpers", () => {
   test("startOfLocalDayIso is midnight local", () => {
     const now = new Date(2026, 6, 30, 15, 30, 0).getTime(); // Jul 30 15:30 local
@@ -257,5 +367,13 @@ describe("window helpers", () => {
     const now = Date.parse("2026-07-30T12:00:00.000Z");
     const iso = daysAgoIso(30, now);
     expect(Date.parse(iso)).toBe(now - 30 * 24 * 60 * 60 * 1000);
+  });
+
+  test("localDayKey is stable within a calendar day", () => {
+    const morning = new Date(2026, 6, 30, 1, 0, 0).getTime();
+    const evening = new Date(2026, 6, 30, 23, 0, 0).getTime();
+    const nextDay = new Date(2026, 6, 31, 1, 0, 0).getTime();
+    expect(localDayKey(morning)).toBe(localDayKey(evening));
+    expect(localDayKey(morning)).not.toBe(localDayKey(nextDay));
   });
 });

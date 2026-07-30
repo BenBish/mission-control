@@ -98,6 +98,24 @@ describe("queryFamiliesForActivity", () => {
     );
     expect(withCost).not.toContain("provider-breakdown");
   });
+
+  test("never invalidates provider-status from activity events", () => {
+    const withCost = queryFamiliesForActivity(
+      baseActivity({
+        status: "failure",
+        inputTokens: 10,
+        costUsd: 0.5,
+      }),
+    );
+    expect(withCost).not.toContain("provider-status");
+  });
+});
+
+describe("ALL_DASHBOARD_QUERY_FAMILIES", () => {
+  test("includes provider-status for reconnect recovery", () => {
+    expect(ALL_DASHBOARD_QUERY_FAMILIES).toContain("provider-status");
+    expect(ALL_DASHBOARD_QUERY_FAMILIES).toContain("provider-breakdown");
+  });
 });
 
 describe("createDashboardInvalidationScheduler", () => {

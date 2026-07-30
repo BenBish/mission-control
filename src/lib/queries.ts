@@ -194,6 +194,8 @@ export function useProviderStatus(): UseQueryResult<ProviderStatus[]> {
       (await getJson<{ providers: ProviderStatus[] }>("/api/providers/status"))
         .providers,
     refetchInterval: 60_000,
+    // Fail fast on the homepage: long retry storms look like perpetual "…".
+    retry: 1,
   });
 }
 
@@ -209,6 +211,7 @@ export function useProviderBreakdown(opts: {
           `/api/providers/usage/breakdown${toQueryString(opts)}`,
         )
       ).breakdown,
+    retry: 1,
   });
 }
 

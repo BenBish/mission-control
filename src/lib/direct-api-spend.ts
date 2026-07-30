@@ -2,8 +2,8 @@
  * Pure helpers for the Dashboard Direct API Spend card (BSH-69).
  *
  * Provider-billed cost is account-wide and must stay separate from
- * session-derived Agent Usage totals. Missing sync data must never look
- * like a true $0 result.
+ * session-derived Agent Usage totals. Missing sync data and query failures
+ * must never look like a true $0 result.
  */
 
 /** Consider provider billing data stale after this long without a success. */
@@ -97,44 +97,90 @@ export function summarizeProviderSync(
 }
 
 /**
- * Format the primary spend value.
+ * Inputs for formatting spend amounts. Distinguishes query failures from
+ * true zero and from never-synced connectors.
+ */
+export type DirectApiSpendFormatInput = {
+  totals: AggregatedProviderCost;
+  pending: boolean;
+  /** Breakdown query failed (HTTP) — never render as $0. */
+  loadError: boolean;
+  /** Status query failed — may still show breakdown totals when loaded. */
+  statusError: boolean;
+  hasSuccessfulSync: boolean;
+  /** Successful breakdown response received (including empty array). */
+  breakdownLoaded: boolean;
+};
+
+/**
+ * Format the primary (today) spend value.
  * - Pending: ellipsis
- * - Never successfully synced: "No synced spend" (not $0)
- * - After a successful sync: always a dollar amount (including true $0.0000)
+ * - Breakdown load error: em dash (not $0)
+ * - Cost rows present: dollar amount (even if status failed)
+ * - Successful sync + loaded empty: true $0.0000
+ * - Status unavailable + empty: em dash
+ * - Never synced: "No synced spend"
  */
 export function formatDirectApiSpendPrimary(
-  totals: AggregatedProviderCost,
-  health: Pick<ProviderSyncHealth, "hasSuccessfulSync">,
-  pending: boolean,
+  input: DirectApiSpendFormatInput,
 ): string {
-  if (pending) return "…";
-  if (!health.hasSuccessfulSync) return "No synced spend";
-  return `$${totals.cost.toFixed(4)}`;
+  if (input.pending) return "…";
+  if (input.loadError) return "—";
+  if (input.totals.hasCost) {
+    return `$${input.totals.cost.toFixed(4)}`;
+  }
+  if (input.breakdownLoaded && input.hasSuccessfulSync) {
+    return "$0.0000";
+  }
+  if (input.statusError) return "—";
+  if (!input.hasSuccessfulSync) return "No synced spend";
+  return "—";
 }
 
 /**
  * Format the trailing 30-day supporting amount.
- * Uses em dash when there has never been a successful sync.
  */
 export function formatDirectApiSpend30d(
-  totals: AggregatedProviderCost,
-  health: Pick<ProviderSyncHealth, "hasSuccessfulSync">,
-  pending: boolean,
+  input: DirectApiSpendFormatInput,
 ): string {
-  if (pending) return "…";
-  if (!health.hasSuccessfulSync) return "—";
-  return `$${totals.cost.toFixed(4)}`;
+  if (input.pending) return "…";
+  if (input.loadError) return "—";
+  if (input.totals.hasCost) {
+    return `$${input.totals.cost.toFixed(4)}`;
+  }
+  if (input.breakdownLoaded && input.hasSuccessfulSync) {
+    return "$0.0000";
+  }
+  return "—";
 }
 
-export type SyncStatusKind = "error" | "stale" | "synced" | "none";
+export type SyncStatusKind =
+  | "error"
+  | "stale"
+  | "synced"
+  | "none"
+  | "status-unavailable";
 
 export function directApiSpendSyncStatusKind(
   health: ProviderSyncHealth,
+  statusError: boolean = false,
 ): SyncStatusKind {
+  if (statusError) return "status-unavailable";
   if (health.hasError) return "error";
   if (health.isStale) return "stale";
   if (health.hasSuccessfulSync) return "synced";
   return "none";
+}
+
+/** Compact primary value uses smaller type (long “No synced spend” / em dash). */
+export function isCompactSpendPrimary(primary: string): boolean {
+  return primary !== "…" && !primary.startsWith("$");
+}
+
+/** Local calendar day key — changes only at midnight for window refresh. */
+export function localDayKey(nowMs: number = Date.now()): string {
+  const d = new Date(nowMs);
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
 }
 
 /** ISO start of local calendar day (matches Consumption "today" preset). */

@@ -55,11 +55,6 @@ export class DashboardPage extends BasePage {
       .click();
   }
 
-  /** @deprecated Prefer clickDirectApiSpendCard */
-  async clickApiSpendCard() {
-    await this.clickDirectApiSpendCard();
-  }
-
   getDirectApiSpendToday(): Locator {
     return this.page.getByTestId("direct-api-spend-today");
   }

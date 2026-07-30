@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -38,6 +38,8 @@ import {
   directApiSpendSyncStatusKind,
   formatDirectApiSpend30d,
   formatDirectApiSpendPrimary,
+  isCompactSpendPrimary,
+  localDayKey,
   startOfLocalDayIso,
   summarizeProviderSync,
 } from "@/lib/direct-api-spend";
@@ -105,23 +107,38 @@ export default function DashboardPage() {
     sourceId: selectedSourceId,
   });
 
-  // Provider billing windows — frozen at mount so query keys stay stable.
-  // useState initializer runs once (impure clock OK there; not during render).
-  const [providerWindows] = useState(() => {
-    const nowMs = Date.now();
+  // Provider billing windows keyed by local calendar day so "today" rolls
+  // over at midnight without remounting (query keys stay stable within a day).
+  const dayKey = localDayKey(nowMs);
+  const providerWindows = useMemo(() => {
+    const t = Date.now();
     return {
-      todaySince: startOfLocalDayIso(nowMs),
-      days30Since: daysAgoIso(30, nowMs),
+      todaySince: startOfLocalDayIso(t),
+      days30Since: daysAgoIso(30, t),
     };
-  });
-  const { data: providerBreakdownToday, isPending: providerTodayPending } =
-    useProviderBreakdown({ since: providerWindows.todaySince });
-  const { data: providerBreakdown30d, isPending: provider30dPending } =
-    useProviderBreakdown({ since: providerWindows.days30Since });
-  const { data: providerStatus, isPending: providerStatusPending } =
-    useProviderStatus();
-  const providerSpendPending =
-    providerTodayPending || provider30dPending || providerStatusPending;
+    // dayKey intentionally gates refresh; t is only read when the day changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- midnight rollover
+  }, [dayKey]);
+  const {
+    data: providerBreakdownToday,
+    isPending: providerTodayPending,
+    isError: providerTodayError,
+    isSuccess: providerTodaySuccess,
+  } = useProviderBreakdown({ since: providerWindows.todaySince });
+  const {
+    data: providerBreakdown30d,
+    isPending: provider30dPending,
+    isError: provider30dError,
+    isSuccess: provider30dSuccess,
+  } = useProviderBreakdown({ since: providerWindows.days30Since });
+  const {
+    data: providerStatus,
+    isPending: providerStatusPending,
+    isError: providerStatusError,
+  } = useProviderStatus();
+  // Amount pending is per-window; do not block dollar display on status retries.
+  const todayAmountPending = providerTodayPending && !providerTodayError;
+  const days30AmountPending = provider30dPending && !provider30dError;
 
   // Batched selective SSE invalidation (BSH-75): coalesce over the freshness
   // window and only invalidate families the event can affect. See
@@ -179,25 +196,38 @@ export default function DashboardPage() {
     () => summarizeProviderSync(providerStatus, nowMs),
     [providerStatus, nowMs],
   );
-  const spendPrimary = formatDirectApiSpendPrimary(
-    providerSpendToday,
+  const spendPrimary = formatDirectApiSpendPrimary({
+    totals: providerSpendToday,
+    pending: todayAmountPending,
+    loadError: providerTodayError,
+    statusError: providerStatusError,
+    hasSuccessfulSync: providerSyncHealth.hasSuccessfulSync,
+    breakdownLoaded: providerTodaySuccess,
+  });
+  const spend30dLabel = formatDirectApiSpend30d({
+    totals: providerSpend30d,
+    pending: days30AmountPending,
+    loadError: provider30dError,
+    statusError: providerStatusError,
+    hasSuccessfulSync: providerSyncHealth.hasSuccessfulSync,
+    breakdownLoaded: provider30dSuccess,
+  });
+  const spendSyncKind = directApiSpendSyncStatusKind(
     providerSyncHealth,
-    providerSpendPending,
+    providerStatusError,
   );
-  const spend30dLabel = formatDirectApiSpend30d(
-    providerSpend30d,
-    providerSyncHealth,
-    providerSpendPending,
-  );
-  const spendSyncKind = directApiSpendSyncStatusKind(providerSyncHealth);
   const spendSyncLabel =
-    spendSyncKind === "error"
-      ? "Sync error"
-      : spendSyncKind === "stale"
-        ? "Stale sync"
-        : spendSyncKind === "synced"
-          ? `Synced ${formatLastActive(providerSyncHealth.lastSuccessAt)}`
-          : "Not synced";
+    providerStatusPending && !providerStatusError
+      ? "…"
+      : spendSyncKind === "status-unavailable"
+        ? "Sync status unavailable"
+        : spendSyncKind === "error"
+          ? "Sync error"
+          : spendSyncKind === "stale"
+            ? "Stale sync"
+            : spendSyncKind === "synced"
+              ? `Synced ${formatLastActive(providerSyncHealth.lastSuccessAt)}`
+              : "Not synced";
 
   const dailyTokens = useMemo(() => {
     if (!consumption) return [];
@@ -279,7 +309,11 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div
-                className="text-3xl font-bold tracking-tight tabular-nums"
+                className={
+                  isCompactSpendPrimary(spendPrimary)
+                    ? "text-xl font-bold tracking-tight tabular-nums"
+                    : "text-3xl font-bold tracking-tight tabular-nums"
+                }
                 data-testid="direct-api-spend-today"
               >
                 {spendPrimary}
@@ -292,7 +326,8 @@ export default function DashboardPage() {
                 {" · "}
                 <span
                   className={
-                    spendSyncKind === "error"
+                    spendSyncKind === "error" ||
+                    spendSyncKind === "status-unavailable"
                       ? "text-red-600 dark:text-red-400"
                       : spendSyncKind === "stale"
                         ? "text-amber-700 dark:text-amber-400"
@@ -302,7 +337,9 @@ export default function DashboardPage() {
                   title={
                     spendSyncKind === "error"
                       ? (providerSyncHealth.errorMessage ?? "Connector error")
-                      : undefined
+                      : spendSyncKind === "status-unavailable"
+                        ? "Could not load provider sync status"
+                        : undefined
                   }
                 >
                   {spendSyncLabel}
