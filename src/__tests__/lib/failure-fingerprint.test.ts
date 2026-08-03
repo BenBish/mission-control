@@ -22,7 +22,7 @@ describe("normalizeFailureMessage", () => {
 });
 
 describe("computeFailureFingerprint", () => {
-  test("runtime slot-saturation events with different ids share a fingerprint", () => {
+  test("runtime events with identical summary share a fingerprint; differing free-text does not", () => {
     const a = computeFailureFingerprint({
       kind: "runtime_event",
       sourceId: "hermes",

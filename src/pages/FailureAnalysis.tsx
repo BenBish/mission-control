@@ -102,6 +102,8 @@ function TechnicalDetails({ detail }: { detail: string }) {
   );
 }
 
+const OCCURRENCE_PAGE_SIZE = 20;
+
 function GroupOccurrences({
   group,
   sourceId,
@@ -110,8 +112,10 @@ function GroupOccurrences({
   sourceId?: string;
 }) {
   const navigate = useNavigate();
+  const [occPage, setOccPage] = useState(1);
   const { data, isLoading, error } = useFailureGroupEvents(group.fingerprint, {
-    limit: 20,
+    limit: OCCURRENCE_PAGE_SIZE,
+    offset: (occPage - 1) * OCCURRENCE_PAGE_SIZE,
     sourceId,
     enabled: true,
   });
@@ -131,13 +135,51 @@ function GroupOccurrences({
 
   const events = data?.events ?? [];
   const total = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / OCCURRENCE_PAGE_SIZE));
+  const from = total === 0 ? 0 : (occPage - 1) * OCCURRENCE_PAGE_SIZE + 1;
+  const to = Math.min(occPage * OCCURRENCE_PAGE_SIZE, total);
 
   return (
     <div className="mt-2 border-t border-border/60 pt-2 space-y-2">
-      <p className="text-xs text-muted-foreground">
-        Showing {events.length.toLocaleString()} of {total.toLocaleString()}{" "}
-        occurrence{total === 1 ? "" : "s"}
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground">
+          Occurrences {from.toLocaleString()}–{to.toLocaleString()} of{" "}
+          {total.toLocaleString()}
+        </p>
+        {totalPages > 1 && (
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 px-2"
+              disabled={occPage <= 1}
+              onClick={(e) => {
+                e.stopPropagation();
+                setOccPage((p) => Math.max(1, p - 1));
+              }}
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </Button>
+            <span className="text-xs tabular-nums text-muted-foreground px-1">
+              {occPage}/{totalPages}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 px-2"
+              disabled={occPage >= totalPages}
+              onClick={(e) => {
+                e.stopPropagation();
+                setOccPage((p) => Math.min(totalPages, p + 1));
+              }}
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        )}
+      </div>
       <ul className="space-y-2">
         {events.map((ev: FailureItem) => (
           <li

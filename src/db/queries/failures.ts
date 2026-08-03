@@ -175,8 +175,8 @@ function rowToItem(row: FailureUnionRow): FailureItem {
 
 /**
  * Union of activity failures + inference failures + runtime_events.
- * Single ordered UNION ALL + LIMIT so we do not over-fetch `limit` rows
- * from each table then re-slice. Optional sourceId is applied in SQL.
+ * Uses the shared union projection, then LIMIT in SQL via a wrapping
+ * query so dashboard pages stay cheap (do not load the full table).
  */
 export async function listRecentFailures(
   db: SqliteDatabase,
@@ -187,6 +187,7 @@ export async function listRecentFailures(
   const sourceClause = sourceId ? "AND source_id = ?" : "";
   const sourceParams = sourceId ? [sourceId] : [];
 
+  // Keep LIMIT in SQL (not load-all + slice) so the dashboard path stays O(page).
   const sql = `
     SELECT kind, id, source_id, timestamp, summary, detail,
            ended_at, event_kind, severity, status, model
@@ -264,6 +265,10 @@ export interface ListFailureGroupsOpts {
 /**
  * Group failures by stable fingerprint. Pagination applies to groups
  * (not raw events). Aggregate summary remains event-level.
+ *
+ * Scale note: loads the full matching union into memory, then groups.
+ * Fine for operator-scale failure tables; push GROUP BY / fingerprint
+ * projection into SQL if this becomes a hot path on large backlogs.
  */
 export async function listFailureGroups(
   db: SqliteDatabase,

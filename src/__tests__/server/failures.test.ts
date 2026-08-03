@@ -608,4 +608,33 @@ describe("GET /api/failures/groups (BSH-72)", () => {
     expect(body.events).toHaveLength(2);
     expect(body.events!.every((e) => e.fingerprint === fp)).toBe(true);
   });
+
+  test("group events support offset pagination", async () => {
+    const base = Date.now();
+    for (let i = 0; i < 5; i++) {
+      await insertRuntimeEvent({
+        id: `ge-page-${i}`,
+        timestamp: new Date(base + i * 1000).toISOString(),
+        summary: "slots saturated",
+      });
+    }
+    const groups = await getGroups("/api/failures/groups?limit=10");
+    const fp = encodeURIComponent(groups.body.groups![0].fingerprint);
+
+    const page1 = (await (
+      await fetch(
+        `${baseUrl}/api/failures/groups/${fp}/events?limit=2&offset=0`,
+      )
+    ).json()) as GroupEventsBody;
+    const page2 = (await (
+      await fetch(
+        `${baseUrl}/api/failures/groups/${fp}/events?limit=2&offset=2`,
+      )
+    ).json()) as GroupEventsBody;
+
+    expect(page1.total).toBe(5);
+    expect(page1.events).toHaveLength(2);
+    expect(page2.events).toHaveLength(2);
+    expect(page1.events![0].id).not.toBe(page2.events![0].id);
+  });
 });
