@@ -123,14 +123,15 @@ test.describe("Source filter scope", () => {
       .getByRole("heading", { name: "Failure Analysis", level: 1 })
       .waitFor({ state: "visible" });
 
+    // Failure Analysis loads grouped failures (BSH-72), not the raw list.
     const failuresReq = page.waitForRequest(
-      (r) => isApi(r, "/api/failures") && sourceIdFrom(r) === "codex",
+      (r) => isApi(r, "/api/failures/groups") && sourceIdFrom(r) === "codex",
     );
     await selectSource(page, "Codex CLI");
     await failuresReq;
 
     await expect(
-      page.getByText(/Recent failures for Codex CLI/i),
+      page.getByText(/Grouped failures for Codex CLI/i),
     ).toBeVisible();
   });
 
