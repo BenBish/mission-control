@@ -525,17 +525,74 @@ export interface RuntimeEvent {
   details: unknown;
 }
 
-export interface RuntimeData {
-  sources: Source[];
-  snapshots: RuntimeSnapshot[];
-  inferenceRequests: InferenceRequestSummary[];
-  runtimeEvents: RuntimeEvent[];
+export type RuntimeRange = "1h" | "6h" | "24h" | "7d" | "all";
+
+export interface RuntimeMetrics {
+  activeSlots: number;
+  totalSlots: number;
+  saturationRate: number | null;
+  requestThroughputPerHour: number | null;
+  cancellationRate: number | null;
+  p50LatencyMs: number | null;
+  p95LatencyMs: number | null;
+  requestCount: number;
+  since: string | null;
+  windowHours: number | null;
 }
 
-export function useRuntime(limit = 50): UseQueryResult<RuntimeData> {
+export interface RuntimePage<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface RuntimeData {
+  range: RuntimeRange;
+  sources: Source[];
+  snapshots: RuntimeSnapshot[];
+  metrics: RuntimeMetrics;
+  filters: {
+    clientLabels: string[];
+    requestStatuses: string[];
+    eventKinds: string[];
+  };
+  inferenceRequests: RuntimePage<InferenceRequestSummary>;
+  runtimeEvents: RuntimePage<RuntimeEvent>;
+}
+
+export interface RuntimeQueryParams {
+  range?: RuntimeRange;
+  reqStatus?: string;
+  reqClient?: string;
+  reqPage?: number;
+  reqLimit?: number;
+  eventKind?: string;
+  eventPage?: number;
+  eventLimit?: number;
+}
+
+function buildRuntimeQuery(params: RuntimeQueryParams = {}): string {
+  const sp = new URLSearchParams();
+  if (params.range) sp.set("range", params.range);
+  if (params.reqStatus) sp.set("reqStatus", params.reqStatus);
+  if (params.reqClient) sp.set("reqClient", params.reqClient);
+  if (params.reqPage != null) sp.set("reqPage", String(params.reqPage));
+  if (params.reqLimit != null) sp.set("reqLimit", String(params.reqLimit));
+  if (params.eventKind) sp.set("eventKind", params.eventKind);
+  if (params.eventPage != null) sp.set("eventPage", String(params.eventPage));
+  if (params.eventLimit != null)
+    sp.set("eventLimit", String(params.eventLimit));
+  const qs = sp.toString();
+  return qs ? `/api/runtime?${qs}` : "/api/runtime";
+}
+
+export function useRuntime(
+  params: RuntimeQueryParams = {},
+): UseQueryResult<RuntimeData> {
   return useQuery({
-    queryKey: ["runtime", limit],
-    queryFn: () => getJson<RuntimeData>(`/api/runtime?limit=${limit}`),
+    queryKey: ["runtime", params],
+    queryFn: () => getJson<RuntimeData>(buildRuntimeQuery(params)),
     refetchInterval: 5_000,
   });
 }
