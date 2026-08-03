@@ -89,3 +89,67 @@ export function parseOptionalPositiveInt(
 
   return { ok: true, value: Math.min(n, ceiling) };
 }
+
+/**
+ * Parse an optional non-negative integer (e.g. `offset`).
+ * Accepts 0; rejects negatives and non-integers.
+ */
+export function parseOptionalNonNegativeInt(
+  value: unknown,
+  paramName = "offset",
+  max: number = 1_000_000,
+): OptionalPositiveIntResult {
+  if (value === undefined || value === null || value === "") {
+    return { ok: true, value: undefined };
+  }
+
+  if (Array.isArray(value)) {
+    return {
+      ok: false,
+      error: `${paramName} must be a single non-negative integer`,
+    };
+  }
+
+  if (typeof value === "object") {
+    return {
+      ok: false,
+      error: `${paramName} must be a non-negative integer`,
+    };
+  }
+
+  const raw =
+    typeof value === "string"
+      ? value.trim()
+      : typeof value === "number"
+        ? String(value)
+        : String(value);
+
+  if (raw === "") {
+    return { ok: true, value: undefined };
+  }
+
+  if (!/^\d+$/.test(raw)) {
+    return {
+      ok: false,
+      error: `${paramName} must be a non-negative integer`,
+    };
+  }
+
+  const n = Number(raw);
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) {
+    return {
+      ok: false,
+      error: `${paramName} must be a non-negative integer`,
+    };
+  }
+
+  const ceiling =
+    typeof max === "number" &&
+    Number.isFinite(max) &&
+    Number.isInteger(max) &&
+    max >= 0
+      ? max
+      : 1_000_000;
+
+  return { ok: true, value: Math.min(n, ceiling) };
+}

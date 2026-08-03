@@ -13,13 +13,23 @@ import type {
   SessionSummary,
 } from "@/types/activity";
 import type {
+  FailureGroup,
+  FailureGroupEventsResponse,
+  FailureGroupsResponse,
   FailureItem,
+  FailureKind,
+  FailureResolution,
   FailureSummary,
   FailuresResponse,
 } from "@/types/failures";
 
 export type {
+  FailureGroup,
+  FailureGroupEventsResponse,
+  FailureGroupsResponse,
   FailureItem,
+  FailureKind,
+  FailureResolution,
   FailureSummary,
   FailuresResponse,
 } from "@/types/failures";
@@ -387,6 +397,100 @@ export function useFailures(
       return {
         failures: body.failures ?? [],
         summary: body.summary,
+      };
+    },
+  });
+}
+
+export function useFailureGroups(
+  opts: {
+    limit?: number;
+    offset?: number;
+    sourceId?: string;
+    kind?: FailureKind | "";
+    resolved?: FailureResolution | "";
+  } = {},
+): UseQueryResult<FailureGroupsResponse> {
+  const limit = opts.limit ?? 50;
+  const offset = opts.offset ?? 0;
+  const kind = opts.kind || undefined;
+  const resolved = opts.resolved || undefined;
+  return useQuery({
+    queryKey: [
+      "failures",
+      "groups",
+      {
+        limit,
+        offset,
+        sourceId: opts.sourceId,
+        kind,
+        resolved,
+      },
+    ],
+    queryFn: async () => {
+      const body = await getJson<{
+        groups?: FailureGroup[];
+        groupTotal?: number;
+        summary?: FailureSummary;
+      }>(
+        `/api/failures/groups${toQueryString({
+          limit,
+          offset,
+          sourceId: opts.sourceId,
+          kind,
+          resolved,
+        })}`,
+      );
+      if (!body.summary) {
+        throw new Error(
+          "Failure groups API response missing summary aggregates",
+        );
+      }
+      return {
+        groups: body.groups ?? [],
+        groupTotal: body.groupTotal ?? 0,
+        summary: body.summary,
+      };
+    },
+  });
+}
+
+export function useFailureGroupEvents(
+  fingerprint: string | undefined,
+  opts: {
+    limit?: number;
+    offset?: number;
+    sourceId?: string;
+    enabled?: boolean;
+  } = {},
+): UseQueryResult<FailureGroupEventsResponse> {
+  const limit = opts.limit ?? 50;
+  const offset = opts.offset ?? 0;
+  return useQuery({
+    queryKey: [
+      "failures",
+      "group-events",
+      fingerprint,
+      { limit, offset, sourceId: opts.sourceId },
+    ],
+    enabled: Boolean(fingerprint) && (opts.enabled ?? true),
+    queryFn: async () => {
+      const encoded = encodeURIComponent(fingerprint!);
+      const body = await getJson<{
+        fingerprint?: string;
+        events?: FailureItem[];
+        total?: number;
+      }>(
+        `/api/failures/groups/${encoded}/events${toQueryString({
+          limit,
+          offset,
+          sourceId: opts.sourceId,
+        })}`,
+      );
+      return {
+        fingerprint: body.fingerprint ?? fingerprint!,
+        events: body.events ?? [],
+        total: body.total ?? 0,
       };
     },
   });

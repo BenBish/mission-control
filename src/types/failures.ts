@@ -2,13 +2,38 @@
  * Shared failure list + aggregate contract for API, query layer, and UI.
  */
 
+export type FailureKind = "activity" | "inference_request" | "runtime_event";
+
+export type FailureResolution = "resolved" | "unresolved";
+
 export interface FailureItem {
-  kind: "activity" | "inference_request" | "runtime_event";
+  kind: FailureKind;
   id: string;
   sourceId: string;
   timestamp: string;
   summary: string;
   detail?: string;
+  /** Present when the underlying row has an end/resolution signal. */
+  endedAt?: string;
+  /** Stable group key; optional on legacy raw list responses. */
+  fingerprint?: string;
+  resolved?: boolean;
+}
+
+export interface FailureGroup {
+  fingerprint: string;
+  kind: FailureKind;
+  sourceId: string;
+  /** Representative summary (from most recent occurrence). */
+  summary: string;
+  /** Representative detail from most recent occurrence (may be long/JSON). */
+  detail?: string;
+  occurrenceCount: number;
+  firstSeen: string;
+  lastSeen: string;
+  resolved: boolean;
+  /** How many occurrences still open (not resolved). */
+  openCount: number;
 }
 
 export interface FailureSummary {
@@ -31,6 +56,20 @@ export interface FailureSummary {
 export interface FailuresResponse {
   failures: FailureItem[];
   summary: FailureSummary;
+}
+
+export interface FailureGroupsResponse {
+  groups: FailureGroup[];
+  /** Number of groups after filters (for pagination). */
+  groupTotal: number;
+  /** Event-level aggregate totals (independent of group pagination). */
+  summary: FailureSummary;
+}
+
+export interface FailureGroupEventsResponse {
+  fingerprint: string;
+  events: FailureItem[];
+  total: number;
 }
 
 /** Default labels when definitions are absent (should not happen on current API). */
