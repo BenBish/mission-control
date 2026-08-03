@@ -309,6 +309,38 @@ describe("GET /api/runtime", () => {
     expect(body.runtimeEvents?.items[0]?.id).toBe("e-down");
   });
 
+  test("filters requests and events by sourceId", async () => {
+    const now = new Date().toISOString();
+    await insertRequest({
+      id: "hermes-req",
+      timestamp: now,
+      status: "success",
+    });
+    await insertEvent({
+      id: "hermes-evt",
+      timestamp: now,
+    });
+    // lemonade source rows (seeded source/instance)
+    await db.raw().run(
+      `INSERT INTO inference_requests (
+        id, source_id, instance_id, timestamp, model, client_label, status
+      ) VALUES ('lem-req', 'lemonade', 'lemonade@strix-halo', ?, 'm', 'c', 'success')`,
+      now,
+    );
+    await db.raw().run(
+      `INSERT INTO runtime_events (
+        id, source_id, instance_id, timestamp, ended_at, kind, severity, summary
+      ) VALUES ('lem-evt', 'lemonade', 'lemonade@strix-halo', ?, NULL, 'service_down', 'error', 'down')`,
+      now,
+    );
+
+    const { body } = await getJson("/api/runtime?range=all&sourceId=lemonade");
+    expect(body.inferenceRequests?.total).toBe(1);
+    expect(body.inferenceRequests?.items[0]?.id).toBe("lem-req");
+    expect(body.runtimeEvents?.total).toBe(1);
+    expect(body.runtimeEvents?.items[0]?.id).toBe("lem-evt");
+  });
+
   test("time range excludes old rows from lists and metrics", async () => {
     const recent = new Date().toISOString();
     const old = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();

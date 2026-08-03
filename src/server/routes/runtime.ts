@@ -73,6 +73,7 @@ export function rangeToSince(
  *
  * Query params:
  *   range       – 1h|6h|24h|7d|all (default 24h) — metrics + list time window
+ *   sourceId    – filter requests + events by source_id (e.g. hermes)
  *   reqStatus   – success|cancelled|context_overflow|error
  *   reqClient   – client_label exact match
  *   reqPage     – 1-based page (default 1)
@@ -154,6 +155,15 @@ export function registerRuntimeRoutes(app: Express, db: Database): void {
       }
       const reqClient = optionalQueryString(req.query.reqClient);
 
+      if (Array.isArray(req.query.sourceId)) {
+        res.status(400).json({
+          success: false,
+          error: "sourceId must be a single string",
+        });
+        return;
+      }
+      const sourceId = optionalQueryString(req.query.sourceId);
+
       const reqLimit =
         reqLimitResult.value ?? legacyLimit.value ?? RUNTIME_DEFAULT_PAGE_SIZE;
       const eventLimit =
@@ -173,12 +183,14 @@ export function registerRuntimeRoutes(app: Express, db: Database): void {
           listInferenceRequests(raw, {
             status: reqStatus,
             clientLabel: reqClient,
+            sourceId,
             since,
             limit: reqLimit,
             offset: reqOffset,
           }),
           listRuntimeEvents(raw, {
             kind: eventKind,
+            sourceId,
             since,
             limit: eventLimit,
             offset: eventOffset,

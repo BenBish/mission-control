@@ -449,6 +449,7 @@ export default function Runtime() {
   const now = useNow();
 
   const range = parseRange(searchParams.get("range"));
+  const sourceId = parseOptionalFilter(searchParams.get("sourceId"));
   const reqStatus = parseOptionalFilter(searchParams.get("reqStatus"));
   const reqClient = parseOptionalFilter(searchParams.get("reqClient"));
   const reqPage = parsePage(searchParams.get("reqPage"));
@@ -491,6 +492,7 @@ export default function Runtime() {
     (
       patch: Partial<{
         range: RuntimeRange;
+        sourceId: string | undefined;
         reqStatus: string | undefined;
         reqClient: string | undefined;
         reqPage: number;
@@ -511,6 +513,7 @@ export default function Runtime() {
             else next.delete(key);
           };
 
+          if ("sourceId" in patch) setOrDelete("sourceId", patch.sourceId);
           if ("reqStatus" in patch) setOrDelete("reqStatus", patch.reqStatus);
           if ("reqClient" in patch) setOrDelete("reqClient", patch.reqClient);
           if ("eventKind" in patch) setOrDelete("eventKind", patch.eventKind);
@@ -527,12 +530,13 @@ export default function Runtime() {
           // Changing filters/range resets pages unless an explicit page was set.
           if (
             "range" in patch ||
+            "sourceId" in patch ||
             "reqStatus" in patch ||
             "reqClient" in patch
           ) {
             if (!("reqPage" in patch)) next.delete("reqPage");
           }
-          if ("range" in patch || "eventKind" in patch) {
+          if ("range" in patch || "sourceId" in patch || "eventKind" in patch) {
             if (!("eventPage" in patch)) next.delete("eventPage");
           }
 
@@ -547,6 +551,7 @@ export default function Runtime() {
   const queryParams: RuntimeQueryParams = useMemo(
     () => ({
       range,
+      sourceId,
       reqStatus,
       reqClient,
       reqPage,
@@ -555,10 +560,33 @@ export default function Runtime() {
       eventPage,
       eventLimit: DEFAULT_PAGE_SIZE,
     }),
-    [range, reqStatus, reqClient, reqPage, eventKind, eventPage],
+    [range, sourceId, reqStatus, reqClient, reqPage, eventKind, eventPage],
   );
 
   const { data, isLoading, error } = useRuntime(queryParams);
+
+  // Clamp out-of-range pages after data shrinks (filters/time range).
+  useEffect(() => {
+    if (!data) return;
+    const reqTotalPages = Math.max(
+      1,
+      Math.ceil(data.inferenceRequests.total / data.inferenceRequests.pageSize),
+    );
+    const eventTotalPages = Math.max(
+      1,
+      Math.ceil(data.runtimeEvents.total / data.runtimeEvents.pageSize),
+    );
+    const patch: { reqPage?: number; eventPage?: number } = {};
+    if (data.inferenceRequests.total > 0 && reqPage > reqTotalPages) {
+      patch.reqPage = reqTotalPages;
+    }
+    if (data.runtimeEvents.total > 0 && eventPage > eventTotalPages) {
+      patch.eventPage = eventTotalPages;
+    }
+    if (Object.keys(patch).length > 0) {
+      updateParams(patch);
+    }
+  }, [data, reqPage, eventPage, updateParams]);
 
   if (isLoading) {
     return (
@@ -654,6 +682,33 @@ export default function Runtime() {
             </SelectContent>
           </Select>
         </div>
+        {sources.length > 0 && (
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">
+              Source
+            </label>
+            <Select
+              value={sourceId ?? "all"}
+              onValueChange={(v) =>
+                updateParams({
+                  sourceId: v === "all" ? undefined : v,
+                })
+              }
+            >
+              <SelectTrigger className="w-[160px]" aria-label="Source filter">
+                <SelectValue placeholder="All" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All sources</SelectItem>
+                {sources.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
 
       {!anyInstances ? (

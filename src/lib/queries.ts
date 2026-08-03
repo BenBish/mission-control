@@ -563,6 +563,7 @@ export interface RuntimeData {
 
 export interface RuntimeQueryParams {
   range?: RuntimeRange;
+  sourceId?: string;
   reqStatus?: string;
   reqClient?: string;
   reqPage?: number;
@@ -575,6 +576,7 @@ export interface RuntimeQueryParams {
 function buildRuntimeQuery(params: RuntimeQueryParams = {}): string {
   const sp = new URLSearchParams();
   if (params.range) sp.set("range", params.range);
+  if (params.sourceId) sp.set("sourceId", params.sourceId);
   if (params.reqStatus) sp.set("reqStatus", params.reqStatus);
   if (params.reqClient) sp.set("reqClient", params.reqClient);
   if (params.reqPage != null) sp.set("reqPage", String(params.reqPage));

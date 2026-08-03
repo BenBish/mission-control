@@ -163,13 +163,13 @@ export interface PaginatedResult<T> {
   total: number;
 }
 
-function buildWhere(
-  clauses: string[],
-  params: unknown[],
-): { sql: string; params: unknown[] } {
-  if (clauses.length === 0) return { sql: "", params };
-  return { sql: `WHERE ${clauses.join(" AND ")}`, params };
+function buildWhereSql(clauses: string[]): string {
+  if (clauses.length === 0) return "";
+  return `WHERE ${clauses.join(" AND ")}`;
 }
+
+/** Cap percentile samples so metrics stay cheap on large tables / 5s polls. */
+export const LATENCY_SAMPLE_LIMIT = 10_000;
 
 export async function listRuntimeEvents(
   db: SqliteDatabase,
@@ -197,7 +197,7 @@ export async function listRuntimeEvents(
     params.push(filter.until);
   }
 
-  const { sql: where } = buildWhere(clauses, params);
+  const where = buildWhereSql(clauses);
   const countRow = await db.get<{ c: number }>(
     `SELECT COUNT(*) AS c FROM runtime_events ${where}`,
     ...params,
@@ -306,7 +306,7 @@ export async function listInferenceRequests(
     params.push(filter.until);
   }
 
-  const { sql: where } = buildWhere(clauses, params);
+  const where = buildWhereSql(clauses);
   const countRow = await db.get<{ c: number }>(
     `SELECT COUNT(*) AS c FROM inference_requests ${where}`,
     ...params,
@@ -433,7 +433,7 @@ export async function getRuntimeMetrics(
     clauses.push("timestamp >= ?");
     params.push(opts.since);
   }
-  const { sql: where } = buildWhere(clauses, params);
+  const where = buildWhereSql(clauses);
 
   const stats = await db.get<{
     total: number;
@@ -446,11 +446,21 @@ export async function getRuntimeMetrics(
     ...params,
   );
 
+  // Take the most recent timed samples (bounded), then sort by duration for
+  // percentile math — avoids loading unbounded history on every poll.
+  const durationWhere = where
+    ? `${where} AND duration_ms IS NOT NULL`
+    : "WHERE duration_ms IS NOT NULL";
   const durations = await db.all<{ duration_ms: number }[]>(
-    `SELECT duration_ms FROM inference_requests
-     ${where ? `${where} AND` : "WHERE"} duration_ms IS NOT NULL
+    `SELECT duration_ms FROM (
+       SELECT duration_ms FROM inference_requests
+       ${durationWhere}
+       ORDER BY timestamp DESC
+       LIMIT ?
+     ) sample
      ORDER BY duration_ms ASC`,
     ...params,
+    LATENCY_SAMPLE_LIMIT,
   );
 
   const sorted = durations.map((d) => d.duration_ms);
