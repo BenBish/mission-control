@@ -1,13 +1,59 @@
-import { Image as ImageIcon } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { AlertCircle, Image as ImageIcon } from "lucide-react";
 import { PageHeader } from "@/components/_shared/PageHeader";
+import { EmptyState } from "@/components/_shared/EmptyState";
+import { Card, CardContent } from "@/components/ui/card";
 import { useSourceFilter } from "@/app/source-context";
 import { scopePhrase } from "@/config/sourceScope";
 import { useGenerations } from "@/lib/queries";
+import {
+  getEmptyWorkloadPageState,
+  getWorkloadAvailability,
+  workloadSetupActions,
+} from "@/lib/workload-availability";
 import { GenerationCard } from "./GenerationCard";
 
+function generationsEmptyCopy(
+  state: ReturnType<typeof getEmptyWorkloadPageState>,
+) {
+  switch (state) {
+    case "not_configured":
+      return {
+        title: "Generations are not configured",
+        description:
+          "No generation source (ComfyUI) is registered in this deployment.",
+        detail: undefined as string | undefined,
+      };
+    case "disabled":
+      return {
+        title: "ComfyUI is offline",
+        description:
+          "Image and video generation jobs appear here when ComfyUI is running and the collector is enabled.",
+        detail: "Set MC_COMFYUI_POLLING_ENABLED=true on the API server.",
+      };
+    case "error":
+      return {
+        title: "ComfyUI collector error",
+        description:
+          "The generation source reported an error. Check source health and collector logs, then retry.",
+        detail: undefined,
+      };
+    case "no_data":
+    default:
+      return {
+        title: "No generation jobs observed yet",
+        description:
+          "Submit a ComfyUI workflow — jobs appear here once the collector observes them.",
+        detail: undefined,
+      };
+  }
+}
+
 export function GenerationsList() {
-  const { selectedSourceId, sources } = useSourceFilter();
+  const {
+    selectedSourceId,
+    sources,
+    isLoading: sourcesLoading,
+  } = useSourceFilter();
   const {
     data: jobs,
     isLoading,
@@ -16,6 +62,13 @@ export function GenerationsList() {
     sourceId: selectedSourceId,
   });
   const pageDescription = `Image/video generation jobs (ComfyUI) ${scopePhrase(selectedSourceId, sources)}`;
+
+  const availability = getWorkloadAvailability(
+    "generations",
+    sourcesLoading && sources.length === 0 ? undefined : sources,
+  );
+  const emptyState = getEmptyWorkloadPageState(availability);
+  const emptyCopy = generationsEmptyCopy(emptyState);
 
   return (
     <div className="space-y-6">
@@ -33,6 +86,7 @@ export function GenerationsList() {
       ) : error ? (
         <Card className="border-destructive">
           <CardContent className="flex items-center gap-3 py-6">
+            <AlertCircle className="h-5 w-5 text-destructive shrink-0" />
             <p className="text-sm text-muted-foreground">
               {error instanceof Error
                 ? error.message
@@ -41,21 +95,18 @@ export function GenerationsList() {
           </CardContent>
         </Card>
       ) : !jobs || jobs.length === 0 ? (
-        // ComfyUI (and Lemonade, which doesn't emit generation jobs) both
-        // default to disabled — an empty grid here is the correct steady
-        // state for a fresh deploy, not a bug. No fake cards.
-        <Card>
-          <CardContent className="py-16 text-center">
-            <ImageIcon className="mx-auto h-12 w-12 text-muted-foreground/30" />
-            <p className="mt-4 text-muted-foreground">
-              No generation jobs observed yet.
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              ComfyUI is currently disabled — jobs appear here once it's running
-              and a workflow is submitted.
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          state={emptyState}
+          icon={ImageIcon}
+          title={emptyCopy.title}
+          description={emptyCopy.description}
+          detail={emptyCopy.detail ?? availability.reason}
+          actions={
+            emptyState === "no_data"
+              ? workloadSetupActions("generations").slice(0, 1)
+              : workloadSetupActions("generations")
+          }
+        />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {jobs.map((job) => (
