@@ -393,6 +393,9 @@ export class HermesLogParser {
       | { status: "context_overflow"; error: string },
   ): IngestEvent {
     const naturalKey = `${this.backend.unit}:${task.task}`;
+    // Static backend→model map: journal lines never include the model id.
+    // See HermesBackend.model in config.ts.
+    const model = this.backend.model;
     if (outcome.status !== "success") {
       return {
         kind: "inference_request",
@@ -401,6 +404,7 @@ export class HermesLogParser {
           externalId: String(task.task),
           timestamp: task.launchedAtIso,
           endpoint: `http://127.0.0.1:${this.backend.port}`,
+          model,
           clientLabel: this.backend.label,
           workload: "unknown",
           slotId: task.slot >= 0 ? task.slot : undefined,
@@ -418,6 +422,7 @@ export class HermesLogParser {
         externalId: String(task.task),
         timestamp: task.launchedAtIso,
         endpoint: `http://127.0.0.1:${this.backend.port}`,
+        model,
         clientLabel: this.backend.label,
         workload: "unknown",
         promptTokens: task.promptTokens,

@@ -19,6 +19,15 @@ export interface HermesBackend {
    *  attribution (llama-server has no concept of which Hermes gateway a
    *  request came from), just which shared backend it landed on. */
   label: string;
+  /**
+   * Default model identity for requests that land on this backend.
+   * llama-server journals do not include the model name on per-request
+   * lines, and each dedicated backend is pinned to one model via
+   * llama-swap/systemd. Stamped onto inference_request.model at emit time
+   * so Runtime and consumption can group by model instead of null.
+   * Update when the backend's loaded model changes on the box.
+   */
+  model?: string;
   /** True only for the backend all Hermes gateways route to — the only
    *  one workload-correlation.ts's gateway-journal check applies to (see
    *  its doc comment for why: no per-request link, coarse tick-window
@@ -34,17 +43,20 @@ export const HERMES_BACKENDS: HermesBackend[] = [
     port: 12346,
     unit: "llama-toolbox-qwen-hermes.service",
     label: "hermes-qwen",
+    model: "Qwen3.6-27B-UD-Q4_K_XL.gguf",
     sharedByGateways: true,
   },
   {
     port: 12347,
     unit: "llama-toolbox-qwen-opencode.service",
     label: "opencode",
+    model: "Qwen3.6-35B-A3B-Opencode-128K",
   },
   {
     port: 12345,
     unit: "llama-toolbox-gemma.service",
     label: "gemma-fallback",
+    model: "gemma-4-26B-A4B-it-UD-Q4_K_XL.gguf",
   },
 ];
 
