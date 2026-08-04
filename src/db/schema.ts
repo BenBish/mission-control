@@ -374,6 +374,26 @@ CREATE TABLE IF NOT EXISTS provider_sync_status (
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Provider prepaid credits / balance / capacity snapshots (API or session-quota).
+-- Distinct from provider_usage_daily (spend history) and from agent session costUsd.
+CREATE TABLE IF NOT EXISTS provider_credit_snapshots (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  provider TEXT NOT NULL CHECK (provider IN ('openrouter', 'anthropic', 'openai', 'xai')),
+  as_of DATETIME NOT NULL,
+  remaining REAL,
+  total REAL,
+  unit TEXT NOT NULL CHECK (unit IN ('usd', 'credits', 'requests', 'tokens', 'percent')),
+  label TEXT NOT NULL,
+  source TEXT NOT NULL CHECK (source IN ('provider_api', 'session_quota', 'unavailable')),
+  status TEXT NOT NULL CHECK (status IN ('ok', 'limited', 'unavailable', 'error')),
+  details_json TEXT,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (provider, label, as_of)
+);
+
+CREATE INDEX IF NOT EXISTS idx_provider_credit_provider ON provider_credit_snapshots(provider, as_of DESC);
+CREATE INDEX IF NOT EXISTS idx_provider_credit_label ON provider_credit_snapshots(provider, label, as_of DESC);
+
 -- ============================================================================
 -- APP SETTINGS — key/value config (e.g. provider monthly budget)
 -- ============================================================================

@@ -1,0 +1,148 @@
+/**
+ * Persist and read provider credit / balance / capacity snapshots.
+ * Never mixed into session-log costUsd or provider_usage_daily spend sums.
+ */
+
+import type { Database as SqliteDatabase } from "sqlite";
+import type {
+  CreditSnapshot,
+  CreditUnit,
+  ProviderId,
+} from "../../services/provider-connectors/types.js";
+
+export interface ProviderCreditSnapshotRow {
+  id: number;
+  provider: string;
+  as_of: string;
+  remaining: number | null;
+  total: number | null;
+  unit: string;
+  label: string;
+  source: string;
+  status: string;
+  details_json: string | null;
+  updated_at: string | null;
+}
+
+/** Idempotent upsert by (provider, label, as_of). */
+export async function upsertProviderCreditSnapshot(
+  db: SqliteDatabase,
+  snap: CreditSnapshot,
+): Promise<void> {
+  const detailsJson =
+    snap.details && Object.keys(snap.details).length > 0
+      ? JSON.stringify(snap.details)
+      : null;
+
+  await db.run(
+    `
+    INSERT INTO provider_credit_snapshots (
+      provider, as_of, remaining, total, unit, label, source, status, details_json, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(provider, label, as_of) DO UPDATE SET
+      remaining = excluded.remaining,
+      total = excluded.total,
+      unit = excluded.unit,
+      source = excluded.source,
+      status = excluded.status,
+      details_json = excluded.details_json,
+      updated_at = CURRENT_TIMESTAMP
+    `,
+    snap.provider,
+    snap.asOf,
+    snap.remaining,
+    snap.total ?? null,
+    snap.unit,
+    snap.label,
+    snap.source,
+    snap.status,
+    detailsJson,
+  );
+}
+
+/** Latest snapshot per (provider, label). */
+export async function latestProviderCreditSnapshots(
+  db: SqliteDatabase,
+  opts: { provider?: ProviderId } = {},
+): Promise<ProviderCreditSnapshotRow[]> {
+  const params: unknown[] = [];
+  let providerClause = "";
+  if (opts.provider) {
+    providerClause = "AND provider = ?";
+    params.push(opts.provider);
+  }
+  return db.all<ProviderCreditSnapshotRow[]>(
+    `
+    SELECT p.*
+    FROM provider_credit_snapshots p
+    INNER JOIN (
+      SELECT provider, label, MAX(as_of) AS max_as_of
+      FROM provider_credit_snapshots
+      WHERE 1=1 ${providerClause}
+      GROUP BY provider, label
+    ) latest
+      ON p.provider = latest.provider
+     AND p.label = latest.label
+     AND p.as_of = latest.max_as_of
+    ORDER BY p.provider, p.label
+    `,
+    ...(params as []),
+  );
+}
+
+export async function listProviderCreditHistory(
+  db: SqliteDatabase,
+  opts: { provider?: ProviderId; limit?: number } = {},
+): Promise<ProviderCreditSnapshotRow[]> {
+  const clauses: string[] = [];
+  const params: unknown[] = [];
+  if (opts.provider) {
+    clauses.push("provider = ?");
+    params.push(opts.provider);
+  }
+  const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+  const limit = Math.min(Math.max(opts.limit ?? 100, 1), 500);
+  return db.all<ProviderCreditSnapshotRow[]>(
+    `
+    SELECT * FROM provider_credit_snapshots
+    ${where}
+    ORDER BY as_of DESC, provider, label
+    LIMIT ${limit}
+    `,
+    ...(params as []),
+  );
+}
+
+export function rowToApiCredit(row: ProviderCreditSnapshotRow): {
+  provider: string;
+  asOf: string;
+  remaining: number | null;
+  total: number | null;
+  unit: CreditUnit | string;
+  label: string;
+  source: string;
+  status: string;
+  details: Record<string, unknown> | null;
+  updatedAt: string | null;
+} {
+  let details: Record<string, unknown> | null = null;
+  if (row.details_json) {
+    try {
+      details = JSON.parse(row.details_json) as Record<string, unknown>;
+    } catch {
+      details = null;
+    }
+  }
+  return {
+    provider: row.provider,
+    asOf: row.as_of,
+    remaining: row.remaining,
+    total: row.total,
+    unit: row.unit,
+    label: row.label,
+    source: row.source,
+    status: row.status,
+    details,
+    updatedAt: row.updated_at,
+  };
+}

@@ -4,17 +4,20 @@
  */
 
 import type { Database as SqliteDatabase } from "sqlite";
+import { upsertProviderCreditSnapshot } from "../../db/queries/provider-credits.js";
 import {
   pruneStaleProviderUsageModels,
   upsertProviderSyncStatus,
   upsertProviderUsage,
 } from "../../db/queries/provider-usage.js";
+import { latestQuotaSnapshots } from "../../db/queries/telemetry.js";
 import { anthropicConnector } from "./connectors/anthropic.js";
 import { openaiConnector } from "./connectors/openai.js";
 import { openrouterConnector } from "./connectors/openrouter.js";
 import { xaiConnector } from "./connectors/xai.js";
 import { credentialMeta } from "./credentials.js";
 import { sanitizeMessage } from "./http.js";
+import { normalizeSessionQuotaToCredits } from "./normalize/credits.js";
 import type {
   FetchImpl,
   FetchWindow,
@@ -48,8 +51,68 @@ export interface SyncProviderResult {
   status: "not_configured" | "ok" | "limited" | "error" | "skipped";
   rowsUpserted: number;
   rowsPruned?: number;
+  creditSnapshots?: number;
   error?: string;
   limitation?: string;
+}
+
+/**
+ * Persist connector credit snapshots + (for OpenAI) latest Codex session quotas.
+ * Failures are recorded as error snapshots when possible; never throw to caller.
+ */
+async function syncCreditsForProvider(
+  db: SqliteDatabase,
+  connector: ProviderConnector,
+  fetchImpl?: FetchImpl,
+): Promise<{ count: number; limitation?: string }> {
+  let count = 0;
+  let limitation: string | undefined;
+
+  if (connector.fetchCredits) {
+    try {
+      const result = await connector.fetchCredits(fetchImpl);
+      limitation = result.limitation;
+      for (const snap of result.snapshots) {
+        await upsertProviderCreditSnapshot(db, snap);
+        count++;
+      }
+    } catch (err) {
+      const message =
+        err instanceof ProviderHttpError
+          ? sanitizeMessage(err.message)
+          : sanitizeMessage(err instanceof Error ? err.message : String(err));
+      await upsertProviderCreditSnapshot(db, {
+        provider: connector.id,
+        asOf: new Date().toISOString(),
+        remaining: null,
+        total: null,
+        unit: "usd",
+        label: "prepaid_balance",
+        source: "unavailable",
+        status: "error",
+        details: { error: message },
+      });
+      count++;
+      limitation = message;
+    }
+  }
+
+  // Codex session rate-limit windows → OpenAI capacity (not prepaid USD).
+  if (connector.id === "openai") {
+    try {
+      const quotas = await latestQuotaSnapshots(db);
+      const codex = quotas.filter((q) => q.source_id === "codex");
+      const snaps = normalizeSessionQuotaToCredits(codex, "openai");
+      for (const snap of snaps) {
+        await upsertProviderCreditSnapshot(db, snap);
+        count++;
+      }
+    } catch {
+      // Quota table may be empty or query fail — non-fatal.
+    }
+  }
+
+  return { count, limitation };
 }
 
 export async function syncProvider(
@@ -71,10 +134,14 @@ export async function syncProvider(
       lastError: null,
       meta: { envVars: meta.envVars, notes: meta.notes, limitation: null },
     });
+    // Still try session-quota credits for OpenAI even when admin key missing.
+    const credits = await syncCreditsForProvider(db, connector, opts.fetchImpl);
     return {
       provider: connector.id,
       status: "not_configured",
       rowsUpserted: 0,
+      creditSnapshots: credits.count,
+      limitation: credits.limitation,
     };
   }
 
@@ -126,7 +193,18 @@ export async function syncProvider(
       );
     }
 
-    const status = result.limitation ? "limited" : "ok";
+    const credits = await syncCreditsForProvider(db, connector, opts.fetchImpl);
+    const creditLimitation = credits.limitation;
+    const combinedLimitation =
+      [result.limitation, creditLimitation].filter(Boolean).join(" ") ||
+      undefined;
+
+    const status =
+      combinedLimitation && rowsUpserted === 0 && !result.rows.length
+        ? "limited"
+        : result.limitation
+          ? "limited"
+          : "ok";
     await upsertProviderSyncStatus(db, {
       provider: connector.id,
       status,
@@ -140,7 +218,8 @@ export async function syncProvider(
         notes: meta.notes,
         rowsUpserted,
         rowsPruned,
-        limitation: result.limitation ?? null,
+        creditSnapshots: credits.count,
+        limitation: combinedLimitation ?? null,
       },
     });
 
@@ -149,7 +228,8 @@ export async function syncProvider(
       status,
       rowsUpserted,
       rowsPruned,
-      limitation: result.limitation,
+      creditSnapshots: credits.count,
+      limitation: combinedLimitation,
     };
   } catch (err) {
     const message =

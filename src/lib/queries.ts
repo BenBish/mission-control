@@ -375,6 +375,37 @@ export function useProviderSpendInsights(): UseQueryResult<SpendInsights> {
   });
 }
 
+// ─── Provider credits / remaining capacity ──────────────────────────────────
+
+export interface ProviderCredit {
+  provider: string;
+  asOf: string;
+  remaining: number | null;
+  total: number | null;
+  unit: string;
+  label: string;
+  source: string;
+  status: string;
+  details: Record<string, unknown> | null;
+  updatedAt: string | null;
+}
+
+export function useProviderCredits(opts?: {
+  provider?: string;
+}): UseQueryResult<ProviderCredit[]> {
+  const provider = opts?.provider;
+  return useQuery({
+    queryKey: ["provider-credits", { provider }],
+    queryFn: async () =>
+      (
+        await getJson<{ credits: ProviderCredit[] }>(
+          `/api/providers/credits${toQueryString({ provider })}`,
+        )
+      ).credits,
+    refetchInterval: 60_000,
+  });
+}
+
 // ─── Failures ───────────────────────────────────────────────────────────────
 
 export function useFailures(
