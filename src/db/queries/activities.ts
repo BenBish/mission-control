@@ -43,6 +43,15 @@ export interface ActivityRow {
   created_at: string;
 }
 
+/**
+ * Insert or update an activity. Rows with a non-null external_id collide on
+ * UNIQUE(source_id, session_id, external_id) — collectors that emit tool
+ * lifecycle events (start → in_progress → completed) reuse the same
+ * external_id, so we merge into one row instead of rejecting completions.
+ *
+ * When external_id is null, SQLite treats each NULL as distinct under UNIQUE
+ * and every call inserts a new row (message chunks, usage events, etc.).
+ */
 export async function insertActivity(
   db: SqliteDatabase,
   sourceId: string,
@@ -69,6 +78,62 @@ export async function insertActivity(
       ? (payload.inputTokens ?? 0) + (payload.outputTokens ?? 0)
       : null);
 
+  const detailsJson =
+    payload.details != null ? JSON.stringify(payload.details) : null;
+  const resultJson =
+    payload.result != null ? JSON.stringify(payload.result) : null;
+  const metadataJson =
+    payload.metadata != null ? JSON.stringify(payload.metadata) : null;
+
+  // No external_id → always insert (multiple NULL external_ids are allowed).
+  if (!payload.externalId) {
+    await db.run(
+      `INSERT INTO activities (
+         id, source_id, instance_id, session_id, external_id, parent_activity_id, parent_external_id,
+         timestamp, completed_at, duration_ms, actor_type, actor_id, actor_role, actor_session_label,
+         action_type, tool_name, description, details, status, result,
+         input_tokens, output_tokens, total_tokens, cache_read_tokens, cache_write_tokens,
+         model, cost_usd, request_id, tags, metadata
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      id,
+      sourceId,
+      instanceId,
+      sessionRowId,
+      null,
+      parentActivityId,
+      payload.parentExternalId ?? null,
+      payload.timestamp,
+      payload.completedAt ?? null,
+      payload.durationMs ?? null,
+      payload.actorType,
+      payload.actorId,
+      payload.actorRole ?? null,
+      payload.actorSessionLabel ?? null,
+      payload.actionType,
+      payload.toolName ?? null,
+      payload.description,
+      detailsJson,
+      payload.status,
+      resultJson,
+      payload.inputTokens ?? null,
+      payload.outputTokens ?? null,
+      totalTokens,
+      payload.cacheReadTokens ?? null,
+      payload.cacheWriteTokens ?? null,
+      payload.model ?? null,
+      payload.costUsd ?? null,
+      payload.requestId ?? null,
+      payload.tags ?? null,
+      metadataJson,
+    );
+
+    const row = await db.get<ActivityRow>(
+      `SELECT * FROM activities WHERE id = ?`,
+      id,
+    );
+    return row!;
+  }
+
   await db.run(
     `INSERT INTO activities (
        id, source_id, instance_id, session_id, external_id, parent_activity_id, parent_external_id,
@@ -76,12 +141,53 @@ export async function insertActivity(
        action_type, tool_name, description, details, status, result,
        input_tokens, output_tokens, total_tokens, cache_read_tokens, cache_write_tokens,
        model, cost_usd, request_id, tags, metadata
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(source_id, session_id, external_id) DO UPDATE SET
+       -- Keep the earliest start timestamp.
+       timestamp = CASE
+         WHEN excluded.timestamp < activities.timestamp THEN excluded.timestamp
+         ELSE activities.timestamp
+       END,
+       -- Never regress a terminal status back to in-flight.
+       status = CASE
+         WHEN activities.status IN ('success', 'failure', 'cancelled', 'canceled', 'partial', 'error')
+           AND excluded.status IN ('running', 'pending', 'in_progress', 'queued')
+         THEN activities.status
+         ELSE excluded.status
+       END,
+       completed_at = COALESCE(excluded.completed_at, activities.completed_at),
+       duration_ms = COALESCE(excluded.duration_ms, activities.duration_ms),
+       parent_activity_id = COALESCE(excluded.parent_activity_id, activities.parent_activity_id),
+       parent_external_id = COALESCE(excluded.parent_external_id, activities.parent_external_id),
+       tool_name = COALESCE(excluded.tool_name, activities.tool_name),
+       -- Prefer richer descriptions (e.g. path title over bare tool name).
+       description = CASE
+         WHEN excluded.description IS NOT NULL
+           AND excluded.description NOT IN ('Tool call', 'Tool call started')
+           AND (
+             activities.description IN ('Tool call', 'Tool call started')
+             OR length(excluded.description) >= length(activities.description)
+           )
+         THEN excluded.description
+         ELSE activities.description
+       END,
+       details = COALESCE(excluded.details, activities.details),
+       result = COALESCE(excluded.result, activities.result),
+       input_tokens = COALESCE(excluded.input_tokens, activities.input_tokens),
+       output_tokens = COALESCE(excluded.output_tokens, activities.output_tokens),
+       total_tokens = COALESCE(excluded.total_tokens, activities.total_tokens),
+       cache_read_tokens = COALESCE(excluded.cache_read_tokens, activities.cache_read_tokens),
+       cache_write_tokens = COALESCE(excluded.cache_write_tokens, activities.cache_write_tokens),
+       model = COALESCE(excluded.model, activities.model),
+       cost_usd = COALESCE(excluded.cost_usd, activities.cost_usd),
+       request_id = COALESCE(excluded.request_id, activities.request_id),
+       tags = COALESCE(excluded.tags, activities.tags),
+       metadata = COALESCE(excluded.metadata, activities.metadata)`,
     id,
     sourceId,
     instanceId,
     sessionRowId,
-    payload.externalId ?? null,
+    payload.externalId,
     parentActivityId,
     payload.parentExternalId ?? null,
     payload.timestamp,
@@ -94,9 +200,9 @@ export async function insertActivity(
     payload.actionType,
     payload.toolName ?? null,
     payload.description,
-    payload.details != null ? JSON.stringify(payload.details) : null,
+    detailsJson,
     payload.status,
-    payload.result != null ? JSON.stringify(payload.result) : null,
+    resultJson,
     payload.inputTokens ?? null,
     payload.outputTokens ?? null,
     totalTokens,
@@ -106,12 +212,15 @@ export async function insertActivity(
     payload.costUsd ?? null,
     payload.requestId ?? null,
     payload.tags ?? null,
-    payload.metadata != null ? JSON.stringify(payload.metadata) : null,
+    metadataJson,
   );
 
   const row = await db.get<ActivityRow>(
-    `SELECT * FROM activities WHERE id = ?`,
-    id,
+    `SELECT * FROM activities
+     WHERE source_id = ? AND session_id = ? AND external_id = ?`,
+    sourceId,
+    sessionRowId,
+    payload.externalId,
   );
   return row!;
 }

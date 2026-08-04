@@ -113,7 +113,8 @@ interface GrokUpdateRecord {
       eventId?: string;
       updateParams?: {
         kind?: string;
-        status?: string;
+        /** Grok sends null on intermediate tool_call_update enrichments. */
+        status?: string | null;
         title?: string;
         toolCallId?: string;
       };
@@ -217,13 +218,44 @@ function textSnippet(value: unknown): string {
   return "";
 }
 
-function statusFor(raw: string | undefined): string {
-  const status = raw?.toLowerCase();
+/**
+ * Map Grok ACP statuses onto Mission Control activity statuses.
+ *
+ * Grok tool lifecycle uses Pending → (optional null/in_progress updates) →
+ * completed/failed. Missing status on a tool_call_update is still in-flight,
+ * not success — defaulting null to success was marking intermediate enrichments
+ * as done and (with naturalKey including status) could burn the terminal key.
+ */
+function statusFor(
+  raw: string | undefined | null,
+  opts: { defaultStatus?: string } = {},
+): string {
+  const status =
+    raw?.toLowerCase?.() ?? (raw == null ? undefined : String(raw));
   if (status === "completed" || status === "complete") return "success";
   if (status === "failed" || status === "error") return "failure";
   if (status === "cancelled" || status === "canceled") return "cancelled";
-  if (status === "pending") return "running";
-  return status ?? "success";
+  if (
+    status === "pending" ||
+    status === "in_progress" ||
+    status === "in-progress" ||
+    status === "running"
+  ) {
+    return "running";
+  }
+  if (status) return status;
+  return opts.defaultStatus ?? "success";
+}
+
+function isTerminalStatus(status: string): boolean {
+  return (
+    status === "success" ||
+    status === "failure" ||
+    status === "cancelled" ||
+    status === "canceled" ||
+    status === "partial" ||
+    status === "error"
+  );
 }
 
 function costFor(
@@ -409,35 +441,64 @@ export function parseGrokLine(
   const tool = update?._meta?.["x.ai/tool"];
   const title = update?.title ?? updateParams?.title;
   const kind = update?.kind ?? updateParams?.kind;
-  const rawStatus = update?.status ?? updateParams?.status;
+  // Prefer update.status (completed/in_progress) over updateParams.status
+  // (Pending/Completed). Null updateParams.status is common on enrichments.
+  const rawStatus =
+    update?.status ??
+    (updateParams?.status != null ? updateParams.status : undefined);
+  const sessionUpdateKind =
+    typeof update?.sessionUpdate === "string" ? update.sessionUpdate : "";
+  const isToolLifecycle =
+    Boolean(toolCallId) ||
+    Boolean(tool?.name) ||
+    sessionUpdateKind === "tool_call" ||
+    sessionUpdateKind === "tool_call_update";
 
-  if (toolCallId || tool?.name || rawStatus) {
-    const status = statusFor(rawStatus);
-    const toolName = tool?.name ?? title;
+  if (isToolLifecycle || rawStatus) {
+    // Tool updates without an explicit status are still in-flight (Grok emits
+    // title/kind enrichments between Pending and completed with status null).
+    const status = statusFor(rawStatus, {
+      defaultStatus: isToolLifecycle ? "running" : "success",
+    });
+    const toolName =
+      tool?.name ?? (title && !title.includes(" ") ? title : undefined);
+    const description =
+      title ??
+      tool?.label ??
+      toolName ??
+      kind ??
+      (status === "running" ? "Tool call started" : "Tool call");
     const activity: ActivityPayload = {
       sessionExternalId,
       externalId: toolCallId ?? meta?.eventId,
       timestamp,
+      completedAt: isTerminalStatus(status) ? timestamp : undefined,
       actorType: "agent",
       actorId: "grok",
       actionType: "tool_call",
-      toolName,
-      description:
-        title ??
-        tool?.label ??
-        toolName ??
-        kind ??
-        (status === "running" ? "Tool call started" : "Tool call"),
+      toolName: toolName ?? tool?.name,
+      description,
       status,
       model,
+      result:
+        isTerminalStatus(status) && update?.rawOutput !== undefined
+          ? update.rawOutput
+          : undefined,
       details: {
         kind,
         toolCallId,
         namespace: tool?.namespace,
+        sessionUpdate: sessionUpdateKind || undefined,
         rawInput: update?.rawInput,
         rawOutput: update?.rawOutput,
       },
     };
+
+    // Prefer eventId in naturalKey so each lifecycle update can pass dedupe
+    // and merge onto the same external_id row via insertActivity upsert.
+    const naturalKey = meta?.eventId
+      ? `${filePath}:${meta.eventId}`
+      : `${filePath}:${toolCallId ?? timestamp}:${status}`;
 
     return {
       sessionExternalId,
@@ -445,11 +506,17 @@ export function parseGrokLine(
         model,
         endedAt: timestamp,
       },
-      toolCallDelta: status === "running" ? 1 : 0,
+      // Count tool starts only once (Pending / first running observation).
+      toolCallDelta:
+        status === "running" &&
+        (sessionUpdateKind === "tool_call" ||
+          String(rawStatus ?? "").toLowerCase() === "pending")
+          ? 1
+          : 0,
       failureDelta: status === "failure" ? 1 : 0,
       activity: {
         kind: "activity",
-        naturalKey: `${filePath}:${toolCallId ?? meta?.eventId ?? timestamp}:${status}`,
+        naturalKey,
         payload: activity,
       },
     };

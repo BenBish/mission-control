@@ -23,7 +23,10 @@ import type {
   GenerationJobPayload,
   JobRunPayload,
 } from "../../types/ingest.js";
-import { checkAndRecordDedupe } from "../../db/queries/dedupe.js";
+import {
+  checkAndRecordDedupe,
+  releaseDedupe,
+} from "../../db/queries/dedupe.js";
 import {
   upsertSession,
   ensureSessionPlaceholder,
@@ -266,92 +269,101 @@ async function processOneEvent(
   );
   if (isDuplicate) return "duplicate";
 
-  switch (event.kind) {
-    case "session": {
-      await upsertSession(
-        db,
-        sourceId,
-        instanceId,
-        parsed.data as SessionPayload,
-      );
-      break;
+  try {
+    switch (event.kind) {
+      case "session": {
+        await upsertSession(
+          db,
+          sourceId,
+          instanceId,
+          parsed.data as SessionPayload,
+        );
+        break;
+      }
+      case "activity": {
+        const payload = parsed.data as ActivityPayload;
+        const existingSessionId = computeSessionId(
+          sourceId,
+          payload.sessionExternalId,
+        );
+        await ensureSessionPlaceholder(
+          db,
+          sourceId,
+          instanceId,
+          payload.sessionExternalId,
+          payload.timestamp,
+        );
+        const row = await insertActivity(
+          db,
+          sourceId,
+          instanceId,
+          existingSessionId,
+          payload,
+        );
+        // Counters come from upsertSession's MAX-merge across session-event
+        // re-observations, not from here — see touchSessionActivity's doc comment.
+        await touchSessionActivity(db, existingSessionId, payload.timestamp);
+        const activity: Activity = rowToActivity(row);
+        // Same event name for insert and lifecycle update — SSE clients
+        // refresh list rows by id/externalId either way.
+        activityEvents.emit("activity:created", activity);
+        break;
+      }
+      case "inference_request": {
+        await insertInferenceRequest(
+          db,
+          sourceId,
+          instanceId,
+          parsed.data as InferenceRequestPayload,
+        );
+        break;
+      }
+      case "runtime_snapshot": {
+        await insertRuntimeSnapshot(
+          db,
+          sourceId,
+          instanceId,
+          parsed.data as RuntimeSnapshotPayload,
+        );
+        break;
+      }
+      case "runtime_event": {
+        await insertRuntimeEvent(
+          db,
+          sourceId,
+          instanceId,
+          parsed.data as RuntimeEventPayload,
+        );
+        break;
+      }
+      case "quota_snapshot": {
+        await insertQuotaSnapshot(
+          db,
+          sourceId,
+          instanceId,
+          parsed.data as QuotaSnapshotPayload,
+        );
+        break;
+      }
+      case "generation_job": {
+        await upsertGenerationJob(
+          db,
+          sourceId,
+          instanceId,
+          parsed.data as GenerationJobPayload,
+        );
+        break;
+      }
+      case "job_run": {
+        await upsertJobRun(db, sourceId, parsed.data as JobRunPayload);
+        break;
+      }
     }
-    case "activity": {
-      const payload = parsed.data as ActivityPayload;
-      const existingSessionId = computeSessionId(
-        sourceId,
-        payload.sessionExternalId,
-      );
-      await ensureSessionPlaceholder(
-        db,
-        sourceId,
-        instanceId,
-        payload.sessionExternalId,
-        payload.timestamp,
-      );
-      const row = await insertActivity(
-        db,
-        sourceId,
-        instanceId,
-        existingSessionId,
-        payload,
-      );
-      // Counters come from upsertSession's MAX-merge across session-event
-      // re-observations, not from here — see touchSessionActivity's doc comment.
-      await touchSessionActivity(db, existingSessionId, payload.timestamp);
-      const activity: Activity = rowToActivity(row);
-      activityEvents.emit("activity:created", activity);
-      break;
-    }
-    case "inference_request": {
-      await insertInferenceRequest(
-        db,
-        sourceId,
-        instanceId,
-        parsed.data as InferenceRequestPayload,
-      );
-      break;
-    }
-    case "runtime_snapshot": {
-      await insertRuntimeSnapshot(
-        db,
-        sourceId,
-        instanceId,
-        parsed.data as RuntimeSnapshotPayload,
-      );
-      break;
-    }
-    case "runtime_event": {
-      await insertRuntimeEvent(
-        db,
-        sourceId,
-        instanceId,
-        parsed.data as RuntimeEventPayload,
-      );
-      break;
-    }
-    case "quota_snapshot": {
-      await insertQuotaSnapshot(
-        db,
-        sourceId,
-        instanceId,
-        parsed.data as QuotaSnapshotPayload,
-      );
-      break;
-    }
-    case "generation_job": {
-      await upsertGenerationJob(
-        db,
-        sourceId,
-        instanceId,
-        parsed.data as GenerationJobPayload,
-      );
-      break;
-    }
-    case "job_run": {
-      await upsertJobRun(db, sourceId, parsed.data as JobRunPayload);
-      break;
-    }
+  } catch (err) {
+    // Do not leave a burned natural key when the write failed — otherwise a
+    // later successful path (or retry after a bugfix) can never apply.
+    await releaseDedupe(db, sourceId, instanceId, event.kind, event.naturalKey);
+    throw err;
   }
 
   return "accepted";

@@ -209,6 +209,141 @@ describe("POST /api/ingest/batch", () => {
     expect(res.status).toBe(200);
   });
 
+  test("BSH-90: tool lifecycle reuses external_id and upserts status to success", async () => {
+    const start: IngestBatch = {
+      sourceId: "grok",
+      instanceId: "grok@arch-desktop",
+      collectorVersion: "test",
+      sentAt: new Date().toISOString(),
+      events: [
+        {
+          kind: "activity",
+          naturalKey: "grok-tool:call-lifecycle:running",
+          payload: {
+            sessionExternalId: "sess-tool-lifecycle",
+            externalId: "call-lifecycle-1",
+            timestamp: "2026-08-04T12:00:00.000Z",
+            actorType: "agent",
+            actorId: "grok",
+            actionType: "tool_call",
+            toolName: "read_file",
+            description: "read_file",
+            status: "running",
+          },
+        },
+      ],
+    };
+    const done: IngestBatch = {
+      sourceId: "grok",
+      instanceId: "grok@arch-desktop",
+      collectorVersion: "test",
+      sentAt: new Date().toISOString(),
+      events: [
+        {
+          kind: "activity",
+          naturalKey: "grok-tool:call-lifecycle:success",
+          payload: {
+            sessionExternalId: "sess-tool-lifecycle",
+            externalId: "call-lifecycle-1",
+            timestamp: "2026-08-04T12:00:01.000Z",
+            completedAt: "2026-08-04T12:00:01.000Z",
+            actorType: "agent",
+            actorId: "grok",
+            actionType: "tool_call",
+            toolName: "read_file",
+            description: "Read `/tmp/example`",
+            status: "success",
+          },
+        },
+      ],
+    };
+
+    const first = await postBatch(start);
+    expect(first.status).toBe(200);
+    expect(first.body.accepted).toBe(1);
+    expect(first.body.rejected).toEqual([]);
+
+    const second = await postBatch(done);
+    expect(second.status).toBe(200);
+    expect(second.body.accepted).toBe(1);
+    expect(second.body.rejected).toEqual([]);
+
+    const res = await fetch(`${baseUrl}/api/sessions/grok:sess-tool-lifecycle`);
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.session.activities).toHaveLength(1);
+    expect(body.session.activities[0].status).toBe("success");
+    expect(body.session.activities[0].externalId).toBe("call-lifecycle-1");
+    expect(body.session.activities[0].completedAt).toBe(
+      "2026-08-04T12:00:01.000Z",
+    );
+    // Start timestamp preserved; richer completion description preferred.
+    expect(body.session.activities[0].timestamp).toBe(
+      "2026-08-04T12:00:00.000Z",
+    );
+    expect(body.session.activities[0].description).toBe("Read `/tmp/example`");
+  });
+
+  test("BSH-90: terminal status does not regress to running on late updates", async () => {
+    const done: IngestBatch = {
+      sourceId: "grok",
+      instanceId: "grok@arch-desktop",
+      collectorVersion: "test",
+      sentAt: new Date().toISOString(),
+      events: [
+        {
+          kind: "activity",
+          naturalKey: "grok-tool:no-regress:success",
+          payload: {
+            sessionExternalId: "sess-no-regress",
+            externalId: "call-no-regress",
+            timestamp: "2026-08-04T12:00:00.000Z",
+            completedAt: "2026-08-04T12:00:00.000Z",
+            actorType: "agent",
+            actorId: "grok",
+            actionType: "tool_call",
+            toolName: "run_terminal_command",
+            description: "done",
+            status: "success",
+          },
+        },
+      ],
+    };
+    const lateRunning: IngestBatch = {
+      sourceId: "grok",
+      instanceId: "grok@arch-desktop",
+      collectorVersion: "test",
+      sentAt: new Date().toISOString(),
+      events: [
+        {
+          kind: "activity",
+          naturalKey: "grok-tool:no-regress:running-late",
+          payload: {
+            sessionExternalId: "sess-no-regress",
+            externalId: "call-no-regress",
+            timestamp: "2026-08-04T12:00:02.000Z",
+            actorType: "agent",
+            actorId: "grok",
+            actionType: "tool_call",
+            toolName: "run_terminal_command",
+            description: "still going?",
+            status: "running",
+          },
+        },
+      ],
+    };
+
+    await postBatch(done);
+    const second = await postBatch(lateRunning);
+    expect(second.body.accepted).toBe(1);
+    expect(second.body.rejected).toEqual([]);
+
+    const res = await fetch(`${baseUrl}/api/sessions/grok:sess-no-regress`);
+    const body = await res.json();
+    expect(body.session.activities).toHaveLength(1);
+    expect(body.session.activities[0].status).toBe("success");
+  });
+
   test("rejects a single malformed event but still processes the rest of the batch", async () => {
     const batch = {
       sourceId: "claude-code",
