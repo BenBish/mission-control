@@ -38,6 +38,49 @@ export interface ProviderFetchResult {
   limitation?: string;
 }
 
+/** Unit for prepaid balance / capacity (not agent session costUsd). */
+export const CREDIT_UNITS = [
+  "usd",
+  "credits",
+  "requests",
+  "tokens",
+  "percent",
+] as const;
+export type CreditUnit = (typeof CREDIT_UNITS)[number];
+
+export type CreditSource = "provider_api" | "session_quota" | "unavailable";
+export type CreditStatus = "ok" | "limited" | "unavailable" | "error";
+
+/**
+ * Normalized remaining capacity / prepaid balance snapshot.
+ * Distinct from NormalizedUsageRow (daily spend) and session costUsd.
+ */
+export interface CreditSnapshot {
+  provider: ProviderId;
+  /** ISO timestamp when this observation was taken. */
+  asOf: string;
+  /** Remaining capacity; null when the provider cannot report a number. */
+  remaining: number | null;
+  /** Optional total / grant size. */
+  total?: number | null;
+  unit: CreditUnit;
+  /** Stable label within a provider (e.g. prepaid_balance, codex_5h). */
+  label: string;
+  source: CreditSource;
+  status: CreditStatus;
+  /** Redacted metadata only — never secrets. */
+  details?: Record<string, unknown>;
+}
+
+export interface CreditFetchResult {
+  snapshots: CreditSnapshot[];
+  /**
+   * When set without ok snapshots, sync records limited/unavailable credits
+   * (e.g. Anthropic Admin API has no public balance endpoint).
+   */
+  limitation?: string;
+}
+
 export type FetchImpl = (
   input: string | URL | Request,
   init?: RequestInit,
@@ -57,6 +100,12 @@ export interface ProviderConnector {
     window: FetchWindow,
     fetchImpl?: FetchImpl,
   ): Promise<ProviderFetchResult>;
+  /**
+   * Optional: fetch prepaid credits / remaining capacity.
+   * When omitted, sync skips credit snapshots for this connector
+   * (except session-quota enrichment for OpenAI/Codex).
+   */
+  fetchCredits?(fetchImpl?: FetchImpl): Promise<CreditFetchResult>;
 }
 
 export type SyncStatusValue =

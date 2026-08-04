@@ -26,6 +26,12 @@ export {
 } from "./normalize/openai.js";
 export { normalizeXaiUsage } from "./normalize/xai.js";
 export {
+  normalizeOpenAICreditGrants,
+  anthropicCreditsUnavailable,
+  xaiCreditsLimited,
+  normalizeSessionQuotaToCredits,
+} from "./normalize/credits.js";
+export {
   syncAllProviders,
   syncProvider,
   defaultFetchWindow,

@@ -221,16 +221,17 @@ Mission Control uses a **multi-source pricing system**:
 3. **Provider API connectors (BSH-63):**
    - Account-level usage/cost from OpenRouter, Anthropic, OpenAI, and xAI billing APIs
    - Stored in `provider_usage_daily` (not mixed into session-log tables)
+   - Prepaid credits / capacity in `provider_credit_snapshots` (not mixed into spend SUMs or session costUsd)
    - Sync status in `provider_sync_status` (last sync, errors, limited metrics)
-   - REST: `GET /api/providers/status`, `POST /api/providers/sync`, `GET /api/providers/usage`, `GET /api/providers/usage/breakdown`
+   - REST: `GET /api/providers/status`, `POST /api/providers/sync`, `GET /api/providers/usage`, `GET /api/providers/usage/breakdown`, `GET /api/providers/credits`
    - Code: `src/services/provider-connectors/`
    - **Do not double-count** with agent source totals in the UI — Consumption shows a separate “Provider API costs” section
 
 | Provider | Credential env | Primary endpoints |
 | --- | --- | --- |
 | OpenRouter | `OPENROUTER_API_KEY` | `GET /api/v1/activity` (management key; last 30 UTC days) |
-| Anthropic | `ANTHROPIC_ADMIN_KEY` | Admin Usage + Cost report APIs |
-| OpenAI | `OPENAI_ADMIN_KEY` | Org Completions usage + Costs APIs |
+| Anthropic | `ANTHROPIC_ADMIN_KEY` | Admin Usage + Cost report APIs (no remaining balance API — credit snapshot marked unavailable) |
+| OpenAI | `OPENAI_ADMIN_KEY` (+ optional `OPENAI_API_KEY`) | Org Completions usage + Costs; optional credit_grants prepaid USD; Codex session quotas as usage windows |
 | xAI | `XAI_API_KEY` | No public historical usage API; key check via `/v1/models`; optional `MC_XAI_USAGE_ENDPOINT` JSON export |
 
 Scheduled poll: set `MC_PROVIDER_SYNC_ENABLED=true` (interval `MC_PROVIDER_SYNC_INTERVAL_MS`, default 1h; minimum accepted value 60s). Manual sync always available via POST.

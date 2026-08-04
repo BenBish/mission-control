@@ -42,7 +42,9 @@ import {
   useProviderBreakdown,
   useProviderStatus,
   useProviderSpendInsights,
+  useProviderCredits,
   triggerProviderSync,
+  type ProviderCredit,
 } from "@/lib/queries";
 
 type DatePreset = "today" | "7d" | "30d" | "all";
@@ -189,6 +191,8 @@ export default function Consumption() {
     isLoading: insightsLoading,
     error: insightsError,
   } = useProviderSpendInsights();
+  const { data: providerCredits = [], isLoading: creditsLoading } =
+    useProviderCredits();
 
   const bySourceModel = useMemo(() => {
     if (!rows) return [];
@@ -271,6 +275,7 @@ export default function Consumption() {
       await queryClient.invalidateQueries({
         queryKey: ["provider-spend-insights"],
       });
+      await queryClient.invalidateQueries({ queryKey: ["provider-credits"] });
     } catch (err) {
       setSyncMessage(
         err instanceof Error ? err.message : "Provider sync failed",
@@ -633,6 +638,46 @@ export default function Consumption() {
                   ))}
                 </div>
               )}
+
+              {/* Credits remaining — distinct from daily spend / session costUsd */}
+              <Card
+                className="border-dashed shadow-none"
+                data-testid="provider-credits-card"
+              >
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Target className="h-4 w-4" />
+                    Credits remaining
+                  </CardTitle>
+                  <CardDescription>
+                    Prepaid balance and usage-window capacity (account-wide).
+                    Not mixed into Direct API Spend totals or agent session
+                    costs. Anthropic Admin APIs report usage/cost history only;
+                    OpenAI prepaid balance needs optional{" "}
+                    <code className="text-xs">OPENAI_API_KEY</code> for
+                    credit_grants; Codex windows come from session quotas.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {creditsLoading ? (
+                    <Loading />
+                  ) : providerCredits.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No credit snapshots yet. Configure provider keys and click
+                      Sync now (or wait for scheduled sync).
+                    </p>
+                  ) : (
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                      {providerCredits.map((c) => (
+                        <CreditSnapshotTile
+                          key={`${c.provider}-${c.label}-${c.asOf}`}
+                          credit={c}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
 
               {insightsLoading ? (
                 <Loading />
@@ -1187,6 +1232,74 @@ export default function Consumption() {
           </Card>
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+function formatCreditRemaining(c: ProviderCredit): string {
+  if (c.remaining == null) {
+    if (c.status === "unavailable" || c.status === "limited") {
+      return "—";
+    }
+    return "—";
+  }
+  if (c.unit === "usd") return `$${c.remaining.toFixed(2)}`;
+  if (c.unit === "percent") return `${c.remaining.toFixed(0)}% left`;
+  if (c.unit === "tokens") return `${c.remaining.toLocaleString()} tokens`;
+  if (c.unit === "requests") return `${c.remaining.toLocaleString()} req`;
+  return `${c.remaining.toLocaleString()} ${c.unit}`;
+}
+
+function creditLabelDisplay(label: string): string {
+  if (label === "prepaid_balance") return "Prepaid balance";
+  if (label.startsWith("quota_")) {
+    return label.replace(/^quota_/, "Usage window · ").replace(/_/g, " ");
+  }
+  return label;
+}
+
+function CreditSnapshotTile({ credit }: { credit: ProviderCredit }) {
+  const note =
+    typeof credit.details?.note === "string"
+      ? credit.details.note
+      : typeof credit.details?.productLanguage === "string"
+        ? credit.details.productLanguage
+        : null;
+
+  return (
+    <div
+      className="rounded-md border px-3 py-2.5 space-y-1"
+      data-testid={`credit-${credit.provider}-${credit.label}`}
+      title={note ?? undefined}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm font-medium capitalize">
+          {credit.provider}
+        </span>
+        <Badge
+          variant={
+            credit.status === "ok"
+              ? "default"
+              : credit.status === "error"
+                ? "destructive"
+                : "secondary"
+          }
+        >
+          {credit.status}
+        </Badge>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {creditLabelDisplay(credit.label)}
+        {credit.source === "session_quota" ? " · session quota" : ""}
+        {credit.source === "provider_api" ? " · provider API" : ""}
+        {credit.source === "unavailable" ? " · not available" : ""}
+      </p>
+      <p className="text-lg font-semibold tabular-nums">
+        {formatCreditRemaining(credit)}
+      </p>
+      <p className="text-[11px] text-muted-foreground">
+        as of {new Date(credit.asOf).toLocaleString()}
+      </p>
     </div>
   );
 }

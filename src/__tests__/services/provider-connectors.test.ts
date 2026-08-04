@@ -15,6 +15,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import { Database } from "../../db/database.js";
+import { latestProviderCreditSnapshots } from "../../db/queries/provider-credits.js";
 import {
   getProviderUsage,
   getProviderUsageBreakdown,
@@ -30,6 +31,10 @@ import {
   normalizeOpenAILineItem,
   normalizeOpenRouterActivity,
   normalizeXaiUsage,
+  normalizeOpenAICreditGrants,
+  anthropicCreditsUnavailable,
+  xaiCreditsLimited,
+  normalizeSessionQuotaToCredits,
   syncAllProviders,
   syncProvider,
   openrouterConnector,
@@ -82,6 +87,7 @@ beforeEach(async () => {
   resetSyncInFlightForTests();
   await db.raw().run(`DELETE FROM provider_usage_daily`);
   await db.raw().run(`DELETE FROM provider_sync_status`);
+  await db.raw().run(`DELETE FROM provider_credit_snapshots`);
 });
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -779,5 +785,156 @@ describe("syncProvider idempotency", () => {
     release();
     const firstResults = await first;
     expect(firstResults[0].status).toBe("ok");
+  });
+
+  test("anthropic sync stores unavailable prepaid_balance credit snapshot", async () => {
+    setEnv("ANTHROPIC_ADMIN_KEY", "sk-ant-admin01-test");
+    const fetchImpl: FetchImpl = async (url) => {
+      const u = String(url);
+      if (u.includes("usage_report")) {
+        return jsonResponse({
+          data: [
+            {
+              starting_at: "2026-07-06T00:00:00Z",
+              results: [
+                {
+                  model: "claude-sonnet-4",
+                  uncached_input_tokens: 10,
+                  output_tokens: 2,
+                },
+              ],
+            },
+          ],
+        });
+      }
+      return jsonResponse({ data: [] });
+    };
+    const r = await syncProvider(db.raw(), anthropicConnector, { fetchImpl });
+    expect(r.status).toBe("ok");
+    expect((r.creditSnapshots ?? 0) >= 1).toBe(true);
+    const credits = await latestProviderCreditSnapshots(db.raw(), {
+      provider: "anthropic",
+    });
+    expect(credits.some((c) => c.label === "prepaid_balance")).toBe(true);
+    const bal = credits.find((c) => c.label === "prepaid_balance");
+    expect(bal?.status).toBe("unavailable");
+    expect(bal?.remaining).toBeNull();
+    // Must not invent spend in usage from credits
+    const usage = await getProviderUsage(db.raw(), { provider: "anthropic" });
+    expect(usage[0].cost_usd == null || usage[0].cost_usd === 0).toBe(true);
+  });
+
+  test("openai sync stores credit_grants prepaid balance without mixing into usage cost", async () => {
+    setEnv("OPENAI_ADMIN_KEY", "sk-admin-test");
+    setEnv("OPENAI_API_KEY", "sk-user-test");
+    const fetchImpl: FetchImpl = async (url) => {
+      const u = String(url);
+      if (u.includes("credit_grants")) {
+        return jsonResponse({
+          total_granted: 100,
+          total_used: 40,
+          total_available: 60,
+        });
+      }
+      if (u.includes("usage/completions")) {
+        return jsonResponse({
+          data: [
+            {
+              start_time: Math.floor(
+                new Date("2026-07-06T00:00:00Z").getTime() / 1000,
+              ),
+              results: [
+                {
+                  model: "gpt-4.1",
+                  input_tokens: 100,
+                  output_tokens: 50,
+                  num_model_requests: 1,
+                },
+              ],
+            },
+          ],
+        });
+      }
+      if (u.includes("organization/costs")) {
+        return jsonResponse({ data: [] });
+      }
+      return jsonResponse({});
+    };
+    const r = await syncProvider(db.raw(), openaiConnector, { fetchImpl });
+    expect(r.status).toBe("ok");
+    const credits = await latestProviderCreditSnapshots(db.raw(), {
+      provider: "openai",
+    });
+    const bal = credits.find((c) => c.label === "prepaid_balance");
+    expect(bal?.status).toBe("ok");
+    expect(bal?.remaining).toBe(60);
+    expect(bal?.unit).toBe("usd");
+    const usage = await getProviderUsage(db.raw(), { provider: "openai" });
+    // Credit remaining must not appear as usage costUsd
+    for (const row of usage) {
+      expect(row.cost_usd).not.toBe(60);
+    }
+  });
+
+  test("xai sync stores limited credit snapshot", async () => {
+    setEnv("XAI_API_KEY", "xai-test-key");
+    setEnv("MC_XAI_USAGE_ENDPOINT", undefined);
+    const fetchImpl: FetchImpl = async () =>
+      jsonResponse({ data: [{ id: "grok-3" }] });
+    await syncProvider(db.raw(), xaiConnector, { fetchImpl });
+    const credits = await latestProviderCreditSnapshots(db.raw(), {
+      provider: "xai",
+    });
+    expect(credits[0]?.status).toBe("limited");
+    expect(credits[0]?.remaining).toBeNull();
+  });
+});
+
+describe("credit normalize helpers", () => {
+  test("normalizeOpenAICreditGrants maps total_available", () => {
+    const snaps = normalizeOpenAICreditGrants({
+      total_granted: 50,
+      total_used: 10,
+      total_available: 40,
+    });
+    expect(snaps).toHaveLength(1);
+    expect(snaps[0].remaining).toBe(40);
+    expect(snaps[0].unit).toBe("usd");
+    expect(snaps[0].source).toBe("provider_api");
+  });
+
+  test("normalizeOpenAICreditGrants returns empty for unparseable payload", () => {
+    expect(normalizeOpenAICreditGrants({ foo: 1 })).toEqual([]);
+  });
+
+  test("anthropicCreditsUnavailable does not invent remaining", () => {
+    const r = anthropicCreditsUnavailable("2026-07-01T00:00:00.000Z");
+    expect(r.snapshots[0].remaining).toBeNull();
+    expect(r.snapshots[0].status).toBe("unavailable");
+  });
+
+  test("xaiCreditsLimited is limited not ok", () => {
+    const r = xaiCreditsLimited();
+    expect(r.snapshots[0].status).toBe("limited");
+  });
+
+  test("normalizeSessionQuotaToCredits maps used_percent to remaining percent", () => {
+    const snaps = normalizeSessionQuotaToCredits(
+      [
+        {
+          source_id: "codex",
+          instance_id: "local",
+          timestamp: "2026-07-01T12:00:00Z",
+          limit_id: "primary",
+          used_percent: 25,
+          window_minutes: 300,
+          resets_at: "2026-07-01T17:00:00Z",
+        },
+      ],
+      "openai",
+    );
+    expect(snaps[0].remaining).toBe(75);
+    expect(snaps[0].unit).toBe("percent");
+    expect(snaps[0].source).toBe("session_quota");
   });
 });

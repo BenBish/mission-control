@@ -6,6 +6,11 @@ import {
   setProviderBudgetConfig,
 } from "../../db/queries/app-settings.js";
 import {
+  latestProviderCreditSnapshots,
+  listProviderCreditHistory,
+  rowToApiCredit,
+} from "../../db/queries/provider-credits.js";
+import {
   getProviderUsage,
   getProviderUsageBreakdown,
   listProviderSyncStatus,
@@ -267,4 +272,46 @@ export function registerProviderRoutes(app: Express, db: Database): void {
       }
     },
   );
+
+  /**
+   * Prepaid credits / remaining capacity snapshots (account-wide).
+   * Distinct from Direct API Spend (daily cost) and agent session costUsd.
+   * Query: ?history=1 for recent history; default is latest per provider+label.
+   */
+  app.get("/api/providers/credits", async (req: Request, res: Response) => {
+    try {
+      const provider =
+        typeof req.query.provider === "string" &&
+        isProviderId(req.query.provider)
+          ? req.query.provider
+          : undefined;
+      const history =
+        req.query.history === "1" ||
+        req.query.history === "true" ||
+        req.query.history === "yes";
+
+      const rows = history
+        ? await listProviderCreditHistory(db.raw(), {
+            provider,
+            limit:
+              typeof req.query.limit === "string"
+                ? Number(req.query.limit)
+                : 100,
+          })
+        : await latestProviderCreditSnapshots(db.raw(), { provider });
+
+      res.json({
+        success: true,
+        source: "provider-credits",
+        note: "Credits/balance and usage windows are not included in agent session costUsd or Direct API Spend sums.",
+        credits: rows.map(rowToApiCredit),
+      });
+    } catch (err) {
+      console.error("GET /api/providers/credits failed:", err);
+      res.status(500).json({
+        success: false,
+        error: "Failed to load provider credits",
+      });
+    }
+  });
 }

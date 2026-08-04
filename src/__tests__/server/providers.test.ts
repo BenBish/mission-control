@@ -10,6 +10,7 @@ import * as path from "path";
 import * as os from "os";
 import { Database } from "../../db/database.js";
 import { setupRoutes } from "../../server/routes/index.js";
+import { upsertProviderCreditSnapshot } from "../../db/queries/provider-credits.js";
 import { upsertProviderUsage } from "../../db/queries/provider-usage.js";
 
 let fixtureDir: string;
@@ -31,6 +32,18 @@ beforeAll(async () => {
     outputTokens: 7,
     costUsd: 0.003,
     requestCount: 1,
+  });
+
+  await upsertProviderCreditSnapshot(db.raw(), {
+    provider: "anthropic",
+    asOf: "2026-07-10T12:00:00.000Z",
+    remaining: null,
+    total: null,
+    unit: "usd",
+    label: "prepaid_balance",
+    source: "unavailable",
+    status: "unavailable",
+    details: { note: "no balance API" },
   });
 
   const app = express();
@@ -225,5 +238,25 @@ describe("POST /api/providers/sync", () => {
         else process.env[k] = v;
       }
     }
+  });
+});
+
+describe("GET /api/providers/credits", () => {
+  test("returns credit snapshots distinct from usage spend", async () => {
+    const res = await fetch(`${baseUrl}/api/providers/credits`);
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.source).toBe("provider-credits");
+    expect(Array.isArray(body.credits)).toBe(true);
+    const anthropic = body.credits.find(
+      (c: { provider: string; label: string }) =>
+        c.provider === "anthropic" && c.label === "prepaid_balance",
+    );
+    expect(anthropic).toBeTruthy();
+    expect(anthropic.status).toBe("unavailable");
+    expect(anthropic.remaining).toBeNull();
+    // Response must not include secret-shaped strings
+    expect(JSON.stringify(body)).not.toMatch(/sk-[a-zA-Z0-9]{10,}/);
   });
 });

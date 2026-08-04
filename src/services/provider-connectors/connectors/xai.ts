@@ -1,7 +1,9 @@
 import { providerBaseUrl, resolveXaiKey } from "../credentials.js";
 import { providerFetchJson } from "../http.js";
+import { xaiCreditsLimited } from "../normalize/credits.js";
 import { normalizeXaiUsage } from "../normalize/xai.js";
 import type {
+  CreditFetchResult,
   FetchImpl,
   FetchWindow,
   ProviderConnector,
@@ -64,5 +66,10 @@ export const xaiConnector: ProviderConnector = {
       limitation:
         "xAI has no public historical usage/cost API; key verified via /models. Set MC_XAI_USAGE_ENDPOINT to a JSON usage export URL when available.",
     };
+  },
+
+  async fetchCredits(): Promise<CreditFetchResult> {
+    if (!resolveXaiKey()) return { snapshots: [] };
+    return xaiCreditsLimited();
   },
 };

@@ -5,7 +5,9 @@ import {
   normalizeAnthropicCost,
   normalizeAnthropicUsage,
 } from "../normalize/anthropic.js";
+import { anthropicCreditsUnavailable } from "../normalize/credits.js";
 import type {
+  CreditFetchResult,
   FetchImpl,
   FetchWindow,
   ProviderConnector,
@@ -78,5 +80,14 @@ export const anthropicConnector: ProviderConnector = {
 
     const usageRows = normalizeAnthropicUsage(usagePayload);
     return { rows: mergeAnthropicRows(usageRows, costRows) };
+  },
+
+  /**
+   * Anthropic Admin Usage & Cost APIs have no remaining-balance field.
+   * Persist an explicit unavailable snapshot so UI can show empty state + last sync.
+   */
+  async fetchCredits(): Promise<CreditFetchResult> {
+    if (!resolveAnthropicAdminKey()) return { snapshots: [] };
+    return anthropicCreditsUnavailable();
   },
 };
