@@ -73,11 +73,38 @@ export async function normalizeGrokCacheInclusiveInputTokens(
  * Versioned data/schema migrations. Base tables come from schema.ts;
  * this list is for changes after the baseline.
  */
+/**
+ * BSH-90: Before activity upsert, tool completion events failed UNIQUE
+ * (source_id, session_id, external_id) while their natural keys were still
+ * recorded in ingest_dedupe. Clear terminal-status activity keys so a
+ * collector re-scan (or cursor reset) can re-apply completions onto the
+ * existing running rows via upsert.
+ */
+export async function clearBurnedTerminalActivityDedupeKeys(
+  db: SqliteDatabase,
+): Promise<void> {
+  await db.run(`
+    DELETE FROM ingest_dedupe
+    WHERE kind = 'activity'
+      AND (
+        natural_key LIKE '%:success'
+        OR natural_key LIKE '%:failure'
+        OR natural_key LIKE '%:cancelled'
+        OR natural_key LIKE '%:canceled'
+      )
+  `);
+}
+
 const MIGRATIONS: Migration[] = [
   {
     version: "001",
     name: "normalize-grok-cache-inclusive-input-tokens",
     up: normalizeGrokCacheInclusiveInputTokens,
+  },
+  {
+    version: "002",
+    name: "clear-burned-terminal-activity-dedupe-keys",
+    up: clearBurnedTerminalActivityDedupeKeys,
   },
 ];
 

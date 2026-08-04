@@ -74,17 +74,17 @@ describe("Grok parser", () => {
     }
   });
 
-  test("parses tool updates and cumulative usage updates", () => {
+  test("parses tool lifecycle: Pending → enrichment → completed", () => {
     const { root, updates, sessionId } = sessionFixture();
     try {
-      const tool = parseGrokLine(
+      const pending = parseGrokLine(
         JSON.stringify({
           method: "session/update",
           timestamp: 1784164227,
           params: {
             sessionId,
             _meta: {
-              eventId: "event-tool",
+              eventId: "event-tool-pending",
               updateParams: {
                 kind: "Other",
                 status: "Pending",
@@ -93,8 +93,10 @@ describe("Grok parser", () => {
               },
             },
             update: {
+              sessionUpdate: "tool_call",
               toolCallId: "call-1",
               title: "read_file",
+              rawInput: { target_file: "/tmp/a" },
               _meta: {
                 modelId: "grok-4.5",
                 "x.ai/tool": { name: "read_file", namespace: "builtin" },
@@ -105,16 +107,137 @@ describe("Grok parser", () => {
         updates,
       );
 
-      expect(tool?.sessionExternalId).toBe(sessionId);
-      expect(tool?.toolCallDelta).toBe(1);
-      expect(tool?.activity?.kind).toBe("activity");
-      expect(tool?.activity?.payload).toMatchObject({
+      expect(pending?.sessionExternalId).toBe(sessionId);
+      expect(pending?.toolCallDelta).toBe(1);
+      expect(pending?.activity?.kind).toBe("activity");
+      expect(pending?.activity?.naturalKey).toBe(
+        `${updates}:event-tool-pending`,
+      );
+      expect(pending?.activity?.payload).toMatchObject({
         actionType: "tool_call",
         actorId: "grok",
         status: "running",
         toolName: "read_file",
+        externalId: "call-1",
       });
+      expect(pending?.activity?.payload.completedAt).toBeUndefined();
 
+      // Intermediate enrichment: status null must stay running, not success.
+      const enrich = parseGrokLine(
+        JSON.stringify({
+          method: "session/update",
+          timestamp: 1784164227.5,
+          params: {
+            sessionId,
+            _meta: {
+              eventId: "event-tool-enrich",
+              updateParams: {
+                toolCallId: "call-1",
+                status: null,
+              },
+            },
+            update: {
+              sessionUpdate: "tool_call_update",
+              toolCallId: "call-1",
+              kind: "read",
+              title: "Read `/tmp/a`",
+              _meta: {
+                "x.ai/tool": { name: "read_file", namespace: "builtin" },
+              },
+            },
+          },
+        }),
+        updates,
+      );
+      expect(enrich?.activity?.payload).toMatchObject({
+        status: "running",
+        description: "Read `/tmp/a`",
+        externalId: "call-1",
+      });
+      expect(enrich?.toolCallDelta).toBe(0);
+
+      const completed = parseGrokLine(
+        JSON.stringify({
+          method: "session/update",
+          timestamp: 1784164228,
+          params: {
+            sessionId,
+            _meta: {
+              eventId: "event-tool-done",
+              updateParams: {
+                toolCallId: "call-1",
+                status: "Completed",
+              },
+            },
+            update: {
+              sessionUpdate: "tool_call_update",
+              toolCallId: "call-1",
+              status: "completed",
+              rawOutput: { type: "ReadFile", content: "ok" },
+            },
+          },
+        }),
+        updates,
+      );
+      expect(completed?.activity?.payload).toMatchObject({
+        status: "success",
+        externalId: "call-1",
+        completedAt: "2026-07-16T01:10:28.000Z",
+      });
+      expect(completed?.activity?.naturalKey).toBe(
+        `${updates}:event-tool-done`,
+      );
+      expect(completed?.toolCallDelta).toBe(0);
+      expect(completed?.failureDelta).toBe(0);
+
+      const failed = parseGrokLine(
+        JSON.stringify({
+          method: "session/update",
+          timestamp: 1784164229,
+          params: {
+            sessionId,
+            _meta: {
+              eventId: "event-tool-fail",
+              updateParams: { toolCallId: "call-2", status: "Failed" },
+            },
+            update: {
+              sessionUpdate: "tool_call_update",
+              toolCallId: "call-2",
+              status: "failed",
+            },
+          },
+        }),
+        updates,
+      );
+      expect(failed?.activity?.payload.status).toBe("failure");
+      expect(failed?.failureDelta).toBe(1);
+
+      // in_progress maps to running
+      const inProgress = parseGrokLine(
+        JSON.stringify({
+          method: "session/update",
+          timestamp: 1784164230,
+          params: {
+            sessionId,
+            _meta: { eventId: "event-tool-ip" },
+            update: {
+              sessionUpdate: "tool_call_update",
+              toolCallId: "call-3",
+              status: "in_progress",
+            },
+          },
+        }),
+        updates,
+      );
+      expect(inProgress?.activity?.payload.status).toBe("running");
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("parses cumulative usage updates", () => {
+    const { root, updates, sessionId } = sessionFixture();
+    try {
       const usage = parseGrokLine(
         JSON.stringify({
           method: "_x.ai/session/update",
