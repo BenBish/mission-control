@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
@@ -312,6 +313,9 @@ export function MainLayout() {
       <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
         <SheetContent side="left" className="w-64 p-0">
           <SheetTitle className="sr-only">Navigation</SheetTitle>
+          <SheetDescription className="sr-only">
+            Primary application navigation
+          </SheetDescription>
           <Sidebar onNavigate={() => setIsMobileMenuOpen(false)} />
         </SheetContent>
       </Sheet>
@@ -333,6 +337,9 @@ export function MainLayout() {
             </SheetTrigger>
             <SheetContent side="left" className="w-64 p-0">
               <SheetTitle className="sr-only">Navigation</SheetTitle>
+              <SheetDescription className="sr-only">
+                Primary application navigation
+              </SheetDescription>
               <Sidebar />
             </SheetContent>
           </Sheet>
