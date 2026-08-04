@@ -53,6 +53,26 @@ const STATIC_PRICING: PricingTable = {
   // unpriced fallback" from a misspelled model without fabricating cost.
   "grok-4.5": { inputCostPer1kTokens: 0, outputCostPer1kTokens: 0 },
   "grok-build": { inputCostPer1kTokens: 0, outputCostPer1kTokens: 0 },
+  // OpenCode commonly routes local models (llamaswap / ollama / llamacpp).
+  // Cost is $0 when self-hosted; prefer session.cost / message.cost from
+  // opencode.db when non-zero. Keys match providerID/modelID labels emitted
+  // by the OpenCode collector.
+  "llamaswap/Qwen3.6-35B-A3B-Opencode-128K": {
+    inputCostPer1kTokens: 0,
+    outputCostPer1kTokens: 0,
+  },
+  "llamaswap/Qwen3.6-27B-Opencode-128K": {
+    inputCostPer1kTokens: 0,
+    outputCostPer1kTokens: 0,
+  },
+  "ollama/qwen2.5-coder:7b": {
+    inputCostPer1kTokens: 0,
+    outputCostPer1kTokens: 0,
+  },
+  "localllama/gpt-oss-20b": {
+    inputCostPer1kTokens: 0,
+    outputCostPer1kTokens: 0,
+  },
   "openrouter/openai/gpt-4-turbo": {
     inputCostPer1kTokens: 10.0,
     outputCostPer1kTokens: 30.0,

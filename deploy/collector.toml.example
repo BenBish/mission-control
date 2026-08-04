@@ -1,4 +1,13 @@
 # Copy to ~/.config/mission-control/collector.toml on the desktop machine.
+#
+# Desktop collectors started by `bun run collector` / mc-collector.service:
+#   - Claude Code  (~/.claude/... JSONL)
+#   - Codex CLI    (session JSONL)
+#   - Grok         (~/.grok/sessions/.../updates.jsonl)
+#   - OpenCode     (~/.local/share/opencode/opencode.db SQLite)
+#
+# OpenCode agent activity (source id `opencode`) is separate from the Hermes
+# runtime backend label also named `opencode` (llama-toolbox-qwen-opencode).
 
 # Server's ingest endpoint. The server binds 127.0.0.1:3001 on the server
 # machine and is exposed via `tailscale serve` (TLS termination + tailnet

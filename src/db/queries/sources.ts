@@ -49,6 +49,12 @@ const SEED_SOURCES: Array<{
   },
   { id: "codex", name: "Codex CLI", kind: "agentic", defaultUnit: "quota" },
   { id: "grok", name: "Grok", kind: "agentic", defaultUnit: "quota" },
+  {
+    id: "opencode",
+    name: "OpenCode",
+    kind: "agentic",
+    defaultUnit: "quota",
+  },
   { id: "hermes", name: "Hermes", kind: "inference", defaultUnit: "compute" },
   {
     id: "lemonade",
@@ -93,6 +99,17 @@ const SEED_INSTANCES: Array<{
     sourceId: "grok",
     machine: "arch-desktop",
     endpoint: null,
+    collectorKind: "jsonl-push",
+    status: "unknown",
+  },
+  {
+    id: "opencode@arch-desktop",
+    sourceId: "opencode",
+    machine: "arch-desktop",
+    endpoint: null,
+    // Reads ~/.local/share/opencode/opencode.db (SQLite). Schema CHECK on
+    // source_instances.collector_kind only allows jsonl-push | http-poll;
+    // jsonl-push here means desktop push collector, not the file format.
     collectorKind: "jsonl-push",
     status: "unknown",
   },
