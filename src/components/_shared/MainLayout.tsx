@@ -17,7 +17,12 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { useTheme } from "@/app/providers";
 import { useAuth } from "@/app/auth/AuthContext";
 import { SourceFilter } from "@/components/_shared/SourceFilter";
@@ -306,6 +311,7 @@ export function MainLayout() {
       {/* Mobile Sidebar */}
       <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
         <SheetContent side="left" className="w-64 p-0">
+          <SheetTitle className="sr-only">Navigation</SheetTitle>
           <Sidebar onNavigate={() => setIsMobileMenuOpen(false)} />
         </SheetContent>
       </Sheet>
@@ -326,6 +332,7 @@ export function MainLayout() {
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="w-64 p-0">
+              <SheetTitle className="sr-only">Navigation</SheetTitle>
               <Sidebar />
             </SheetContent>
           </Sheet>
