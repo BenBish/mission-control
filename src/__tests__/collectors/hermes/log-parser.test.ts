@@ -22,7 +22,15 @@ const BACKEND: HermesBackend = {
   port: 12346,
   unit: "llama-toolbox-qwen-hermes.service",
   label: "hermes-qwen",
+  model: "Qwen3.6-27B-UD-Q4_K_XL.gguf",
   sharedByGateways: true,
+};
+
+const OPENCODE_BACKEND: HermesBackend = {
+  port: 12347,
+  unit: "llama-toolbox-qwen-opencode.service",
+  label: "opencode",
+  model: "Qwen3.6-35B-A3B-Opencode-128K",
 };
 
 describe("parseLine", () => {
@@ -178,8 +186,89 @@ describe("HermesLogParser.processEntries — real request lifecycles", () => {
     expect(payload.ttftMs).toBe(1977); // rounded
     expect(payload.tokensPerSec).toBe(10.12);
     expect(payload.slotId).toBe(1);
+    expect(payload.model).toBe(BACKEND.model);
+    expect(payload.clientLabel).toBe(BACKEND.label);
     expect(payload.timestamp).toBe(new Date(1_000_000 / 1000).toISOString()); // launch time, not release time
     expect(events[0].naturalKey).toBe(`${BACKEND.unit}:19358`);
+  });
+
+  test("opencode backend stamps Qwen OpenCode model on success and failure", () => {
+    const parser = new HermesLogParser(OPENCODE_BACKEND);
+    const successEntries: JournalEntry[] = [
+      entry(
+        "c1",
+        1_000_000,
+        "t I slot launch_slot_: id  0 | task 42 | processing task, is_child = 0",
+      ),
+      entry(
+        "c2",
+        1_002_000,
+        "t I slot print_timing: id  0 | task 42 | prompt eval time = 100.0 ms / 10 tokens (10 ms per token, 100 tokens per second)",
+      ),
+      entry(
+        "c3",
+        1_003_000,
+        "t I slot print_timing: id  0 | task 42 |        eval time = 200.0 ms / 20 tokens (10 ms per token, 100 tokens per second)",
+      ),
+      entry(
+        "c4",
+        1_004_000,
+        "t I slot print_timing: id  0 | task 42 |       total time = 300.0 ms / 30 tokens",
+      ),
+      entry(
+        "c5",
+        1_005_000,
+        "t I slot      release: id  0 | task 42 | stop processing: n_tokens = 30, truncated = 0",
+      ),
+    ];
+
+    const { events: successEvents } = parser.processEntries(successEntries);
+    expect(successEvents).toHaveLength(1);
+    const successPayload = successEvents[0].payload as InferenceRequestPayload;
+    expect(successPayload.model).toBe("Qwen3.6-35B-A3B-Opencode-128K");
+    expect(successPayload.clientLabel).toBe("opencode");
+    expect(successPayload.status).toBe("success");
+
+    const failParser = new HermesLogParser(OPENCODE_BACKEND);
+    const failEntries: JournalEntry[] = [
+      entry(
+        "f1",
+        2_000_000,
+        "t I slot launch_slot_: id  0 | task 99 | processing task, is_child = 0",
+      ),
+      entry(
+        "f2",
+        2_001_000,
+        "t W srv          stop: cancel task, id_task = 99",
+      ),
+    ];
+    const { events: failEvents } = failParser.processEntries(failEntries);
+    expect(failEvents).toHaveLength(1);
+    const failPayload = failEvents[0].payload as InferenceRequestPayload;
+    expect(failPayload.model).toBe("Qwen3.6-35B-A3B-Opencode-128K");
+    expect(failPayload.status).toBe("cancelled");
+  });
+
+  test("omits model when backend has no configured model mapping", () => {
+    const bare: HermesBackend = {
+      port: 12346,
+      unit: "llama-toolbox-qwen-hermes.service",
+      label: "hermes-qwen",
+    };
+    const parser = new HermesLogParser(bare);
+    const entries: JournalEntry[] = [
+      entry(
+        "c1",
+        1_000_000,
+        "t I slot launch_slot_: id  0 | task 7 | processing task, is_child = 0",
+      ),
+      entry("c2", 1_001_000, "t W srv          stop: cancel task, id_task = 7"),
+    ];
+    const { events } = parser.processEntries(entries);
+    expect(events).toHaveLength(1);
+    expect(
+      (events[0].payload as InferenceRequestPayload).model,
+    ).toBeUndefined();
   });
 
   test("interleaved slots don't cross-contaminate each other's fields", () => {
