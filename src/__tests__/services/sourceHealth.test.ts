@@ -9,8 +9,10 @@ import {
   resolveHeartbeatThresholds,
 } from "../../config/heartbeatThresholds";
 import {
+  formatInstanceHealthTooltip,
   getEffectiveHealth,
   getSystemHealth,
+  HEALTH_DOT_CLASS,
   type HealthInput,
 } from "../../services/sourceHealth";
 
@@ -242,5 +244,56 @@ describe("resolveHeartbeatThresholds", () => {
     );
     // falls back to defaults (5m stale / 15m offline) so age past 5m is Stale
     expect(health.status).toBe("Stale");
+  });
+});
+
+describe("formatInstanceHealthTooltip", () => {
+  test("uses effective labels, not raw ok/off", () => {
+    const healthy = getEffectiveHealth(instance(), NOW, THRESHOLDS);
+    expect(
+      formatInstanceHealthTooltip("grok@arch-desktop", healthy, "ok"),
+    ).toBe("grok@arch-desktop: Healthy (raw: ok)");
+
+    const offline = getEffectiveHealth(
+      instance({ status: "off", lastSeenAt: null }),
+      NOW,
+      THRESHOLDS,
+    );
+    const tip = formatInstanceHealthTooltip(
+      "lemonade@strix-halo",
+      offline,
+      "off",
+    );
+    expect(tip).toContain("Offline");
+    expect(tip).toContain("raw: off");
+    expect(tip).not.toMatch(/: ok\b/);
+  });
+
+  test("includes reason when present (stale heartbeat)", () => {
+    const stale = getEffectiveHealth(
+      instance({ lastSeenAt: iso(THRESHOLDS.stale + 1) }),
+      NOW,
+      THRESHOLDS,
+    );
+    expect(stale.status).toBe("Stale");
+    const tip = formatInstanceHealthTooltip("hermes@halo", stale, "ok");
+    expect(tip).toContain("Stale");
+    expect(tip).toContain("Heartbeat aging");
+    expect(tip).toContain("raw: ok");
+  });
+
+  test("omits raw suffix when status is empty", () => {
+    const health = getEffectiveHealth(instance(), NOW, THRESHOLDS);
+    expect(formatInstanceHealthTooltip("x", health, "  ")).toBe("x: Healthy");
+  });
+});
+
+describe("HEALTH_DOT_CLASS", () => {
+  test("maps every HealthStatus to a distinct Tailwind bg class family", () => {
+    expect(HEALTH_DOT_CLASS.Healthy).toContain("green");
+    expect(HEALTH_DOT_CLASS.Stale).toContain("amber");
+    expect(HEALTH_DOT_CLASS.Offline).toContain("muted");
+    expect(HEALTH_DOT_CLASS.Error).toContain("red");
+    expect(HEALTH_DOT_CLASS.Unknown).toContain("amber");
   });
 });
