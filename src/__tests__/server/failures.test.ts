@@ -164,19 +164,25 @@ async function insertRuntimeEvent(opts: {
   timestamp: string;
   endedAt?: string | null;
   severity?: string;
+  kind?: string;
+  summary?: string;
+  details?: string | null;
 }) {
   const sourceId = opts.sourceId ?? "hermes";
   const instanceId = opts.instanceId ?? HERMES_INSTANCE;
   await db.raw().run(
     `INSERT INTO runtime_events (
-      id, source_id, instance_id, timestamp, ended_at, kind, severity, summary
-    ) VALUES (?, ?, ?, ?, ?, 'slots_saturated', ?, 'saturated')`,
+      id, source_id, instance_id, timestamp, ended_at, kind, severity, summary, details
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     opts.id,
     sourceId,
     instanceId,
     opts.timestamp,
     opts.endedAt ?? null,
+    opts.kind ?? "slots_saturated",
     opts.severity ?? "warning",
+    opts.summary ?? "saturated",
+    opts.details ?? null,
   );
 }
 
@@ -374,5 +380,261 @@ describe("GET /api/failures invalid query (BSH-79)", () => {
     expect(body.failures).toHaveLength(3);
     expect(body.summary.total).toBe(8);
     expect(body.summary.total).not.toBe(body.failures!.length);
+  });
+});
+
+type GroupsBody = {
+  success: boolean;
+  error?: string;
+  groups?: Array<{
+    fingerprint: string;
+    kind: string;
+    sourceId: string;
+    summary: string;
+    occurrenceCount: number;
+    firstSeen: string;
+    lastSeen: string;
+    resolved: boolean;
+    openCount: number;
+  }>;
+  groupTotal?: number;
+  summary?: {
+    total: number;
+    last24Hours: number;
+    openRuntimeEvents: number;
+    byKind: {
+      activity: number;
+      inference_request: number;
+      runtime_event: number;
+    };
+  };
+};
+
+type GroupEventsBody = {
+  success: boolean;
+  error?: string;
+  fingerprint?: string;
+  events?: Array<{ id: string; kind: string; fingerprint?: string }>;
+  total?: number;
+};
+
+async function getGroups(pathAndQuery: string) {
+  const res = await fetch(`${baseUrl}${pathAndQuery}`);
+  const body = (await res.json()) as GroupsBody;
+  return { status: res.status, body };
+}
+
+describe("GET /api/failures/groups (BSH-72)", () => {
+  test("groups repeated slot-saturation into one row with occurrence count", async () => {
+    const t1 = "2026-07-21T01:00:00.000Z";
+    const t2 = "2026-07-21T02:00:00.000Z";
+    const t3 = "2026-07-21T03:00:00.000Z";
+    await insertRuntimeEvent({
+      id: "rt-1",
+      timestamp: t1,
+      kind: "slots_saturated",
+      summary: "slots saturated",
+    });
+    await insertRuntimeEvent({
+      id: "rt-2",
+      timestamp: t2,
+      kind: "slots_saturated",
+      summary: "slots saturated",
+    });
+    await insertRuntimeEvent({
+      id: "rt-3",
+      timestamp: t3,
+      kind: "slots_saturated",
+      summary: "slots saturated",
+      endedAt: t3,
+    });
+
+    const { status, body } = await getGroups("/api/failures/groups?limit=50");
+    expect(status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.summary?.total).toBe(3);
+    expect(body.groupTotal).toBe(1);
+    expect(body.groups).toHaveLength(1);
+    const g = body.groups![0];
+    expect(g.kind).toBe("runtime_event");
+    expect(g.sourceId).toBe("hermes");
+    expect(g.occurrenceCount).toBe(3);
+    expect(g.firstSeen).toBe(t1);
+    expect(g.lastSeen).toBe(t3);
+    // One occurrence still open (rt-1, rt-2 open; rt-3 resolved)
+    expect(g.resolved).toBe(false);
+    expect(g.openCount).toBe(2);
+  });
+
+  test("cancellation events with varying UUIDs collapse via normalization", async () => {
+    const now = new Date().toISOString();
+    await insertRuntimeEvent({
+      id: "c1",
+      timestamp: now,
+      kind: "request_cancelled",
+      summary:
+        "cancelled 550e8400-e29b-41d4-a716-446655440000 at 2026-07-21T01:08:48.080Z",
+    });
+    await insertRuntimeEvent({
+      id: "c2",
+      timestamp: now,
+      kind: "request_cancelled",
+      summary:
+        "cancelled 660e8400-e29b-41d4-a716-446655440099 at 2026-07-22T11:00:00.000Z",
+    });
+
+    const { status, body } = await getGroups(
+      "/api/failures/groups?kind=runtime_event",
+    );
+    expect(status).toBe(200);
+    expect(body.groupTotal).toBe(1);
+    expect(body.groups![0].occurrenceCount).toBe(2);
+  });
+
+  test("filters by kind and resolved status; summary stays event-level", async () => {
+    const now = new Date().toISOString();
+    await insertRuntimeEvent({
+      id: "open-1",
+      timestamp: now,
+      endedAt: null,
+      summary: "slots saturated",
+    });
+    await insertRuntimeEvent({
+      id: "closed-1",
+      timestamp: now,
+      endedAt: now,
+      summary: "slots saturated",
+    });
+    await insertActivityFailure({ id: "act-1", timestamp: now });
+
+    const all = await getGroups("/api/failures/groups?limit=50");
+    expect(all.body.summary?.total).toBe(3);
+    // open runtime + closed runtime share fingerprint → 1 group; activity → 1
+    expect(all.body.groupTotal).toBe(2);
+
+    const unresolved = await getGroups(
+      "/api/failures/groups?resolved=unresolved",
+    );
+    expect(unresolved.status).toBe(200);
+    // Activity always unresolved; runtime group has openCount > 0 → both
+    expect(unresolved.body.groupTotal).toBe(2);
+    expect(unresolved.body.summary?.total).toBe(3);
+
+    const resolvedOnly = await getGroups(
+      "/api/failures/groups?resolved=resolved",
+    );
+    // Group still open because one occurrence is open
+    expect(resolvedOnly.body.groupTotal).toBe(0);
+
+    const kindOnly = await getGroups("/api/failures/groups?kind=activity");
+    expect(kindOnly.body.groupTotal).toBe(1);
+    expect(kindOnly.body.groups![0].kind).toBe("activity");
+    // Summary is still all events (source unscoped), not kind-filtered
+    expect(kindOnly.body.summary?.total).toBe(3);
+  });
+
+  test("group pagination is independent of event totals", async () => {
+    const now = new Date().toISOString();
+    // 5 distinct activity descriptions → 5 groups
+    for (let i = 0; i < 5; i++) {
+      await insertActivityFailure({
+        id: `act-g-${i}`,
+        timestamp: now,
+        description: `unique failure ${i}`,
+      });
+    }
+    // Extra repeats on first description → still 5 groups, 7 events
+    await insertActivityFailure({
+      id: "act-g-0b",
+      timestamp: now,
+      description: "unique failure 0",
+    });
+    await insertActivityFailure({
+      id: "act-g-0c",
+      timestamp: now,
+      description: "unique failure 0",
+    });
+
+    const page1 = await getGroups("/api/failures/groups?limit=2&offset=0");
+    expect(page1.body.groups).toHaveLength(2);
+    expect(page1.body.groupTotal).toBe(5);
+    expect(page1.body.summary?.total).toBe(7);
+
+    const page2 = await getGroups("/api/failures/groups?limit=2&offset=2");
+    expect(page2.body.groups).toHaveLength(2);
+    expect(page2.body.groupTotal).toBe(5);
+
+    const page3 = await getGroups("/api/failures/groups?limit=2&offset=4");
+    expect(page3.body.groups).toHaveLength(1);
+  });
+
+  test("invalid kind / resolved / offset return 400", async () => {
+    const badKind = await getGroups("/api/failures/groups?kind=nope");
+    expect(badKind.status).toBe(400);
+    expect(badKind.body.success).toBe(false);
+
+    const badResolved = await getGroups("/api/failures/groups?resolved=maybe");
+    expect(badResolved.status).toBe(400);
+
+    const badOffset = await getGroups("/api/failures/groups?offset=-1");
+    expect(badOffset.status).toBe(400);
+  });
+
+  test("group events endpoint returns individual occurrences", async () => {
+    const now = new Date().toISOString();
+    await insertRuntimeEvent({
+      id: "ge-1",
+      timestamp: now,
+      summary: "slots saturated",
+    });
+    await insertRuntimeEvent({
+      id: "ge-2",
+      timestamp: now,
+      summary: "slots saturated",
+    });
+
+    const groups = await getGroups("/api/failures/groups?limit=10");
+    expect(groups.body.groups).toHaveLength(1);
+    const fp = groups.body.groups![0].fingerprint;
+    const encoded = encodeURIComponent(fp);
+
+    const res = await fetch(
+      `${baseUrl}/api/failures/groups/${encoded}/events?limit=50`,
+    );
+    const body = (await res.json()) as GroupEventsBody;
+    expect(res.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.total).toBe(2);
+    expect(body.events).toHaveLength(2);
+    expect(body.events!.every((e) => e.fingerprint === fp)).toBe(true);
+  });
+
+  test("group events support offset pagination", async () => {
+    const base = Date.now();
+    for (let i = 0; i < 5; i++) {
+      await insertRuntimeEvent({
+        id: `ge-page-${i}`,
+        timestamp: new Date(base + i * 1000).toISOString(),
+        summary: "slots saturated",
+      });
+    }
+    const groups = await getGroups("/api/failures/groups?limit=10");
+    const fp = encodeURIComponent(groups.body.groups![0].fingerprint);
+
+    const page1 = (await (
+      await fetch(
+        `${baseUrl}/api/failures/groups/${fp}/events?limit=2&offset=0`,
+      )
+    ).json()) as GroupEventsBody;
+    const page2 = (await (
+      await fetch(
+        `${baseUrl}/api/failures/groups/${fp}/events?limit=2&offset=2`,
+      )
+    ).json()) as GroupEventsBody;
+
+    expect(page1.total).toBe(5);
+    expect(page1.events).toHaveLength(2);
+    expect(page2.events).toHaveLength(2);
+    expect(page1.events![0].id).not.toBe(page2.events![0].id);
   });
 });

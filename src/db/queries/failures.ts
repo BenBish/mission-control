@@ -1,15 +1,30 @@
 import type { Database as SqliteDatabase } from "sqlite";
-import type { FailureItem, FailureSummary } from "../../types/failures.js";
+import {
+  computeFailureFingerprint,
+  isFailureEventResolved,
+  type FailureKind,
+} from "../../lib/failure-fingerprint.js";
+import type {
+  FailureGroup,
+  FailureItem,
+  FailureResolution,
+  FailureSummary,
+} from "../../types/failures.js";
 
-export type { FailureItem, FailureSummary };
+export type { FailureItem, FailureSummary, FailureGroup };
 
 interface FailureUnionRow {
-  kind: "activity" | "inference_request" | "runtime_event";
+  kind: FailureKind;
   id: string;
   source_id: string;
   timestamp: string;
   summary: string;
   detail: string | null;
+  ended_at: string | null;
+  event_kind: string | null;
+  severity: string | null;
+  status: string | null;
+  model: string | null;
 }
 
 const FAILURE_DEFINITIONS: FailureSummary["definitions"] = {
@@ -20,40 +35,175 @@ const FAILURE_DEFINITIONS: FailureSummary["definitions"] = {
   statusScope: "activity failure | inference non-success | runtime non-info",
 };
 
-/**
- * Union of activity failures + inference failures + runtime_events.
- * Single ordered UNION ALL + LIMIT so we do not over-fetch `limit` rows
- * from each table then re-slice. Optional sourceId is applied in SQL.
- */
-export async function listRecentFailures(
-  db: SqliteDatabase,
-  limit = 50,
-  sourceId?: string,
-): Promise<FailureItem[]> {
-  // Only bind finite positive integers into LIMIT — NaN/0/negative crash
-  // some SQLite/Bun bindings with SQLITE_MISMATCH (BSH-79).
-  const safeLimit =
-    typeof limit === "number" &&
+function safeLimit(limit: number | undefined, fallback = 50): number {
+  return typeof limit === "number" &&
     Number.isFinite(limit) &&
     Number.isInteger(limit) &&
     limit > 0
-      ? limit
-      : 50;
+    ? limit
+    : fallback;
+}
 
-  const sourceClause = sourceId ? "AND source_id = ?" : "";
-  const sourceParams = sourceId ? [sourceId] : [];
+function safeOffset(offset: number | undefined): number {
+  return typeof offset === "number" &&
+    Number.isFinite(offset) &&
+    Number.isInteger(offset) &&
+    offset >= 0
+    ? offset
+    : 0;
+}
 
-  // Each arm projects a common shape; runtime info severity is excluded
-  // (same as the previous post-filter on severity !== 'info').
-  const sql = `
-    SELECT kind, id, source_id, timestamp, summary, detail FROM (
+/**
+ * Shared UNION of activity failures + inference failures + runtime events.
+ * Projects fingerprint inputs so grouping can run in the query layer.
+ */
+async function loadFailureUnionRows(
+  db: SqliteDatabase,
+  opts: {
+    sourceId?: string;
+    kind?: FailureKind;
+  } = {},
+): Promise<FailureUnionRow[]> {
+  const sourceClause = opts.sourceId ? "AND source_id = ?" : "";
+  const sourceParams = opts.sourceId ? [opts.sourceId] : [];
+
+  const arms: string[] = [];
+  const params: string[] = [];
+
+  if (!opts.kind || opts.kind === "activity") {
+    arms.push(`
       SELECT
         'activity' AS kind,
         id,
         source_id,
         timestamp,
         description AS summary,
-        json_extract(result, '$.error') AS detail
+        json_extract(result, '$.error') AS detail,
+        NULL AS ended_at,
+        NULL AS event_kind,
+        NULL AS severity,
+        status AS status,
+        NULL AS model
+      FROM activities
+      WHERE status = 'failure' ${sourceClause}
+    `);
+    params.push(...sourceParams);
+  }
+
+  if (!opts.kind || opts.kind === "inference_request") {
+    arms.push(`
+      SELECT
+        'inference_request' AS kind,
+        id,
+        source_id,
+        timestamp,
+        (status || ' on ' || COALESCE(model, 'unknown model') ||
+          ' (' || COALESCE(client_label, 'unknown client') || ')') AS summary,
+        error AS detail,
+        NULL AS ended_at,
+        NULL AS event_kind,
+        NULL AS severity,
+        status AS status,
+        model AS model
+      FROM inference_requests
+      WHERE status != 'success' ${sourceClause}
+    `);
+    params.push(...sourceParams);
+  }
+
+  if (!opts.kind || opts.kind === "runtime_event") {
+    arms.push(`
+      SELECT
+        'runtime_event' AS kind,
+        id,
+        source_id,
+        timestamp,
+        summary,
+        details AS detail,
+        ended_at,
+        kind AS event_kind,
+        severity,
+        NULL AS status,
+        NULL AS model
+      FROM runtime_events
+      WHERE severity != 'info' ${sourceClause}
+    `);
+    params.push(...sourceParams);
+  }
+
+  if (arms.length === 0) return [];
+
+  const sql = `
+    SELECT kind, id, source_id, timestamp, summary, detail,
+           ended_at, event_kind, severity, status, model
+    FROM (
+      ${arms.join("\nUNION ALL\n")}
+    )
+    ORDER BY timestamp DESC
+  `;
+
+  return db.all<FailureUnionRow[]>(sql, ...(params as []));
+}
+
+function rowToItem(row: FailureUnionRow): FailureItem {
+  const fingerprint = computeFailureFingerprint({
+    kind: row.kind,
+    sourceId: row.source_id,
+    summary: row.summary,
+    detail: row.detail,
+    eventKind: row.event_kind,
+    severity: row.severity,
+    status: row.status,
+    model: row.model,
+  });
+  const resolved = isFailureEventResolved({
+    kind: row.kind,
+    endedAt: row.ended_at,
+  });
+  return {
+    kind: row.kind,
+    id: row.id,
+    sourceId: row.source_id,
+    timestamp: row.timestamp,
+    summary: row.summary,
+    detail: row.detail ?? undefined,
+    endedAt: row.ended_at ?? undefined,
+    fingerprint,
+    resolved,
+  };
+}
+
+/**
+ * Union of activity failures + inference failures + runtime_events.
+ * Uses the shared union projection, then LIMIT in SQL via a wrapping
+ * query so dashboard pages stay cheap (do not load the full table).
+ */
+export async function listRecentFailures(
+  db: SqliteDatabase,
+  limit = 50,
+  sourceId?: string,
+): Promise<FailureItem[]> {
+  const safe = safeLimit(limit, 50);
+  const sourceClause = sourceId ? "AND source_id = ?" : "";
+  const sourceParams = sourceId ? [sourceId] : [];
+
+  // Keep LIMIT in SQL (not load-all + slice) so the dashboard path stays O(page).
+  const sql = `
+    SELECT kind, id, source_id, timestamp, summary, detail,
+           ended_at, event_kind, severity, status, model
+    FROM (
+      SELECT
+        'activity' AS kind,
+        id,
+        source_id,
+        timestamp,
+        description AS summary,
+        json_extract(result, '$.error') AS detail,
+        NULL AS ended_at,
+        NULL AS event_kind,
+        NULL AS severity,
+        status AS status,
+        NULL AS model
       FROM activities
       WHERE status = 'failure' ${sourceClause}
 
@@ -66,7 +216,12 @@ export async function listRecentFailures(
         timestamp,
         (status || ' on ' || COALESCE(model, 'unknown model') ||
           ' (' || COALESCE(client_label, 'unknown client') || ')') AS summary,
-        error AS detail
+        error AS detail,
+        NULL AS ended_at,
+        NULL AS event_kind,
+        NULL AS severity,
+        status AS status,
+        model AS model
       FROM inference_requests
       WHERE status != 'success' ${sourceClause}
 
@@ -78,7 +233,12 @@ export async function listRecentFailures(
         source_id,
         timestamp,
         summary,
-        details AS detail
+        details AS detail,
+        ended_at,
+        kind AS event_kind,
+        severity,
+        NULL AS status,
+        NULL AS model
       FROM runtime_events
       WHERE severity != 'info' ${sourceClause}
     )
@@ -86,21 +246,145 @@ export async function listRecentFailures(
     LIMIT ?
   `;
 
-  // Each UNION arm needs its own source param when filtering.
   const params = sourceId
-    ? [...sourceParams, ...sourceParams, ...sourceParams, safeLimit]
-    : [safeLimit];
+    ? [...sourceParams, ...sourceParams, ...sourceParams, safe]
+    : [safe];
 
   const rows = await db.all<FailureUnionRow[]>(sql, ...(params as []));
+  return rows.map(rowToItem);
+}
 
-  return rows.map((row) => ({
-    kind: row.kind,
-    id: row.id,
-    sourceId: row.source_id,
-    timestamp: row.timestamp,
-    summary: row.summary,
-    detail: row.detail ?? undefined,
+export interface ListFailureGroupsOpts {
+  sourceId?: string;
+  kind?: FailureKind;
+  resolved?: FailureResolution;
+  limit?: number;
+  offset?: number;
+}
+
+/**
+ * Group failures by stable fingerprint. Pagination applies to groups
+ * (not raw events). Aggregate summary remains event-level.
+ *
+ * Scale note: loads the full matching union into memory, then groups.
+ * Fine for operator-scale failure tables; push GROUP BY / fingerprint
+ * projection into SQL if this becomes a hot path on large backlogs.
+ */
+export async function listFailureGroups(
+  db: SqliteDatabase,
+  opts: ListFailureGroupsOpts = {},
+): Promise<{ groups: FailureGroup[]; groupTotal: number }> {
+  const limit = safeLimit(opts.limit, 50);
+  const offset = safeOffset(opts.offset);
+
+  const rows = await loadFailureUnionRows(db, {
+    sourceId: opts.sourceId,
+    kind: opts.kind,
+  });
+
+  type Acc = {
+    fingerprint: string;
+    kind: FailureKind;
+    sourceId: string;
+    summary: string;
+    detail?: string;
+    occurrenceCount: number;
+    firstSeen: string;
+    lastSeen: string;
+    openCount: number;
+  };
+
+  const map = new Map<string, Acc>();
+
+  for (const row of rows) {
+    const item = rowToItem(row);
+    const fp = item.fingerprint!;
+    const existing = map.get(fp);
+    if (!existing) {
+      map.set(fp, {
+        fingerprint: fp,
+        kind: item.kind,
+        sourceId: item.sourceId,
+        summary: item.summary,
+        detail: item.detail,
+        occurrenceCount: 1,
+        firstSeen: item.timestamp,
+        lastSeen: item.timestamp,
+        openCount: item.resolved ? 0 : 1,
+      });
+      continue;
+    }
+    existing.occurrenceCount += 1;
+    if (item.timestamp > existing.lastSeen) {
+      existing.lastSeen = item.timestamp;
+      // Keep most-recent summary/detail as representative.
+      existing.summary = item.summary;
+      existing.detail = item.detail;
+    }
+    if (item.timestamp < existing.firstSeen) {
+      existing.firstSeen = item.timestamp;
+    }
+    if (!item.resolved) existing.openCount += 1;
+  }
+
+  let groups: FailureGroup[] = [...map.values()].map((g) => ({
+    fingerprint: g.fingerprint,
+    kind: g.kind,
+    sourceId: g.sourceId,
+    summary: g.summary,
+    detail: g.detail,
+    occurrenceCount: g.occurrenceCount,
+    firstSeen: g.firstSeen,
+    lastSeen: g.lastSeen,
+    openCount: g.openCount,
+    resolved: g.openCount === 0,
   }));
+
+  if (opts.resolved === "resolved") {
+    groups = groups.filter((g) => g.resolved);
+  } else if (opts.resolved === "unresolved") {
+    groups = groups.filter((g) => !g.resolved);
+  }
+
+  groups.sort((a, b) => {
+    if (a.lastSeen === b.lastSeen) {
+      return b.occurrenceCount - a.occurrenceCount;
+    }
+    return a.lastSeen < b.lastSeen ? 1 : -1;
+  });
+
+  const groupTotal = groups.length;
+  const page = groups.slice(offset, offset + limit);
+  return { groups: page, groupTotal };
+}
+
+export interface ListFailureGroupEventsOpts {
+  fingerprint: string;
+  sourceId?: string;
+  limit?: number;
+  offset?: number;
+}
+
+/**
+ * Individual events for a single fingerprint group (debug drill-down).
+ */
+export async function listFailureGroupEvents(
+  db: SqliteDatabase,
+  opts: ListFailureGroupEventsOpts,
+): Promise<{ events: FailureItem[]; total: number }> {
+  const limit = safeLimit(opts.limit, 50);
+  const offset = safeOffset(opts.offset);
+
+  // Fingerprint embeds kind + source; still apply optional source filter.
+  const rows = await loadFailureUnionRows(db, { sourceId: opts.sourceId });
+  const matched = rows
+    .map(rowToItem)
+    .filter((item) => item.fingerprint === opts.fingerprint);
+
+  // Already ordered by timestamp DESC from SQL.
+  const total = matched.length;
+  const events = matched.slice(offset, offset + limit);
+  return { events, total };
 }
 
 /**
