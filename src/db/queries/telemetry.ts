@@ -147,22 +147,78 @@ export interface RuntimeEventRow {
   details: string | null;
 }
 
+export interface RuntimeEventFilter {
+  sourceId?: string;
+  kind?: string;
+  /** ISO timestamp lower bound (inclusive). */
+  since?: string;
+  /** ISO timestamp upper bound (inclusive). */
+  until?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface PaginatedResult<T> {
+  rows: T[];
+  total: number;
+}
+
+function buildWhereSql(clauses: string[]): string {
+  if (clauses.length === 0) return "";
+  return `WHERE ${clauses.join(" AND ")}`;
+}
+
+/** Cap percentile samples so metrics stay cheap on large tables / 5s polls. */
+export const LATENCY_SAMPLE_LIMIT = 10_000;
+
+export async function listRuntimeEvents(
+  db: SqliteDatabase,
+  filter: RuntimeEventFilter = {},
+): Promise<PaginatedResult<RuntimeEventRow>> {
+  const limit = filter.limit ?? 20;
+  const offset = filter.offset ?? 0;
+  const clauses: string[] = [];
+  const params: unknown[] = [];
+
+  if (filter.sourceId) {
+    clauses.push("source_id = ?");
+    params.push(filter.sourceId);
+  }
+  if (filter.kind) {
+    clauses.push("kind = ?");
+    params.push(filter.kind);
+  }
+  if (filter.since) {
+    clauses.push("timestamp >= ?");
+    params.push(filter.since);
+  }
+  if (filter.until) {
+    clauses.push("timestamp <= ?");
+    params.push(filter.until);
+  }
+
+  const where = buildWhereSql(clauses);
+  const countRow = await db.get<{ c: number }>(
+    `SELECT COUNT(*) AS c FROM runtime_events ${where}`,
+    ...params,
+  );
+  const rows = await db.all<RuntimeEventRow[]>(
+    `SELECT * FROM runtime_events ${where} ORDER BY timestamp DESC LIMIT ? OFFSET ?`,
+    ...params,
+    limit,
+    offset,
+  );
+  return { rows, total: countRow?.c ?? 0 };
+}
+
+/** @deprecated Prefer listRuntimeEvents — kept for callers that only need a simple recent list. */
 export async function listRecentRuntimeEvents(
   db: SqliteDatabase,
   limit = 50,
   sourceId?: string,
 ): Promise<RuntimeEventRow[]> {
-  if (sourceId) {
-    return db.all<RuntimeEventRow[]>(
-      `SELECT * FROM runtime_events WHERE source_id = ? ORDER BY timestamp DESC LIMIT ?`,
-      sourceId,
-      limit,
-    );
-  }
-  return db.all<RuntimeEventRow[]>(
-    `SELECT * FROM runtime_events ORDER BY timestamp DESC LIMIT ?`,
-    limit,
-  );
+  const result = await listRuntimeEvents(db, { limit, sourceId, offset: 0 });
+  return result.rows;
 }
 
 export interface InferenceRequestRow {
@@ -208,15 +264,81 @@ export interface InferenceRequestDetailRow extends InferenceRequestRow {
   slot_id: number | null;
 }
 
+export interface InferenceRequestFilter {
+  status?: string;
+  clientLabel?: string;
+  sourceId?: string;
+  /** ISO timestamp lower bound (inclusive). */
+  since?: string;
+  /** ISO timestamp upper bound (inclusive). */
+  until?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export async function listInferenceRequests(
+  db: SqliteDatabase,
+  filter: InferenceRequestFilter = {},
+): Promise<PaginatedResult<InferenceRequestDetailRow>> {
+  const limit = filter.limit ?? 20;
+  const offset = filter.offset ?? 0;
+  const clauses: string[] = [];
+  const params: unknown[] = [];
+
+  if (filter.status) {
+    clauses.push("status = ?");
+    params.push(filter.status);
+  }
+  if (filter.clientLabel) {
+    clauses.push("client_label = ?");
+    params.push(filter.clientLabel);
+  }
+  if (filter.sourceId) {
+    clauses.push("source_id = ?");
+    params.push(filter.sourceId);
+  }
+  if (filter.since) {
+    clauses.push("timestamp >= ?");
+    params.push(filter.since);
+  }
+  if (filter.until) {
+    clauses.push("timestamp <= ?");
+    params.push(filter.until);
+  }
+
+  const where = buildWhereSql(clauses);
+  const countRow = await db.get<{ c: number }>(
+    `SELECT COUNT(*) AS c FROM inference_requests ${where}`,
+    ...params,
+  );
+  const rows = await db.all<InferenceRequestDetailRow[]>(
+    `SELECT * FROM inference_requests ${where} ORDER BY timestamp DESC LIMIT ? OFFSET ?`,
+    ...params,
+    limit,
+    offset,
+  );
+  return { rows, total: countRow?.c ?? 0 };
+}
+
 /** Recent requests regardless of status — the Runtime page's activity feed. */
 export async function listRecentInferenceRequests(
   db: SqliteDatabase,
   limit = 50,
 ): Promise<InferenceRequestDetailRow[]> {
-  return db.all<InferenceRequestDetailRow[]>(
-    `SELECT * FROM inference_requests ORDER BY timestamp DESC LIMIT ?`,
-    limit,
+  const result = await listInferenceRequests(db, { limit, offset: 0 });
+  return result.rows;
+}
+
+/** Distinct non-null client labels for filter dropdowns. */
+export async function listInferenceClientLabels(
+  db: SqliteDatabase,
+): Promise<string[]> {
+  const rows = await db.all<{ client_label: string }[]>(
+    `SELECT DISTINCT client_label FROM inference_requests
+     WHERE client_label IS NOT NULL AND client_label != ''
+     ORDER BY client_label ASC`,
   );
+  return rows.map((r) => r.client_label);
 }
 
 export interface RuntimeSnapshotRow {
@@ -251,4 +373,116 @@ export async function latestRuntimeSnapshots(
        AND s.timestamp = latest.max_ts
        AND (json_extract(s.payload, '$.port') IS latest.port)`,
   );
+}
+
+export interface RuntimeMetrics {
+  /** Sum of slots_busy across latest per-backend slot snapshots. */
+  activeSlots: number;
+  /** Sum of slots_total across latest per-backend slot snapshots. */
+  totalSlots: number;
+  /** activeSlots / totalSlots, or null when totalSlots is 0. */
+  saturationRate: number | null;
+  /** Requests per hour over the metrics window (null if window is unbounded). */
+  requestThroughputPerHour: number | null;
+  /** cancelled / total requests in window (null when total is 0). */
+  cancellationRate: number | null;
+  /** p50 duration_ms over the window (null when no timed requests). */
+  p50LatencyMs: number | null;
+  /** p95 duration_ms over the window (null when no timed requests). */
+  p95LatencyMs: number | null;
+  /** Total inference requests in the metrics window. */
+  requestCount: number;
+  /** Window lower bound used for rate metrics (ISO), or null for all-time. */
+  since: string | null;
+  /** Window length in hours used for throughput, or null when unbounded. */
+  windowHours: number | null;
+}
+
+function percentile(sorted: number[], p: number): number | null {
+  if (sorted.length === 0) return null;
+  if (sorted.length === 1) return sorted[0]!;
+  const rank = (p / 100) * (sorted.length - 1);
+  const lo = Math.floor(rank);
+  const hi = Math.ceil(rank);
+  if (lo === hi) return sorted[lo]!;
+  const weight = rank - lo;
+  return sorted[lo]! * (1 - weight) + sorted[hi]! * weight;
+}
+
+/**
+ * Operational metrics for the Runtime page.
+ * Slot occupancy is always "current" (latest snapshots). Rate/latency metrics
+ * use the optional `since` lower bound so operators can match the UI time range.
+ */
+export async function getRuntimeMetrics(
+  db: SqliteDatabase,
+  opts: { since?: string; windowHours?: number | null } = {},
+): Promise<RuntimeMetrics> {
+  const snapshots = await latestRuntimeSnapshots(db);
+  let activeSlots = 0;
+  let totalSlots = 0;
+  for (const s of snapshots) {
+    if (s.kind !== "slots") continue;
+    activeSlots += s.slots_busy ?? 0;
+    totalSlots += s.slots_total ?? 0;
+  }
+
+  const clauses: string[] = [];
+  const params: unknown[] = [];
+  if (opts.since) {
+    clauses.push("timestamp >= ?");
+    params.push(opts.since);
+  }
+  const where = buildWhereSql(clauses);
+
+  const stats = await db.get<{
+    total: number;
+    cancelled: number;
+  }>(
+    `SELECT
+       COUNT(*) AS total,
+       SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled
+     FROM inference_requests ${where}`,
+    ...params,
+  );
+
+  // Take the most recent timed samples (bounded), then sort by duration for
+  // percentile math — avoids loading unbounded history on every poll.
+  const durationWhere = where
+    ? `${where} AND duration_ms IS NOT NULL`
+    : "WHERE duration_ms IS NOT NULL";
+  const durations = await db.all<{ duration_ms: number }[]>(
+    `SELECT duration_ms FROM (
+       SELECT duration_ms FROM inference_requests
+       ${durationWhere}
+       ORDER BY timestamp DESC
+       LIMIT ?
+     ) sample
+     ORDER BY duration_ms ASC`,
+    ...params,
+    LATENCY_SAMPLE_LIMIT,
+  );
+
+  const sorted = durations.map((d) => d.duration_ms);
+  const requestCount = stats?.total ?? 0;
+  const cancelled = stats?.cancelled ?? 0;
+  const windowHours = opts.windowHours === undefined ? null : opts.windowHours;
+
+  let requestThroughputPerHour: number | null = null;
+  if (windowHours != null && windowHours > 0) {
+    requestThroughputPerHour = requestCount / windowHours;
+  }
+
+  return {
+    activeSlots,
+    totalSlots,
+    saturationRate: totalSlots > 0 ? activeSlots / totalSlots : null,
+    requestThroughputPerHour,
+    cancellationRate: requestCount > 0 ? cancelled / requestCount : null,
+    p50LatencyMs: percentile(sorted, 50),
+    p95LatencyMs: percentile(sorted, 95),
+    requestCount,
+    since: opts.since ?? null,
+    windowHours,
+  };
 }
