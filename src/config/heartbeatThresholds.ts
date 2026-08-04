@@ -11,6 +11,12 @@
  * pass overrides into `resolveHeartbeatThresholds` (or wire
  * `import.meta.env.VITE_MC_HEARTBEAT_*` at build time) if you need
  * non-default values.
+ *
+ * Manual verification of age-based Stale: stop a push collector for longer
+ * than the stale threshold (default 5 minutes), or temporarily lower
+ * `VITE_MC_HEARTBEAT_STALE_MS` / `VITE_MC_HEARTBEAT_OFFLINE_MS` at build
+ * time. Effective labels appear in Settings → Sources & Instances, Runtime
+ * health cards, and the global source filter tooltips.
  */
 
 const MINUTE = 60_000;

@@ -56,6 +56,33 @@ export const HEALTH_BORDER_CLASS: Record<HealthStatus, string> = {
   Unknown: "border-l-muted-foreground/30",
 };
 
+/** Dot colors for filter / compact status indicators (matches badge semantics). */
+export const HEALTH_DOT_CLASS: Record<HealthStatus, string> = {
+  Healthy: "bg-green-500",
+  Stale: "bg-amber-500",
+  Offline: "bg-muted-foreground/40",
+  Error: "bg-red-500",
+  Unknown: "bg-amber-500",
+};
+
+/**
+ * Compact hover label for an instance in the global source filter.
+ * Primary line uses effective health (same labels as Settings/Runtime);
+ * raw collector status is included for debugging.
+ */
+export function formatInstanceHealthTooltip(
+  instanceId: string,
+  health: SourceHealth,
+  rawStatus: string,
+): string {
+  const primary = health.reason
+    ? `${instanceId}: ${health.status} — ${health.reason}`
+    : `${instanceId}: ${health.status}`;
+  const raw = (rawStatus ?? "").trim();
+  if (!raw) return primary;
+  return `${primary} (raw: ${raw})`;
+}
+
 const HEALTHY_STATUSES = new Set(["ok", "healthy", "on"]);
 
 export type Thresholds = HeartbeatThresholds;

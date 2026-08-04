@@ -8,13 +8,17 @@ import {
 } from "@/components/ui/select";
 import { useSourceFilter } from "@/app/source-context";
 import { getRouteScope } from "@/config/sourceScope";
+import { useNow } from "@/hooks/useNow";
+import {
+  formatInstanceHealthTooltip,
+  getEffectiveHealth,
+  HEALTH_DOT_CLASS,
+  type HealthStatus,
+} from "@/services/sourceHealth";
 
-const STATUS_COLOR: Record<string, string> = {
-  ok: "bg-green-500",
-  off: "bg-muted-foreground/40",
-  error: "bg-red-500",
-  unknown: "bg-amber-500",
-};
+function instanceDotClass(status: HealthStatus | undefined): string {
+  return HEALTH_DOT_CLASS[status ?? "Unknown"];
+}
 
 export function SourceFilter() {
   const location = useLocation();
@@ -22,6 +26,8 @@ export function SourceFilter() {
   const disabled = scope.mode === "unscoped";
   const { sources, isLoading, error, selectedSourceId, setSelectedSourceId } =
     useSourceFilter();
+  // Age-based health must tick even when source payloads are unchanged.
+  const now = useNow();
 
   if (isLoading) {
     return <div className="h-9 w-40 animate-pulse rounded-md bg-muted" />;
@@ -40,6 +46,10 @@ export function SourceFilter() {
   }
 
   const selected = sources.find((s) => s.id === selectedSourceId);
+  const selectedPrimary = selected?.instances[0];
+  const selectedHealth = selectedPrimary
+    ? getEffectiveHealth(selectedPrimary, now)
+    : undefined;
   const title = disabled
     ? (scope.reason ?? "Source filter not applied on this page")
     : scope.mode === "mixed"
@@ -64,11 +74,14 @@ export function SourceFilter() {
         >
           <SelectValue placeholder="All sources">
             <span className="flex items-center gap-2">
-              {selected && (
+              {selectedPrimary && selectedHealth && (
                 <span
-                  className={`inline-block h-2 w-2 rounded-full ${
-                    STATUS_COLOR[selected.instances[0]?.status ?? "unknown"]
-                  }`}
+                  className={`inline-block h-2 w-2 rounded-full ${instanceDotClass(selectedHealth.status)}`}
+                  title={formatInstanceHealthTooltip(
+                    selectedPrimary.id,
+                    selectedHealth,
+                    selectedPrimary.status,
+                  )}
                 />
               )}
               <span className="truncate">
@@ -82,13 +95,21 @@ export function SourceFilter() {
           {sources.map((source) => (
             <SelectItem key={source.id} value={source.id}>
               <span className="flex items-center gap-2">
-                {source.instances.map((instance) => (
-                  <span
-                    key={instance.id}
-                    className={`inline-block h-2 w-2 rounded-full flex-shrink-0 ${STATUS_COLOR[instance.status] ?? STATUS_COLOR.unknown}`}
-                    title={`${instance.id}: ${instance.status}`}
-                  />
-                ))}
+                {source.instances.map((instance) => {
+                  const health = getEffectiveHealth(instance, now);
+                  return (
+                    <span
+                      key={instance.id}
+                      className={`inline-block h-2 w-2 rounded-full flex-shrink-0 ${instanceDotClass(health.status)}`}
+                      title={formatInstanceHealthTooltip(
+                        instance.id,
+                        health,
+                        instance.status,
+                      )}
+                      aria-label={`${instance.id}: ${health.status}`}
+                    />
+                  );
+                })}
                 <span className="truncate">{source.name}</span>
               </span>
             </SelectItem>
