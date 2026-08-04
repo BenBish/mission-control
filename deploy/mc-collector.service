@@ -1,5 +1,5 @@
 [Unit]
-Description=Mission Control desktop collector (Claude Code + Codex + Grok)
+Description=Mission Control desktop collector (Claude Code + Codex + Grok + OpenCode)
 After=network-online.target
 Wants=network-online.target
 

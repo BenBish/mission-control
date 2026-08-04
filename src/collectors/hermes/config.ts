@@ -39,6 +39,9 @@ export const HERMES_BACKENDS: HermesBackend[] = [
   {
     port: 12347,
     unit: "llama-toolbox-qwen-opencode.service",
+    // Runtime/inference client label only — not the agentic desktop source
+    // `opencode` (OpenCode CLI sessions from opencode.db). Same string, two
+    // product surfaces: Hermes backend health vs Activity/Sessions filter.
     label: "opencode",
   },
   {
