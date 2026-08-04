@@ -651,6 +651,13 @@ export interface RuntimePage<T> {
   pageSize: number;
 }
 
+export interface RuntimeClientVolume {
+  clientLabel: string;
+  requestCount: number;
+  promptTokens: number;
+  completionTokens: number;
+}
+
 export interface RuntimeData {
   range: RuntimeRange;
   sources: Source[];
@@ -661,6 +668,8 @@ export interface RuntimeData {
     requestStatuses: string[];
     eventKinds: string[];
   };
+  /** Request volume by client_label for the selected range (BSH-89). */
+  requestsByClient?: RuntimeClientVolume[];
   inferenceRequests: RuntimePage<InferenceRequestSummary>;
   runtimeEvents: RuntimePage<RuntimeEvent>;
 }
