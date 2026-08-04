@@ -107,8 +107,10 @@ const SEED_INSTANCES: Array<{
     sourceId: "opencode",
     machine: "arch-desktop",
     endpoint: null,
-    // Reads ~/.local/share/opencode/opencode.db (SQLite), not JSONL.
-    collectorKind: "sqlite-push",
+    // Reads ~/.local/share/opencode/opencode.db (SQLite). Schema CHECK on
+    // source_instances.collector_kind only allows jsonl-push | http-poll;
+    // jsonl-push here means desktop push collector, not the file format.
+    collectorKind: "jsonl-push",
     status: "unknown",
   },
   {

@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import {
+  advanceTableCursor,
   emptyCursor,
+  isAfterCursor,
   modelLabel,
+  normalizeCursor,
   parseMessage,
   parseModelField,
   parseToolPart,
@@ -38,9 +41,35 @@ const baseSession = (): OpenCodeSessionRow => ({
 describe("OpenCode parser", () => {
   test("emptyCursor starts at zero watermarks", () => {
     expect(emptyCursor()).toEqual({
-      sessionUpdated: 0,
-      messageUpdated: 0,
-      partUpdated: 0,
+      session: { updated: 0, id: "" },
+      message: { updated: 0, id: "" },
+      part: { updated: 0, id: "" },
+    });
+  });
+
+  test("normalizeCursor accepts legacy numeric watermarks", () => {
+    expect(
+      normalizeCursor({
+        sessionUpdated: 10,
+        messageUpdated: 20,
+        partUpdated: 30,
+      }),
+    ).toEqual({
+      session: { updated: 10, id: "" },
+      message: { updated: 20, id: "" },
+      part: { updated: 30, id: "" },
+    });
+  });
+
+  test("compound table cursor orders by (updated, id)", () => {
+    const cursor = { updated: 100, id: "b" };
+    expect(isAfterCursor(101, "a", cursor)).toBe(true);
+    expect(isAfterCursor(100, "c", cursor)).toBe(true);
+    expect(isAfterCursor(100, "a", cursor)).toBe(false);
+    expect(isAfterCursor(99, "z", cursor)).toBe(false);
+    expect(advanceTableCursor(cursor, 100, "c")).toEqual({
+      updated: 100,
+      id: "c",
     });
   });
 

@@ -63,14 +63,81 @@ export interface OpenCodeSessionCounts {
   failureCount: number;
 }
 
+/** Watermark for one table: (time_updated, id) so LIMIT batches never skip ties. */
+export interface OpenCodeTableCursor {
+  updated: number;
+  id: string;
+}
+
 export interface OpenCodeDbCursor {
-  sessionUpdated: number;
-  messageUpdated: number;
-  partUpdated: number;
+  session: OpenCodeTableCursor;
+  message: OpenCodeTableCursor;
+  part: OpenCodeTableCursor;
+}
+
+export function emptyTableCursor(): OpenCodeTableCursor {
+  return { updated: 0, id: "" };
 }
 
 export function emptyCursor(): OpenCodeDbCursor {
-  return { sessionUpdated: 0, messageUpdated: 0, partUpdated: 0 };
+  return {
+    session: emptyTableCursor(),
+    message: emptyTableCursor(),
+    part: emptyTableCursor(),
+  };
+}
+
+/** Normalize legacy aggregate cursors that only stored numeric watermarks. */
+export function normalizeCursor(raw: unknown): OpenCodeDbCursor {
+  if (!raw || typeof raw !== "object") return emptyCursor();
+  const r = raw as Record<string, unknown>;
+  const table = (
+    key: "session" | "message" | "part",
+    legacyUpdatedKey: string,
+  ): OpenCodeTableCursor => {
+    const nested = r[key];
+    if (nested && typeof nested === "object") {
+      const n = nested as Record<string, unknown>;
+      return {
+        updated: typeof n.updated === "number" ? n.updated : 0,
+        id: typeof n.id === "string" ? n.id : "",
+      };
+    }
+    return {
+      updated:
+        typeof r[legacyUpdatedKey] === "number"
+          ? (r[legacyUpdatedKey] as number)
+          : 0,
+      id: "",
+    };
+  };
+  return {
+    session: table("session", "sessionUpdated"),
+    message: table("message", "messageUpdated"),
+    part: table("part", "partUpdated"),
+  };
+}
+
+/** True when row is strictly after the cursor in (time_updated, id) order. */
+export function isAfterCursor(
+  timeUpdated: number,
+  id: string,
+  cursor: OpenCodeTableCursor,
+): boolean {
+  if (timeUpdated > cursor.updated) return true;
+  if (timeUpdated < cursor.updated) return false;
+  return id > cursor.id;
+}
+
+export function advanceTableCursor(
+  cursor: OpenCodeTableCursor,
+  timeUpdated: number,
+  id: string,
+): OpenCodeTableCursor {
+  if (isAfterCursor(timeUpdated, id, cursor)) {
+    return { updated: timeUpdated, id };
+  }
+  return cursor;
 }
 
 export function toIso(ms: number | null | undefined): string | undefined {

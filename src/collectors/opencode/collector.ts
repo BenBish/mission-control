@@ -16,7 +16,8 @@ import type { IngestEvent, Sink } from "../../types/ingest.js";
 import { CollectorStateStore } from "../core/state-store.js";
 import { sendBatched } from "../core/scheduler.js";
 import {
-  emptyCursor,
+  advanceTableCursor,
+  normalizeCursor,
   parseMessage,
   parseToolPart,
   sessionToIngestEvent,
@@ -92,30 +93,43 @@ export class OpenCodeCollector implements Collector {
         };
       }
 
-      const cursor =
-        this.state.getAggregate<OpenCodeDbCursor>(CURSOR_KEY) ?? emptyCursor();
+      const cursor = normalizeCursor(this.state.getAggregate(CURSOR_KEY));
       const events: IngestEvent[] = [];
-      const nextCursor: OpenCodeDbCursor = { ...cursor };
+      const nextCursor: OpenCodeDbCursor = {
+        session: { ...cursor.session },
+        message: { ...cursor.message },
+        part: { ...cursor.part },
+      };
 
-      // Parts first (tool activity), then messages, then session snapshots so
-      // session aggregates reflect the latest counts after new activity.
+      // Compound watermark: (time_updated, id) so LIMIT batches never skip
+      // rows that share the boundary timestamp.
       const parts = db
         .query(
           `SELECT id, message_id, session_id, time_created, time_updated, data
            FROM part
-           WHERE time_updated > ?
-             AND json_extract(data, '$.type') = 'tool'
+           WHERE json_extract(data, '$.type') = 'tool'
+             AND (
+               time_updated > ?
+               OR (time_updated = ? AND id > ?)
+             )
            ORDER BY time_updated ASC, id ASC
            LIMIT ?`,
         )
-        .all(cursor.partUpdated, MAX_PARTS_PER_TICK) as OpenCodePartRow[];
+        .all(
+          cursor.part.updated,
+          cursor.part.updated,
+          cursor.part.id,
+          MAX_PARTS_PER_TICK,
+        ) as OpenCodePartRow[];
 
       for (const part of parts) {
         const event = parseToolPart(part);
         if (event) events.push(event);
-        if (part.time_updated > nextCursor.partUpdated) {
-          nextCursor.partUpdated = part.time_updated;
-        }
+        nextCursor.part = advanceTableCursor(
+          nextCursor.part,
+          part.time_updated,
+          part.id,
+        );
       }
 
       const messages = db
@@ -123,11 +137,14 @@ export class OpenCodeCollector implements Collector {
           `SELECT id, session_id, time_created, time_updated, data
            FROM message
            WHERE time_updated > ?
+              OR (time_updated = ? AND id > ?)
            ORDER BY time_updated ASC, id ASC
            LIMIT ?`,
         )
         .all(
-          cursor.messageUpdated,
+          cursor.message.updated,
+          cursor.message.updated,
+          cursor.message.id,
           MAX_MESSAGES_PER_TICK,
         ) as OpenCodeMessageRow[];
 
@@ -159,9 +176,11 @@ export class OpenCodeCollector implements Collector {
 
         const event = parseMessage(message, userText);
         if (event) events.push(event);
-        if (message.time_updated > nextCursor.messageUpdated) {
-          nextCursor.messageUpdated = message.time_updated;
-        }
+        nextCursor.message = advanceTableCursor(
+          nextCursor.message,
+          message.time_updated,
+          message.id,
+        );
       }
 
       const sessions = db
@@ -172,11 +191,14 @@ export class OpenCodeCollector implements Collector {
                   time_created, time_updated, time_archived
            FROM session
            WHERE time_updated > ?
+              OR (time_updated = ? AND id > ?)
            ORDER BY time_updated ASC, id ASC
            LIMIT ?`,
         )
         .all(
-          cursor.sessionUpdated,
+          cursor.session.updated,
+          cursor.session.updated,
+          cursor.session.id,
           MAX_SESSIONS_PER_TICK,
         ) as OpenCodeSessionRow[];
 
@@ -204,14 +226,14 @@ export class OpenCodeCollector implements Collector {
 
         const counts = this.loadCounts(db, sessionId);
         events.push(sessionToIngestEvent(row, counts));
-        if (row.time_updated > nextCursor.sessionUpdated) {
-          nextCursor.sessionUpdated = row.time_updated;
-        }
+        nextCursor.session = advanceTableCursor(
+          nextCursor.session,
+          row.time_updated,
+          row.id,
+        );
       }
 
       if (events.length === 0) {
-        // Advance nothing — still ok. If we hit per-tick limits with no
-        // parseable events, keep cursors so we don't spin.
         if (
           parts.length === 0 &&
           messages.length === 0 &&
