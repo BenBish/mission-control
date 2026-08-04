@@ -143,7 +143,7 @@ export async function insertActivity(
        model, cost_usd, request_id, tags, metadata
      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(source_id, session_id, external_id) DO UPDATE SET
-       -- Keep the earliest start timestamp.
+       -- Keep the earliest start timestamp (ISO-8601 strings compare lexicographically).
        timestamp = CASE
          WHEN excluded.timestamp < activities.timestamp THEN excluded.timestamp
          ELSE activities.timestamp

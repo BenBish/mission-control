@@ -238,8 +238,6 @@ describe("Grok parser", () => {
   test("parses cumulative usage updates", () => {
     const { root, updates, sessionId } = sessionFixture();
     try {
-      // Keep a minimal tool smoke so prior suite shape still covers usage.
-
       const usage = parseGrokLine(
         JSON.stringify({
           method: "_x.ai/session/update",

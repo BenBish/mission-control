@@ -200,22 +200,26 @@ function toIso(value: string | number | undefined): string | undefined {
   return new Date(millis).toISOString();
 }
 
-function textSnippet(value: unknown): string {
-  if (typeof value === "string") return value.slice(0, 500);
+function textSnippet(value: unknown, max = 500): string {
+  if (typeof value === "string") return value.slice(0, max);
   if (Array.isArray(value)) {
     return value
-      .map((item) => textSnippet(item))
+      .map((item) => textSnippet(item, max))
       .filter(Boolean)
       .join(" ")
-      .slice(0, 500);
+      .slice(0, max);
   }
   if (!value || typeof value !== "object") return "";
   const record = value as Record<string, unknown>;
-  for (const key of ["text", "content", "message", "title"]) {
-    const snippet = textSnippet(record[key]);
+  for (const key of ["text", "content", "message", "title", "output"]) {
+    const snippet = textSnippet(record[key], max);
     if (snippet) return snippet;
   }
-  return "";
+  try {
+    return JSON.stringify(value).slice(0, max);
+  } catch {
+    return "";
+  }
 }
 
 /**
@@ -480,17 +484,18 @@ export function parseGrokLine(
       description,
       status,
       model,
-      result:
-        isTerminalStatus(status) && update?.rawOutput !== undefined
-          ? update.rawOutput
-          : undefined,
+      // Do not put rawOutput on `result` — Grok dumps can be entire file
+      // contents. Keep a short snippet in details only.
       details: {
         kind,
         toolCallId,
         namespace: tool?.namespace,
         sessionUpdate: sessionUpdateKind || undefined,
         rawInput: update?.rawInput,
-        rawOutput: update?.rawOutput,
+        rawOutput:
+          update?.rawOutput !== undefined
+            ? textSnippet(update.rawOutput, 2000)
+            : undefined,
       },
     };
 
