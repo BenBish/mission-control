@@ -34,6 +34,7 @@ import {
 import {
   useRuntime,
   type InferenceRequestSummary,
+  type RuntimeClientVolume,
   type RuntimeEvent,
   type RuntimeMetrics,
   type RuntimeQueryParams,
@@ -47,6 +48,11 @@ import {
   formatLastActive,
   formatRelativeTime,
 } from "@/lib/date-utils";
+import {
+  clientLabelDisplay,
+  formatClientLabel,
+  hasOpenCodeHermesClient,
+} from "@/lib/client-label-display";
 import { useNow } from "@/hooks/useNow";
 import {
   getEffectiveHealth,
@@ -165,13 +171,15 @@ function InstanceHealthCard({
 function SlotOccupancyRow({ snapshot }: { snapshot: RuntimeSnapshot }) {
   const total = snapshot.slotsTotal ?? 0;
   const busy = snapshot.slotsBusy ?? 0;
-  const label = snapshot.payload?.label ?? snapshot.instanceId;
+  const rawLabel = snapshot.payload?.label;
+  const display = clientLabelDisplay(rawLabel);
+  const label = rawLabel ? display.name : snapshot.instanceId;
   const port = snapshot.payload?.port;
 
   return (
     <div className="flex items-center justify-between gap-4 py-2">
       <div className="min-w-0">
-        <p className="text-sm font-medium">
+        <p className="text-sm font-medium" title={display.description}>
           {label}
           {port != null && (
             <span className="ml-1.5 text-xs text-muted-foreground font-mono">
@@ -252,8 +260,16 @@ function InferenceRequestRow({
         {formatRelativeTime(request.timestamp)}
       </td>
       <td className="py-3 px-4 text-sm">
-        <Badge variant="secondary" className="text-xs">
-          {request.clientLabel ?? "unknown"}
+        <Badge
+          variant="secondary"
+          className="text-xs"
+          title={
+            clientLabelDisplay(request.clientLabel).description ??
+            request.clientLabel ??
+            undefined
+          }
+        >
+          {formatClientLabel(request.clientLabel)}
         </Badge>
       </td>
       <td className="py-3 px-4 text-sm font-mono text-xs truncate max-w-[10rem]">
@@ -293,6 +309,78 @@ function InferenceRequestRow({
         </Badge>
       </td>
     </tr>
+  );
+}
+
+function RequestsByClientCard({
+  rows,
+  range,
+  onSelectClient,
+}: {
+  rows: RuntimeClientVolume[];
+  range: RuntimeRange;
+  onSelectClient: (clientLabel: string) => void;
+}) {
+  const windowLabel = range === "all" ? "all time" : `last ${range}`;
+  return (
+    <Card className="shadow-sm">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg flex items-center gap-2">
+          <Server className="h-4 w-4" />
+          Requests by backend
+        </CardTitle>
+        <CardDescription>
+          Inference volume by client label ({windowLabel}). These are Hermes /
+          lemonade backends — not agentic Activity sources.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {rows.length === 0 ? (
+          <p className="py-4 text-center text-sm text-muted-foreground">
+            No inference requests in this range.
+          </p>
+        ) : (
+          <ul className="divide-y">
+            {rows.map((row) => {
+              const display = clientLabelDisplay(row.clientLabel);
+              const tokens = row.promptTokens + row.completionTokens;
+              return (
+                <li
+                  key={row.clientLabel}
+                  className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
+                >
+                  <div className="min-w-0">
+                    <button
+                      type="button"
+                      className="text-sm font-medium text-left hover:underline"
+                      title={
+                        display.description
+                          ? `${display.description} (filter requests)`
+                          : `Filter requests for ${row.clientLabel}`
+                      }
+                      onClick={() => onSelectClient(row.clientLabel)}
+                    >
+                      {display.name}
+                    </button>
+                    <p className="text-xs text-muted-foreground font-mono truncate">
+                      {row.clientLabel}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-semibold tabular-nums">
+                      {row.requestCount.toLocaleString()} req
+                    </p>
+                    <p className="text-xs text-muted-foreground tabular-nums">
+                      {tokens > 0 ? `${tokens.toLocaleString()} tok` : "— tok"}
+                    </p>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -646,6 +734,8 @@ export default function Runtime() {
     windowHours: null,
   };
   const clientLabels = data?.filters.clientLabels ?? [];
+  const requestsByClient = data?.requestsByClient ?? [];
+  const showOpenCodeHint = hasOpenCodeHermesClient(clientLabels);
 
   const slotSnapshots = snapshots.filter((s) => s.kind === "slots");
   const modelsSnapshot = snapshots.find((s) => s.kind === "models");
@@ -724,17 +814,60 @@ export default function Runtime() {
         <>
           <MetricsStrip metrics={metrics} range={range} saturated={saturated} />
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {sources.flatMap((source) =>
-              source.instances.map((instance) => (
-                <InstanceHealthCard
-                  key={instance.id}
-                  source={source.name}
-                  instance={instance}
-                  now={now}
-                />
-              )),
-            )}
+          {showOpenCodeHint && (
+            <div
+              className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground"
+              role="note"
+            >
+              <p>
+                <span className="font-medium text-foreground">
+                  {formatClientLabel("opencode")}
+                </span>{" "}
+                in the Client filter and request table is Hermes/llama-swap
+                backend inference for the OpenCode-dedicated slot — not OpenCode
+                agent sessions (Activities / Sessions). Filter or open{" "}
+                <button
+                  type="button"
+                  className="font-medium text-foreground underline-offset-2 hover:underline"
+                  onClick={() =>
+                    updateParams({
+                      reqClient: "opencode",
+                      reqPage: 1,
+                    })
+                  }
+                >
+                  OpenCode backend requests
+                </button>{" "}
+                to inspect that traffic.
+              </p>
+            </div>
+          )}
+
+          <div className="grid gap-4 lg:grid-cols-3">
+            <div className="lg:col-span-1">
+              <RequestsByClientCard
+                rows={requestsByClient}
+                range={range}
+                onSelectClient={(clientLabel) =>
+                  updateParams({
+                    reqClient: clientLabel,
+                    reqPage: 1,
+                  })
+                }
+              />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 lg:col-span-2 content-start">
+              {sources.flatMap((source) =>
+                source.instances.map((instance) => (
+                  <InstanceHealthCard
+                    key={instance.id}
+                    source={source.name}
+                    instance={instance}
+                    now={now}
+                  />
+                )),
+              )}
+            </div>
           </div>
 
           <Card className="shadow-sm">
@@ -845,7 +978,7 @@ export default function Runtime() {
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">
-                    Client
+                    Backend
                   </label>
                   <Select
                     value={reqClient ?? "all"}
@@ -856,16 +989,16 @@ export default function Runtime() {
                     }
                   >
                     <SelectTrigger
-                      className="w-[160px]"
-                      aria-label="Request client filter"
+                      className="w-[220px]"
+                      aria-label="Request backend filter"
                     >
                       <SelectValue placeholder="All" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="all">All backends</SelectItem>
                       {clientLabels.map((c) => (
-                        <SelectItem key={c} value={c}>
-                          {c}
+                        <SelectItem key={c} value={c} title={c}>
+                          {formatClientLabel(c)}
                         </SelectItem>
                       ))}
                     </SelectContent>

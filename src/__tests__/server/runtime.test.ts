@@ -81,6 +81,12 @@ type RuntimeBody = {
     requestStatuses: string[];
     eventKinds: string[];
   };
+  requestsByClient?: Array<{
+    clientLabel: string;
+    requestCount: number;
+    promptTokens: number;
+    completionTokens: number;
+  }>;
   inferenceRequests?: {
     items: Array<{
       id: string;
@@ -183,8 +189,43 @@ describe("GET /api/runtime", () => {
     expect(body.metrics?.p50LatencyMs).toBeNull();
     expect(body.metrics?.p95LatencyMs).toBeNull();
     expect(body.metrics?.requestCount).toBe(0);
+    expect(body.requestsByClient).toEqual([]);
     expect(body.filters?.requestStatuses).toContain("success");
     expect(body.filters?.eventKinds).toContain("slots_saturated");
+  });
+
+  test("BSH-89: requestsByClient aggregates volume per client_label", async () => {
+    const now = Date.now();
+    for (let i = 0; i < 3; i++) {
+      await insertRequest({
+        id: `opencode-${i}`,
+        timestamp: new Date(now - i * 1000).toISOString(),
+        clientLabel: "opencode",
+      });
+    }
+    await insertRequest({
+      id: "hermes-1",
+      timestamp: new Date(now - 5000).toISOString(),
+      clientLabel: "hermes-qwen",
+    });
+
+    const { status, body } = await getJson("/api/runtime?range=24h");
+    expect(status).toBe(200);
+    expect(body.requestsByClient).toEqual([
+      {
+        clientLabel: "opencode",
+        requestCount: 3,
+        promptTokens: 0,
+        completionTokens: 0,
+      },
+      {
+        clientLabel: "hermes-qwen",
+        requestCount: 1,
+        promptTokens: 0,
+        completionTokens: 0,
+      },
+    ]);
+    expect(body.filters?.clientLabels).toEqual(["hermes-qwen", "opencode"]);
   });
 
   test("paginates requests with total across pages (saturated list)", async () => {

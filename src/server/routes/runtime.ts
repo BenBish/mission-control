@@ -4,6 +4,7 @@ import { listSources } from "../../db/queries/sources.js";
 import {
   latestRuntimeSnapshots,
   listInferenceClientLabels,
+  listInferenceRequestCountsByClient,
   listInferenceRequests,
   listRuntimeEvents,
   getRuntimeMetrics,
@@ -176,28 +177,36 @@ export function registerRuntimeRoutes(app: Express, db: Database): void {
       const eventOffset = (eventPage - 1) * eventLimit;
 
       const raw = db.raw();
-      const [sources, snapshots, requests, events, metrics, clientLabels] =
-        await Promise.all([
-          listSources(raw),
-          latestRuntimeSnapshots(raw),
-          listInferenceRequests(raw, {
-            status: reqStatus,
-            clientLabel: reqClient,
-            sourceId,
-            since,
-            limit: reqLimit,
-            offset: reqOffset,
-          }),
-          listRuntimeEvents(raw, {
-            kind: eventKind,
-            sourceId,
-            since,
-            limit: eventLimit,
-            offset: eventOffset,
-          }),
-          getRuntimeMetrics(raw, { since, windowHours }),
-          listInferenceClientLabels(raw),
-        ]);
+      const [
+        sources,
+        snapshots,
+        requests,
+        events,
+        metrics,
+        clientLabels,
+        requestsByClient,
+      ] = await Promise.all([
+        listSources(raw),
+        latestRuntimeSnapshots(raw),
+        listInferenceRequests(raw, {
+          status: reqStatus,
+          clientLabel: reqClient,
+          sourceId,
+          since,
+          limit: reqLimit,
+          offset: reqOffset,
+        }),
+        listRuntimeEvents(raw, {
+          kind: eventKind,
+          sourceId,
+          since,
+          limit: eventLimit,
+          offset: eventOffset,
+        }),
+        getRuntimeMetrics(raw, { since, windowHours }),
+        listInferenceClientLabels(raw),
+        listInferenceRequestCountsByClient(raw, { since, sourceId }),
+      ]);
 
       res.json({
         success: true,
@@ -231,6 +240,8 @@ export function registerRuntimeRoutes(app: Express, db: Database): void {
           requestStatuses: [...REQUEST_STATUSES],
           eventKinds: [...EVENT_KINDS],
         },
+        /** Volume by backend client_label for the selected range (BSH-89). */
+        requestsByClient,
         inferenceRequests: {
           items: requests.rows.map((r) => ({
             id: r.id,

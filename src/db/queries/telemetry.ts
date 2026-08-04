@@ -341,6 +341,59 @@ export async function listInferenceClientLabels(
   return rows.map((r) => r.client_label);
 }
 
+export interface InferenceClientCountRow {
+  clientLabel: string;
+  requestCount: number;
+  promptTokens: number;
+  completionTokens: number;
+}
+
+/**
+ * Request volume by client_label for the selected Runtime window.
+ * Powers the "Requests by backend" card so OpenCode/Hermes traffic is
+ * discoverable without knowing internal ids (BSH-89).
+ */
+export async function listInferenceRequestCountsByClient(
+  db: SqliteDatabase,
+  opts: { since?: string; sourceId?: string } = {},
+): Promise<InferenceClientCountRow[]> {
+  const clauses: string[] = ["client_label IS NOT NULL", "client_label != ''"];
+  const params: unknown[] = [];
+  if (opts.since) {
+    clauses.push("timestamp >= ?");
+    params.push(opts.since);
+  }
+  if (opts.sourceId) {
+    clauses.push("source_id = ?");
+    params.push(opts.sourceId);
+  }
+  const where = `WHERE ${clauses.join(" AND ")}`;
+  const rows = await db.all<
+    {
+      client_label: string;
+      request_count: number;
+      prompt_tokens: number | null;
+      completion_tokens: number | null;
+    }[]
+  >(
+    `SELECT client_label,
+            COUNT(*) AS request_count,
+            COALESCE(SUM(prompt_tokens), 0) AS prompt_tokens,
+            COALESCE(SUM(completion_tokens), 0) AS completion_tokens
+     FROM inference_requests
+     ${where}
+     GROUP BY client_label
+     ORDER BY request_count DESC, client_label ASC`,
+    ...params,
+  );
+  return rows.map((r) => ({
+    clientLabel: r.client_label,
+    requestCount: r.request_count,
+    promptTokens: Number(r.prompt_tokens ?? 0),
+    completionTokens: Number(r.completion_tokens ?? 0),
+  }));
+}
+
 export interface RuntimeSnapshotRow {
   source_id: string;
   instance_id: string;
