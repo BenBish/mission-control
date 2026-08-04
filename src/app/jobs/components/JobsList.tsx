@@ -3,10 +3,16 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/_shared/PageHeader";
 import { Loading } from "@/components/_shared/Loading";
+import { EmptyState } from "@/components/_shared/EmptyState";
 import { Clock, AlertCircle } from "lucide-react";
 import { useSourceFilter } from "@/app/source-context";
 import { scopePhrase } from "@/config/sourceScope";
 import { useJobs } from "@/lib/queries";
+import {
+  getEmptyWorkloadPageState,
+  getWorkloadAvailability,
+  workloadSetupActions,
+} from "@/lib/workload-availability";
 import { ContentionIncidents } from "./ContentionIncidents";
 
 function formatTimestamp(ms?: number): string {
@@ -14,9 +20,49 @@ function formatTimestamp(ms?: number): string {
   return new Date(ms).toLocaleString();
 }
 
+function jobsEmptyCopy(state: ReturnType<typeof getEmptyWorkloadPageState>) {
+  switch (state) {
+    case "not_configured":
+      return {
+        title: "Jobs are not configured",
+        description:
+          "No job-producing sources are registered in this deployment. Add collector sources to observe background work.",
+        detail: undefined as string | undefined,
+      };
+    case "disabled":
+      return {
+        title: "Job collectors are offline",
+        description:
+          "Related sources are intentionally offline. Enable agent or Hermes collectors to start observing background jobs.",
+        detail: undefined,
+      };
+    case "error":
+      return {
+        title: "Job collectors reported errors",
+        description:
+          "Related sources are in an error state. Check source health in Settings, then retry once collectors recover.",
+        detail: undefined,
+      };
+    case "no_data":
+    default:
+      return {
+        // Keep exact title string for e2e JobsPage empty-state locator.
+        title: "No background jobs observed yet.",
+        description:
+          "Jobs appear here once a collector or Hermes background task runs.",
+        detail: undefined,
+      };
+  }
+}
+
 export function JobsList() {
   const navigate = useNavigate();
-  const { selectedSourceId, sources } = useSourceFilter();
+  const {
+    selectedSourceId,
+    sources,
+    isLoading: sourcesLoading,
+    error: sourcesError,
+  } = useSourceFilter();
   const pageDescription = `Background work ${scopePhrase(selectedSourceId, sources)} — Hermes jobs and collector self-observation`;
   const {
     data: jobs,
@@ -25,6 +71,15 @@ export function JobsList() {
   } = useJobs({
     sourceId: selectedSourceId,
   });
+
+  const availability = getWorkloadAvailability(
+    "jobs",
+    (sourcesLoading && sources.length === 0) || sourcesError
+      ? undefined
+      : sources,
+  );
+  const emptyState = getEmptyWorkloadPageState(availability);
+  const emptyCopy = jobsEmptyCopy(emptyState);
 
   if (isLoading) {
     return (
@@ -58,17 +113,16 @@ export function JobsList() {
       <PageHeader title="Jobs" description={pageDescription} />
 
       {count === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <Clock className="mx-auto h-12 w-12 text-muted-foreground/30" />
-            <p className="mt-4 text-muted-foreground">
-              No background jobs observed yet.
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Jobs appear here once a collector or Hermes background task runs.
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          state={emptyState}
+          icon={Clock}
+          title={emptyCopy.title}
+          description={emptyCopy.description}
+          detail={emptyCopy.detail ?? availability.reason}
+          actions={
+            emptyState === "no_data" ? undefined : workloadSetupActions("jobs")
+          }
+        />
       ) : (
         <Card className="shadow-sm">
           <CardContent className="pt-4 px-0">

@@ -35,6 +35,8 @@ export const NAV_ITEMS = [
   { label: "Runtime", path: "/runtime" },
   { label: "Failures", path: "/failures" },
   { label: "Consumption", path: "/consumption" },
+  // Workloads group (Jobs / Generations) — Generations may be de-emphasized when ComfyUI is off
   { label: "Jobs", path: "/jobs" },
+  { label: "Generations", path: "/generations" },
   { label: "Settings", path: "/settings" },
 ] as const;
