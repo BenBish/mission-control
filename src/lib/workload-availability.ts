@@ -18,7 +18,7 @@ export type WorkloadPageState =
   | "disabled"
   | "error"
   | "no_data"
-  | "ready";
+  | "available";
 
 /** How prominently a workload should appear in primary navigation. */
 export type WorkloadNavEmphasis = "primary" | "deemphasized" | "hidden";
@@ -37,7 +37,7 @@ export interface WorkloadAvailability {
   /** True when any related instance reports status "error". */
   hasError: boolean;
   /** Aggregate for empty states once list data is empty. */
-  pageState: Exclude<WorkloadPageState, "no_data" | "ready"> | "available";
+  pageState: WorkloadPageState;
   /** Nav presentation when the workload has no live data signal. */
   navEmphasis: WorkloadNavEmphasis;
   /** Short label for nav badges (e.g. "Off"). */
@@ -140,15 +140,16 @@ export function getWorkloadAvailability(
 
   if (!available) {
     // All instances intentionally off — feature not enabled in this deploy.
+    // (An instance cannot be both status "off" and "error", so hasError is unused here.)
     return {
       workloadId,
       sourceIds,
       configured: true,
       available: false,
-      hasError,
-      pageState: hasError ? "error" : "disabled",
+      hasError: false,
+      pageState: "disabled",
       navEmphasis: "deemphasized",
-      navBadge: hasError ? "Error" : "Off",
+      navBadge: "Off",
       reason:
         workloadId === "generations"
           ? "ComfyUI polling is offline — enable MC_COMFYUI_POLLING_ENABLED and run the ComfyUI service."
@@ -160,6 +161,7 @@ export function getWorkloadAvailability(
     hasError &&
     nonOff.every((i) => (i.status ?? "").toLowerCase() === "error")
   ) {
+    // Collectors exist but are unhealthy — keep visible with Error badge.
     return {
       workloadId,
       sourceIds,
@@ -167,7 +169,7 @@ export function getWorkloadAvailability(
       available: true,
       hasError: true,
       pageState: "error",
-      navEmphasis: "primary",
+      navEmphasis: "deemphasized",
       navBadge: "Error",
       reason: "Related collectors reported errors.",
     };
@@ -195,6 +197,7 @@ export function getEmptyWorkloadPageState(
   if (availability.pageState === "not_configured") return "not_configured";
   if (availability.pageState === "disabled") return "disabled";
   if (availability.pageState === "error") return "error";
+  // pageState "available" with zero list rows → empty-but-ready
   return "no_data";
 }
 

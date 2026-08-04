@@ -61,6 +61,7 @@ export function JobsList() {
     selectedSourceId,
     sources,
     isLoading: sourcesLoading,
+    error: sourcesError,
   } = useSourceFilter();
   const pageDescription = `Background work ${scopePhrase(selectedSourceId, sources)} — Hermes jobs and collector self-observation`;
   const {
@@ -73,7 +74,9 @@ export function JobsList() {
 
   const availability = getWorkloadAvailability(
     "jobs",
-    sourcesLoading && sources.length === 0 ? undefined : sources,
+    (sourcesLoading && sources.length === 0) || sourcesError
+      ? undefined
+      : sources,
   );
   const emptyState = getEmptyWorkloadPageState(availability);
   const emptyCopy = jobsEmptyCopy(emptyState);

@@ -82,6 +82,17 @@ describe("getWorkloadAvailability — generations", () => {
     expect(result.available).toBe(true);
     expect(result.navEmphasis).toBe("primary");
   });
+
+  test("error-only instances stay visible with Error badge", () => {
+    const result = getWorkloadAvailability("generations", [
+      source("comfyui", [{ status: "error" }], "generation"),
+    ]);
+    expect(result.available).toBe(true);
+    expect(result.pageState).toBe("error");
+    expect(result.navEmphasis).toBe("deemphasized");
+    expect(result.navBadge).toBe("Error");
+    expect(shouldShowWorkloadInNav(result)).toBe(true);
+  });
 });
 
 describe("getWorkloadAvailability — jobs", () => {

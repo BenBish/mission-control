@@ -169,10 +169,15 @@ function NavItemLink({
 }
 
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
-  const { data: sources, isLoading: sourcesLoading } = useSources();
-  // While sources load, pass undefined so workloads stay primary (no flash hide).
+  const {
+    data: sources,
+    isLoading: sourcesLoading,
+    isError: sourcesError,
+  } = useSources();
+  // While sources load or the registry request fails, pass undefined so
+  // workloads stay primary — never hide the section on a transient API outage.
   const sourcesForAvailability =
-    sourcesLoading && !sources ? undefined : sources;
+    (sourcesLoading && !sources) || sourcesError ? undefined : sources;
 
   const visibleWorkloads = workloadNavItems
     .map((item) => {
@@ -229,11 +234,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                   label={item.label}
                   onNavigate={onNavigate}
                   deemphasized={availability.navEmphasis === "deemphasized"}
-                  badge={
-                    availability.navEmphasis === "deemphasized"
-                      ? availability.navBadge
-                      : undefined
-                  }
+                  badge={availability.navBadge}
                 />
               ))}
             </div>

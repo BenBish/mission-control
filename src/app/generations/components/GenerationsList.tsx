@@ -53,6 +53,7 @@ export function GenerationsList() {
     selectedSourceId,
     sources,
     isLoading: sourcesLoading,
+    error: sourcesError,
   } = useSourceFilter();
   const {
     data: jobs,
@@ -65,7 +66,9 @@ export function GenerationsList() {
 
   const availability = getWorkloadAvailability(
     "generations",
-    sourcesLoading && sources.length === 0 ? undefined : sources,
+    (sourcesLoading && sources.length === 0) || sourcesError
+      ? undefined
+      : sources,
   );
   const emptyState = getEmptyWorkloadPageState(availability);
   const emptyCopy = generationsEmptyCopy(emptyState);
