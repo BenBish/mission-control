@@ -46,8 +46,12 @@ import {
   triggerProviderSync,
   type ProviderCredit,
 } from "@/lib/queries";
+import {
+  getAgentUsageSince,
+  getProviderUsageSinceDay,
+  type DatePreset,
+} from "@/lib/date-range";
 
-type DatePreset = "today" | "7d" | "30d" | "all";
 type Unit = "tokens" | "compute" | "usd";
 type ConsumptionView = "agent" | "direct-api";
 
@@ -78,18 +82,6 @@ function parseRange(raw: string | null): DatePreset {
 function parseUnit(raw: string | null): Unit {
   if (raw === "tokens" || raw === "compute" || raw === "usd") return raw;
   return "tokens";
-}
-
-function getSince(preset: DatePreset): string | undefined {
-  if (preset === "all") return undefined;
-  const now = new Date();
-  if (preset === "today") {
-    const start = new Date(now);
-    start.setHours(0, 0, 0, 0);
-    return start.toISOString();
-  }
-  const days = preset === "7d" ? 7 : 30;
-  return new Date(now.getTime() - days * 24 * 60 * 60 * 1000).toISOString();
 }
 
 function formatCompute(seconds: number): string {
@@ -172,20 +164,28 @@ export default function Consumption() {
     }
   }, [searchParams, updateParams]);
 
-  // Memoized on datePreset only — getSince() reads the current time, so
-  // calling it directly in the hook args would produce a new `since` value
-  // (and therefore a new query key) on every render.
-  const since = useMemo(() => getSince(datePreset), [datePreset]);
+  // Memoized on datePreset only — these helpers read the current time, so
+  // calling them directly in the hook args would produce a new query key
+  // on every render.
+  // Agent usage: ISO timestamps. Provider usage: UTC day keys (YYYY-MM-DD).
+  const agentSince = useMemo(
+    () => getAgentUsageSince(datePreset),
+    [datePreset],
+  );
+  const providerSince = useMemo(
+    () => getProviderUsageSinceDay(datePreset),
+    [datePreset],
+  );
 
   const {
     data: rows,
     isLoading,
     error,
-  } = useConsumption({ since, sourceId: selectedSourceId });
+  } = useConsumption({ since: agentSince, sourceId: selectedSourceId });
 
   const { data: providerStatus } = useProviderStatus();
   const { data: providerBreakdown, isLoading: providerLoading } =
-    useProviderBreakdown({ since });
+    useProviderBreakdown({ since: providerSince });
   const {
     data: spendInsights,
     isLoading: insightsLoading,

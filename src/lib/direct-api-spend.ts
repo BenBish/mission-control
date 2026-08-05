@@ -183,20 +183,28 @@ export function isCompactSpendPrimary(primary: string): boolean {
   return primary !== "…" && !primary.startsWith("$");
 }
 
-/** Local calendar day key — changes only at midnight for window refresh. */
+/**
+ * Local calendar day key — changes only at local midnight.
+ * Prefer `utcDayKey` / `getProviderUsageSinceDay` for provider billing windows
+ * (see `src/lib/date-range.ts`); local keys are for UI-only refresh cues.
+ */
 export function localDayKey(nowMs: number = Date.now()): string {
   const d = new Date(nowMs);
   return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
 }
 
-/** ISO start of local calendar day (matches Consumption "today" preset). */
+/**
+ * ISO start of local calendar day (agent-style "today").
+ * Do not use for provider day-key filters — local midnight serializes to the
+ * prior UTC day in positive offsets (BSH-97). Use getProviderUsageSinceDay.
+ */
 export function startOfLocalDayIso(nowMs: number = Date.now()): string {
   const start = new Date(nowMs);
   start.setHours(0, 0, 0, 0);
   return start.toISOString();
 }
 
-/** ISO timestamp for trailing N days window start. */
+/** ISO timestamp for trailing N days window start (absolute rolling). */
 export function daysAgoIso(days: number, nowMs: number = Date.now()): string {
   return new Date(nowMs - days * 24 * 60 * 60 * 1000).toISOString();
 }
