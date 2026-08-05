@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -25,6 +32,7 @@ import {
   AlertTriangle,
   TrendingUp,
   Target,
+  ChevronDown,
 } from "lucide-react";
 import {
   AreaChart,
@@ -559,26 +567,24 @@ export default function Consumption() {
           )}
         </TabsContent>
 
-        <TabsContent value="direct-api" className="space-y-4 mt-4">
-          <Card className="shadow-sm border-dashed">
-            <CardHeader className="pb-4 border-b">
+        <TabsContent value="direct-api" className="space-y-4 mt-4 min-w-0">
+          {/* BSH-98: decision content first — Overview → Drivers → Attribution → Capacity */}
+          <Card className="shadow-sm border-dashed min-w-0 overflow-hidden">
+            <CardHeader className="pb-3 border-b">
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="space-y-2">
+                <div className="space-y-1.5 min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <CardTitle className="text-lg flex items-center gap-2">
-                      <Cloud className="h-5 w-5" />
+                      <Cloud className="h-5 w-5 shrink-0" />
                       Direct API Spend
                     </CardTitle>
                     <Badge variant="secondary">Account-wide</Badge>
                   </div>
                   <CardDescription className="max-w-2xl">
-                    <strong>API org spend</strong> — daily usage/cost from
-                    provider Admin billing APIs (OpenRouter, Anthropic, OpenAI,
-                    xAI). Separate from agent session logs, from{" "}
-                    <em>Plan usage</em> windows, and from{" "}
-                    <em>Usage credits (wallet)</em>. Not double-counted with
-                    Agent Usage totals. Budget and forecast use the current
-                    calendar month ({spendInsights?.meta.timezone ?? "UTC"}).
+                    <strong>API org spend</strong> from provider Admin billing
+                    APIs — not agent session logs, plan usage windows, or wallet
+                    balances. Budget/forecast: calendar month (
+                    {spendInsights?.meta.timezone ?? "UTC"}).
                   </CardDescription>
                   {selectedSourceId && (
                     <p className="text-xs text-amber-700 dark:text-amber-400 flex items-start gap-1.5">
@@ -588,12 +594,6 @@ export default function Consumption() {
                       single agent source.
                     </p>
                   )}
-                  <p className="text-xs text-muted-foreground flex items-start gap-1.5">
-                    <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                    If OpenRouter BYOK and a direct provider (e.g. Anthropic)
-                    are both configured, the same spend can appear under both
-                    connectors.
-                  </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button variant="outline" size="sm" asChild>
@@ -613,589 +613,434 @@ export default function Consumption() {
                 </div>
               </div>
               {syncMessage && (
-                <p className="text-xs text-muted-foreground mt-2 font-mono">
+                <p className="text-xs text-muted-foreground mt-2 font-mono break-all">
                   {syncMessage}
                 </p>
               )}
             </CardHeader>
-            <CardContent className="pt-4 space-y-6">
-              {providerStatus && providerStatus.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {providerStatus.map((p) => (
-                    <div
-                      key={p.id}
-                      className="flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-sm"
-                      title={
-                        p.lastError || p.limitation || p.notes || undefined
-                      }
-                    >
-                      <span className="font-medium">{p.name}</span>
-                      <Badge variant={statusBadgeVariant(p.status)}>
-                        {p.configured ? p.status : "not configured"}
-                      </Badge>
-                      {p.lastSuccessAt && (
-                        <span className="text-xs text-muted-foreground">
-                          synced {new Date(p.lastSuccessAt).toLocaleString()}
-                        </span>
-                      )}
-                    </div>
-                  ))}
+
+            <CardContent className="pt-4 space-y-8 min-w-0">
+              {/* ── Overview: spend risk first ─────────────────────────── */}
+              <section
+                className="space-y-3 min-w-0"
+                data-testid="direct-api-overview"
+                aria-labelledby="direct-api-overview-heading"
+              >
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <h2
+                    id="direct-api-overview-heading"
+                    className="text-sm font-semibold tracking-wide text-muted-foreground uppercase"
+                  >
+                    Overview
+                  </h2>
+                  <span className="text-xs text-muted-foreground">
+                    Month-to-date spend &amp; budget risk
+                  </span>
                 </div>
-              )}
 
-              {/* BSH-93: Plan usage (#1) — separate from wallet (#2) and spend (#3) */}
-              <Card
-                className="border-dashed shadow-none"
-                data-testid="provider-plan-usage-card"
-              >
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Target className="h-4 w-4" />
-                    Plan usage
-                  </CardTitle>
-                  <CardDescription>
-                    Subscription / rate-limit windows (percent remaining).
-                    Account-wide. Not wallet balance and not Direct API Spend.
-                    Codex session quotas appear here when collected. Windows
-                    past their reset are marked expired (never green). Claude
-                    Pro / Claude Code plan bars are not available via Anthropic
-                    Admin API.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {creditsLoading ? (
-                    <Loading />
-                  ) : planUsageCredits.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      No plan-usage windows yet. Codex quotas appear after
-                      session collection; Claude Pro limits are not exposed via
-                      Admin API.
-                    </p>
-                  ) : (
-                    <div className="space-y-3">
-                      {planUsageCredits.every(
-                        (c) =>
-                          c.status === "expired" ||
-                          c.status === "stale" ||
-                          c.status === "unavailable",
-                      ) && (
-                        <p
-                          className="text-sm text-muted-foreground"
-                          data-testid="plan-usage-no-fresh"
-                        >
-                          No fresh plan capacity available. Last observations
-                          are expired or unavailable — collect a new Codex
-                          session quota or wait for the next window.
-                        </p>
-                      )}
-                      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                        {planUsageCredits.map((c) => (
-                          <CreditSnapshotTile
-                            key={`plan-${c.provider}-${c.label}-${c.asOf}`}
-                            credit={c}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* BSH-93: Usage credits wallet (#2) */}
-              <Card
-                className="border-dashed shadow-none"
-                data-testid="provider-wallet-card"
-              >
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <DollarSign className="h-4 w-4" />
-                    Usage credits (wallet)
-                  </CardTitle>
-                  <CardDescription>
-                    Prepaid credit balance when providers expose it (e.g.
-                    OpenRouter). Never fabricated as $0 when unavailable.
-                    Anthropic Admin and OpenAI secret keys do not expose
-                    wallets. Not mixed into Direct API Spend or session costs.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {creditsLoading ? (
-                    <Loading />
-                  ) : walletCredits.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      No wallet snapshots yet. Configure provider keys and click
-                      Sync now.
-                    </p>
-                  ) : (
-                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                      {walletCredits.map((c) => (
-                        <CreditSnapshotTile
-                          key={`wallet-${c.provider}-${c.label}-${c.asOf}`}
-                          credit={c}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {insightsLoading ? (
-                <Loading />
-              ) : insightsError ? (
-                <Card className="border-destructive">
-                  <CardContent className="py-4">
-                    <p className="text-sm text-destructive">
-                      {insightsError instanceof Error
-                        ? insightsError.message
-                        : "Failed to load spend insights"}
-                    </p>
-                  </CardContent>
-                </Card>
-              ) : spendInsights ? (
-                <>
-                  {/* Sync reliability warnings */}
-                  {spendInsights.syncWarnings.filter(
-                    (w) =>
-                      w.reason === "error" ||
-                      w.reason === "stale" ||
-                      w.reason === "limited" ||
-                      w.reason === "no_sync_data",
-                  ).length > 0 && (
-                    <div className="space-y-2">
-                      {spendInsights.syncWarnings
-                        .filter(
-                          (w) =>
-                            w.reason === "error" ||
-                            w.reason === "stale" ||
-                            w.reason === "limited" ||
-                            w.reason === "no_sync_data",
-                        )
-                        .map((w) => (
-                          <div
-                            key={`${w.provider}-${w.reason}`}
-                            className={`flex items-start gap-2 rounded-md border px-3 py-2 text-sm ${
+                {insightsLoading ? (
+                  <Loading />
+                ) : insightsError ? (
+                  <Card className="border-destructive">
+                    <CardContent className="py-4">
+                      <p className="text-sm text-destructive">
+                        {insightsError instanceof Error
+                          ? insightsError.message
+                          : "Failed to load spend insights"}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ) : spendInsights ? (
+                  <>
+                    {spendInsights.syncWarnings.filter(
+                      (w) =>
+                        w.reason === "error" ||
+                        w.reason === "stale" ||
+                        w.reason === "no_sync_data",
+                    ).length > 0 && (
+                      <div
+                        className="space-y-2"
+                        data-testid="spend-risk-warnings"
+                      >
+                        {spendInsights.syncWarnings
+                          .filter(
+                            (w) =>
                               w.reason === "error" ||
                               w.reason === "stale" ||
-                              w.reason === "no_sync_data"
-                                ? "border-amber-500/50 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200"
-                                : "border-border bg-muted/40"
+                              w.reason === "no_sync_data",
+                          )
+                          .map((w) => (
+                            <div
+                              key={`${w.provider}-${w.reason}`}
+                              className="flex items-start gap-2 rounded-md border border-amber-500/50 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-sm text-amber-900 dark:text-amber-200"
+                            >
+                              <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                              <div className="min-w-0">
+                                {w.reason === "no_sync_data" ? (
+                                  <>
+                                    <p className="font-medium">
+                                      No usable provider sync history
+                                    </p>
+                                    <p className="text-xs opacity-90 mt-0.5">
+                                      Forecast is unreliable until a provider
+                                      sync succeeds. See Capacity &amp; data
+                                      health for connector status.
+                                    </p>
+                                  </>
+                                ) : (
+                                  <>
+                                    <p className="font-medium">
+                                      {w.provider}: {w.reason}
+                                      {w.status ? ` (${w.status})` : ""}
+                                    </p>
+                                    {w.lastError && (
+                                      <p className="text-xs opacity-90 mt-0.5 break-words">
+                                        {w.lastError}
+                                      </p>
+                                    )}
+                                    {w.reason === "stale" && (
+                                      <p className="text-xs opacity-90 mt-0.5">
+                                        Last success:{" "}
+                                        {w.lastSuccessAt
+                                          ? new Date(
+                                              w.lastSuccessAt,
+                                            ).toLocaleString()
+                                          : "never"}
+                                        . Forecast marked unreliable.
+                                      </p>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    )}
+
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                      <Card className="overflow-hidden border-l-4 border-l-emerald-500 min-w-0">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                          <CardTitle className="text-sm font-medium text-muted-foreground">
+                            MTD spent
+                          </CardTitle>
+                          <DollarSign className="h-4 w-4 text-emerald-600 shrink-0" />
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold tabular-nums">
+                            ${spendInsights.budget.consumedUsd.toFixed(2)}
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1 break-words">
+                            {spendInsights.meta.monthStart} →{" "}
+                            {spendInsights.meta.today} (
+                            {spendInsights.meta.timezone})
+                          </p>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="overflow-hidden border-l-4 border-l-blue-500 min-w-0">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                          <CardTitle className="text-sm font-medium text-muted-foreground">
+                            Budget remaining
+                          </CardTitle>
+                          <Target className="h-4 w-4 text-blue-600 shrink-0" />
+                        </CardHeader>
+                        <CardContent>
+                          {spendInsights.budget.monthlyBudgetUsd == null ? (
+                            <>
+                              <div className="text-2xl font-bold">—</div>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                <Link
+                                  to="/settings?tab=budgets"
+                                  className="underline hover:text-foreground"
+                                >
+                                  Set a monthly budget
+                                </Link>
+                              </p>
+                            </>
+                          ) : (
+                            <>
+                              <div className="text-2xl font-bold tabular-nums">
+                                $
+                                {(
+                                  spendInsights.budget.remainingUsd ?? 0
+                                ).toFixed(2)}
+                              </div>
+                              <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full ${
+                                    (spendInsights.budget.consumedPct ?? 0) >=
+                                    100
+                                      ? "bg-destructive"
+                                      : (spendInsights.budget.consumedPct ??
+                                            0) >= 80
+                                        ? "bg-amber-500"
+                                        : "bg-blue-500"
+                                  }`}
+                                  style={{
+                                    width: `${Math.min(100, spendInsights.budget.consumedPct ?? 0)}%`,
+                                  }}
+                                />
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {(
+                                  spendInsights.budget.consumedPct ?? 0
+                                ).toFixed(1)}
+                                % of $
+                                {spendInsights.budget.monthlyBudgetUsd.toFixed(
+                                  2,
+                                )}
+                              </p>
+                            </>
+                          )}
+                        </CardContent>
+                      </Card>
+
+                      <Card className="overflow-hidden border-l-4 border-l-purple-500 min-w-0">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                          <CardTitle className="text-sm font-medium text-muted-foreground">
+                            Burn rate
+                          </CardTitle>
+                          <TrendingUp className="h-4 w-4 text-purple-600 shrink-0" />
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold tabular-nums">
+                            ${spendInsights.burnRateUsdPerDay.toFixed(2)}
+                            <span className="text-sm font-normal text-muted-foreground">
+                              /day
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Day {spendInsights.meta.daysElapsed} of{" "}
+                            {spendInsights.meta.daysInMonth}
+                          </p>
+                        </CardContent>
+                      </Card>
+
+                      <Card
+                        className={`overflow-hidden border-l-4 min-w-0 ${
+                          spendInsights.meta.forecastReliable
+                            ? "border-l-orange-500"
+                            : "border-l-amber-500"
+                        }`}
+                      >
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                          <CardTitle className="text-sm font-medium text-muted-foreground">
+                            Forecast month-end
+                          </CardTitle>
+                          {!spendInsights.meta.forecastReliable && (
+                            <Badge variant="secondary" className="text-xs">
+                              unreliable
+                            </Badge>
+                          )}
+                        </CardHeader>
+                        <CardContent>
+                          <div
+                            className={`text-2xl font-bold tabular-nums ${
+                              !spendInsights.meta.forecastReliable
+                                ? "text-muted-foreground"
+                                : ""
                             }`}
                           >
-                            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-                            <div>
-                              {w.reason === "no_sync_data" ? (
-                                <>
-                                  <p className="font-medium">
-                                    No usable provider sync history
-                                  </p>
-                                  <p className="text-xs opacity-90 mt-0.5">
-                                    Configure provider credentials and sync, or
-                                    wait for a successful connector run.
-                                    Forecast is marked unreliable until at least
-                                    one provider has a recent successful sync.
-                                  </p>
-                                </>
-                              ) : (
-                                <>
-                                  <p className="font-medium">
-                                    {w.provider}: {w.reason}
-                                    {w.status ? ` (${w.status})` : ""}
-                                  </p>
-                                  {w.lastError && (
-                                    <p className="text-xs opacity-90 mt-0.5">
-                                      {w.lastError}
-                                    </p>
-                                  )}
-                                  {w.reason === "stale" && (
-                                    <p className="text-xs opacity-90 mt-0.5">
-                                      Last success:{" "}
-                                      {w.lastSuccessAt
-                                        ? new Date(
-                                            w.lastSuccessAt,
-                                          ).toLocaleString()
-                                        : "never"}
-                                      . Forecast marked unreliable until sync is
-                                      fresh.
-                                    </p>
-                                  )}
-                                </>
-                              )}
-                            </div>
+                            ${spendInsights.forecastMonthEndUsd.toFixed(2)}
                           </div>
-                        ))}
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {spendInsights.meta.forecastReliable
+                              ? "Extrapolated from current burn"
+                              : spendInsights.syncWarnings.some(
+                                    (w) => w.reason === "no_sync_data",
+                                  )
+                                ? "No sync history — do not trust this figure"
+                                : "Stale/failed sync — do not trust this figure"}
+                          </p>
+                        </CardContent>
+                      </Card>
                     </div>
-                  )}
+                  </>
+                ) : null}
+              </section>
 
-                  {/* Budget / burn / forecast */}
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <Card className="overflow-hidden border-l-4 border-l-emerald-500">
-                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                          MTD spent
-                        </CardTitle>
-                        <DollarSign className="h-4 w-4 text-emerald-600" />
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-2xl font-bold tabular-nums">
-                          ${spendInsights.budget.consumedUsd.toFixed(2)}
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {spendInsights.meta.monthStart} →{" "}
-                          {spendInsights.meta.today} (
-                          {spendInsights.meta.timezone})
-                        </p>
-                      </CardContent>
-                    </Card>
+              {/* ── Drivers: trend + movers ────────────────────────────── */}
+              <section
+                className="space-y-3 min-w-0"
+                data-testid="direct-api-drivers"
+                aria-labelledby="direct-api-drivers-heading"
+              >
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <h2
+                    id="direct-api-drivers-heading"
+                    className="text-sm font-semibold tracking-wide text-muted-foreground uppercase"
+                  >
+                    Drivers
+                  </h2>
+                  <span className="text-xs text-muted-foreground">
+                    Trend, anomalies, top movers
+                  </span>
+                </div>
 
-                    <Card className="overflow-hidden border-l-4 border-l-blue-500">
-                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                          Budget remaining
-                        </CardTitle>
-                        <Target className="h-4 w-4 text-blue-600" />
-                      </CardHeader>
-                      <CardContent>
-                        {spendInsights.budget.monthlyBudgetUsd == null ? (
-                          <>
-                            <div className="text-2xl font-bold">—</div>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              <Link
-                                to="/settings?tab=budgets"
-                                className="underline hover:text-foreground"
-                              >
-                                Set a monthly budget
-                              </Link>
-                            </p>
-                          </>
-                        ) : (
-                          <>
-                            <div className="text-2xl font-bold tabular-nums">
-                              $
-                              {(spendInsights.budget.remainingUsd ?? 0).toFixed(
-                                2,
-                              )}
-                            </div>
-                            <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden">
-                              <div
-                                className={`h-full rounded-full ${
-                                  (spendInsights.budget.consumedPct ?? 0) >= 100
-                                    ? "bg-destructive"
-                                    : (spendInsights.budget.consumedPct ?? 0) >=
-                                        80
-                                      ? "bg-amber-500"
-                                      : "bg-blue-500"
-                                }`}
-                                style={{
-                                  width: `${Math.min(100, spendInsights.budget.consumedPct ?? 0)}%`,
-                                }}
-                              />
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {(spendInsights.budget.consumedPct ?? 0).toFixed(
-                                1,
-                              )}
-                              % of $
-                              {spendInsights.budget.monthlyBudgetUsd.toFixed(2)}
-                            </p>
-                          </>
-                        )}
-                      </CardContent>
-                    </Card>
-
-                    <Card className="overflow-hidden border-l-4 border-l-purple-500">
-                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                          Burn rate
-                        </CardTitle>
-                        <TrendingUp className="h-4 w-4 text-purple-600" />
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-2xl font-bold tabular-nums">
-                          ${spendInsights.burnRateUsdPerDay.toFixed(2)}
-                          <span className="text-sm font-normal text-muted-foreground">
-                            /day
-                          </span>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Day {spendInsights.meta.daysElapsed} of{" "}
-                          {spendInsights.meta.daysInMonth}
-                        </p>
-                      </CardContent>
-                    </Card>
-
-                    <Card
-                      className={`overflow-hidden border-l-4 ${
-                        spendInsights.meta.forecastReliable
-                          ? "border-l-orange-500"
-                          : "border-l-amber-500"
-                      }`}
-                    >
-                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                          Forecast month-end
-                        </CardTitle>
-                        {!spendInsights.meta.forecastReliable && (
-                          <Badge variant="secondary" className="text-xs">
-                            unreliable
-                          </Badge>
-                        )}
-                      </CardHeader>
-                      <CardContent>
-                        <div
-                          className={`text-2xl font-bold tabular-nums ${
-                            !spendInsights.meta.forecastReliable
-                              ? "text-muted-foreground"
-                              : ""
-                          }`}
-                        >
-                          ${spendInsights.forecastMonthEndUsd.toFixed(2)}
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {spendInsights.meta.forecastReliable
-                            ? "Extrapolated from current burn"
-                            : spendInsights.syncWarnings.some(
-                                  (w) => w.reason === "no_sync_data",
-                                )
-                              ? "No sync history — do not trust this figure"
-                              : "Stale/failed sync — do not trust this figure"}
-                        </p>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  {/* Daily trend */}
-                  <Card className="shadow-sm">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-base">
-                        Daily spend (MTD)
-                      </CardTitle>
-                      <CardDescription>
-                        Current month vs same day-of-month in the prior month
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="min-w-0">
-                      {spendInsights.dailyTrend.length === 0 ? (
-                        <p className="text-sm text-muted-foreground py-8 text-center">
-                          No daily spend yet this month.
-                        </p>
-                      ) : (
-                        <div className="h-56 w-full min-w-0">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart
-                              data={spendInsights.dailyTrend.map((p) => ({
-                                ...p,
-                                priorPlot: p.priorPeriodCostUsd ?? undefined,
-                              }))}
-                            >
-                              <CartesianGrid
-                                strokeDasharray="3 3"
-                                className="stroke-border"
-                              />
-                              <XAxis
-                                dataKey="day"
-                                tick={{ fontSize: 11 }}
-                                tickFormatter={(value: string) => {
-                                  const d = new Date(value + "T00:00:00Z");
-                                  return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
-                                }}
-                              />
-                              <YAxis
-                                tick={{ fontSize: 11 }}
-                                tickFormatter={(v: number) =>
-                                  `$${v.toFixed(0)}`
-                                }
-                              />
-                              <Tooltip
-                                content={({ active, payload, label }) => {
-                                  if (!active || !payload?.length) return null;
-                                  const row = payload[0]?.payload as {
-                                    costUsd: number;
-                                    priorPeriodCostUsd: number | null;
-                                    deltaUsd: number | null;
-                                  };
-                                  return (
-                                    <div className="rounded-lg border bg-background p-3 shadow-md text-sm">
-                                      <p className="font-medium mb-1">
-                                        {label}
-                                      </p>
-                                      <p>
-                                        This month: ${row.costUsd.toFixed(4)}
-                                      </p>
-                                      {row.priorPeriodCostUsd != null && (
-                                        <p className="text-muted-foreground">
-                                          Prior month: $
-                                          {row.priorPeriodCostUsd.toFixed(4)}
-                                          {row.deltaUsd != null && (
-                                            <>
-                                              {" "}
-                                              ({row.deltaUsd >= 0 ? "+" : ""}
-                                              {row.deltaUsd.toFixed(4)})
-                                            </>
-                                          )}
-                                        </p>
-                                      )}
-                                    </div>
-                                  );
-                                }}
-                              />
-                              <Legend />
-                              <Area
-                                type="monotone"
-                                dataKey="priorPlot"
-                                stroke="#94a3b8"
-                                fill="#94a3b8"
-                                fillOpacity={0.08}
-                                strokeDasharray="4 4"
-                                name="Prior month"
-                                connectNulls={false}
-                              />
-                              <Area
-                                type="monotone"
-                                dataKey="costUsd"
-                                stroke="#10b981"
-                                fill="#10b981"
-                                fillOpacity={0.15}
-                                name="This month"
-                              />
-                            </AreaChart>
-                          </ResponsiveContainer>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  {/* Anomalies */}
-                  {spendInsights.anomalies.length > 0 && (
-                    <Card className="shadow-sm border-amber-500/40">
+                {insightsLoading ? (
+                  <Loading />
+                ) : spendInsights ? (
+                  <>
+                    <Card className="shadow-sm min-w-0 overflow-hidden">
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-base flex items-center gap-2">
-                          <AlertTriangle className="h-4 w-4 text-amber-600" />
-                          Spend anomalies
+                        <CardTitle className="text-base">
+                          Daily spend (MTD)
                         </CardTitle>
                         <CardDescription>
-                          ≥2× rolling 7-day baseline and ≥$1 (see calculation
-                          notes)
+                          Current month vs same day-of-month in the prior month
                         </CardDescription>
                       </CardHeader>
-                      <CardContent className="space-y-2">
-                        {spendInsights.anomalies.slice(0, 10).map((a, i) => (
-                          <div
-                            key={`${a.kind}-${a.day}-${a.provider}-${a.model}-${i}`}
-                            className="rounded-md border px-3 py-2 text-sm"
-                          >
-                            <p className="font-medium">{a.message}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5 tabular-nums">
-                              Value ${a.valueUsd.toFixed(4)} · baseline $
-                              {a.baselineUsd.toFixed(4)}
-                              {Number.isFinite(a.ratio)
-                                ? ` · ${a.ratio.toFixed(1)}×`
-                                : ""}
-                              {a.provider && a.model
-                                ? ` · ${a.provider}/${a.model}`
-                                : ""}
-                            </p>
-                          </div>
-                        ))}
+                      <CardContent className="min-w-0">
+                        {spendInsights.dailyTrend.length === 0 ? (
+                          <p className="text-sm text-muted-foreground py-8 text-center">
+                            No daily spend yet this month.
+                          </p>
+                        ) : (
+                          <DailySpendTrendChart
+                            points={spendInsights.dailyTrend}
+                          />
+                        )}
                       </CardContent>
                     </Card>
-                  )}
 
-                  {/* MTD breakdown with prior-period delta */}
-                  <Card className="shadow-sm">
-                    <CardHeader className="pb-2 border-b">
-                      <CardTitle className="text-base">
-                        Top provider / model (MTD)
-                      </CardTitle>
-                      <CardDescription>
-                        vs same day-of-month range last month
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="pt-3 px-0">
-                      {spendInsights.topBreakdown.length === 0 ? (
-                        <p className="text-sm text-muted-foreground py-6 text-center px-4">
-                          No MTD provider spend yet.
-                        </p>
-                      ) : (
-                        <div className="overflow-x-auto">
-                          <table className="w-full">
-                            <thead>
-                              <tr className="border-b bg-muted/50">
-                                <th className="text-left py-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                  Provider
-                                </th>
-                                <th className="text-left py-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                  Model
-                                </th>
-                                <th className="text-right py-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                  Cost
-                                </th>
-                                <th className="text-right py-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                  Prior
-                                </th>
-                                <th className="text-right py-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                  Δ
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {spendInsights.topBreakdown.map((row) => (
-                                <tr
-                                  key={`${row.provider}:${row.model}`}
-                                  className="border-b last:border-0 hover:bg-muted/40"
-                                >
-                                  <td className="py-2 px-3 text-sm font-medium">
-                                    {row.provider}
-                                  </td>
-                                  <td className="py-2 px-3 text-xs font-mono">
-                                    {row.model}
-                                  </td>
-                                  <td className="py-2 px-3 text-sm text-right tabular-nums">
-                                    ${row.costUsd.toFixed(4)}
-                                  </td>
-                                  <td className="py-2 px-3 text-sm text-right tabular-nums text-muted-foreground">
-                                    ${row.priorPeriodCostUsd.toFixed(4)}
-                                  </td>
-                                  <td
-                                    className={`py-2 px-3 text-sm text-right tabular-nums ${
-                                      row.deltaUsd > 0
-                                        ? "text-amber-700 dark:text-amber-400"
-                                        : row.deltaUsd < 0
-                                          ? "text-emerald-700 dark:text-emerald-400"
-                                          : ""
-                                    }`}
-                                  >
-                                    {row.deltaUsd >= 0 ? "+" : ""}
-                                    {row.deltaUsd.toFixed(4)}
-                                    {row.deltaPct != null && (
-                                      <span className="text-xs text-muted-foreground ml-1">
-                                        ({row.deltaPct >= 0 ? "+" : ""}
-                                        {row.deltaPct.toFixed(0)}%)
-                                      </span>
-                                    )}
-                                  </td>
+                    {spendInsights.anomalies.length > 0 && (
+                      <Card className="shadow-sm border-amber-500/40 min-w-0">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-base flex items-center gap-2">
+                            <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                            Spend anomalies
+                          </CardTitle>
+                          <CardDescription>
+                            ≥2× rolling 7-day baseline and ≥$1
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                          {spendInsights.anomalies.slice(0, 10).map((a, i) => (
+                            <div
+                              key={`${a.kind}-${a.day}-${a.provider}-${a.model}-${i}`}
+                              className="rounded-md border px-3 py-2 text-sm min-w-0"
+                            >
+                              <p className="font-medium break-words">
+                                {a.message}
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-0.5 tabular-nums break-words">
+                                Value ${a.valueUsd.toFixed(4)} · baseline $
+                                {a.baselineUsd.toFixed(4)}
+                                {Number.isFinite(a.ratio)
+                                  ? ` · ${a.ratio.toFixed(1)}×`
+                                  : ""}
+                                {a.provider && a.model
+                                  ? ` · ${a.provider}/${a.model}`
+                                  : ""}
+                              </p>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    <Card className="shadow-sm min-w-0 overflow-hidden">
+                      <CardHeader className="pb-2 border-b">
+                        <CardTitle className="text-base">
+                          Top provider / model (MTD)
+                        </CardTitle>
+                        <CardDescription>
+                          vs same day-of-month range last month
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="pt-3 px-0">
+                        {spendInsights.topBreakdown.length === 0 ? (
+                          <p className="text-sm text-muted-foreground py-6 text-center px-4">
+                            No MTD provider spend yet.
+                          </p>
+                        ) : (
+                          <div className="overflow-x-auto max-w-full">
+                            <table className="w-full min-w-[28rem]">
+                              <thead>
+                                <tr className="border-b bg-muted/50">
+                                  <th className="text-left py-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                    Provider
+                                  </th>
+                                  <th className="text-left py-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                    Model
+                                  </th>
+                                  <th className="text-right py-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                    Cost
+                                  </th>
+                                  <th className="text-right py-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                    Prior
+                                  </th>
+                                  <th className="text-right py-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                    Δ
+                                  </th>
                                 </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
+                              </thead>
+                              <tbody>
+                                {spendInsights.topBreakdown.map((row) => (
+                                  <tr
+                                    key={`${row.provider}:${row.model}`}
+                                    className="border-b last:border-0 hover:bg-muted/40"
+                                  >
+                                    <td className="py-2 px-3 text-sm font-medium">
+                                      {row.provider}
+                                    </td>
+                                    <td className="py-2 px-3 text-xs font-mono break-all">
+                                      {row.model}
+                                    </td>
+                                    <td className="py-2 px-3 text-sm text-right tabular-nums">
+                                      ${row.costUsd.toFixed(4)}
+                                    </td>
+                                    <td className="py-2 px-3 text-sm text-right tabular-nums text-muted-foreground">
+                                      ${row.priorPeriodCostUsd.toFixed(4)}
+                                    </td>
+                                    <td
+                                      className={`py-2 px-3 text-sm text-right tabular-nums ${
+                                        row.deltaUsd > 0
+                                          ? "text-amber-700 dark:text-amber-400"
+                                          : row.deltaUsd < 0
+                                            ? "text-emerald-700 dark:text-emerald-400"
+                                            : ""
+                                      }`}
+                                    >
+                                      {row.deltaUsd >= 0 ? "+" : ""}
+                                      {row.deltaUsd.toFixed(4)}
+                                      {row.deltaPct != null && (
+                                        <span className="text-xs text-muted-foreground ml-1">
+                                          ({row.deltaPct >= 0 ? "+" : ""}
+                                          {row.deltaPct.toFixed(0)}%)
+                                        </span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </>
+                ) : null}
+              </section>
 
-                  <p className="text-xs text-muted-foreground">
-                    {spendInsights.meta.notes[0]}{" "}
-                    {spendInsights.meta.partialMonth &&
-                      "Partial-month forecast uses current burn. "}
-                    Provider billing can lag finalization.
-                  </p>
-                </>
-              ) : null}
+              {/* ── Attribution: selected range ────────────────────────── */}
+              <section
+                className="space-y-3 min-w-0 border-t pt-6"
+                data-testid="direct-api-attribution"
+                aria-labelledby="direct-api-attribution-heading"
+              >
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <h2
+                    id="direct-api-attribution-heading"
+                    className="text-sm font-semibold tracking-wide text-muted-foreground uppercase"
+                  >
+                    Attribution
+                  </h2>
+                  <span className="text-xs text-muted-foreground">
+                    Usage in selected range ({rangeLabel})
+                  </span>
+                </div>
 
-              {/* Range-filtered breakdown (existing range presets) */}
-              <div className="border-t pt-4 space-y-3">
-                <h3 className="text-sm font-medium">
-                  Usage in selected range ({rangeLabel})
-                </h3>
                 {providerLoading ? (
                   <Loading />
                 ) : providerTotals.hasCost || providerTotals.tokens > 0 ? (
@@ -1214,8 +1059,8 @@ export default function Consumption() {
                         </span>
                       )}
                     </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
+                    <div className="overflow-x-auto max-w-full">
+                      <table className="w-full min-w-[28rem]">
                         <thead>
                           <tr className="border-b bg-muted/50">
                             <th className="text-left py-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -1244,7 +1089,7 @@ export default function Consumption() {
                               <td className="py-2 px-3 text-sm font-medium">
                                 {row.provider}
                               </td>
-                              <td className="py-2 px-3 text-xs font-mono">
+                              <td className="py-2 px-3 text-xs font-mono break-all">
                                 {row.model}
                               </td>
                               <td className="py-2 px-3 text-sm text-right tabular-nums">
@@ -1270,28 +1115,312 @@ export default function Consumption() {
                       No Direct API Spend for this range.
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      Configure{" "}
-                      <code className="text-xs">OPENROUTER_API_KEY</code>,{" "}
-                      <code className="text-xs">ANTHROPIC_ADMIN_KEY</code>,{" "}
-                      <code className="text-xs">OPENAI_ADMIN_KEY</code>, and/or{" "}
-                      <code className="text-xs">XAI_API_KEY</code>, then click
-                      Sync now. Agent session usage is under the{" "}
+                      Configure provider keys under Capacity &amp; data health,
+                      then Sync now. Agent session usage is under{" "}
                       <button
                         type="button"
                         className="underline hover:text-foreground"
                         onClick={() => updateParams({ view: "agent" })}
                       >
                         Agent Usage
-                      </button>{" "}
-                      view.
+                      </button>
+                      .
                     </p>
                   </div>
                 )}
-              </div>
+              </section>
+
+              {/* ── Capacity & data health (collapsed by default) ──────── */}
+              <details
+                className="group rounded-lg border border-dashed bg-muted/20 min-w-0"
+                data-testid="direct-api-capacity-health"
+              >
+                <summary className="cursor-pointer list-none flex flex-wrap items-center justify-between gap-2 px-4 py-3 select-none [&::-webkit-details-marker]:hidden">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <ChevronDown className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" />
+                    <span className="text-sm font-semibold">
+                      Capacity &amp; data health
+                    </span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    Plan usage · wallet · connectors · caveats
+                  </span>
+                </summary>
+                <div className="border-t px-4 py-4 space-y-4 min-w-0">
+                  <p className="text-xs text-muted-foreground">
+                    Plan usage and wallet balances are <strong>not</strong> API
+                    org spend. If OpenRouter BYOK and a direct provider (e.g.
+                    Anthropic) are both configured, the same spend can appear
+                    under both connectors.
+                  </p>
+
+                  {providerStatus && providerStatus.length > 0 && (
+                    <div
+                      className="flex flex-wrap gap-2"
+                      data-testid="provider-status-chips"
+                    >
+                      {providerStatus.map((p) => (
+                        <div
+                          key={p.id}
+                          className="flex flex-wrap items-center gap-2 rounded-md border px-2.5 py-1.5 text-sm max-w-full"
+                          title={
+                            p.lastError || p.limitation || p.notes || undefined
+                          }
+                        >
+                          <span className="font-medium">{p.name}</span>
+                          <Badge variant={statusBadgeVariant(p.status)}>
+                            {p.configured ? p.status : "not configured"}
+                          </Badge>
+                          {p.lastSuccessAt && (
+                            <span className="text-xs text-muted-foreground">
+                              synced{" "}
+                              {new Date(p.lastSuccessAt).toLocaleString()}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {spendInsights?.syncWarnings
+                    .filter((w) => w.reason === "limited")
+                    .map((w) => (
+                      <div
+                        key={`${w.provider}-limited`}
+                        className="flex items-start gap-2 rounded-md border px-3 py-2 text-sm bg-muted/40"
+                      >
+                        <Info className="h-4 w-4 mt-0.5 shrink-0" />
+                        <p className="font-medium">
+                          {w.provider}: limited
+                          {w.status ? ` (${w.status})` : ""}
+                        </p>
+                      </div>
+                    ))}
+
+                  <Card
+                    className="border-dashed shadow-none"
+                    data-testid="provider-plan-usage-card"
+                  >
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Target className="h-4 w-4" />
+                        Plan usage
+                      </CardTitle>
+                      <CardDescription>
+                        Subscription / rate-limit windows (percent remaining).
+                        Not wallet balance and not Direct API Spend. Expired
+                        windows are never green.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {creditsLoading ? (
+                        <Loading />
+                      ) : planUsageCredits.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                          No plan-usage windows yet. Codex quotas appear after
+                          session collection; Claude Pro limits are not exposed
+                          via Admin API.
+                        </p>
+                      ) : (
+                        <div className="space-y-3">
+                          {planUsageCredits.every(
+                            (c) =>
+                              c.status === "expired" ||
+                              c.status === "stale" ||
+                              c.status === "unavailable",
+                          ) && (
+                            <p
+                              className="text-sm text-muted-foreground"
+                              data-testid="plan-usage-no-fresh"
+                            >
+                              No fresh plan capacity available. Last
+                              observations are expired or unavailable.
+                            </p>
+                          )}
+                          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                            {planUsageCredits.map((c) => (
+                              <CreditSnapshotTile
+                                key={`plan-${c.provider}-${c.label}-${c.asOf}`}
+                                credit={c}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  <Card
+                    className="border-dashed shadow-none"
+                    data-testid="provider-wallet-card"
+                  >
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <DollarSign className="h-4 w-4" />
+                        Usage credits (wallet)
+                      </CardTitle>
+                      <CardDescription>
+                        Prepaid credit balance when providers expose it. Never
+                        mixed into Direct API Spend or session costs.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {creditsLoading ? (
+                        <Loading />
+                      ) : walletCredits.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                          No wallet snapshots yet. Configure provider keys and
+                          click Sync now.
+                        </p>
+                      ) : (
+                        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                          {walletCredits.map((c) => (
+                            <CreditSnapshotTile
+                              key={`wallet-${c.provider}-${c.label}-${c.asOf}`}
+                              credit={c}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {spendInsights && (
+                    <p className="text-xs text-muted-foreground">
+                      {spendInsights.meta.notes[0]}{" "}
+                      {spendInsights.meta.partialMonth &&
+                        "Partial-month forecast uses current burn. "}
+                      Provider billing can lag finalization. Configure{" "}
+                      <code className="text-[11px]">OPENROUTER_API_KEY</code>,{" "}
+                      <code className="text-[11px]">ANTHROPIC_ADMIN_KEY</code>,{" "}
+                      <code className="text-[11px]">OPENAI_ADMIN_KEY</code>,
+                      and/or <code className="text-[11px]">XAI_API_KEY</code>.
+                    </p>
+                  )}
+                </div>
+              </details>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+/** MTD daily trend chart — mounts only when the container has positive size (BSH-98 Recharts fix). */
+function DailySpendTrendChart({
+  points,
+}: {
+  points: Array<{
+    day: string;
+    costUsd: number;
+    priorPeriodCostUsd: number | null;
+    deltaUsd: number | null;
+  }>;
+}) {
+  const hostRef = useRef<HTMLDivElement>(null);
+  const [box, setBox] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
+
+  useLayoutEffect(() => {
+    const el = hostRef.current;
+    if (!el) return;
+    const measure = () => {
+      const w = Math.floor(el.clientWidth);
+      const h = Math.floor(el.clientHeight);
+      setBox((prev) =>
+        prev.w === w && prev.h === h
+          ? prev
+          : { w: Math.max(0, w), h: Math.max(0, h) },
+      );
+    };
+    measure();
+    const ro = new ResizeObserver(() => measure());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const data = useMemo(
+    () =>
+      points.map((p) => ({
+        ...p,
+        priorPlot: p.priorPeriodCostUsd ?? undefined,
+      })),
+    [points],
+  );
+
+  return (
+    <div
+      ref={hostRef}
+      className="h-56 w-full min-w-0 min-h-[14rem] overflow-hidden"
+      data-testid="daily-spend-trend-chart"
+    >
+      {box.w > 0 && box.h > 0 ? (
+        <ResponsiveContainer width={box.w} height={box.h} debounce={50}>
+          <AreaChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+            <XAxis
+              dataKey="day"
+              tick={{ fontSize: 11 }}
+              tickFormatter={(value: string) => {
+                const d = new Date(value + "T00:00:00Z");
+                return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
+              }}
+            />
+            <YAxis
+              tick={{ fontSize: 11 }}
+              tickFormatter={(v: number) => `$${v.toFixed(0)}`}
+              width={40}
+            />
+            <Tooltip
+              content={({ active, payload, label }) => {
+                if (!active || !payload?.length) return null;
+                const row = payload[0]?.payload as {
+                  costUsd: number;
+                  priorPeriodCostUsd: number | null;
+                  deltaUsd: number | null;
+                };
+                return (
+                  <div className="rounded-lg border bg-background p-3 shadow-md text-sm">
+                    <p className="font-medium mb-1">{label}</p>
+                    <p>This month: ${row.costUsd.toFixed(4)}</p>
+                    {row.priorPeriodCostUsd != null && (
+                      <p className="text-muted-foreground">
+                        Prior month: ${row.priorPeriodCostUsd.toFixed(4)}
+                        {row.deltaUsd != null && (
+                          <>
+                            {" "}
+                            ({row.deltaUsd >= 0 ? "+" : ""}
+                            {row.deltaUsd.toFixed(4)})
+                          </>
+                        )}
+                      </p>
+                    )}
+                  </div>
+                );
+              }}
+            />
+            <Legend />
+            <Area
+              type="monotone"
+              dataKey="priorPlot"
+              stroke="#94a3b8"
+              fill="#94a3b8"
+              fillOpacity={0.08}
+              strokeDasharray="4 4"
+              name="Prior month"
+              connectNulls={false}
+            />
+            <Area
+              type="monotone"
+              dataKey="costUsd"
+              stroke="#10b981"
+              fill="#10b981"
+              fillOpacity={0.15}
+              name="This month"
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      ) : null}
     </div>
   );
 }

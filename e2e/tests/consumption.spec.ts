@@ -72,6 +72,13 @@ test.describe("Consumption", () => {
       page.getByRole("heading", { name: "Direct API Spend", level: 3 }),
     ).toBeVisible();
     await expect(page.getByText("Account-wide").first()).toBeVisible();
+    // BSH-98: decision sections first; BYOK caveat lives under Capacity details
+    await expect(page.getByTestId("direct-api-overview")).toBeVisible();
+    await expect(page.getByTestId("direct-api-drivers")).toBeVisible();
+    await page
+      .getByTestId("direct-api-capacity-health")
+      .locator("summary")
+      .click();
     await expect(page.getByText(/OpenRouter BYOK/i)).toBeVisible();
 
     await consumption.selectPreset("Last 7 days");
@@ -100,5 +107,51 @@ test.describe("Consumption", () => {
     ).toBeVisible();
     // Cleanup so later tests (same browser context) aren't source-scoped
     await consumption.selectAllSourcesFilter();
+  });
+
+  test("Direct API Spend shows overview before capacity diagnostics", async ({
+    page,
+  }) => {
+    await consumption.selectTab("Direct API Spend");
+    const overview = page.getByTestId("direct-api-overview");
+    const capacity = page.getByTestId("direct-api-capacity-health");
+    await expect(overview).toBeVisible();
+    await expect(capacity).toBeVisible();
+    // Overview appears above collapsed capacity in document order
+    const order = await page.evaluate(() => {
+      const o = document.querySelector('[data-testid="direct-api-overview"]');
+      const c = document.querySelector(
+        '[data-testid="direct-api-capacity-health"]',
+      );
+      if (!o || !c) return null;
+      return o.compareDocumentPosition(c) & Node.DOCUMENT_POSITION_FOLLOWING
+        ? "overview-before-capacity"
+        : "capacity-before-overview";
+    });
+    expect(order).toBe("overview-before-capacity");
+    // MTD / budget cards live in overview (not under capacity)
+    await expect(overview.getByText("MTD spent")).toBeVisible();
+    // Capacity details closed by default — plan usage not forced into first paint
+    await expect(page.getByTestId("provider-plan-usage-card")).toBeHidden();
+    await capacity.locator("summary").click();
+    await expect(page.getByTestId("provider-plan-usage-card")).toBeVisible();
+  });
+
+  test("Direct API Spend has no page-wide overflow at 390px", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await consumption.goto("?view=direct-api&range=30d");
+    await consumption.waitForData();
+    await expect(page.getByTestId("direct-api-overview")).toBeVisible();
+    await expect(page.getByText("MTD spent")).toBeVisible();
+    const overflow = await page.evaluate(() => {
+      const doc = document.documentElement;
+      return {
+        scrollWidth: doc.scrollWidth,
+        clientWidth: doc.clientWidth,
+      };
+    });
+    expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth + 1);
   });
 });

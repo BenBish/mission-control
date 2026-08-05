@@ -37,6 +37,7 @@ export class ConsumptionPage extends BasePage {
       .or(
         this.page.getByRole("heading", { name: "Direct API Spend", level: 3 }),
       )
+      .or(this.page.getByTestId("direct-api-overview"))
       .or(this.agentUsdEmptyState())
       .or(this.noDataState())
       .first()
