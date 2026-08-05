@@ -386,22 +386,39 @@ export interface ProviderCredit {
   label: string;
   source: string;
   status: string;
+  /** plan_usage | wallet — never API org spend (BSH-93) */
+  surface: "plan_usage" | "wallet";
   details: Record<string, unknown> | null;
   updatedAt: string | null;
 }
 
+export interface ProviderCapacity {
+  planUsage: ProviderCredit[];
+  wallet: ProviderCredit[];
+  /** Flat list for backward compatibility */
+  credits: ProviderCredit[];
+}
+
 export function useProviderCredits(opts?: {
   provider?: string;
-}): UseQueryResult<ProviderCredit[]> {
+}): UseQueryResult<ProviderCapacity> {
   const provider = opts?.provider;
   return useQuery({
     queryKey: ["provider-credits", { provider }],
-    queryFn: async () =>
-      (
-        await getJson<{ credits: ProviderCredit[] }>(
-          `/api/providers/credits${toQueryString({ provider })}`,
-        )
-      ).credits,
+    queryFn: async () => {
+      const body = await getJson<{
+        credits: ProviderCredit[];
+        planUsage?: ProviderCredit[];
+        wallet?: ProviderCredit[];
+      }>(`/api/providers/credits${toQueryString({ provider })}`);
+      const credits = body.credits ?? [];
+      return {
+        credits,
+        planUsage:
+          body.planUsage ?? credits.filter((c) => c.surface === "plan_usage"),
+        wallet: body.wallet ?? credits.filter((c) => c.surface === "wallet"),
+      };
+    },
     refetchInterval: 60_000,
   });
 }

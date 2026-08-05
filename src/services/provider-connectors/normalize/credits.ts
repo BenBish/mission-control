@@ -1,9 +1,15 @@
 /**
  * Normalize provider credit/balance payloads into CreditSnapshot rows.
  * Pure functions — no I/O. Never invent dollar amounts when fields are missing.
+ *
+ * BSH-93 surfaces:
+ * - plan_usage: subscription / rate-limit windows (% remaining)
+ * - wallet: prepaid usage credits (USD)
+ * API org spend is NOT represented here (provider_usage_daily).
  */
 
 import type {
+  CapacitySurface,
   CreditFetchResult,
   CreditSnapshot,
   ProviderId,
@@ -18,80 +24,69 @@ function asNumber(value: unknown): number | null {
   return null;
 }
 
+/** Classify a snapshot for API/UI grouping (BSH-93). */
+export function capacitySurfaceOf(snap: {
+  surface?: CapacitySurface;
+  source?: string;
+  unit?: string;
+  label?: string;
+}): CapacitySurface {
+  if (snap.surface === "plan_usage" || snap.surface === "wallet") {
+    return snap.surface;
+  }
+  if (
+    snap.source === "session_quota" ||
+    snap.unit === "percent" ||
+    (typeof snap.label === "string" && snap.label.startsWith("quota_"))
+  ) {
+    return "plan_usage";
+  }
+  return "wallet";
+}
+
 /**
- * OpenAI undocumented dashboard credit_grants response shapes vary.
- * Accept common fields: total_granted, total_used, total_available,
- * or data[] grants with grant_amount / used_amount / available.
- * Amounts may be dollars or cents — prefer explicit total_available when present.
+ * OpenRouter official remaining credits (management key).
+ * GET /api/v1/credits → { data: { total_credits, total_usage } }
+ * Remaining ≈ total_credits − total_usage (USD credit units).
  */
-export function normalizeOpenAICreditGrants(
+export function normalizeOpenRouterCredits(
   payload: unknown,
   asOf: string = new Date().toISOString(),
 ): CreditSnapshot[] {
   if (!payload || typeof payload !== "object") return [];
   const root = payload as Record<string, unknown>;
+  const data =
+    root.data && typeof root.data === "object"
+      ? (root.data as Record<string, unknown>)
+      : root;
 
-  let remaining = asNumber(root.total_available);
-  let total = asNumber(root.total_granted);
-  const used = asNumber(root.total_used);
+  const totalCredits = asNumber(data.total_credits);
+  const totalUsage = asNumber(data.total_usage);
+  if (totalCredits == null && totalUsage == null) return [];
 
-  // Nested data array of grants
-  if (remaining == null && Array.isArray(root.data)) {
-    let grantSum = 0;
-    let availSum = 0;
-    let usedSum = 0;
-    let sawAvail = false;
-    for (const g of root.data) {
-      if (!g || typeof g !== "object") continue;
-      const row = g as Record<string, unknown>;
-      const grant =
-        asNumber(row.grant_amount) ??
-        asNumber(row.amount) ??
-        asNumber(row.granted);
-      const avail =
-        asNumber(row.available_amount) ??
-        asNumber(row.available) ??
-        asNumber(row.remaining);
-      const u = asNumber(row.used_amount) ?? asNumber(row.used);
-      if (grant != null) grantSum += grant;
-      if (avail != null) {
-        availSum += avail;
-        sawAvail = true;
-      }
-      if (u != null) usedSum += u;
-    }
-    if (sawAvail) remaining = availSum;
-    else if (grantSum > 0 && usedSum >= 0)
-      remaining = Math.max(0, grantSum - usedSum);
-    if (grantSum > 0) total = grantSum;
+  let remaining: number | null = null;
+  if (totalCredits != null && totalUsage != null) {
+    remaining = Math.max(0, totalCredits - totalUsage);
+  } else if (totalCredits != null) {
+    remaining = totalCredits;
   }
-
-  // Cents → dollars heuristic: values look like integer cents when large and
-  // total_available_in_usd / similar is absent. Prefer dollar fields when present.
-  const remainingUsd = asNumber(root.total_available_in_usd);
-  const totalUsd = asNumber(root.total_granted_in_usd);
-  if (remainingUsd != null) remaining = remainingUsd;
-  if (totalUsd != null) total = totalUsd;
-
-  if (remaining == null && total != null && used != null) {
-    remaining = Math.max(0, total - used);
-  }
-
-  if (remaining == null && total == null) return [];
 
   return [
     {
-      provider: "openai",
+      provider: "openrouter",
       asOf,
       remaining,
-      total,
+      total: totalCredits,
       unit: "usd",
       label: "prepaid_balance",
       source: "provider_api",
       status: "ok",
+      surface: "wallet",
       details: {
-        endpoint: "dashboard/billing/credit_grants",
-        note: "Undocumented OpenAI dashboard endpoint; amounts treated as USD when not labeled as cents.",
+        endpoint: "/api/v1/credits",
+        totalCredits,
+        totalUsage,
+        note: "OpenRouter account credit wallet (not a subscription plan window).",
       },
     },
   ];
@@ -99,7 +94,8 @@ export function normalizeOpenAICreditGrants(
 
 /**
  * Anthropic Admin API has no documented remaining-balance endpoint
- * (usage + cost history only). Record an explicit unavailable snapshot.
+ * (usage + cost history only). Record an explicit unavailable wallet snapshot.
+ * Plan usage (Pro/Claude Code) is also unavailable via Admin — separate note.
  */
 export function anthropicCreditsUnavailable(
   asOf: string = new Date().toISOString(),
@@ -107,7 +103,7 @@ export function anthropicCreditsUnavailable(
 ): CreditFetchResult {
   const message =
     limitation ??
-    "Anthropic Admin API exposes usage_report and cost_report only — no documented remaining credit/balance endpoint.";
+    "Usage credit wallet is not exposed on Anthropic Admin Usage & Cost APIs.";
   return {
     snapshots: [
       {
@@ -119,12 +115,62 @@ export function anthropicCreditsUnavailable(
         label: "prepaid_balance",
         source: "unavailable",
         status: "unavailable",
+        surface: "wallet",
         details: {
           officialApis: [
             "/v1/organizations/usage_report/messages",
             "/v1/organizations/cost_report",
           ],
           note: message,
+          planUsageNote:
+            "Claude Pro / Claude Code plan limits are not available via Admin API. Shown in claude.ai settings only.",
+        },
+      },
+      {
+        provider: "anthropic",
+        asOf,
+        remaining: null,
+        total: null,
+        unit: "percent",
+        label: "plan_usage_unavailable",
+        source: "unavailable",
+        status: "unavailable",
+        surface: "plan_usage",
+        details: {
+          note: "Claude Pro / Claude Code plan limits are not available via Admin API. Shown in claude.ai settings only.",
+        },
+      },
+    ],
+    limitation: message,
+  };
+}
+
+/**
+ * OpenAI prepaid wallet is not available with secret/Admin keys
+ * (dashboard credit_grants requires a browser session key — BSH-94).
+ * Do not call the undocumented endpoint with secret keys.
+ */
+export function openaiWalletUnavailable(
+  asOf: string = new Date().toISOString(),
+): CreditFetchResult {
+  const message =
+    "OpenAI prepaid usage-credit wallet is not available via Admin/secret API keys (dashboard credit_grants requires a browser session key). Codex usage windows are separate (plan usage).";
+  return {
+    snapshots: [
+      {
+        provider: "openai",
+        asOf,
+        remaining: null,
+        total: null,
+        unit: "usd",
+        label: "prepaid_balance",
+        source: "unavailable",
+        status: "unavailable",
+        surface: "wallet",
+        details: {
+          note: message,
+          endpoint: "dashboard/billing/credit_grants",
+          keyType: "session_required",
         },
       },
     ],
@@ -151,6 +197,7 @@ export function xaiCreditsLimited(
         label: "prepaid_balance",
         source: "unavailable",
         status: "limited",
+        surface: "wallet",
         details: { note: message },
       },
     ],
@@ -159,7 +206,7 @@ export function xaiCreditsLimited(
 }
 
 /**
- * Map Codex/session quota_snapshot rows into credit-style capacity windows.
+ * Map Codex/session quota_snapshot rows into plan-usage windows (not wallet).
  * used_percent remaining is expressed as percent remaining (100 - used).
  */
 export function normalizeSessionQuotaToCredits(
@@ -190,6 +237,7 @@ export function normalizeSessionQuotaToCredits(
       label: windowLabel.slice(0, 120),
       source: "session_quota" as const,
       status: "ok" as const,
+      surface: "plan_usage" as const,
       details: {
         sourceId: r.source_id,
         instanceId: r.instance_id,

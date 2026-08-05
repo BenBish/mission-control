@@ -193,7 +193,6 @@ RETENTION_WARM_DAYS=90
 # OPENROUTER_API_KEY=
 # ANTHROPIC_ADMIN_KEY=
 # OPENAI_ADMIN_KEY=
-# OPENAI_API_KEY=        # optional — undocumented dashboard credit_grants (prepaid USD)
 # XAI_API_KEY=
 # MC_XAI_USAGE_ENDPOINT=
 # MC_PROVIDER_SYNC_ENABLED=false
@@ -208,15 +207,18 @@ Configure only the providers you use. Missing keys leave that connector in `not_
 | --- | --- |
 | `OPENROUTER_API_KEY` | OpenRouter activity/usage (management key preferred) |
 | `ANTHROPIC_ADMIN_KEY` | Anthropic Admin Usage & Cost API |
-| `OPENAI_ADMIN_KEY` | OpenAI organization Admin usage/costs |
-| `OPENAI_API_KEY` | Optional; used for undocumented `dashboard/billing/credit_grants` prepaid balance |
+| `OPENAI_ADMIN_KEY` | OpenAI organization Admin usage/costs (API org spend) |
 | `XAI_API_KEY` | xAI key verification; historical usage needs `MC_XAI_USAGE_ENDPOINT` |
 | `MC_PROVIDER_SYNC_ENABLED` | `true` to poll on interval (default off) |
 | `MC_PROVIDER_SYNC_INTERVAL_MS` | Poll interval (default 3600000) |
 
-Trigger a one-shot sync: `POST /api/providers/sync`. View status: `GET /api/providers/status`. Credits: `GET /api/providers/credits`. UI: Consumption → **Direct API Spend** (spend + **Credits remaining** card).
+Trigger a one-shot sync: `POST /api/providers/sync`. View status: `GET /api/providers/status`. Capacity: `GET /api/providers/credits` (returns `planUsage` + `wallet`). UI: Consumption → **Direct API Spend** with separate **Plan usage**, **Usage credits (wallet)**, and spend sections (BSH-93).
 
-**Credits / remaining capacity:** Synced into `provider_credit_snapshots` during the same provider sync. Distinct from daily spend (`provider_usage_daily`) and agent session `costUsd`. Anthropic Admin APIs have no remaining-balance endpoint (snapshot stored as `unavailable`). OpenAI prepaid USD uses undocumented `credit_grants` when a key works; Codex **usage windows** come from session `quota_snapshot` rows (percent remaining). xAI is marked `limited` until a public balance API exists.
+**Three capacity concepts (see `docs/provider-capacity-research.md`):**
+
+1. **Plan usage** — subscription/rate-limit windows (% remaining); Codex session quotas when collected; Claude Pro plan bars not on Admin API.
+2. **Usage credits (wallet)** — prepaid balance; OpenRouter via `GET /api/v1/credits`; Anthropic/OpenAI/xAI honest unavailable/limited (no inventing $0).
+3. **API org spend** — existing Direct API Spend / `provider_usage_daily` (Admin usage/cost).
 
 **Security:** `POST /api/providers/sync` triggers outbound calls with admin/provider keys and can consume provider rate limits. If the API is reachable beyond loopback/tailnet, enable `MC_AUTH_ENABLED=true` (or keep the service strictly private). Never commit real keys. Status responses never include secret values.
 

@@ -50,6 +50,11 @@ export type CreditUnit = (typeof CREDIT_UNITS)[number];
 
 export type CreditSource = "provider_api" | "session_quota" | "unavailable";
 export type CreditStatus = "ok" | "limited" | "unavailable" | "error";
+/**
+ * BSH-93 product surface — do not collapse plan windows with prepaid wallets.
+ * API org spend is `provider_usage_daily` / Direct API Spend, not this type.
+ */
+export type CapacitySurface = "plan_usage" | "wallet";
 
 /**
  * Normalized remaining capacity / prepaid balance snapshot.
@@ -68,6 +73,8 @@ export interface CreditSnapshot {
   label: string;
   source: CreditSource;
   status: CreditStatus;
+  /** Plan usage windows vs prepaid usage-credits wallet (BSH-93). */
+  surface: CapacitySurface;
   /** Redacted metadata only — never secrets. */
   details?: Record<string, unknown>;
 }

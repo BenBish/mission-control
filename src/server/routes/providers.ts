@@ -274,8 +274,9 @@ export function registerProviderRoutes(app: Express, db: Database): void {
   );
 
   /**
-   * Prepaid credits / remaining capacity snapshots (account-wide).
+   * Plan usage windows + usage-credit wallet snapshots (account-wide).
    * Distinct from Direct API Spend (daily cost) and agent session costUsd.
+   * Response groups BSH-93 surfaces: planUsage vs wallet (plus flat credits[]).
    * Query: ?history=1 for recent history; default is latest per provider+label.
    */
   app.get("/api/providers/credits", async (req: Request, res: Response) => {
@@ -300,11 +301,18 @@ export function registerProviderRoutes(app: Express, db: Database): void {
           })
         : await latestProviderCreditSnapshots(db.raw(), { provider });
 
+      const credits = rows.map(rowToApiCredit);
+      const planUsage = credits.filter((c) => c.surface === "plan_usage");
+      const wallet = credits.filter((c) => c.surface === "wallet");
+
       res.json({
         success: true,
         source: "provider-credits",
-        note: "Credits/balance and usage windows are not included in agent session costUsd or Direct API Spend sums.",
-        credits: rows.map(rowToApiCredit),
+        note: "Plan usage and usage-credit wallets are not included in agent session costUsd or Direct API Spend (API org spend) sums.",
+        /** Flat list (compat). Prefer planUsage / wallet for UI. */
+        credits,
+        planUsage,
+        wallet,
       });
     } catch (err) {
       console.error("GET /api/providers/credits failed:", err);
