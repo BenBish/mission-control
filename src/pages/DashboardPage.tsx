@@ -34,15 +34,13 @@ import {
 import { formatLastActive } from "@/lib/date-utils";
 import {
   aggregateProviderCost,
-  daysAgoIso,
   directApiSpendSyncStatusKind,
   formatDirectApiSpend30d,
   formatDirectApiSpendPrimary,
   isCompactSpendPrimary,
-  localDayKey,
-  startOfLocalDayIso,
   summarizeProviderSync,
 } from "@/lib/direct-api-spend";
+import { getProviderUsageSinceDay, utcDayKey } from "@/lib/date-range";
 import { failureStatusScopeLabel } from "@/types/failures";
 import {
   AreaChart,
@@ -107,15 +105,16 @@ export default function DashboardPage() {
     sourceId: selectedSourceId,
   });
 
-  // Provider billing windows keyed by local calendar day so "today" rolls
-  // over at midnight without remounting (query keys stay stable within a day).
-  const dayKey = localDayKey(nowMs);
+  // Provider billing windows use UTC day keys (provider_usage_daily.day).
+  // Key by UTC calendar day so "today" rolls over at UTC midnight and stays
+  // stable within a day (avoids local-midnight → prior-UTC-day drift).
+  const dayKey = utcDayKey(new Date(nowMs));
   const providerWindows = useMemo(
     () => ({
-      todaySince: startOfLocalDayIso(nowMs),
-      days30Since: daysAgoIso(30, nowMs),
+      todaySince: getProviderUsageSinceDay("today", new Date(nowMs)),
+      days30Since: getProviderUsageSinceDay("30d", new Date(nowMs)),
     }),
-    // dayKey gates refresh; nowMs is sampled when the local day changes.
+    // dayKey gates refresh; nowMs is sampled when the UTC day changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- midnight rollover
     [dayKey],
   );

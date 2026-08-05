@@ -1,4 +1,5 @@
 import type { Database as SqliteDatabase } from "sqlite";
+import { toProviderDayKey } from "../../lib/date-range.js";
 import type {
   ProviderId,
   SyncStatusValue,
@@ -170,10 +171,9 @@ export async function getProviderUsage(
   const clauses: string[] = [];
   const params: unknown[] = [];
   if (opts.since) {
-    // since may be ISO datetime — compare on day prefix
-    const day = opts.since.slice(0, 10);
+    // Prefer YYYY-MM-DD day keys; ISO datetimes → UTC day of that instant.
     clauses.push("day >= ?");
-    params.push(day);
+    params.push(toProviderDayKey(opts.since));
   }
   if (opts.provider) {
     clauses.push("provider = ?");
@@ -208,8 +208,9 @@ export async function getProviderUsageBreakdown(
   const clauses: string[] = [];
   const params: unknown[] = [];
   if (opts.since) {
+    // Prefer YYYY-MM-DD day keys; ISO datetimes → UTC day of that instant.
     clauses.push("day >= ?");
-    params.push(opts.since.slice(0, 10));
+    params.push(toProviderDayKey(opts.since));
   }
   if (opts.provider) {
     clauses.push("provider = ?");

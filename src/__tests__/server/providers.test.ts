@@ -125,6 +125,31 @@ describe("GET /api/providers/usage/breakdown", () => {
     expect(row.input_tokens).toBe(42);
     expect(row.cost_usd).toBeCloseTo(0.003);
   });
+
+  test("accepts YYYY-MM-DD day keys for calendar ranges (BSH-97)", async () => {
+    const res = await fetch(
+      `${baseUrl}/api/providers/usage/breakdown?since=2026-07-10`,
+    );
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    const row = body.breakdown.find(
+      (r: { model: string }) => r.model === "test/model",
+    );
+    expect(row).toBeTruthy();
+    expect(row.input_tokens).toBe(42);
+  });
+
+  test("day key after usage day returns empty breakdown", async () => {
+    const res = await fetch(
+      `${baseUrl}/api/providers/usage/breakdown?since=2026-07-11`,
+    );
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    const row = body.breakdown.find(
+      (r: { model: string }) => r.model === "test/model",
+    );
+    expect(row).toBeUndefined();
+  });
 });
 
 describe("GET/PUT /api/providers/budget", () => {
