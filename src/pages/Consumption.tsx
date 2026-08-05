@@ -656,8 +656,9 @@ export default function Consumption() {
                   <CardDescription>
                     Subscription / rate-limit windows (percent remaining).
                     Account-wide. Not wallet balance and not Direct API Spend.
-                    Codex session quotas appear here when collected. Claude Pro
-                    / Claude Code plan bars are not available via Anthropic
+                    Codex session quotas appear here when collected. Windows
+                    past their reset are marked expired (never green). Claude
+                    Pro / Claude Code plan bars are not available via Anthropic
                     Admin API.
                   </CardDescription>
                 </CardHeader>
@@ -671,13 +672,30 @@ export default function Consumption() {
                       Admin API.
                     </p>
                   ) : (
-                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                      {planUsageCredits.map((c) => (
-                        <CreditSnapshotTile
-                          key={`plan-${c.provider}-${c.label}-${c.asOf}`}
-                          credit={c}
-                        />
-                      ))}
+                    <div className="space-y-3">
+                      {planUsageCredits.every(
+                        (c) =>
+                          c.status === "expired" ||
+                          c.status === "stale" ||
+                          c.status === "unavailable",
+                      ) && (
+                        <p
+                          className="text-sm text-muted-foreground"
+                          data-testid="plan-usage-no-fresh"
+                        >
+                          No fresh plan capacity available. Last observations
+                          are expired or unavailable — collect a new Codex
+                          session quota or wait for the next window.
+                        </p>
+                      )}
+                      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                        {planUsageCredits.map((c) => (
+                          <CreditSnapshotTile
+                            key={`plan-${c.provider}-${c.label}-${c.asOf}`}
+                            credit={c}
+                          />
+                        ))}
+                      </div>
                     </div>
                   )}
                 </CardContent>
@@ -1301,33 +1319,48 @@ function creditLabelDisplay(label: string): string {
   return label;
 }
 
+function creditStatusBadgeVariant(
+  status: string,
+): "default" | "destructive" | "secondary" | "outline" {
+  if (status === "ok") return "default";
+  if (status === "error") return "destructive";
+  // stale / expired must never look green/actionable
+  if (status === "expired" || status === "stale") return "outline";
+  return "secondary";
+}
+
+function isCreditFreshnessDemoted(status: string): boolean {
+  return status === "expired" || status === "stale";
+}
+
 function CreditSnapshotTile({ credit }: { credit: ProviderCredit }) {
+  const freshnessReason =
+    typeof credit.details?.freshnessReason === "string"
+      ? credit.details.freshnessReason
+      : null;
   const note =
-    typeof credit.details?.note === "string"
+    freshnessReason ??
+    (typeof credit.details?.note === "string"
       ? credit.details.note
       : typeof credit.details?.productLanguage === "string"
         ? credit.details.productLanguage
-        : null;
+        : null);
+  const demoted = isCreditFreshnessDemoted(credit.status);
 
   return (
     <div
-      className="rounded-md border px-3 py-2.5 space-y-1"
+      className={`rounded-md border px-3 py-2.5 space-y-1 ${
+        demoted ? "opacity-80 border-dashed" : ""
+      }`}
       data-testid={`credit-${credit.provider}-${credit.label}`}
+      data-credit-status={credit.status}
       title={note ?? undefined}
     >
       <div className="flex items-center justify-between gap-2">
         <span className="text-sm font-medium capitalize">
           {credit.provider}
         </span>
-        <Badge
-          variant={
-            credit.status === "ok"
-              ? "default"
-              : credit.status === "error"
-                ? "destructive"
-                : "secondary"
-          }
-        >
+        <Badge variant={creditStatusBadgeVariant(credit.status)}>
           {credit.status}
         </Badge>
       </div>
@@ -1337,9 +1370,26 @@ function CreditSnapshotTile({ credit }: { credit: ProviderCredit }) {
         {credit.source === "provider_api" ? " · provider API" : ""}
         {credit.source === "unavailable" ? " · not available" : ""}
       </p>
-      <p className="text-lg font-semibold tabular-nums">
+      <p
+        className={`text-lg font-semibold tabular-nums ${
+          demoted
+            ? "text-muted-foreground line-through decoration-muted-foreground/60"
+            : ""
+        }`}
+      >
         {formatCreditRemaining(credit)}
       </p>
+      {demoted && (
+        <p
+          className="text-xs text-muted-foreground"
+          data-testid="credit-freshness-reason"
+        >
+          {freshnessReason ??
+            (credit.status === "expired"
+              ? "Quota window expired — not actionable."
+              : "Snapshot is stale — re-sync or collect a new session.")}
+        </p>
+      )}
       <p className="text-[11px] text-muted-foreground">
         as of {new Date(credit.asOf).toLocaleString()}
       </p>

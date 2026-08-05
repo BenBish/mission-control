@@ -5,9 +5,11 @@
 
 import type { Database as SqliteDatabase } from "sqlite";
 import { capacitySurfaceOf } from "../../services/provider-connectors/normalize/credits.js";
+import { evaluateCreditFreshness } from "../../services/provider-connectors/normalize/credits-freshness.js";
 import type {
   CapacitySurface,
   CreditSnapshot,
+  CreditStatus,
   CreditUnit,
   ProviderId,
 } from "../../services/provider-connectors/types.js";
@@ -117,7 +119,11 @@ export async function listProviderCreditHistory(
   );
 }
 
-export function rowToApiCredit(row: ProviderCreditSnapshotRow): {
+export function rowToApiCredit(
+  row: ProviderCreditSnapshotRow,
+  /** Optional clock for tests. Do not pass this via Array#map (index is 2nd arg). */
+  now?: Date,
+): {
   provider: string;
   asOf: string;
   remaining: number | null;
@@ -125,7 +131,7 @@ export function rowToApiCredit(row: ProviderCreditSnapshotRow): {
   unit: CreditUnit | string;
   label: string;
   source: string;
-  status: string;
+  status: CreditStatus | string;
   /** plan_usage | wallet — never API org spend */
   surface: CapacitySurface;
   details: Record<string, unknown> | null;
@@ -148,6 +154,27 @@ export function rowToApiCredit(row: ProviderCreditSnapshotRow): {
     unit: row.unit,
     label: row.label,
   });
+
+  // BSH-96: never surface obsolete plan-usage windows as green "ok"
+  const clock = now instanceof Date ? now : new Date();
+  const freshness = evaluateCreditFreshness(
+    {
+      status: row.status,
+      asOf: row.as_of,
+      surface,
+      source: row.source,
+      label: row.label,
+      details,
+    },
+    clock,
+  );
+  if (freshness.freshnessReason) {
+    details = {
+      ...(details ?? {}),
+      freshnessReason: freshness.freshnessReason,
+    };
+  }
+
   return {
     provider: row.provider,
     asOf: row.as_of,
@@ -156,7 +183,7 @@ export function rowToApiCredit(row: ProviderCreditSnapshotRow): {
     unit: row.unit,
     label: row.label,
     source: row.source,
-    status: row.status,
+    status: freshness.status,
     surface,
     details,
     updatedAt: row.updated_at,

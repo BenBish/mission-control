@@ -49,7 +49,14 @@ export const CREDIT_UNITS = [
 export type CreditUnit = (typeof CREDIT_UNITS)[number];
 
 export type CreditSource = "provider_api" | "session_quota" | "unavailable";
-export type CreditStatus = "ok" | "limited" | "unavailable" | "error";
+/** ok = fresh; expired = quota window past; stale = aged without hard reset. */
+export type CreditStatus =
+  | "ok"
+  | "limited"
+  | "unavailable"
+  | "error"
+  | "stale"
+  | "expired";
 /**
  * BSH-93 product surface — do not collapse plan windows with prepaid wallets.
  * API org spend is `provider_usage_daily` / Direct API Spend, not this type.
