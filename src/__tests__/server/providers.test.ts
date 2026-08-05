@@ -46,9 +46,10 @@ beforeAll(async () => {
     surface: "wallet",
     details: { note: "no balance API" },
   });
+  // Fresh plan-usage window (must stay ok under BSH-96 freshness rules)
   await upsertProviderCreditSnapshot(db.raw(), {
     provider: "openai",
-    asOf: "2026-07-10T12:00:00.000Z",
+    asOf: new Date().toISOString(),
     remaining: 80,
     total: 100,
     unit: "percent",
@@ -56,7 +57,28 @@ beforeAll(async () => {
     source: "session_quota",
     status: "ok",
     surface: "plan_usage",
-    details: { productLanguage: "Codex window" },
+    details: {
+      productLanguage: "Codex window",
+      windowMinutes: 300,
+      resetsAt: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+    },
+  });
+  // Obsolete 7-day secondary window — must surface as expired, never green ok
+  await upsertProviderCreditSnapshot(db.raw(), {
+    provider: "openai",
+    asOf: "2026-07-10T12:00:00.000Z",
+    remaining: 98,
+    total: 100,
+    unit: "percent",
+    label: "quota_codex:secondary_10080m",
+    source: "session_quota",
+    status: "ok",
+    surface: "plan_usage",
+    details: {
+      productLanguage: "Codex secondary window",
+      windowMinutes: 10080,
+      resetsAt: "2026-07-17T12:00:00.000Z",
+    },
   });
 
   const app = express();
@@ -273,11 +295,25 @@ describe("GET /api/providers/credits", () => {
     expect(anthropic.remaining).toBeNull();
     expect(anthropic.surface).toBe("wallet");
     const plan = body.planUsage.find(
-      (c: { provider: string }) => c.provider === "openai",
+      (c: { provider: string; label: string }) =>
+        c.provider === "openai" && c.label === "quota_codex:primary_300m",
     );
     expect(plan).toBeTruthy();
     expect(plan.surface).toBe("plan_usage");
     expect(plan.remaining).toBe(80);
+    expect(plan.status).toBe("ok");
+
+    const expiredSecondary = body.planUsage.find(
+      (c: { provider: string; label: string }) =>
+        c.provider === "openai" && c.label === "quota_codex:secondary_10080m",
+    );
+    expect(expiredSecondary).toBeTruthy();
+    expect(expiredSecondary.status).toBe("expired");
+    expect(expiredSecondary.remaining).toBe(98);
+    expect(String(expiredSecondary.details?.freshnessReason ?? "")).toMatch(
+      /reset|elapsed/i,
+    );
+
     // Response must not include secret-shaped strings
     expect(JSON.stringify(body)).not.toMatch(/sk-[a-zA-Z0-9]{10,}/);
   });
