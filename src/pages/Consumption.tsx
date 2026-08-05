@@ -191,8 +191,10 @@ export default function Consumption() {
     isLoading: insightsLoading,
     error: insightsError,
   } = useProviderSpendInsights();
-  const { data: providerCredits = [], isLoading: creditsLoading } =
+  const { data: providerCapacity, isLoading: creditsLoading } =
     useProviderCredits();
+  const planUsageCredits = providerCapacity?.planUsage ?? [];
+  const walletCredits = providerCapacity?.wallet ?? [];
 
   const bySourceModel = useMemo(() => {
     if (!rows) return [];
@@ -570,11 +572,13 @@ export default function Consumption() {
                     <Badge variant="secondary">Account-wide</Badge>
                   </div>
                   <CardDescription className="max-w-2xl">
-                    Account-level usage from OpenRouter, Anthropic, OpenAI, and
-                    xAI billing APIs — separate from agent session logs. Not
-                    double-counted with Agent Usage totals. Budget and forecast
-                    use the current calendar month (
-                    {spendInsights?.meta.timezone ?? "UTC"}).
+                    <strong>API org spend</strong> — daily usage/cost from
+                    provider Admin billing APIs (OpenRouter, Anthropic, OpenAI,
+                    xAI). Separate from agent session logs, from{" "}
+                    <em>Plan usage</em> windows, and from{" "}
+                    <em>Usage credits (wallet)</em>. Not double-counted with
+                    Agent Usage totals. Budget and forecast use the current
+                    calendar month ({spendInsights?.meta.timezone ?? "UTC"}).
                   </CardDescription>
                   {selectedSourceId && (
                     <p className="text-xs text-amber-700 dark:text-amber-400 flex items-start gap-1.5">
@@ -639,38 +643,76 @@ export default function Consumption() {
                 </div>
               )}
 
-              {/* Credits remaining — distinct from daily spend / session costUsd */}
+              {/* BSH-93: Plan usage (#1) — separate from wallet (#2) and spend (#3) */}
               <Card
                 className="border-dashed shadow-none"
-                data-testid="provider-credits-card"
+                data-testid="provider-plan-usage-card"
               >
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
                     <Target className="h-4 w-4" />
-                    Credits remaining
+                    Plan usage
                   </CardTitle>
                   <CardDescription>
-                    Prepaid balance and usage-window capacity (account-wide).
-                    Not mixed into Direct API Spend totals or agent session
-                    costs. Anthropic Admin APIs report usage/cost history only;
-                    OpenAI prepaid balance needs optional{" "}
-                    <code className="text-xs">OPENAI_API_KEY</code> for
-                    credit_grants; Codex windows come from session quotas.
+                    Subscription / rate-limit windows (percent remaining).
+                    Account-wide. Not wallet balance and not Direct API Spend.
+                    Codex session quotas appear here when collected. Claude Pro
+                    / Claude Code plan bars are not available via Anthropic
+                    Admin API.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   {creditsLoading ? (
                     <Loading />
-                  ) : providerCredits.length === 0 ? (
+                  ) : planUsageCredits.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
-                      No credit snapshots yet. Configure provider keys and click
-                      Sync now (or wait for scheduled sync).
+                      No plan-usage windows yet. Codex quotas appear after
+                      session collection; Claude Pro limits are not exposed via
+                      Admin API.
                     </p>
                   ) : (
                     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                      {providerCredits.map((c) => (
+                      {planUsageCredits.map((c) => (
                         <CreditSnapshotTile
-                          key={`${c.provider}-${c.label}-${c.asOf}`}
+                          key={`plan-${c.provider}-${c.label}-${c.asOf}`}
+                          credit={c}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* BSH-93: Usage credits wallet (#2) */}
+              <Card
+                className="border-dashed shadow-none"
+                data-testid="provider-wallet-card"
+              >
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <DollarSign className="h-4 w-4" />
+                    Usage credits (wallet)
+                  </CardTitle>
+                  <CardDescription>
+                    Prepaid credit balance when providers expose it (e.g.
+                    OpenRouter). Never fabricated as $0 when unavailable.
+                    Anthropic Admin and OpenAI secret keys do not expose
+                    wallets. Not mixed into Direct API Spend or session costs.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {creditsLoading ? (
+                    <Loading />
+                  ) : walletCredits.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No wallet snapshots yet. Configure provider keys and click
+                      Sync now.
+                    </p>
+                  ) : (
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                      {walletCredits.map((c) => (
+                        <CreditSnapshotTile
+                          key={`wallet-${c.provider}-${c.label}-${c.asOf}`}
                           credit={c}
                         />
                       ))}
@@ -1251,7 +1293,8 @@ function formatCreditRemaining(c: ProviderCredit): string {
 }
 
 function creditLabelDisplay(label: string): string {
-  if (label === "prepaid_balance") return "Prepaid balance";
+  if (label === "prepaid_balance") return "Wallet balance";
+  if (label === "plan_usage_unavailable") return "Plan limits";
   if (label.startsWith("quota_")) {
     return label.replace(/^quota_/, "Usage window · ").replace(/_/g, " ");
   }

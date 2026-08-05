@@ -35,15 +35,6 @@ export function resolveOpenAIAdminKey(): string | null {
   return admin || null;
 }
 
-/**
- * Optional user/project API key for undocumented dashboard credit_grants.
- * Admin keys often cannot call /v1/dashboard/billing/*; this is optional.
- */
-export function resolveOpenAIApiKey(): string | null {
-  const key = process.env.OPENAI_API_KEY?.trim();
-  return key || null;
-}
-
 export function resolveXaiKey(): string | null {
   const key =
     process.env.XAI_API_KEY?.trim() || process.env.XAI_KEY?.trim() || null;
@@ -83,10 +74,11 @@ export function credentialMeta(provider: ProviderId): ProviderCredentials {
     case "openai":
       return {
         configured: !!resolveOpenAIAdminKey(),
-        envVars: ["OPENAI_ADMIN_KEY", "OPENAI_API_KEY"],
+        envVars: ["OPENAI_ADMIN_KEY"],
         notes:
-          "Organization Admin key required for /organization/costs and usage. Optional OPENAI_API_KEY for undocumented dashboard credit_grants (prepaid USD balance).",
+          "Organization Admin key for /organization/costs and usage (API org spend). Prepaid wallet is not available via secret keys; Codex session quotas feed plan usage windows.",
       };
+    // OPENAI_API_KEY is not used for wallet (credit_grants requires browser session).
     case "xai":
       return {
         configured: !!resolveXaiKey(),

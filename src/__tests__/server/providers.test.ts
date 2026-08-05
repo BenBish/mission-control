@@ -43,7 +43,20 @@ beforeAll(async () => {
     label: "prepaid_balance",
     source: "unavailable",
     status: "unavailable",
+    surface: "wallet",
     details: { note: "no balance API" },
+  });
+  await upsertProviderCreditSnapshot(db.raw(), {
+    provider: "openai",
+    asOf: "2026-07-10T12:00:00.000Z",
+    remaining: 80,
+    total: 100,
+    unit: "percent",
+    label: "quota_codex:primary_300m",
+    source: "session_quota",
+    status: "ok",
+    surface: "plan_usage",
+    details: { productLanguage: "Codex window" },
   });
 
   const app = express();
@@ -249,13 +262,22 @@ describe("GET /api/providers/credits", () => {
     expect(body.success).toBe(true);
     expect(body.source).toBe("provider-credits");
     expect(Array.isArray(body.credits)).toBe(true);
-    const anthropic = body.credits.find(
+    expect(Array.isArray(body.planUsage)).toBe(true);
+    expect(Array.isArray(body.wallet)).toBe(true);
+    const anthropic = body.wallet.find(
       (c: { provider: string; label: string }) =>
         c.provider === "anthropic" && c.label === "prepaid_balance",
     );
     expect(anthropic).toBeTruthy();
     expect(anthropic.status).toBe("unavailable");
     expect(anthropic.remaining).toBeNull();
+    expect(anthropic.surface).toBe("wallet");
+    const plan = body.planUsage.find(
+      (c: { provider: string }) => c.provider === "openai",
+    );
+    expect(plan).toBeTruthy();
+    expect(plan.surface).toBe("plan_usage");
+    expect(plan.remaining).toBe(80);
     // Response must not include secret-shaped strings
     expect(JSON.stringify(body)).not.toMatch(/sk-[a-zA-Z0-9]{10,}/);
   });

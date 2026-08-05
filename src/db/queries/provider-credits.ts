@@ -4,7 +4,9 @@
  */
 
 import type { Database as SqliteDatabase } from "sqlite";
+import { capacitySurfaceOf } from "../../services/provider-connectors/normalize/credits.js";
 import type {
+  CapacitySurface,
   CreditSnapshot,
   CreditUnit,
   ProviderId,
@@ -29,10 +31,12 @@ export async function upsertProviderCreditSnapshot(
   db: SqliteDatabase,
   snap: CreditSnapshot,
 ): Promise<void> {
-  const detailsJson =
-    snap.details && Object.keys(snap.details).length > 0
-      ? JSON.stringify(snap.details)
-      : null;
+  const surface = snap.surface ?? capacitySurfaceOf(snap);
+  const details = {
+    ...(snap.details ?? {}),
+    surface,
+  };
+  const detailsJson = JSON.stringify(details);
 
   await db.run(
     `
@@ -122,6 +126,8 @@ export function rowToApiCredit(row: ProviderCreditSnapshotRow): {
   label: string;
   source: string;
   status: string;
+  /** plan_usage | wallet — never API org spend */
+  surface: CapacitySurface;
   details: Record<string, unknown> | null;
   updatedAt: string | null;
 } {
@@ -133,6 +139,15 @@ export function rowToApiCredit(row: ProviderCreditSnapshotRow): {
       details = null;
     }
   }
+  const surface = capacitySurfaceOf({
+    surface:
+      details?.surface === "plan_usage" || details?.surface === "wallet"
+        ? details.surface
+        : undefined,
+    source: row.source,
+    unit: row.unit,
+    label: row.label,
+  });
   return {
     provider: row.provider,
     asOf: row.as_of,
@@ -142,6 +157,7 @@ export function rowToApiCredit(row: ProviderCreditSnapshotRow): {
     label: row.label,
     source: row.source,
     status: row.status,
+    surface,
     details,
     updatedAt: row.updated_at,
   };

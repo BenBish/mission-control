@@ -90,7 +90,8 @@ async function syncCreditsForProvider(
         label: "prepaid_balance",
         source: "unavailable",
         status: "error",
-        details: { error: message },
+        surface: "wallet",
+        details: { error: message, surface: "wallet" },
       });
       count++;
       limitation = message;

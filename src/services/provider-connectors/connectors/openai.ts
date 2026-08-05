@@ -1,10 +1,6 @@
-import {
-  providerBaseUrl,
-  resolveOpenAIAdminKey,
-  resolveOpenAIApiKey,
-} from "../credentials.js";
+import { providerBaseUrl, resolveOpenAIAdminKey } from "../credentials.js";
 import { providerFetchJson, unixSeconds } from "../http.js";
-import { normalizeOpenAICreditGrants } from "../normalize/credits.js";
+import { openaiWalletUnavailable } from "../normalize/credits.js";
 import {
   mergeOpenAIRows,
   normalizeOpenAICompletionsUsage,
@@ -17,7 +13,6 @@ import type {
   ProviderConnector,
   ProviderFetchResult,
 } from "../types.js";
-import { ProviderHttpError } from "../types.js";
 
 export const openaiConnector: ProviderConnector = {
   id: "openai",
@@ -82,74 +77,18 @@ export const openaiConnector: ProviderConnector = {
   },
 
   /**
-   * Prepaid USD balance via undocumented dashboard credit_grants.
-   * Prefer OPENAI_API_KEY; fall back to admin key. Admin Usage APIs do not
-   * expose remaining balance — only spend history.
+   * Wallet (#2): not available via Admin/secret keys (BSH-94).
+   * Plan usage (#1): Codex session quota_snapshots are attached in sync.ts.
+   * Do not call undocumented credit_grants with secret keys.
    */
-  async fetchCredits(fetchImpl: FetchImpl = fetch): Promise<CreditFetchResult> {
-    const keys = [resolveOpenAIApiKey(), resolveOpenAIAdminKey()].filter(
-      (k): k is string => !!k,
-    );
-
-    if (keys.length === 0) {
+  async fetchCredits(): Promise<CreditFetchResult> {
+    if (!resolveOpenAIAdminKey()) {
       return {
         snapshots: [],
         limitation:
-          "No OPENAI_API_KEY or OPENAI_ADMIN_KEY for credit_grants; Codex session quotas may still populate usage-window capacity.",
+          "OpenAI Admin key not configured. Codex session plan-usage windows may still appear when collected.",
       };
     }
-
-    const base = providerBaseUrl("openai", "https://api.openai.com/v1");
-    const url = `${base}/dashboard/billing/credit_grants`;
-    const errors: string[] = [];
-
-    for (const key of keys) {
-      try {
-        const payload = await providerFetchJson(
-          "openai",
-          url,
-          {
-            headers: {
-              Authorization: `Bearer ${key}`,
-              "Content-Type": "application/json",
-            },
-          },
-          fetchImpl,
-        );
-        const snapshots = normalizeOpenAICreditGrants(payload);
-        if (snapshots.length > 0) return { snapshots };
-        errors.push("credit_grants returned no parseable balance fields");
-      } catch (err) {
-        const msg =
-          err instanceof ProviderHttpError
-            ? err.message
-            : err instanceof Error
-              ? err.message
-              : String(err);
-        errors.push(msg);
-      }
-    }
-
-    return {
-      snapshots: [
-        {
-          provider: "openai",
-          asOf: new Date().toISOString(),
-          remaining: null,
-          total: null,
-          unit: "usd",
-          label: "prepaid_balance",
-          source: "unavailable",
-          status: "unavailable",
-          details: {
-            endpoint: "dashboard/billing/credit_grants",
-            note: "Undocumented; Admin costs API reports spend only, not remaining balance.",
-            attempts: errors.slice(0, 3),
-          },
-        },
-      ],
-      limitation:
-        "OpenAI prepaid balance unavailable (credit_grants failed or returned empty). Codex usage-window quotas are separate.",
-    };
+    return openaiWalletUnavailable();
   },
 };
