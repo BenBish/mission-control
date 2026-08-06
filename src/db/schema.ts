@@ -403,6 +403,58 @@ CREATE TABLE IF NOT EXISTS app_settings (
   value TEXT NOT NULL,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+-- ============================================================================
+-- SCOPED SPEND BUDGETS — account / provider / model / project monthly caps
+-- Account-wide legacy budget remains in app_settings for backward compat.
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS provider_spend_budgets (
+  id TEXT PRIMARY KEY,
+  scope_type TEXT NOT NULL CHECK (scope_type IN ('account', 'provider', 'model', 'project')),
+  scope_key TEXT NOT NULL,
+  monthly_budget_usd REAL NOT NULL CHECK (monthly_budget_usd >= 0),
+  warn_threshold_pct REAL NOT NULL DEFAULT 80 CHECK (warn_threshold_pct > 0 AND warn_threshold_pct <= 100),
+  critical_threshold_pct REAL NOT NULL DEFAULT 100 CHECK (critical_threshold_pct > 0 AND critical_threshold_pct <= 200),
+  enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (scope_type, scope_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_provider_spend_budgets_scope
+  ON provider_spend_budgets(scope_type, scope_key);
+
+-- ============================================================================
+-- SPEND ALERT EVENTS — threshold / anomaly delivery state + history
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS spend_alert_events (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL CHECK (kind IN ('threshold', 'anomaly')),
+  severity TEXT NOT NULL CHECK (severity IN ('info', 'warn', 'critical')),
+  scope_type TEXT,
+  scope_key TEXT,
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  evidence_json TEXT,
+  estimated_impact_usd REAL,
+  delivery_state TEXT NOT NULL DEFAULT 'pending'
+    CHECK (delivery_state IN ('pending', 'delivered', 'acknowledged', 'suppressed', 'failed')),
+  delivered_at DATETIME,
+  acknowledged_at DATETIME,
+  fingerprint TEXT NOT NULL,
+  month_key TEXT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_spend_alert_events_created
+  ON spend_alert_events(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_spend_alert_events_fingerprint
+  ON spend_alert_events(fingerprint, month_key);
+CREATE INDEX IF NOT EXISTS idx_spend_alert_events_delivery
+  ON spend_alert_events(delivery_state, created_at DESC);
 `;
 
 /**

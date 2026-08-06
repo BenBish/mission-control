@@ -439,6 +439,119 @@ export interface SpendSyncWarning {
   lastError: string | null;
 }
 
+export type ForecastMethod = "simple_mtd" | "trailing_7d" | "weighted_recency";
+
+export interface ForecastDetail {
+  method: ForecastMethod;
+  pointUsd: number;
+  lowUsd: number;
+  highUsd: number;
+  confidence: number;
+  daysUsed: number;
+  daysElapsed: number;
+  daysInMonth: number;
+  incompleteDays: string[];
+  incompleteDayTreatment: "excluded_from_burn" | "included_labeled";
+  billingLagDays: number;
+  windowStart: string;
+  windowEnd: string;
+  notes: string[];
+}
+
+export interface ScopedBudgetProgress {
+  id: string;
+  scopeType: "account" | "provider" | "model" | "project";
+  scopeKey: string;
+  monthlyBudgetUsd: number;
+  consumedUsd: number;
+  remainingUsd: number;
+  consumedPct: number;
+  warnThresholdPct: number;
+  criticalThresholdPct: number;
+  status: "ok" | "warn" | "critical";
+  enabled: boolean;
+}
+
+export interface EfficiencySlice {
+  dimension: "provider" | "model" | "project" | "overall";
+  key: string;
+  costClass: "actual_provider" | "agent_attributed" | "estimated";
+  costUsd: number | null;
+  requestCount: number;
+  sessionCount: number;
+  successfulSessionCount: number | null;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  costPerRequest: number | null;
+  costPerSession: number | null;
+  costPerSuccessfulSession: number | null;
+  costPer1MOutputTokens: number | null;
+  cacheSavingsUsd: number | null;
+  failureWasteUsd: number | null;
+  missingOutcomeAttributionPct: number | null;
+  notes: string[];
+}
+
+export interface OptimizationRecommendation {
+  kind:
+    | "expensive_outlier"
+    | "cheaper_model"
+    | "cache_opportunity"
+    | "failure_waste"
+    | "local_vs_api";
+  title: string;
+  message: string;
+  estimatedImpactUsd: number;
+  costClass: "actual_provider" | "agent_attributed" | "estimated";
+  evidence: Record<string, unknown>;
+  hrefHint: string;
+}
+
+export interface FeeCategoryBreakdown {
+  actualProviderSpendUsd: number;
+  agentAttributedCostUsd: number | null;
+  estimatedCacheSavingsUsd: number | null;
+  failureWasteUsd: number | null;
+  notes: string[];
+}
+
+export interface SpendAlert {
+  id: string;
+  kind: "threshold" | "anomaly";
+  severity: "info" | "warn" | "critical";
+  scopeType: string | null;
+  scopeKey: string | null;
+  title: string;
+  message: string;
+  evidence: Record<string, unknown> | null;
+  estimatedImpactUsd: number | null;
+  deliveryState:
+    | "pending"
+    | "delivered"
+    | "acknowledged"
+    | "suppressed"
+    | "failed";
+  deliveredAt: string | null;
+  acknowledgedAt: string | null;
+  fingerprint: string;
+  monthKey: string;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface SpendBudget {
+  id: string;
+  scopeType: "account" | "provider" | "model" | "project";
+  scopeKey: string;
+  monthlyBudgetUsd: number;
+  warnThresholdPct: number;
+  criticalThresholdPct: number;
+  enabled: boolean;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
 export interface SpendInsights {
   budget: {
     monthlyBudgetUsd: number | null;
@@ -446,12 +559,21 @@ export interface SpendInsights {
     remainingUsd: number | null;
     consumedPct: number | null;
   };
+  scopedBudgets: ScopedBudgetProgress[];
   burnRateUsdPerDay: number;
   forecastMonthEndUsd: number;
+  forecast: ForecastDetail;
   dailyTrend: SpendInsightsDailyPoint[];
   topBreakdown: SpendInsightsBreakdownRow[];
   anomalies: SpendAnomaly[];
   syncWarnings: SpendSyncWarning[];
+  efficiency: {
+    provider: EfficiencySlice[];
+    agent: EfficiencySlice[];
+  };
+  feeCategories: FeeCategoryBreakdown;
+  recommendations: OptimizationRecommendation[];
+  alerts: SpendAlert[];
   meta: {
     source: "provider-api";
     timezone: string;
@@ -462,6 +584,9 @@ export interface SpendInsights {
     daysInMonth: number;
     partialMonth: boolean;
     forecastReliable: boolean;
+    billingLagDays: number;
+    incompleteDays: string[];
+    forecastMethod: ForecastMethod;
     notes: string[];
   };
 }
@@ -489,6 +614,65 @@ export async function updateProviderBudget(body: {
     throw new Error(json.error || `Budget update failed: ${res.status}`);
   }
   return json.budget as ProviderBudgetConfig;
+}
+
+export function useScopedSpendBudgets(): UseQueryResult<SpendBudget[]> {
+  return useQuery({
+    queryKey: ["provider-scoped-budgets"],
+    queryFn: async () =>
+      (await getJson<{ budgets: SpendBudget[] }>("/api/providers/budgets"))
+        .budgets,
+  });
+}
+
+export async function upsertScopedSpendBudget(body: {
+  id?: string;
+  scopeType: SpendBudget["scopeType"];
+  scopeKey: string;
+  monthlyBudgetUsd: number;
+  warnThresholdPct?: number;
+  criticalThresholdPct?: number;
+  enabled?: boolean;
+}): Promise<SpendBudget> {
+  const res = await apiFetch("/api/providers/budgets", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const json = await res.json();
+  if (!res.ok || json.success === false) {
+    throw new Error(json.error || `Scoped budget save failed: ${res.status}`);
+  }
+  return json.budget as SpendBudget;
+}
+
+export async function deleteScopedSpendBudget(id: string): Promise<void> {
+  const res = await apiFetch(
+    `/api/providers/budgets/${encodeURIComponent(id)}`,
+    {
+      method: "DELETE",
+    },
+  );
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json.success === false) {
+    throw new Error(json.error || `Scoped budget delete failed: ${res.status}`);
+  }
+}
+
+export async function acknowledgeSpendAlert(id: string): Promise<SpendAlert> {
+  const res = await apiFetch(
+    `/api/providers/spend-alerts/${encodeURIComponent(id)}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ deliveryState: "acknowledged" }),
+    },
+  );
+  const json = await res.json();
+  if (!res.ok || json.success === false) {
+    throw new Error(json.error || `Alert update failed: ${res.status}`);
+  }
+  return json.alert as SpendAlert;
 }
 
 export function useProviderSpendInsights(): UseQueryResult<SpendInsights> {

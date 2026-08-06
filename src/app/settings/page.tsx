@@ -28,9 +28,13 @@ import {
 } from "@/components/ui/select";
 import { AlertCircle, DollarSign, Info, Server } from "lucide-react";
 import {
+  deleteScopedSpendBudget,
   updateProviderBudget,
+  upsertScopedSpendBudget,
   useProviderBudget,
+  useScopedSpendBudgets,
   useSources,
+  type SpendBudget,
 } from "@/lib/queries";
 import { formatExactDate, formatLastActive } from "@/lib/date-utils";
 import { useNow } from "@/hooks/useNow";
@@ -65,6 +69,11 @@ export default function SettingsPage() {
     isLoading: budgetLoading,
     error: budgetError,
   } = useProviderBudget();
+  const {
+    data: scopedBudgets,
+    isLoading: scopedLoading,
+    error: scopedError,
+  } = useScopedSpendBudgets();
   const queryClient = useQueryClient();
   const now = useNow();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -75,6 +84,16 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  const [scopeType, setScopeType] =
+    useState<SpendBudget["scopeType"]>("provider");
+  const [scopeKey, setScopeKey] = useState("");
+  const [scopeAmount, setScopeAmount] = useState("");
+  const [scopeWarn, setScopeWarn] = useState("80");
+  const [scopeCritical, setScopeCritical] = useState("100");
+  const [scopeSaving, setScopeSaving] = useState(false);
+  const [scopeMessage, setScopeMessage] = useState<string | null>(null);
+  const [scopeError, setScopeError] = useState<string | null>(null);
 
   function setActiveTab(tab: SettingsTab) {
     setSearchParams(
@@ -126,6 +145,65 @@ export default function SettingsPage() {
       );
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleSaveScopedBudget() {
+    setScopeSaving(true);
+    setScopeMessage(null);
+    setScopeError(null);
+    try {
+      const monthlyBudgetUsd = Number(scopeAmount);
+      if (!Number.isFinite(monthlyBudgetUsd) || monthlyBudgetUsd < 0) {
+        setScopeError("Amount must be a non-negative number");
+        return;
+      }
+      const key = scopeType === "account" ? "*" : scopeKey.trim();
+      if (scopeType !== "account" && !key) {
+        setScopeError(
+          "Scope key is required (e.g. openrouter or openrouter/model)",
+        );
+        return;
+      }
+      await upsertScopedSpendBudget({
+        scopeType,
+        scopeKey: key,
+        monthlyBudgetUsd,
+        warnThresholdPct: Number(scopeWarn) || 80,
+        criticalThresholdPct: Number(scopeCritical) || 100,
+        enabled: true,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["provider-scoped-budgets"],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["provider-spend-insights"],
+      });
+      setScopeMessage(`Saved ${scopeType}/${key} budget $${monthlyBudgetUsd}`);
+      setScopeKey("");
+      setScopeAmount("");
+    } catch (err) {
+      setScopeError(
+        err instanceof Error ? err.message : "Failed to save scoped budget",
+      );
+    } finally {
+      setScopeSaving(false);
+    }
+  }
+
+  async function handleDeleteScoped(id: string) {
+    try {
+      await deleteScopedSpendBudget(id);
+      await queryClient.invalidateQueries({
+        queryKey: ["provider-scoped-budgets"],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["provider-spend-insights"],
+      });
+    } catch (err) {
+      setScopeError(
+        err instanceof Error ? err.message : "Failed to delete budget",
+      );
     }
   }
 
@@ -350,6 +428,182 @@ export default function SettingsPage() {
                     )}
                     {saveError && (
                       <p className="text-sm text-destructive">{saveError}</p>
+                    )}
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Scoped budgets</CardTitle>
+              <CardDescription>
+                Cap spend by provider, model (
+                <code className="text-xs">provider/model</code>), or project.
+                Provider/model scopes use actual Direct API Spend; project scope
+                uses agent-attributed cost only — never mixed.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {scopedLoading ? (
+                <Loading />
+              ) : scopedError ? (
+                <p className="text-sm text-destructive">
+                  {scopedError instanceof Error
+                    ? scopedError.message
+                    : "Failed to load scoped budgets"}
+                </p>
+              ) : (
+                <>
+                  {(scopedBudgets ?? []).length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No scoped budgets yet. Add one below.
+                    </p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {(scopedBudgets ?? []).map((b) => (
+                        <li
+                          key={b.id}
+                          className="flex flex-wrap items-center gap-2 rounded-md border px-3 py-2 text-sm"
+                        >
+                          <Badge variant="outline" className="text-xs">
+                            {b.scopeType}
+                          </Badge>
+                          <span className="font-mono text-xs break-all">
+                            {b.scopeKey}
+                          </span>
+                          <span className="tabular-nums">
+                            ${b.monthlyBudgetUsd.toFixed(2)}/mo
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            warn {b.warnThresholdPct}% · critical{" "}
+                            {b.criticalThresholdPct}%
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs ml-auto text-destructive"
+                            onClick={() => void handleDeleteScoped(b.id)}
+                          >
+                            Remove
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 max-w-3xl border-t pt-4">
+                    <div className="space-y-2">
+                      <label
+                        className="text-sm font-medium"
+                        htmlFor="scope-type"
+                      >
+                        Scope type
+                      </label>
+                      <Select
+                        value={scopeType}
+                        onValueChange={(v) =>
+                          setScopeType(v as SpendBudget["scopeType"])
+                        }
+                      >
+                        <SelectTrigger id="scope-type">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="account">account</SelectItem>
+                          <SelectItem value="provider">provider</SelectItem>
+                          <SelectItem value="model">model</SelectItem>
+                          <SelectItem value="project">project</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <label
+                        className="text-sm font-medium"
+                        htmlFor="scope-key"
+                      >
+                        Scope key
+                      </label>
+                      <Input
+                        id="scope-key"
+                        placeholder={
+                          scopeType === "model"
+                            ? "openrouter/anthropic/claude"
+                            : scopeType === "project"
+                              ? "mission-control"
+                              : scopeType === "account"
+                                ? "*"
+                                : "openrouter"
+                        }
+                        value={scopeType === "account" ? "*" : scopeKey}
+                        disabled={scopeType === "account"}
+                        onChange={(e) => setScopeKey(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label
+                        className="text-sm font-medium"
+                        htmlFor="scope-amount"
+                      >
+                        Monthly USD
+                      </label>
+                      <Input
+                        id="scope-amount"
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={scopeAmount}
+                        onChange={(e) => setScopeAmount(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label
+                        className="text-sm font-medium"
+                        htmlFor="scope-warn"
+                      >
+                        Warn %
+                      </label>
+                      <Input
+                        id="scope-warn"
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={scopeWarn}
+                        onChange={(e) => setScopeWarn(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label
+                        className="text-sm font-medium"
+                        htmlFor="scope-critical"
+                      >
+                        Critical %
+                      </label>
+                      <Input
+                        id="scope-critical"
+                        type="number"
+                        min={1}
+                        max={200}
+                        value={scopeCritical}
+                        onChange={(e) => setScopeCritical(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button
+                      onClick={() => void handleSaveScopedBudget()}
+                      disabled={scopeSaving}
+                    >
+                      {scopeSaving ? "Saving…" : "Add scoped budget"}
+                    </Button>
+                    {scopeMessage && (
+                      <p className="text-sm text-muted-foreground">
+                        {scopeMessage}
+                      </p>
+                    )}
+                    {scopeError && (
+                      <p className="text-sm text-destructive">{scopeError}</p>
                     )}
                   </div>
                 </>
