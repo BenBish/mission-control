@@ -146,7 +146,8 @@ describe("computeAgentEfficiency + failure waste", () => {
     expect(overall.failureWasteUsd).toBe(1.5);
     expect(overall.successfulSessionCount).toBe(3);
     expect(overall.costPerSuccessfulSession).toBeCloseTo(4 / 3);
-    expect(overall.missingOutcomeAttributionPct).toBeCloseTo(25);
+    // Outcomes known for costed sessions — missing attribution is 0 (not failure rate)
+    expect(overall.missingOutcomeAttributionPct).toBe(0);
   });
 
   test("cache savings on agent facts with cache reads", () => {

@@ -445,17 +445,15 @@ export function applyFailureWaste(
       successfulSessionCount > 0
         ? costUsd / successfulSessionCount
         : null;
+    // When success counts are supplied we have outcomes for costed sessions
+    // (success + failure). Failure rate is separate (failureWasteUsd).
+    // Only treat attribution as missing when outcomes were not provided.
     const missing =
-      totalSessionsWithCost != null && totalSessionsWithCost > 0
-        ? successfulSessionCount == null
+      successfulSessionCount != null && totalSessionsWithCost != null
+        ? 0
+        : totalSessionsWithCost != null && totalSessionsWithCost > 0
           ? 100
-          : Math.max(
-              0,
-              ((totalSessionsWithCost - successfulSessionCount) /
-                totalSessionsWithCost) *
-                100,
-            )
-        : s.missingOutcomeAttributionPct;
+          : s.missingOutcomeAttributionPct;
     return {
       ...s,
       failureWasteUsd,

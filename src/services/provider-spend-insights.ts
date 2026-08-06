@@ -777,6 +777,12 @@ export function evaluateScopedBudgets(
   });
 }
 
+/**
+ * Pure insights compute. Default forecast method is `simple_mtd` (legacy
+ * burn = MTD ÷ elapsed) so unit tests and direct callers stay stable.
+ * `loadSpendInsights` / GET `/api/providers/spend-insights` default to
+ * `trailing_7d` with incomplete days excluded from burn.
+ */
 export function computeSpendInsights(
   input: ComputeInsightsInput,
 ): SpendInsights {
@@ -1044,7 +1050,11 @@ export function computeSpendInsights(
   };
 }
 
-/** Persist threshold + anomaly alerts; returns full recent history. */
+/**
+ * Persist threshold + anomaly alerts; returns full recent history.
+ * Fingerprint + month_key dedupe means repeated page loads are insert-free
+ * after the first write for each active condition.
+ */
 export async function persistInsightAlerts(
   db: SqliteDatabase,
   insights: SpendInsights,
