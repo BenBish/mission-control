@@ -1258,7 +1258,9 @@ export function useRuntimeLists(
       getJson<RuntimeListsData>(
         buildRuntimeQuery({ ...params, section: "lists" }),
       ),
-    refetchInterval: 5_000,
+    // Lists change less urgently than slot/metrics summary; poll a bit slower
+    // to avoid doubling 5s load on SQLite after the progressive split.
+    refetchInterval: 10_000,
     placeholderData: keepPreviousData,
   });
 }

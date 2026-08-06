@@ -641,15 +641,22 @@ function MetricsStrip({
           );
           if (c.onClick) {
             return (
-              <button
+              <Card
                 key={c.key}
-                type="button"
-                className="text-left rounded-xl"
-                onClick={c.onClick}
+                className={cardClass}
+                role="button"
+                tabIndex={0}
                 aria-label={c.actionLabel}
+                onClick={c.onClick}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    c.onClick?.();
+                  }
+                }}
               >
-                <Card className={cardClass}>{inner}</Card>
-              </button>
+                {inner}
+              </Card>
             );
           }
           return (

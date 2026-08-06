@@ -243,9 +243,14 @@ export function registerRuntimeRoutes(app: Express, db: Database): void {
       const wantSummary = section === "summary" || section === "all";
       const wantLists = section === "lists" || section === "all";
 
+      // Fetch snapshots first when building summary so metrics can reuse them
+      // (avoids double latestRuntimeSnapshots join on every poll).
+      const snapshots = wantSummary
+        ? await latestRuntimeSnapshots(raw)
+        : ([] as Awaited<ReturnType<typeof latestRuntimeSnapshots>>);
+
       const [
         sources,
-        snapshots,
         requests,
         events,
         metrics,
@@ -255,11 +260,6 @@ export function registerRuntimeRoutes(app: Express, db: Database): void {
         wantSummary
           ? listSources(raw)
           : Promise.resolve([] as Awaited<ReturnType<typeof listSources>>),
-        wantSummary
-          ? latestRuntimeSnapshots(raw)
-          : Promise.resolve(
-              [] as Awaited<ReturnType<typeof latestRuntimeSnapshots>>,
-            ),
         wantLists
           ? listInferenceRequests(raw, {
               status: reqStatus,
@@ -281,7 +281,7 @@ export function registerRuntimeRoutes(app: Express, db: Database): void {
             })
           : Promise.resolve(null),
         wantSummary
-          ? getRuntimeMetrics(raw, { since, windowHours })
+          ? getRuntimeMetrics(raw, { since, windowHours, snapshots })
           : Promise.resolve(null),
         wantSummary
           ? listInferenceClientLabels(raw)

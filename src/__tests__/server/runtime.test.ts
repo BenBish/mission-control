@@ -673,9 +673,8 @@ describe("GET /api/runtime", () => {
     expect(body.metrics?.requestCount).toBe(5000);
     expect(body.inferenceRequests).toBeUndefined();
     expect(Number.isFinite(appMs)).toBe(true);
-    // Documented budget: RUNTIME_SUMMARY_TARGET_MS (default 250ms).
-    // Allow headroom on CI noise while still catching multi-second regressions.
-    expect(appMs).toBeLessThanOrEqual(RUNTIME_SUMMARY_TARGET_MS * 4);
+    // Documented budget: RUNTIME_SUMMARY_TARGET_MS (250ms) with modest CI slack.
+    expect(appMs).toBeLessThanOrEqual(RUNTIME_SUMMARY_TARGET_MS * 1.5);
     expect(RUNTIME_SUMMARY_TARGET_MS).toBe(250);
   });
 });
