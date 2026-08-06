@@ -684,12 +684,18 @@ export function useProviderSpendInsights(): UseQueryResult<SpendInsights> {
       );
       return {
         budget: body.budget,
+        scopedBudgets: body.scopedBudgets ?? [],
         burnRateUsdPerDay: body.burnRateUsdPerDay,
         forecastMonthEndUsd: body.forecastMonthEndUsd,
+        forecast: body.forecast,
         dailyTrend: body.dailyTrend,
         topBreakdown: body.topBreakdown,
         anomalies: body.anomalies,
         syncWarnings: body.syncWarnings,
+        efficiency: body.efficiency ?? { provider: [], agent: [] },
+        feeCategories: body.feeCategories,
+        recommendations: body.recommendations ?? [],
+        alerts: body.alerts ?? [],
         meta: body.meta,
       };
     },
