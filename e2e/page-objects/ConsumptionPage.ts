@@ -34,6 +34,7 @@ export class ConsumptionPage extends BasePage {
       .or(
         this.page.getByRole("heading", { name: "By Source & Model", level: 3 }),
       )
+      .or(this.page.getByRole("heading", { name: "Ranked drivers", level: 3 }))
       .or(
         this.page.getByRole("heading", { name: "Direct API Spend", level: 3 }),
       )
@@ -88,17 +89,35 @@ export class ConsumptionPage extends BasePage {
     return ((await value.textContent()) ?? "").trim();
   }
 
-  /** Get the By Source & Model table */
+  /** Get the ranked Agent Usage drivers table (BSH-99) */
   getModelTable(): Locator {
     return this.page
-      .getByRole("heading", { name: "By Source & Model" })
+      .getByRole("heading", { name: "Ranked drivers" })
+      .or(this.page.getByRole("heading", { name: "By Source & Model" }))
       .locator("xpath=ancestor::div[contains(@class, 'rounded-lg')]")
       .first()
-      .locator("table");
+      .locator("table")
+      .first();
   }
 
   getModelRows(): Locator {
-    return this.getModelTable().locator("tbody tr");
+    // Only top-level driver rows (not drill-down nested tables)
+    return this.getModelTable()
+      .locator("> tbody > tr")
+      .filter({
+        has: this.page.locator("td").nth(1),
+      });
+  }
+
+  getCoverageUnattributed(): Locator {
+    return this.page.getByRole("heading", {
+      name: "Unattributed",
+      level: 3,
+    });
+  }
+
+  getDimensionButton(label: string): Locator {
+    return this.page.getByRole("button", { name: label, exact: true });
   }
 
   /** Agent Usage USD empty state (session-log cost only) */

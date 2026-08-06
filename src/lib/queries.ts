@@ -172,6 +172,144 @@ export function useConsumption(opts: {
   });
 }
 
+// ─── Agent Usage (normalized dimensions + coverage, BSH-99) ─────────────────
+
+export type AgentUsageDimension =
+  | "model"
+  | "project"
+  | "actor"
+  | "source"
+  | "session";
+
+export type AgentUsageDriver = {
+  key: string;
+  sourceId: string;
+  canonicalModel: string;
+  rawModels: string[];
+  project: string | null;
+  sessionId: string | null;
+  sessionTitle: string | null;
+  actorId: string | null;
+  actorType: string | null;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  costUsd: number | null;
+  hasCost: boolean;
+  requestCount: number;
+  sessionCount: number;
+  materiality: "material" | "zero" | "synthetic";
+  attribution: "known" | "unknown";
+};
+
+export type AgentUsageSummary = {
+  success: boolean;
+  source: string;
+  range: { since: string | null; until: string | null };
+  dimension: AgentUsageDimension;
+  includeNonMaterial: boolean;
+  totals: {
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadTokens: number;
+    cacheWriteTokens: number;
+    costUsd: number | null;
+    hasCost: boolean;
+    requestCount: number;
+    sessionCount: number;
+  };
+  coverage: {
+    totalTokens: number;
+    materialTokens: number;
+    unattributedTokens: number;
+    unattributedPct: number;
+    syntheticTokens: number;
+    zeroTokenFactCount: number;
+    unknownModelTokens: number;
+    missingProjectTokens: number;
+  };
+  drivers: AgentUsageDriver[];
+};
+
+export type AgentUsageSessionRow = {
+  sessionId: string;
+  sourceId: string;
+  externalId: string | null;
+  title: string | null;
+  project: string | null;
+  startedAt: string | null;
+  canonicalModel: string;
+  rawModels: string[];
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  costUsd: number | null;
+  hasCost: boolean;
+  requestCount: number;
+};
+
+export function useAgentUsage(opts: {
+  since?: string;
+  until?: string;
+  sourceId?: string;
+  dimension?: AgentUsageDimension;
+  includeNonMaterial?: boolean;
+}): UseQueryResult<AgentUsageSummary> {
+  const {
+    since,
+    until,
+    sourceId,
+    dimension = "model",
+    includeNonMaterial = false,
+  } = opts;
+  return useQuery({
+    queryKey: [
+      "agent-usage",
+      { since, until, sourceId, dimension, includeNonMaterial },
+    ],
+    queryFn: async () =>
+      getJson<AgentUsageSummary>(
+        `/api/consumption/agent-usage${toQueryString({
+          since,
+          until,
+          sourceId,
+          dimension,
+          includeNonMaterial: includeNonMaterial ? "1" : undefined,
+        })}`,
+      ),
+  });
+}
+
+export function useAgentUsageSessions(opts: {
+  since?: string;
+  until?: string;
+  sourceId?: string;
+  dimension: AgentUsageDimension;
+  driverKey: string | null;
+  enabled?: boolean;
+}): UseQueryResult<{ sessions: AgentUsageSessionRow[] }> {
+  const { since, until, sourceId, dimension, driverKey, enabled = true } = opts;
+  return useQuery({
+    queryKey: [
+      "agent-usage-sessions",
+      { since, until, sourceId, dimension, driverKey },
+    ],
+    enabled: enabled && !!driverKey,
+    queryFn: async () =>
+      getJson<{ sessions: AgentUsageSessionRow[] }>(
+        `/api/consumption/agent-usage/sessions${toQueryString({
+          since,
+          until,
+          sourceId,
+          dimension,
+          driverKey: driverKey ?? undefined,
+        })}`,
+      ),
+  });
+}
+
 // ─── Provider API usage (billing connectors) ────────────────────────────────
 
 export interface ProviderStatus {
