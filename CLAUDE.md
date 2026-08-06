@@ -1,23 +1,25 @@
 # Mission Control
 
-Activity monitoring dashboard for the OpenClaw agent system. React frontend + Express API + SQLite.
+Activity monitoring dashboard for multi-source AI agents and local inference.
+React frontend + Express API + SQLite.
 
 ## Stack
 
 - **Frontend:** React 19, React Router 7, Tailwind CSS v4, Radix UI, Recharts, shadcn/ui-style components
 - **Backend:** Express.js REST API (port 3001), SQLite via `sqlite3`/`sqlite`
 - **Runtime:** Bun (test runner, dev server, package manager)
-- **Build:** Vite + TypeScript
+- **Build:** Vite + TypeScript → `dist-vite/`
 
 ## Commands
 
 ```bash
-bun run dev          # Start Vite dev server (port 3000, proxies /api to 3001)
-bun run api          # Start API server (port 3001)
-bun test             # Run unit/integration tests
+bun run dev          # Vite dev server (port 3000, proxies /api → 3001)
+bun run api          # API server (port 3001, loopback by default)
+bun run collector    # Desktop collector → HTTP ingest
+bun test             # Unit/integration tests
 bun run lint         # ESLint
 bun run ci           # Full CI: lint + prettier + typecheck + tests
-bun run build        # Production build
+bun run build        # Production frontend build (dist-vite/)
 ```
 
 Always run `bun run ci` before committing.
@@ -26,42 +28,43 @@ Always run `bun run ci` before committing.
 
 ```
 src/
-├── api/              # Express routes, middleware, services
-│   ├── server.ts     # API entry point
-│   ├── routes.ts     # All route definitions
-│   ├── auth.ts       # Authentication
-│   ├── middleware/    # Express middleware
-│   └── services/     # Business logic (cost-linker, cron, profiles, session-log-scanner)
-├── pages/            # React page components (one per route)
-├── components/       # Shared React components
-│   ├── ui/           # Base UI primitives (shadcn/ui style)
-│   └── _shared/      # App-level shared components
-├── hooks/            # React hooks
-├── lib/              # Utilities
-├── db/               # Database schema, migrations
-├── services/         # Frontend services
+├── server/           # Express API (server.ts, auth, routes/, privacy/)
+├── collectors/       # Per-source collectors + core scheduler/sinks
+├── collector-main.ts # Desktop collector entrypoint
+├── db/               # Schema, migrations, query modules
+├── services/         # Provider connectors, reconciliation, health, …
+├── app/              # Router, auth, settings, sessions, jobs, generations
+├── pages/            # Top-level page components
+├── components/       # ui/ primitives + _shared layout
+├── hooks/            # React hooks (SSE, …)
+├── lib/              # Frontend utilities + query helpers
 ├── types/            # TypeScript types
-├── __tests__/        # Unit + integration tests (mirrors src/ structure)
+├── __tests__/        # Unit + integration tests (mirrors src/)
 └── styles/           # Global CSS
+deploy/               # systemd + env examples
+docs/                 # Architecture, API, deployment
+e2e/                  # Playwright
 ```
 
-## Architecture
+## Architecture notes for agents
 
-- Frontend uses lazy-loaded pages via `React.lazy` + `Suspense`
-- `MainLayout` with sidebar nav (desktop + mobile sheet)
-- ThemeProvider (light/dark toggle, persisted)
-- API uses profile-scoped data isolation
+- API lives under **`src/server/`**, not `src/api/`
+- Routes are modular: `src/server/routes/*.ts`
 - Real-time updates via SSE (`/api/stream`)
-- Vite dev server proxies `/api` requests to the Express backend
+- Vite proxies `/api` to the Express backend in dev
+- Source-scoped data (`source_id` / instances), global Source filter in UI
+- **Five cost/capacity data classes** (do not double-count): cost, usage, quota,
+  wallet, estimate — see `docs/ARCHITECTURE.md`
+- Prefer updating docs when changing routes, schema, collectors, auth, or deploy
 
 ## Testing
 
 Tests live in `src/__tests__/` mirroring the source structure. Use Bun test runner.
 
 ```bash
-bun test                                    # All tests
-bun test src/__tests__/api/routes.test.ts   # Single file
-bun test --watch                            # Watch mode
+bun test
+bun test src/__tests__/server/query.test.ts
+bun test --watch
 ```
 
 ## Browser Access (Playwright CLI)
@@ -69,17 +72,16 @@ bun test --watch                            # Watch mode
 When writing E2E tests or debugging UI issues, use `playwright-cli` to inspect live pages:
 
 ```bash
-playwright-cli open http://localhost:3000    # Open the app
-playwright-cli snapshot                      # Accessibility tree with element refs (e2, e3...)
-playwright-cli screenshot                    # Visual capture
-playwright-cli click e6                      # Click element by ref
-playwright-cli fill e12 "search text"        # Fill input by ref
-playwright-cli close                         # Close browser
+playwright-cli open http://localhost:3000
+playwright-cli snapshot
+playwright-cli screenshot
+playwright-cli click e6
+playwright-cli fill e12 "search text"
+playwright-cli close
 ```
 
-Use `-s=<name>` for isolated sessions (e.g. `-s=debug` to keep separate from test runs).
-
-Element refs from `snapshot` show the actual rendered DOM structure — use these to write correct selectors instead of guessing from source code.
+Use `-s=<name>` for isolated sessions. Element refs from `snapshot` show the
+rendered DOM — use them for selectors instead of guessing from source.
 
 ## Code Style
 
@@ -95,3 +97,9 @@ Element refs from `snapshot` show the actual rendered DOM structure — use thes
 - Commit messages: `[BSH-XX] Description` (Linear issue key)
 - Create PRs with `gh pr create`
 - Branch naming: `BSH-XX-slug` (or `feat/BSH-XX-slug` / `fix/BSH-XX-slug`)
+
+## Documentation freshness
+
+When architecture changes, update the matching docs in the same PR (checklist in
+`docs/ARCHITECTURE.md`). Do not reintroduce removed paths (`src/api/`, Skills UI,
+`docs/SKILLS.md`).

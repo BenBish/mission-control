@@ -1,86 +1,108 @@
 # Mission Control
 
-A React + TypeScript + Vite application for managing team workflows and agent
-usage across Claude Code, Codex, Grok, and local inference sources.
+Activity monitoring dashboard for multi-source AI agent systems. Tracks sessions,
+activities, local inference runtime, image generations, provider billing, and
+source health across Claude Code, Codex, Grok, OpenCode, Hermes, Lemonade, and
+ComfyUI.
 
-## Package Manager
+**Stack:** React 19 + Vite + Tailwind CSS v4 frontend · Express REST API · SQLite · Bun
 
-This project uses **Bun** as the package manager and runtime.
-
-### Prerequisites
+## Prerequisites
 
 - [Bun](https://bun.sh) 1.0+
-
-### Install Bun
 
 ```bash
 curl -fsSL https://bun.sh/install | bash
 ```
 
-Restart your terminal or run `source ~/.bashrc` (or `~/.zshrc`) to add Bun to your PATH.
-
-## Quick Start
+## Quick start
 
 ```bash
-# Install dependencies
 bun install
 
-# Start development server (with hot reload)
+# Terminal 1 — API + SQLite (port 3001, loopback by default)
+bun run api
+
+# Terminal 2 — Vite dev server (port 3000, proxies /api → 3001)
 bun run dev
-
-# Build for production
-bun run build
-
-# Run linter
-bun run lint
 ```
 
-The development server will start at `http://localhost:5173`.
+Open **http://localhost:3000**.
 
-## Available Scripts
-
-| Script                  | Description                            |
-| ----------------------- | -------------------------------------- |
-| `bun run dev`           | Start dev server with Bun's hot reload |
-| `bun run build`         | Build with Bun runtime                 |
-| `bun run lint`          | Run ESLint with Bun                    |
-| `bun run preview`       | Preview production build               |
-| `bun run api`           | Start API server                       |
-| `bun run test`          | Run tests                              |
-| `bun run test:watch`    | Run tests in watch mode                |
-| `bun run test:coverage` | Run tests with coverage                |
-
-## Building for Production
+Optional desktop collector (JSONL / local tool telemetry → server ingest):
 
 ```bash
-bun run build
+# Copy and edit config first
+cp deploy/collector.toml.example ~/.config/mission-control/collector.toml
+bun run collector
 ```
 
-Output is generated in the `dist/` directory.
+## Scripts
 
-## Project Structure
+| Script | Description |
+| --- | --- |
+| `bun run dev` | Vite dev server (port **3000**, `/api` proxy → API) |
+| `bun run api` | Express API + optional on-server collectors (port **3001**) |
+| `bun run collector` | Desktop collector (Claude Code, Codex, Grok, OpenCode) |
+| `bun run build` | Typecheck + Vite production build → **`dist-vite/`** |
+| `bun run preview` | Preview production build (port 4173) |
+| `bun run lint` | ESLint |
+| `bun run format:check` | Prettier check |
+| `bun test` | Unit / integration tests (Bun) |
+| `bun run test:e2e` | Playwright e2e |
+| `bun run ci` | lint + prettier + typecheck + unit tests |
+| `bun run db:migrate` | Run DB migrations |
+| `bun start` | Node entry for a compiled server bundle (`dist/index.js`) if present |
+
+## Build output
+
+| Output | Purpose |
+| --- | --- |
+| `dist-vite/` | Frontend production assets (Vite `outDir`). Served by the API SPA fallback. |
+| `data/` | Default SQLite location in dev (`./data/mission-control.db`); often a symlink to `~/.local/share/mission-control` |
+
+There is no `docs/SKILLS.md`. Architecture and API docs live under `docs/`.
+
+## Project structure
 
 ```
 src/
-  components/    # Reusable UI components
-  pages/         # Page components
-  lib/           # Utility functions
-  hooks/         # Custom React hooks
-  types/         # TypeScript types
-public/          # Static assets
-dist/            # Build output
-docs/            # Documentation
-  SKILLS.md      # OpenClaw skills reference (session-logs, etc.)
+├── app/                 # App shell: router, auth, settings, sessions, jobs, generations
+├── pages/               # Top-level route pages (dashboard, activities, consumption, …)
+├── components/          # Shared UI (ui/ primitives + _shared layout)
+├── collectors/          # Source collectors (claude-code, codex, grok, hermes, …)
+├── collector-main.ts    # Desktop collector entrypoint
+├── server/              # Express API (server.ts, auth, routes/, privacy/)
+├── db/                  # Schema, migrations, query modules
+├── services/            # Provider connectors, reconciliation, source health, …
+├── lib/                 # Frontend utilities + API client helpers
+├── hooks/               # React hooks (SSE, …)
+├── types/               # Shared TypeScript types
+├── __tests__/           # Unit + integration tests (mirrors src/)
+└── styles/              # Global CSS
+deploy/                  # systemd units + env/config examples
+docs/                    # Architecture, API, deployment, spend reconciliation
+e2e/                     # Playwright tests
 ```
 
-## Lockfile
+## Documentation
 
-- `bun.lock` — Bun lockfile (committed to source control)
+| Doc | Contents |
+| --- | --- |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System topology, data model, cost/capacity classes, routes |
+| [docs/API_SPECIFICATION.md](docs/API_SPECIFICATION.md) | REST + SSE endpoint overview |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Local + Tailscale + systemd deployment |
+| [docs/spend-reconciliation.md](docs/spend-reconciliation.md) | Provider vs agent spend linking rules |
+| [docs/provider-capacity-research.md](docs/provider-capacity-research.md) | Provider capacity/quota research notes |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Dev setup and contribution notes |
+| [CLAUDE.md](CLAUDE.md) | Agent/editor project guidance |
 
-## ESLint Configuration
+## Auth (optional in dev)
 
-For production applications, we recommend enabling type-aware lint rules. See the [ESLint configuration guide](https://typescript-eslint.io/getting-started/typed-linting/) for details.
+When `MC_AUTH_ENABLED=true`, the UI uses JWT sessions (HttpOnly cookie) and
+collectors authenticate ingest with `MC_API_KEY`. See
+`deploy/server.env.example` and [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## License
 
-Private - Orca Team
+Private

@@ -1,564 +1,205 @@
 # API Specification
 
-Complete REST API documentation for Mission Control Activity Feed.
-
-## Base URL
+REST + SSE surface for Mission Control. Base URL (local):
 
 ```
-http://localhost:3001/api
+http://127.0.0.1:3001/api
 ```
+
+In Vite dev, the browser calls same-origin `/api/*` and the proxy forwards to
+the API. Route modules live under `src/server/routes/`; auth under
+`src/server/auth.ts`.
+
+This document is a **current-shape overview**. Prefer reading the route files
+for exact query parameters and response fields when implementing clients.
 
 ## Authentication
 
-Currently no authentication (local MVP). Authentication will be added in Phase 2.
+| Mode | How |
+| --- | --- |
+| Auth disabled (`MC_AUTH_ENABLED` ≠ `true`) | All routes open (local single-user default) |
+| Auth enabled | Browser: JWT in HttpOnly cookie `mc_session` via `POST /api/auth/login` |
+| Collectors | Header / config `MC_API_KEY` for ingest routes |
+| Roles | `owner` (full) · `viewer` (read-only; sensitive detail restricted) |
 
-## Response Format
+### Auth endpoints
 
-All endpoints return JSON responses:
+| Method | Path | Notes |
+| --- | --- | --- |
+| `POST` | `/api/auth/login` | username + password → sets session cookie |
+| `POST` | `/api/auth/logout` | clears cookie |
+| `GET` | `/api/auth/me` | current user or unauthenticated |
 
-```typescript
-{
-  success: boolean;
-  data?: T;
-  error?: string;
-}
-```
+## Common response shape
 
-## Error Handling
-
-HTTP status codes:
-
-- `200` - OK
-- `400` - Bad request (invalid parameters)
-- `404` - Not found (resource doesn't exist)
-- `500` - Server error
-
-Error response:
+Many endpoints return:
 
 ```json
-{
-  "success": false,
-  "error": "Human-readable error message"
-}
+{ "success": true, "...": "payload fields" }
 ```
 
----
-
-## Activities Endpoints
-
-### GET /activities
-
-Get activities with optional filtering and pagination.
-
-**Query Parameters:**
-
-- `sessionId` (string, optional) - Filter by session ID
-- `actorId` (string, optional) - Filter by actor ID
-- `actorType` (string, optional) - Filter by actor type: `orchestrator`, `subagent`, `user`, `system`
-- `actionType` (string, optional) - Filter by action type: `tool_call`, `delegation`, `api_call`, etc.
-- `toolName` (string, optional) - Filter by tool name (e.g., `exec`, `read`, `web_search`)
-- `status` (string, optional) - Filter by status: `pending`, `success`, `failure`, `partial`
-- `startTime` (ISO8601 string, optional) - Filter by start time (inclusive)
-- `endTime` (ISO8601 string, optional) - Filter by end time (inclusive)
-- `limit` (integer, optional, default: 100) - Max results per page
-- `offset` (integer, optional, default: 0) - Pagination offset
-
-**Example Request:**
-
-```bash
-curl "http://localhost:3001/api/activities?sessionId=agent:main&status=success&limit=50"
-```
-
-**Response:**
+Errors commonly:
 
 ```json
-{
-  "success": true,
-  "count": 42,
-  "activities": [
-    {
-      "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
-      "sessionId": "agent:main",
-      "timestamp": "2026-02-15T13:39:22.123Z",
-      "actor": {
-        "type": "subagent",
-        "id": "agent:main:subagent:abc123",
-        "role": "Engineer"
-      },
-      "actionType": "tool_call",
-      "toolName": "exec",
-      "description": "Executed shell command: git status",
-      "status": "success",
-      "durationMs": 150,
-      "tokens": {
-        "inputTokens": 124,
-        "outputTokens": 80,
-        "totalTokens": 204,
-        "model": "openrouter/anthropic/claude-haiku-4.5"
-      },
-      "cost": {
-        "usd": 0.000816
-      }
-    }
-    // ... more activities
-  ]
-}
+{ "success": false, "error": "Human-readable message" }
 ```
+
+HTTP status codes: `200`, `400`, `401`, `403`, `404`, `500` as appropriate.
 
 ---
 
-### GET /activities/:id
+## Health
 
-Get a specific activity by ID.
+### `GET /api/health`
 
-**Path Parameters:**
+Liveness + security posture (no secrets):
 
-- `id` (string, required) - Activity ID (UUID v7)
-
-**Example Request:**
-
-```bash
-curl "http://localhost:3001/api/activities/01ARZ3NDEKTSV4RRFFQ69G5FAV"
-```
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "activity": {
-    "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
-    "sessionId": "agent:main"
-    // ... full activity object
-  }
-}
-```
-
-**Error Response (404):**
-
-```json
-{
-  "success": false,
-  "error": "Activity not found"
-}
-```
+- `status`, `timestamp`
+- `security.authEnabled`, `redactionMode`, `unsafeUnauthenticated`, optional `warning`
 
 ---
 
-### GET /activities/search
+## Ingest (collectors)
 
-Search activities by description or details.
+Authenticated with API key when configured.
 
-**Query Parameters:**
-
-- `q` (string, required) - Search query string (case-insensitive)
-
-**Example Request:**
-
-```bash
-curl "http://localhost:3001/api/activities/search?q=git+status"
-```
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "count": 5,
-  "activities": [
-    // Activities matching the query
-  ]
-}
-```
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/api/ingest/batch` | Upsert sessions/activities/etc. batch |
+| `POST` | `/api/ingest/heartbeat` | Source instance heartbeat / status |
+| `GET` | `/api/ingest/cursors` | Collector cursor helpers |
 
 ---
 
-## Sessions Endpoints
+## Sources
 
-### GET /sessions/:id
-
-Get session summary with aggregated statistics.
-
-**Path Parameters:**
-
-- `id` (string, required) - Session ID
-
-**Example Request:**
-
-```bash
-curl "http://localhost:3001/api/sessions/agent:main"
-```
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "summary": {
-    "sessionId": "agent:main",
-    "startTime": "2026-02-15T13:00:00.000Z",
-    "endTime": "2026-02-15T13:45:00.000Z",
-    "stats": {
-      "totalActions": 42,
-      "successCount": 40,
-      "failureCount": 2,
-      "successRate": 95.24,
-      "totalTokens": 8420,
-      "totalCost": 0.0234,
-      "avgActionDuration": 245
-    },
-    "actors": {
-      "agent:main:main": {
-        "name": "agent:main:main",
-        "actionsCount": 15,
-        "successCount": 14,
-        "tokensUsed": 4200,
-        "costUsd": 0.0125
-      },
-      "agent:main:subagent:abc123": {
-        "name": "agent:main:subagent:abc123",
-        "actionsCount": 27,
-        "successCount": 26,
-        "tokensUsed": 4220,
-        "costUsd": 0.0109
-      }
-    },
-    "topTools": [
-      {
-        "name": "exec",
-        "count": 12,
-        "cost": 0.005
-      },
-      {
-        "name": "web_search",
-        "count": 8,
-        "cost": 0.0082
-      },
-      {
-        "name": "read",
-        "count": 15,
-        "cost": 0.0042
-      }
-    ],
-    "events": []
-  }
-}
-```
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/sources` | Sources + instances (for filter + health) |
 
 ---
 
-### GET /sessions/:id/activities
+## Sessions & activities
 
-Get all activities for a specific session.
-
-**Path Parameters:**
-
-- `id` (string, required) - Session ID
-
-**Example Request:**
-
-```bash
-curl "http://localhost:3001/api/sessions/agent:main/activities"
-```
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "count": 42,
-  "activities": [
-    // Array of Activity objects
-  ]
-}
-```
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/sessions` | List sessions (filters: source, time, …) |
+| `GET` | `/api/sessions/:id` | Session detail |
+| `GET` | `/api/activities` | List activities |
+| `GET` | `/api/activities/:id` | Activity detail |
 
 ---
 
-### GET /sessions/:id/cost-report
+## Consumption & agent usage
 
-Get detailed cost breakdown for a session.
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/consumption` | Consumption rollup for the UI |
+| `GET` | `/api/consumption/agent-usage` | Normalized agent usage dimensions |
+| `GET` | `/api/consumption/agent-usage/sessions` | Session breakdown for agent usage |
+| `GET` | `/api/consumption/reconciliation` | Provider vs agent linking (see spend-reconciliation.md) |
 
-**Path Parameters:**
-
-- `id` (string, required) - Session ID
-
-**Example Request:**
-
-```bash
-curl "http://localhost:3001/api/sessions/agent:main/cost-report"
-```
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "sessionId": "agent:main",
-  "totalCost": 0.0234,
-  "totalTokens": 8420,
-  "actors": {
-    "agent:main:main": {
-      "name": "agent:main:main",
-      "actionsCount": 15,
-      "successCount": 14,
-      "tokensUsed": 4200,
-      "costUsd": 0.0125
-    },
-    "agent:main:subagent:abc123": {
-      "name": "agent:main:subagent:abc123",
-      "actionsCount": 27,
-      "successCount": 26,
-      "tokensUsed": 4220,
-      "costUsd": 0.0109
-    }
-  },
-  "topTools": [
-    {
-      "name": "exec",
-      "count": 12,
-      "cost": 0.005
-    },
-    {
-      "name": "web_search",
-      "count": 8,
-      "cost": 0.0082
-    }
-  ]
-}
-```
+**Contract:** agent usage and provider billing are separate. Do not sum raw
+totals client-side without reading reconciliation classifications.
 
 ---
 
-## Reporting Endpoints
+## Failures
 
-### GET /cost-report
-
-Get overall cost aggregation across all sessions.
-
-**Example Request:**
-
-```bash
-curl "http://localhost:3001/api/cost-report"
-```
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "totalCost": 1.2345,
-  "totalTokens": 154320,
-  "activityCount": 1204,
-  "actorCosts": {
-    "agent:main:main": {
-      "cost": 0.5234,
-      "tokens": 75420,
-      "actions": 450
-    },
-    "agent:main:subagent:abc123": {
-      "cost": 0.3891,
-      "tokens": 54230,
-      "actions": 380
-    },
-    "ben": {
-      "cost": 0.322,
-      "tokens": 24670,
-      "actions": 374
-    }
-  },
-  "toolCosts": {
-    "exec": {
-      "cost": 0.0845,
-      "count": 345
-    },
-    "web_search": {
-      "cost": 0.324,
-      "count": 128
-    },
-    "read": {
-      "cost": 0.0234,
-      "count": 456
-    },
-    "write": {
-      "cost": 0.0156,
-      "count": 89
-    }
-  }
-}
-```
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/failures` | Recent failure events |
+| `GET` | `/api/failures/groups` | Grouped by fingerprint |
+| `GET` | `/api/failures/groups/:fingerprint/events` | Events in a group |
 
 ---
 
-### GET /stats
+## Jobs (background)
 
-Get overall system statistics.
-
-**Example Request:**
-
-```bash
-curl "http://localhost:3001/api/stats"
-```
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "stats": {
-    "activities": 1204,
-    "sessions": 8,
-    "successCount": 1152,
-    "failureCount": 52,
-    "successRate": 95.68,
-    "totalCost": 1.2345,
-    "totalTokens": 154320
-  }
-}
-```
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/jobs` | List background jobs |
+| `GET` | `/api/jobs/:id` | Job detail |
+| `GET` | `/api/jobs/:id/runs` | Run history |
 
 ---
 
-## Diagnostic Endpoints
+## Runtime & contention
 
-### GET /health
-
-Health check endpoint. Always responds with status 200.
-
-**Example Request:**
-
-```bash
-curl "http://localhost:3001/api/health"
-```
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "status": "healthy",
-  "timestamp": "2026-02-15T13:39:22.123Z"
-}
-```
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/runtime` | Slots, models, health, recent inference |
+| `GET` | `/api/contention` | Contention incidents |
 
 ---
 
-### GET /pending-activities
+## Generations
 
-Get all activities currently in progress (pending status).
-
-**Example Request:**
-
-```bash
-curl "http://localhost:3001/api/pending-activities"
-```
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "count": 3,
-  "activities": [
-    {
-      "id": "01ARZ3NDEKTSV4RRYY5G5FAV",
-      "sessionId": "agent:main",
-      "timestamp": "2026-02-15T13:39:00.000Z",
-      "actor": {
-        "type": "subagent",
-        "id": "agent:main:subagent:abc123"
-      },
-      "actionType": "tool_call",
-      "toolName": "web_search",
-      "description": "Searching for documentation",
-      "status": "pending"
-    }
-    // ... more pending activities
-  ]
-}
-```
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/generations` | ComfyUI (etc.) generation jobs |
+| `GET` | `/api/generations/:id` | Generation detail |
 
 ---
 
-## Rate Limiting
+## Providers (billing / capacity)
 
-Currently no rate limiting (Phase 2).
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/providers/status` | Connector config/sync status |
+| `POST` | `/api/providers/sync` | Trigger sync now |
+| `GET` | `/api/providers/usage` | Daily usage rows |
+| `GET` | `/api/providers/usage/breakdown` | Breakdown by model/provider |
+| `GET` | `/api/providers/credits` | Wallet / credit snapshots |
+| `GET` / `PUT` | `/api/providers/budget` | Legacy account monthly budget |
+| `GET` / `PUT` | `/api/providers/budgets` | Scoped budgets |
+| `DELETE` | `/api/providers/budgets/:id` | Delete scoped budget |
+| `GET` | `/api/providers/spend-insights` | Burn rate / insights |
+| `GET` | `/api/providers/spend-alerts` | Alert events |
+| `PATCH` | `/api/providers/spend-alerts/:id` | Ack/suppress delivery state |
 
-## Pagination
-
-Large result sets can be paginated using `limit` and `offset`:
-
-```bash
-# Get first 50 results
-curl "http://localhost:3001/api/activities?limit=50&offset=0"
-
-# Get next 50
-curl "http://localhost:3001/api/activities?limit=50&offset=50"
-```
-
-## Filtering Strategies
-
-### By Session and Status
-
-```bash
-curl "http://localhost:3001/api/activities?sessionId=agent:main&status=failure"
-```
-
-### By Time Range
-
-```bash
-curl "http://localhost:3001/api/activities?startTime=2026-02-15T13:00:00Z&endTime=2026-02-15T14:00:00Z"
-```
-
-### By Tool
-
-```bash
-curl "http://localhost:3001/api/activities?toolName=exec"
-```
-
-### By Actor
-
-```bash
-curl "http://localhost:3001/api/activities?actorId=agent:main:subagent:abc123"
-```
-
-## Examples
-
-### Get all failed activities in current session
-
-```bash
-curl "http://localhost:3001/api/activities?sessionId=agent:main&status=failure"
-```
-
-### Get total cost for engineer subagent
-
-```bash
-curl "http://localhost:3001/api/sessions/agent:main/cost-report" | jq '.actors[] | select(.name | contains("engineer"))'
-```
-
-### Find all web_search activities from last hour
-
-```bash
-curl "http://localhost:3001/api/activities?toolName=web_search&startTime=$(date -u -d '-1 hour' +%Y-%m-%dT%H:%M:%SZ)"
-```
-
-### Track costs by tool
-
-```bash
-curl "http://localhost:3001/api/cost-report" | jq '.toolCosts | sort_by(.cost) | reverse'
-```
+Credentials and env: see Deployment + Architecture. **Credits are not spend.**
 
 ---
 
-## Future Endpoints (Phase 2+)
+## Privacy
 
-- `POST /activities/:id/tags` - Add tags to activity
-- `DELETE /activities/:id` - Delete activity (admin only)
-- `GET /export/csv` - Export activities to CSV
-- `POST /webhooks` - Register webhooks for activity events
-- `WS /stream` - WebSocket for real-time updates
-- `POST /batch-import` - Bulk import activities
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/privacy/policy` | Effective redaction + retention |
+| `POST` | `/api/privacy/retention/run` | Run retention now (owner) |
+| `POST` | `/api/privacy/purge-sensitive` | One-shot scrub of sensitive fields |
 
 ---
 
-**Status:** Complete for Phase 1 MVP
+## SSE
+
+### `GET /api/stream`
+
+Server-Sent Events stream for live dashboard invalidation.
+
+- `Content-Type: text/event-stream`
+- Periodic heartbeats
+- Clients should reconnect on drop
+
+---
+
+## SPA fallback
+
+Non-`/api` GETs attempt to serve `dist-vite/index.html` for client-side routing
+after a production build. Unknown `/api/*` paths return JSON 404.
+
+---
+
+## Not present
+
+- **No `/api/skills`** — Skills Registry UI was removed (BSH-104).
+- **No monolithic `src/api/routes.ts`** — routes are modular under `src/server/routes/`.
+- **No public unauthenticated write API** for UI mutations when auth is enabled
+  (viewer role is read-only).
+
+## Related
+
+- [ARCHITECTURE.md](./ARCHITECTURE.md)
+- [spend-reconciliation.md](./spend-reconciliation.md)
+- [DEPLOYMENT.md](./DEPLOYMENT.md)
