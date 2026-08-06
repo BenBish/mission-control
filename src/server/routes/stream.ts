@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { activityEvents } from "../services/ingest-service.js";
 import type { Activity } from "../../types/activity.js";
+import { sanitizeActivityForClient } from "../privacy/redact.js";
 
 /**
  * Server-Sent Events endpoint for real-time activity updates.
@@ -8,12 +9,19 @@ import type { Activity } from "../../types/activity.js";
  * The old version scoped clients by ?profile=<id>. Profiles are gone —
  * there's a single global broadcast now; the frontend filters client-side
  * by sourceId the same way it filters the REST list endpoints.
+ *
+ * Payloads are list-safe (no details/result/metadata): clients use SSE for
+ * invalidation and status signals, not full sensitive bodies (BSH-100).
  */
 export function registerStreamRoutes(app: Express): void {
   const clients = new Set<Response>();
 
   const onActivityCreated = (activity: Activity) => {
-    const message = `event: activity\ndata: ${JSON.stringify(activity)}\n\n`;
+    const safe = sanitizeActivityForClient(
+      activity as unknown as Record<string, unknown>,
+      { includeSensitive: false, hideRawCwd: true },
+    );
+    const message = `event: activity\ndata: ${JSON.stringify(safe)}\n\n`;
     for (const client of clients) {
       if (!client.writableEnded) {
         client.write(message);

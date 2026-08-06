@@ -1,6 +1,6 @@
 /**
  * Settings Page
- * Sources & Instances (live registry), provider budget, and About.
+ * Sources & Instances (live registry), provider budget, privacy, and About.
  */
 
 import { useEffect, useState } from "react";
@@ -26,7 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AlertCircle, DollarSign, Info, Server } from "lucide-react";
+import { AlertCircle, DollarSign, Info, Server, Shield } from "lucide-react";
 import {
   deleteScopedSpendBudget,
   updateProviderBudget,
@@ -36,19 +36,49 @@ import {
   useSources,
   type SpendBudget,
 } from "@/lib/queries";
+import { apiFetch } from "@/lib/api-client";
 import { formatExactDate, formatLastActive } from "@/lib/date-utils";
 import { useNow } from "@/hooks/useNow";
 import {
   getEffectiveHealth,
   HEALTH_BADGE_VARIANT,
 } from "@/services/sourceHealth";
+import { useAuth } from "@/app/auth/AuthContext";
 
-type SettingsTab = "sources" | "budgets" | "about";
+type SettingsTab = "sources" | "budgets" | "privacy" | "about";
 
 function parseSettingsTab(raw: string | null): SettingsTab {
-  if (raw === "budgets" || raw === "about" || raw === "sources") return raw;
+  if (
+    raw === "budgets" ||
+    raw === "about" ||
+    raw === "sources" ||
+    raw === "privacy"
+  )
+    return raw;
   return "sources";
 }
+
+type PrivacyPolicySnapshot = {
+  redactionMode: string;
+  redactSecrets: boolean;
+  redactPaths: boolean;
+  redactPrompts: boolean;
+  redactToolPayloads: boolean;
+  hideRawCwdInLists: boolean;
+  retention: {
+    activitiesDays: number;
+    sessionsDays: number;
+    inferenceDays: number;
+    runtimeDays: number;
+    generationsDays: number;
+    jobsDays: number;
+  };
+  authEnabled: boolean;
+  hasViewerRole: boolean;
+  isProduction: boolean;
+  requireAuthInProduction: boolean;
+  unsafeUnauthenticated: boolean;
+};
 
 const COMMON_TIMEZONES = [
   "UTC",
@@ -74,6 +104,8 @@ export default function SettingsPage() {
     isLoading: scopedLoading,
     error: scopedError,
   } = useScopedSpendBudgets();
+  const { user } = useAuth();
+  const isOwner = !user || user.role === "owner";
   const queryClient = useQueryClient();
   const now = useNow();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -84,6 +116,13 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  const [privacy, setPrivacy] = useState<PrivacyPolicySnapshot | null>(null);
+  const [privacyLoading, setPrivacyLoading] = useState(false);
+  const [privacyError, setPrivacyError] = useState<string | null>(null);
+  const [privacyActionMsg, setPrivacyActionMsg] = useState<string | null>(null);
+  const [privacyActionErr, setPrivacyActionErr] = useState<string | null>(null);
+  const [privacyBusy, setPrivacyBusy] = useState(false);
 
   const [scopeType, setScopeType] =
     useState<SpendBudget["scopeType"]>("provider");
@@ -114,6 +153,84 @@ export default function SettingsPage() {
     );
     setTimezone(budget.timezone || "UTC");
   }, [budget]);
+
+  useEffect(() => {
+    if (activeTab !== "privacy") return;
+    let cancelled = false;
+    setPrivacyLoading(true);
+    setPrivacyError(null);
+    void (async () => {
+      try {
+        const res = await apiFetch("/api/privacy/policy");
+        const body = await res.json();
+        if (!res.ok || !body.success) {
+          throw new Error(body.error || "Failed to load privacy policy");
+        }
+        if (!cancelled) setPrivacy(body.policy as PrivacyPolicySnapshot);
+      } catch (err) {
+        if (!cancelled) {
+          setPrivacyError(
+            err instanceof Error
+              ? err.message
+              : "Failed to load privacy policy",
+          );
+        }
+      } finally {
+        if (!cancelled) setPrivacyLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab]);
+
+  async function handleRunRetention() {
+    setPrivacyBusy(true);
+    setPrivacyActionMsg(null);
+    setPrivacyActionErr(null);
+    try {
+      const res = await apiFetch("/api/privacy/retention/run", {
+        method: "POST",
+      });
+      const body = await res.json();
+      if (!res.ok || !body.success) {
+        throw new Error(body.error || "Retention failed");
+      }
+      setPrivacyActionMsg(
+        `Retention complete: activities=${body.result?.activitiesDeleted ?? 0}, sessions=${body.result?.sessionsDeleted ?? 0}, inference=${body.result?.inferenceDeleted ?? 0}`,
+      );
+    } catch (err) {
+      setPrivacyActionErr(
+        err instanceof Error ? err.message : "Retention failed",
+      );
+    } finally {
+      setPrivacyBusy(false);
+    }
+  }
+
+  async function handlePurgeSensitive(strict: boolean) {
+    setPrivacyBusy(true);
+    setPrivacyActionMsg(null);
+    setPrivacyActionErr(null);
+    try {
+      const res = await apiFetch("/api/privacy/purge-sensitive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ strict }),
+      });
+      const body = await res.json();
+      if (!res.ok || !body.success) {
+        throw new Error(body.error || "Purge failed");
+      }
+      setPrivacyActionMsg(
+        `Scrubbed ${body.result?.activitiesUpdated ?? 0} activity row(s). ${body.note ?? ""}`,
+      );
+    } catch (err) {
+      setPrivacyActionErr(err instanceof Error ? err.message : "Purge failed");
+    } finally {
+      setPrivacyBusy(false);
+    }
+  }
 
   async function handleSaveBudget() {
     setSaving(true);
@@ -211,7 +328,7 @@ export default function SettingsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Settings"
-        description="Source registry, provider budget, and application info"
+        description="Source registry, budgets, privacy controls, and application info"
       />
 
       <Tabs
@@ -226,6 +343,10 @@ export default function SettingsPage() {
           <TabsTrigger value="budgets">
             <DollarSign className="mr-2 h-4 w-4" />
             Budgets
+          </TabsTrigger>
+          <TabsTrigger value="privacy">
+            <Shield className="mr-2 h-4 w-4" />
+            Privacy
           </TabsTrigger>
           <TabsTrigger value="about">
             <Info className="mr-2 h-4 w-4" />
@@ -608,6 +729,160 @@ export default function SettingsPage() {
                   </div>
                 </>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="privacy" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Privacy & access</CardTitle>
+              <CardDescription>
+                Redaction, retention, and auth posture. Policy is configured via
+                environment variables (see deploy/server.env.example). Sensitive
+                actions require the owner role.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {privacyLoading ? (
+                <Loading />
+              ) : privacyError ? (
+                <div className="flex items-center gap-3 text-destructive py-2">
+                  <AlertCircle className="h-5 w-5" />
+                  <p className="text-sm">{privacyError}</p>
+                </div>
+              ) : privacy ? (
+                <>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="secondary">
+                      redaction: {privacy.redactionMode}
+                    </Badge>
+                    <Badge
+                      variant={privacy.authEnabled ? "success" : "destructive"}
+                    >
+                      auth: {privacy.authEnabled ? "enabled" : "disabled"}
+                    </Badge>
+                    {privacy.hasViewerRole && (
+                      <Badge variant="outline">viewer role configured</Badge>
+                    )}
+                    {privacy.unsafeUnauthenticated && (
+                      <Badge variant="destructive">
+                        unsafe unauthenticated (production)
+                      </Badge>
+                    )}
+                  </div>
+
+                  <div className="grid gap-2 text-sm sm:grid-cols-2">
+                    <p>
+                      Secrets redaction:{" "}
+                      <span className="font-medium">
+                        {privacy.redactSecrets ? "on" : "off"}
+                      </span>
+                    </p>
+                    <p>
+                      Path redaction:{" "}
+                      <span className="font-medium">
+                        {privacy.redactPaths ? "on" : "off"}
+                      </span>
+                    </p>
+                    <p>
+                      Prompt redaction:{" "}
+                      <span className="font-medium">
+                        {privacy.redactPrompts ? "on (strict)" : "standard"}
+                      </span>
+                    </p>
+                    <p>
+                      Tool payload redaction:{" "}
+                      <span className="font-medium">
+                        {privacy.redactToolPayloads ? "on" : "off"}
+                      </span>
+                    </p>
+                    <p>
+                      Hide raw cwd in lists:{" "}
+                      <span className="font-medium">
+                        {privacy.hideRawCwdInLists ? "yes" : "no"}
+                      </span>
+                    </p>
+                    <p>
+                      Require auth in production:{" "}
+                      <span className="font-medium">
+                        {privacy.requireAuthInProduction ? "yes" : "no"}
+                      </span>
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-sm font-medium mb-2">
+                      Retention (days by data class)
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm text-muted-foreground">
+                      <span>
+                        activities: {privacy.retention.activitiesDays}d
+                      </span>
+                      <span>sessions: {privacy.retention.sessionsDays}d</span>
+                      <span>inference: {privacy.retention.inferenceDays}d</span>
+                      <span>runtime: {privacy.retention.runtimeDays}d</span>
+                      <span>
+                        generations: {privacy.retention.generationsDays}d
+                      </span>
+                      <span>jobs: {privacy.retention.jobsDays}d</span>
+                    </div>
+                  </div>
+
+                  {isOwner ? (
+                    <div className="flex flex-wrap gap-2 border-t pt-4">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={privacyBusy}
+                        onClick={() => void handleRunRetention()}
+                      >
+                        Run retention now
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={privacyBusy}
+                        onClick={() => void handlePurgeSensitive(false)}
+                      >
+                        Scrub stored details/results
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        disabled={privacyBusy}
+                        onClick={() => {
+                          if (
+                            !window.confirm(
+                              "Strict scrub will null activity details/results and truncate long prompt descriptions in the database. Continue?",
+                            )
+                          ) {
+                            return;
+                          }
+                          void handlePurgeSensitive(true);
+                        }}
+                      >
+                        Strict scrub (truncate prompts)
+                      </Button>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground border-t pt-4">
+                      Viewer role: purge and retention actions are owner-only.
+                    </p>
+                  )}
+
+                  {privacyActionMsg && (
+                    <p className="text-sm text-muted-foreground">
+                      {privacyActionMsg}
+                    </p>
+                  )}
+                  {privacyActionErr && (
+                    <p className="text-sm text-destructive">
+                      {privacyActionErr}
+                    </p>
+                  )}
+                </>
+              ) : null}
             </CardContent>
           </Card>
         </TabsContent>

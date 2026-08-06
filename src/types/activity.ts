@@ -80,7 +80,10 @@ export interface SessionSummary {
   sourceId: string;
   instanceId: string;
   externalId: string;
+  /** Full working directory — owner detail views only; omitted from list APIs. */
   cwd?: string;
+  /** Last path segment of cwd for list/display (never full path). */
+  project?: string | null;
   gitBranch?: string;
   title?: string;
   startTime: string;

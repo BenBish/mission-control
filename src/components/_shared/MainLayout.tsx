@@ -291,11 +291,37 @@ function LogoutButton() {
       size="icon"
       onClick={logout}
       className="h-9 w-9 rounded-lg"
-      title={`Logout (${user.username})`}
+      title={`Logout (${user.username}${user.role ? ` · ${user.role}` : ""})`}
     >
       <LogOut className="h-4 w-4" />
       <span className="sr-only">Logout</span>
     </Button>
+  );
+}
+
+function SecurityBanner() {
+  const { securityWarning, authEnabled, user } = useAuth();
+  if (!securityWarning && authEnabled) return null;
+  if (!securityWarning) return null;
+
+  return (
+    <div
+      role="alert"
+      className="border-b border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm text-amber-950 dark:text-amber-100"
+    >
+      <div className="flex items-start gap-2">
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+        <div>
+          <p className="font-medium">Security notice</p>
+          <p className="text-amber-900/90 dark:text-amber-100/90">
+            {securityWarning}
+            {user?.role === "viewer"
+              ? " You are signed in as a viewer (read-only)."
+              : null}
+          </p>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -322,6 +348,7 @@ export function MainLayout() {
 
       {/* Main Content */}
       <div className="flex flex-1 flex-col min-w-0">
+        <SecurityBanner />
         {/* Header */}
         <header className="flex h-16 items-center gap-4 border-b bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50 px-4 lg:px-6 sticky top-0 z-30">
           <Sheet>

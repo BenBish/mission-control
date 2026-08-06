@@ -12,8 +12,15 @@ import type {
   ActivityStatus,
 } from "../../types/activity.js";
 import { optionalQueryString } from "../query.js";
+import type { AuthConfig } from "../auth.js";
+import { resolvePrivacyPolicy } from "../privacy/policy.js";
+import { presentActivity, requestAccess } from "../privacy/access.js";
 
-export function registerActivityRoutes(app: Express, db: Database): void {
+export function registerActivityRoutes(
+  app: Express,
+  db: Database,
+  authConfig: AuthConfig,
+): void {
   app.get("/api/activities", async (req: Request, res: Response) => {
     const q = req.query;
     const filter: ActivityFilter = {
@@ -30,7 +37,20 @@ export function registerActivityRoutes(app: Express, db: Database): void {
       offset: q.offset ? Number(q.offset) : undefined,
     };
     const rows = await listActivities(db.raw(), filter);
-    res.json({ success: true, activities: rows.map(rowToActivity) });
+    const policy = resolvePrivacyPolicy();
+    // List views never include raw details/result — even for owners
+    res.json({
+      success: true,
+      activities: rows.map((row) =>
+        presentActivity(
+          rowToActivity(row) as unknown as Record<string, unknown>,
+          {
+            includeSensitive: false,
+            policy,
+          },
+        ),
+      ),
+    });
   });
 
   app.get("/api/activities/:id", async (req: Request, res: Response) => {
@@ -40,6 +60,14 @@ export function registerActivityRoutes(app: Express, db: Database): void {
         .status(404)
         .json({ success: false, error: "Activity not found" });
     }
-    res.json({ success: true, activity: rowToActivity(row) });
+    const policy = resolvePrivacyPolicy();
+    const { includeSensitive } = requestAccess(req, authConfig);
+    res.json({
+      success: true,
+      activity: presentActivity(
+        rowToActivity(row) as unknown as Record<string, unknown>,
+        { includeSensitive, policy },
+      ),
+    });
   });
 }

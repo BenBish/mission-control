@@ -20,8 +20,12 @@ import { CollectorStateStore } from "../collectors/core/state-store.js";
 import { buildHermesCollectors } from "../collectors/hermes/collector.js";
 import { buildComfyUiCollectors } from "../collectors/comfyui/collector.js";
 import { buildLemonadeCollectors } from "../collectors/lemonade/collector.js";
-import { runRuntimeSnapshotRetention } from "../db/queries/retention.js";
+import { runDataClassRetention } from "../db/queries/retention.js";
 import { syncAllProviders } from "../services/provider-connectors/index.js";
+import {
+  resolvePrivacyPolicy,
+  checkProductionAuthPolicy,
+} from "./privacy/policy.js";
 
 const RETENTION_INTERVAL_MS = 60 * 60_000; // hourly
 /** Provider billing sync interval (default 1h). Override with MC_PROVIDER_SYNC_INTERVAL_MS. */
@@ -102,11 +106,30 @@ export class MissionControlServer {
     await this.db.initialize();
     console.log(`📦 Database initialized at ${this.config.databasePath}`);
 
+    const privacy = resolvePrivacyPolicy();
+    const authPolicy = checkProductionAuthPolicy(
+      privacy,
+      this.authConfig.enabled,
+    );
+    if (!authPolicy.ok) {
+      throw new Error(authPolicy.error);
+    }
+    if (authPolicy.warning) {
+      console.warn(`⚠️  ${authPolicy.warning}`);
+    }
+
     if (this.authConfig.enabled) {
-      console.log("🔒 Authentication enabled");
+      console.log(
+        `🔒 Authentication enabled (viewer account: ${
+          this.authConfig.viewerUsername ? "configured" : "none"
+        })`,
+      );
     } else {
       console.log("🔓 Authentication disabled (MC_AUTH_ENABLED != true)");
     }
+    console.log(
+      `🔏 Redaction mode: ${privacy.redactionMode} | retention activities=${privacy.retention.activitiesDays}d runtime=${privacy.retention.runtimeDays}d`,
+    );
 
     // Auth routes (login/logout/me) — must be before auth middleware
     setupAuthRoutes(this.app, this.authConfig);
@@ -114,7 +137,7 @@ export class MissionControlServer {
     // Auth middleware — protects API routes
     this.app.use(authMiddleware(this.authConfig));
 
-    setupRoutes(this.app, this.db);
+    setupRoutes(this.app, this.db, this.authConfig);
     console.log("✓ Routes configured");
 
     // One CollectorStateStore shared across every server-side poller
@@ -176,20 +199,28 @@ export class MissionControlServer {
   }
 
   /**
-   * runtime_snapshots is a 5s-interval poll (Hermes slots), the one table
-   * in this schema with no natural event-driven bound on growth — left
-   * alone it accumulates indefinitely for as long as polling runs. Runs
-   * once at startup (covers any backlog from downtime) and then hourly.
-   * Errors are logged, never fatal — a failed prune shouldn't take the
-   * server down, it just tries again next hour.
+   * Data-class retention (activities, sessions, inference, runtime, …).
+   * Runtime snapshots still roll up hourly before prune. Runs once at
+   * startup and then hourly. Errors are logged, never fatal.
    */
   private startRetentionJob(): void {
     const run = async () => {
       try {
-        const result = await runRuntimeSnapshotRetention(this.db.raw());
-        if (result.slotRowsRolledUp > 0 || result.otherRowsDeleted > 0) {
+        const policy = resolvePrivacyPolicy();
+        const result = await runDataClassRetention(
+          this.db.raw(),
+          policy.retention,
+        );
+        const r = result.runtime;
+        if (
+          r.slotRowsRolledUp > 0 ||
+          r.otherRowsDeleted > 0 ||
+          result.activitiesDeleted > 0 ||
+          result.sessionsDeleted > 0 ||
+          result.inferenceDeleted > 0
+        ) {
           console.log(
-            `🧹 Retention: rolled up ${result.slotRowsRolledUp} slot snapshot(s) into ${result.rollupBucketsWritten} hourly bucket(s), pruned ${result.otherRowsDeleted} other snapshot(s)`,
+            `🧹 Retention: activities=${result.activitiesDeleted} sessions=${result.sessionsDeleted} inference=${result.inferenceDeleted}; runtime rolled up ${r.slotRowsRolledUp} slot snapshot(s) into ${r.rollupBucketsWritten} bucket(s), pruned ${r.otherRowsDeleted} other`,
           );
         }
       } catch (err) {

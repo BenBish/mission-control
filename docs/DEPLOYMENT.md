@@ -483,41 +483,92 @@ async function getCachedSummary(sessionId) {
 }
 ```
 
-## Compliance & Retention
+## Privacy & access (BSH-100)
 
-### Data Deletion
+Mission Control stores agent activity that can include prompts, tool I/O, and
+working-directory paths. Treat the SQLite DB as sensitive.
 
-Implement automatic cleanup based on retention policy:
+### Authentication defaults
 
-```typescript
-async function pruneOldActivities() {
-  const cutoffDate = new Date();
-  cutoffDate.setDate(cutoffDate.getDate() - 90); // 90 days
+| Mode | When | Behaviour |
+|------|------|-----------|
+| Auth off | Local single-user / tailnet-only | Full access as implicit **owner**. UI banner warns that auth is disabled. |
+| Auth on | Shared / production | Cookie JWT login. Owner mutates settings; viewer is read-only. |
+| Production refuse | `NODE_ENV=production` + `MC_REQUIRE_AUTH_IN_PRODUCTION=true` + auth off | Process **refuses to start**. |
 
-  await db.deleteActivitiesBefore(cutoffDate);
-}
+```bash
+# Owner (required when MC_AUTH_ENABLED=true)
+MC_AUTH_ENABLED=true
+MC_USERNAME=admin
+MC_PASSWORD_HASH=$(bun -e "console.log(await Bun.password.hash('yourpass'))")
 
-// Run daily
-schedule.scheduleJob("0 3 * * *", pruneOldActivities);
+# Optional viewer (read-only; no raw details/result; no mutations)
+MC_VIEWER_USERNAME=viewer
+MC_VIEWER_PASSWORD_HASH=$(bun -e "console.log(await Bun.password.hash('viewerpass'))")
+
+# Hard-fail unsafe production
+MC_REQUIRE_AUTH_IN_PRODUCTION=true
 ```
 
-### Audit Logging
+`GET /api/health` and `GET /api/privacy/policy` expose a non-secret security
+snapshot (`authEnabled`, `redactionMode`, `unsafeUnauthenticated`).
 
-Track who accessed what:
+### Ingestion redaction
 
-```typescript
-app.use((req, res, next) => {
-  auditLog({
-    timestamp: new Date(),
-    user: req.user?.id,
-    action: req.method,
-    resource: req.path,
-    status: res.statusCode,
-  });
-  next();
-});
+`MC_REDACTION_MODE`:
+
+- **`off`** — store payloads as received (dev only).
+- **`standard`** (default) — scrub secrets/tokens, absolute paths in free text,
+  truncate tool args/stdout/stderr.
+- **`strict`** — also truncate prompt/message descriptions and replace tool
+  bodies with `[REDACTED]`.
+
+Applied in `processIngestBatch` before SQLite writes.
+
+### List views
+
+Session **lists** return a `project` label (last path segment) and omit raw
+`cwd`. Activity **lists** omit `details` / `result` / `metadata`. Owners may
+see full fields on detail endpoints; viewers never do.
+
+### Retention by data class
+
+Configured via env (defaults in parentheses):
+
+| Class | Env | Default |
+|-------|-----|---------|
+| activities | `MC_RETENTION_ACTIVITIES_DAYS` | 90 |
+| sessions | `MC_RETENTION_SESSIONS_DAYS` | 90 |
+| inference | `MC_RETENTION_INFERENCE_DAYS` | 90 |
+| runtime snapshots | `MC_RETENTION_RUNTIME_DAYS` | 7 |
+| generations | `MC_RETENTION_GENERATIONS_DAYS` | 90 |
+| job runs | `MC_RETENTION_JOBS_DAYS` | 90 |
+
+Enforced hourly (and at startup) by `runDataClassRetention`. Owner can trigger
+immediately: `POST /api/privacy/retention/run`.
+
+### Migration / purge of already-stored sensitive data
+
+Data ingested before redaction may still contain raw prompts and tool I/O.
+
+**Safe path (owner only):**
+
+```bash
+# Null activity details/result (and optionally truncate long prompt descriptions)
+curl -X POST -b cookies.txt http://localhost:3001/api/privacy/purge-sensitive \
+  -H 'Content-Type: application/json' \
+  -d '{"strict":true}'
+
+# Then enforce retention windows
+curl -X POST -b cookies.txt http://localhost:3001/api/privacy/retention/run
 ```
+
+Or use **Settings → Privacy** in the UI. After scrub, re-ingesting from source
+logs will re-apply the current redaction policy on new writes.
+
+Provider billing aggregates (`provider_usage_daily`) are not purged by the
+sensitive scrub — they do not contain prompt text.
 
 ---
 
-**Status:** Deployment guide for Phase 1 MVP
+**Status:** Deployment guide including privacy controls (BSH-100)

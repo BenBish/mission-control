@@ -281,7 +281,8 @@ describe("POST /api/ingest/batch", () => {
     expect(body.session.activities[0].timestamp).toBe(
       "2026-08-04T12:00:00.000Z",
     );
-    expect(body.session.activities[0].description).toBe("Read `/tmp/example`");
+    // Path redaction (BSH-100) rewrites absolute paths in free text at ingest.
+    expect(body.session.activities[0].description).toBe("Read `[PATH]`");
   });
 
   test("BSH-90: terminal status does not regress to running on late updates", async () => {

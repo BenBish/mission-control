@@ -113,7 +113,7 @@ export default function SessionsPage() {
                       Duration
                     </th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                      cwd
+                      Project
                     </th>
                     <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                       Turns
@@ -176,7 +176,15 @@ export default function SessionsPage() {
                           )}
                         </td>
                         <td className="py-3 px-4 text-sm text-muted-foreground truncate max-w-[200px]">
-                          {session.cwd ?? "—"}
+                          {session.project ??
+                            (session.cwd
+                              ? session.cwd
+                                  .replace(/\\/g, "/")
+                                  .split("/")
+                                  .filter(Boolean)
+                                  .pop()
+                              : null) ??
+                            "—"}
                         </td>
                         <td className="py-3 px-4 text-sm text-right tabular-nums">
                           {session.stats.turnCount}
