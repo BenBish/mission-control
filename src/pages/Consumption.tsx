@@ -1,4 +1,5 @@
 import {
+  Fragment,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -46,12 +47,15 @@ import {
 } from "recharts";
 import { useSourceFilter } from "@/app/source-context";
 import {
+  useAgentUsage,
+  useAgentUsageSessions,
   useConsumption,
   useProviderBreakdown,
   useProviderStatus,
   useProviderSpendInsights,
   useProviderCredits,
   triggerProviderSync,
+  type AgentUsageDimension,
   type ProviderCredit,
 } from "@/lib/queries";
 import {
@@ -62,6 +66,14 @@ import {
 
 type Unit = "tokens" | "compute" | "usd";
 type ConsumptionView = "agent" | "direct-api";
+
+const AGENT_DIMENSIONS: { label: string; value: AgentUsageDimension }[] = [
+  { label: "Model", value: "model" },
+  { label: "Project", value: "project" },
+  { label: "Actor", value: "actor" },
+  { label: "Source", value: "source" },
+  { label: "Session", value: "session" },
+];
 
 const DATE_PRESETS: { label: string; value: DatePreset }[] = [
   { label: "Today", value: "today" },
@@ -113,6 +125,12 @@ export default function Consumption() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [agentDimension, setAgentDimension] =
+    useState<AgentUsageDimension>("model");
+  const [includeNonMaterial, setIncludeNonMaterial] = useState(false);
+  const [expandedDriverKey, setExpandedDriverKey] = useState<string | null>(
+    null,
+  );
   const queryClient = useQueryClient();
   const agentScope = selectedSourceId
     ? (sources.find((s) => s.id === selectedSourceId)?.name ?? selectedSourceId)
@@ -186,10 +204,29 @@ export default function Consumption() {
   );
 
   const {
-    data: rows,
+    data: agentUsage,
     isLoading,
     error,
-  } = useConsumption({ since: agentSince, sourceId: selectedSourceId });
+  } = useAgentUsage({
+    since: agentSince,
+    sourceId: selectedSourceId,
+    dimension: agentDimension,
+    includeNonMaterial,
+  });
+
+  // Legacy daily rows still power the Compute unit card (inference duration).
+  const { data: dailyRows } = useConsumption({
+    since: agentSince,
+    sourceId: selectedSourceId,
+  });
+
+  const { data: drillSessions, isLoading: drillLoading } =
+    useAgentUsageSessions({
+      since: agentSince,
+      sourceId: selectedSourceId,
+      dimension: agentDimension,
+      driverKey: expandedDriverKey,
+    });
 
   const { data: providerStatus } = useProviderStatus();
   const { data: providerBreakdown, isLoading: providerLoading } =
@@ -204,60 +241,24 @@ export default function Consumption() {
   const planUsageCredits = providerCapacity?.planUsage ?? [];
   const walletCredits = providerCapacity?.wallet ?? [];
 
-  const bySourceModel = useMemo(() => {
-    if (!rows) return [];
-    const grouped = new Map<
-      string,
-      {
-        sourceId: string;
-        model: string;
-        inputTokens: number;
-        outputTokens: number;
-        computeSeconds: number;
-        costUsd: number | null;
-        hasCost: boolean;
-      }
-    >();
-    for (const row of rows) {
-      const key = `${row.source_id}:${row.model ?? "unknown"}`;
-      const existing = grouped.get(key);
-      if (existing) {
-        existing.inputTokens += row.input_tokens;
-        existing.outputTokens += row.output_tokens;
-        existing.computeSeconds += row.compute_seconds;
-        if (row.cost_usd != null) {
-          existing.costUsd = (existing.costUsd ?? 0) + row.cost_usd;
-          existing.hasCost = true;
-        }
-      } else {
-        grouped.set(key, {
-          sourceId: row.source_id,
-          model: row.model ?? "unknown",
-          inputTokens: row.input_tokens,
-          outputTokens: row.output_tokens,
-          computeSeconds: row.compute_seconds,
-          costUsd: row.cost_usd,
-          hasCost: row.cost_usd != null,
-        });
-      }
-    }
-    return Array.from(grouped.values()).sort(
-      (a, b) =>
-        b.inputTokens + b.outputTokens - (a.inputTokens + a.outputTokens),
-    );
-  }, [rows]);
-
+  const drivers = agentUsage?.drivers ?? [];
+  const coverage = agentUsage?.coverage;
   const totals = useMemo(() => {
-    return bySourceModel.reduce(
-      (acc, row) => ({
-        tokens: acc.tokens + row.inputTokens + row.outputTokens,
-        compute: acc.compute + row.computeSeconds,
-        cost: row.hasCost ? acc.cost + (row.costUsd ?? 0) : acc.cost,
-        hasCost: acc.hasCost || row.hasCost,
-      }),
-      { tokens: 0, compute: 0, cost: 0, hasCost: false },
+    const t = agentUsage?.totals;
+    const compute = (dailyRows ?? []).reduce(
+      (sum, r) => sum + (r.compute_seconds ?? 0),
+      0,
     );
-  }, [bySourceModel]);
+    if (!t) {
+      return { tokens: 0, compute, cost: 0, hasCost: false };
+    }
+    return {
+      tokens: t.inputTokens + t.outputTokens,
+      compute,
+      cost: t.hasCost ? (t.costUsd ?? 0) : 0,
+      hasCost: t.hasCost,
+    };
+  }, [agentUsage, dailyRows]);
 
   const providerTotals = useMemo(() => {
     if (!providerBreakdown) return { tokens: 0, cost: 0, hasCost: false };
@@ -412,7 +413,7 @@ export default function Consumption() {
             </Card>
           ) : (
             <>
-              <div className="sm:max-w-xs">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {unit === "tokens" && (
                   <Card className="overflow-hidden border-l-4 border-l-blue-500">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -427,6 +428,14 @@ export default function Consumption() {
                       <div className="text-3xl font-bold tracking-tight tabular-nums">
                         {totals.tokens.toLocaleString()}
                       </div>
+                      {agentUsage?.totals && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {agentUsage.totals.sessionCount.toLocaleString()}{" "}
+                          sessions ·{" "}
+                          {agentUsage.totals.requestCount.toLocaleString()}{" "}
+                          requests
+                        </p>
+                      )}
                     </CardContent>
                   </Card>
                 )}
@@ -464,93 +473,361 @@ export default function Consumption() {
                     </CardContent>
                   </Card>
                 )}
+                {unit === "tokens" && coverage && (
+                  <>
+                    <Card className="overflow-hidden border-l-4 border-l-amber-500">
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground">
+                          Unattributed
+                        </CardTitle>
+                        <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-900/30">
+                          <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-3xl font-bold tracking-tight tabular-nums">
+                          {coverage.unattributedPct}%
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {coverage.unattributedTokens.toLocaleString()} tokens
+                          unknown/synthetic
+                        </p>
+                      </CardContent>
+                    </Card>
+                    <Card className="overflow-hidden border-l-4 border-l-slate-500">
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground">
+                          Cache read
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-3xl font-bold tracking-tight tabular-nums">
+                          {(
+                            agentUsage?.totals.cacheReadTokens ?? 0
+                          ).toLocaleString()}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          write{" "}
+                          {(
+                            agentUsage?.totals.cacheWriteTokens ?? 0
+                          ).toLocaleString()}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </>
+                )}
               </div>
 
-              {bySourceModel.length > 0 ? (
+              {coverage && coverage.totalTokens > 0 && (
+                <Card className="border-dashed">
+                  <CardContent className="py-3 text-sm text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
+                    <span>
+                      Material ranked:{" "}
+                      <strong className="text-foreground">
+                        {coverage.materialTokens.toLocaleString()}
+                      </strong>{" "}
+                      tokens
+                    </span>
+                    <span>
+                      Unknown model:{" "}
+                      {coverage.unknownModelTokens.toLocaleString()}
+                    </span>
+                    <span>
+                      Synthetic: {coverage.syntheticTokens.toLocaleString()}
+                    </span>
+                    <span>
+                      Zero-token rows excluded: {coverage.zeroTokenFactCount}
+                    </span>
+                    <span>
+                      Missing project:{" "}
+                      {coverage.missingProjectTokens.toLocaleString()} tokens
+                    </span>
+                  </CardContent>
+                </Card>
+              )}
+
+              {drivers.length > 0 || coverage ? (
                 <Card className="shadow-sm">
-                  <CardHeader className="pb-4 border-b">
-                    <CardTitle className="text-lg">By Source & Model</CardTitle>
-                    <CardDescription>
-                      Agent Usage over the selected date range
-                      {selectedSourceId ? ` · filtered to ${agentScope}` : ""}
-                    </CardDescription>
+                  <CardHeader className="pb-4 border-b space-y-3">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <CardTitle className="text-lg">
+                          Ranked drivers
+                        </CardTitle>
+                        <CardDescription>
+                          Canonical model identities with raw aliases for
+                          diagnostics
+                          {selectedSourceId
+                            ? ` · filtered to ${agentScope}`
+                            : ""}
+                          . Zero-token and synthetic rows are excluded by
+                          default.
+                        </CardDescription>
+                      </div>
+                      <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="rounded border-muted-foreground"
+                          checked={includeNonMaterial}
+                          onChange={(e) => {
+                            setIncludeNonMaterial(e.target.checked);
+                            setExpandedDriverKey(null);
+                          }}
+                        />
+                        Show zero / synthetic
+                      </label>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {AGENT_DIMENSIONS.map((d) => (
+                        <Button
+                          key={d.value}
+                          variant={
+                            agentDimension === d.value ? "default" : "outline"
+                          }
+                          size="sm"
+                          onClick={() => {
+                            setAgentDimension(d.value);
+                            setExpandedDriverKey(null);
+                          }}
+                        >
+                          {d.label}
+                        </Button>
+                      ))}
+                    </div>
                   </CardHeader>
                   <CardContent className="pt-4 px-0">
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b bg-muted/50">
-                            <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                              Source
-                            </th>
-                            <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                              Model
-                            </th>
-                            {unit === "tokens" && (
-                              <>
-                                <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                  Input
-                                </th>
-                                <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                  Output
-                                </th>
-                              </>
-                            )}
-                            {unit === "compute" && (
-                              <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                Compute
+                    {drivers.length === 0 ? (
+                      <p className="px-4 pb-4 text-sm text-muted-foreground">
+                        No material drivers for this grouping
+                        {includeNonMaterial
+                          ? ""
+                          : " (try Show zero / synthetic)"}
+                        .
+                      </p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead>
+                            <tr className="border-b bg-muted/50">
+                              <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                Source
                               </th>
-                            )}
-                            {unit === "usd" && (
-                              <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                Cost
+                              <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                {agentDimension === "model"
+                                  ? "Model"
+                                  : agentDimension === "project"
+                                    ? "Project"
+                                    : agentDimension === "actor"
+                                      ? "Actor"
+                                      : agentDimension === "session"
+                                        ? "Session"
+                                        : "Driver"}
                               </th>
-                            )}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {bySourceModel.map((row) => (
-                            <tr
-                              key={`${row.sourceId}:${row.model}`}
-                              className="border-b last:border-0 hover:bg-muted/40"
-                            >
-                              <td className="py-3 px-4 text-sm">
-                                <span className="font-medium">
-                                  {row.sourceId}
-                                </span>
-                              </td>
-                              <td className="py-3 px-4 text-sm font-mono text-xs">
-                                {row.model}
-                              </td>
                               {unit === "tokens" && (
                                 <>
-                                  <td className="py-3 px-4 text-sm text-right tabular-nums">
-                                    {row.inputTokens.toLocaleString()}
-                                  </td>
-                                  <td className="py-3 px-4 text-sm text-right tabular-nums">
-                                    {row.outputTokens.toLocaleString()}
-                                  </td>
+                                  <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                    Input
+                                  </th>
+                                  <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                    Output
+                                  </th>
+                                  <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                    Cache
+                                  </th>
                                 </>
                               )}
-                              {unit === "compute" && (
-                                <td className="py-3 px-4 text-sm text-right tabular-nums">
-                                  {row.computeSeconds > 0
-                                    ? formatCompute(row.computeSeconds)
-                                    : "—"}
-                                </td>
-                              )}
                               {unit === "usd" && (
-                                <td className="py-3 px-4 text-sm text-right tabular-nums">
-                                  {row.hasCost
-                                    ? `$${(row.costUsd ?? 0).toFixed(4)}`
-                                    : "—"}
-                                </td>
+                                <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                  Cost
+                                </th>
                               )}
+                              {unit === "compute" && (
+                                <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                  Requests
+                                </th>
+                              )}
+                              <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                Sessions
+                              </th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                          </thead>
+                          <tbody>
+                            {drivers.map((row) => {
+                              const open = expandedDriverKey === row.key;
+                              const label =
+                                agentDimension === "model"
+                                  ? row.canonicalModel
+                                  : agentDimension === "project"
+                                    ? (row.project ?? "unassigned")
+                                    : agentDimension === "actor"
+                                      ? (row.actorId ?? "—")
+                                      : agentDimension === "session"
+                                        ? (row.sessionTitle ??
+                                          row.sessionId ??
+                                          "—")
+                                        : row.sourceId;
+                              return (
+                                <Fragment key={row.key}>
+                                  <tr
+                                    className="border-b last:border-0 hover:bg-muted/40 cursor-pointer"
+                                    onClick={() =>
+                                      setExpandedDriverKey(
+                                        open ? null : row.key,
+                                      )
+                                    }
+                                  >
+                                    <td className="py-3 px-4 text-sm">
+                                      <span className="font-medium">
+                                        {row.sourceId}
+                                      </span>
+                                    </td>
+                                    <td className="py-3 px-4 text-sm">
+                                      <div className="font-mono text-xs">
+                                        {label}
+                                      </div>
+                                      {agentDimension === "model" &&
+                                        row.rawModels.length > 0 && (
+                                          <div className="text-[11px] text-muted-foreground mt-0.5">
+                                            raw: {row.rawModels.join(", ")}
+                                          </div>
+                                        )}
+                                      {row.project &&
+                                        agentDimension !== "project" && (
+                                          <div className="text-[11px] text-muted-foreground">
+                                            {row.project}
+                                          </div>
+                                        )}
+                                    </td>
+                                    {unit === "tokens" && (
+                                      <>
+                                        <td className="py-3 px-4 text-sm text-right tabular-nums">
+                                          {row.inputTokens.toLocaleString()}
+                                        </td>
+                                        <td className="py-3 px-4 text-sm text-right tabular-nums">
+                                          {row.outputTokens.toLocaleString()}
+                                        </td>
+                                        <td className="py-3 px-4 text-sm text-right tabular-nums text-muted-foreground">
+                                          {(
+                                            row.cacheReadTokens +
+                                            row.cacheWriteTokens
+                                          ).toLocaleString()}
+                                        </td>
+                                      </>
+                                    )}
+                                    {unit === "usd" && (
+                                      <td className="py-3 px-4 text-sm text-right tabular-nums">
+                                        {row.hasCost
+                                          ? `$${(row.costUsd ?? 0).toFixed(4)}`
+                                          : "—"}
+                                      </td>
+                                    )}
+                                    {unit === "compute" && (
+                                      <td className="py-3 px-4 text-sm text-right tabular-nums">
+                                        {row.requestCount.toLocaleString()}
+                                      </td>
+                                    )}
+                                    <td className="py-3 px-4 text-sm text-right tabular-nums">
+                                      {row.sessionCount.toLocaleString()}
+                                    </td>
+                                  </tr>
+                                  {open && (
+                                    <tr className="bg-muted/30">
+                                      <td
+                                        colSpan={unit === "tokens" ? 6 : 4}
+                                        className="px-4 py-3"
+                                      >
+                                        <p className="text-xs font-medium mb-2">
+                                          Contributing sessions
+                                        </p>
+                                        {drillLoading ? (
+                                          <p className="text-xs text-muted-foreground">
+                                            Loading…
+                                          </p>
+                                        ) : (
+                                          <div className="overflow-x-auto">
+                                            <table className="w-full text-xs">
+                                              <thead>
+                                                <tr className="text-muted-foreground">
+                                                  <th className="text-left py-1 pr-2">
+                                                    Session
+                                                  </th>
+                                                  <th className="text-left py-1 pr-2">
+                                                    Project
+                                                  </th>
+                                                  <th className="text-right py-1 pr-2">
+                                                    Tokens
+                                                  </th>
+                                                  <th className="text-right py-1">
+                                                    Requests
+                                                  </th>
+                                                </tr>
+                                              </thead>
+                                              <tbody>
+                                                {(
+                                                  drillSessions?.sessions ?? []
+                                                ).map((s) => (
+                                                  <tr key={s.sessionId}>
+                                                    <td className="py-1 pr-2">
+                                                      {s.sessionId.startsWith(
+                                                        "inference:",
+                                                      ) ? (
+                                                        <span className="text-muted-foreground">
+                                                          inference bucket
+                                                        </span>
+                                                      ) : (
+                                                        <Link
+                                                          to={`/sessions/${encodeURIComponent(s.sessionId)}`}
+                                                          className="underline hover:text-foreground"
+                                                          onClick={(e) =>
+                                                            e.stopPropagation()
+                                                          }
+                                                        >
+                                                          {s.title ??
+                                                            s.externalId ??
+                                                            s.sessionId}
+                                                        </Link>
+                                                      )}
+                                                    </td>
+                                                    <td className="py-1 pr-2 text-muted-foreground">
+                                                      {s.project ?? "—"}
+                                                    </td>
+                                                    <td className="py-1 pr-2 text-right tabular-nums">
+                                                      {(
+                                                        s.inputTokens +
+                                                        s.outputTokens
+                                                      ).toLocaleString()}
+                                                    </td>
+                                                    <td className="py-1 text-right tabular-nums">
+                                                      {s.requestCount.toLocaleString()}
+                                                    </td>
+                                                  </tr>
+                                                ))}
+                                                {(drillSessions?.sessions
+                                                  ?.length ?? 0) === 0 && (
+                                                  <tr>
+                                                    <td
+                                                      colSpan={4}
+                                                      className="py-2 text-muted-foreground"
+                                                    >
+                                                      No sessions for this
+                                                      driver.
+                                                    </td>
+                                                  </tr>
+                                                )}
+                                              </tbody>
+                                            </table>
+                                          </div>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  )}
+                                </Fragment>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ) : (
