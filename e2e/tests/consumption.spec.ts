@@ -113,8 +113,12 @@ test.describe("Consumption", () => {
     await expect(page).toHaveURL(/view=attribution/);
     await expect(page.getByTestId("attribution-panel")).toBeVisible();
     await expect(page.getByTestId("attribution-summary")).toBeVisible();
-    await expect(page.getByText("Matched spend")).toBeVisible();
-    await expect(page.getByText("Coverage")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Matched spend", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Coverage", exact: true }),
+    ).toBeVisible();
   });
 
   test("source filter shows account-wide note on Direct API Spend", async ({

@@ -404,25 +404,28 @@ export default function Consumption() {
         value={view}
         onValueChange={(v) => updateParams({ view: parseView(v) })}
       >
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <TabsList>
-            <TabsTrigger value="agent" className="gap-1.5">
-              <Bot className="h-4 w-4" />
-              Agent Usage
-            </TabsTrigger>
-            <TabsTrigger value="direct-api" className="gap-1.5">
-              <Cloud className="h-4 w-4" />
-              Direct API Spend
-            </TabsTrigger>
-            <TabsTrigger
-              value="attribution"
-              className="gap-1.5"
-              data-testid="attribution-tab"
-            >
-              <Link2 className="h-4 w-4" />
-              Attribution
-            </TabsTrigger>
-          </TabsList>
+        <div className="flex flex-wrap items-center justify-between gap-3 min-w-0">
+          {/* Scrollable tab strip so three labels never widen the page at 390px */}
+          <div className="min-w-0 max-w-full overflow-x-auto">
+            <TabsList className="h-auto w-max max-w-none">
+              <TabsTrigger value="agent" className="gap-1.5 shrink-0">
+                <Bot className="h-4 w-4 shrink-0" />
+                Agent Usage
+              </TabsTrigger>
+              <TabsTrigger value="direct-api" className="gap-1.5 shrink-0">
+                <Cloud className="h-4 w-4 shrink-0" />
+                Direct API Spend
+              </TabsTrigger>
+              <TabsTrigger
+                value="attribution"
+                className="gap-1.5 shrink-0"
+                data-testid="attribution-tab"
+              >
+                <Link2 className="h-4 w-4 shrink-0" />
+                Attribution
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           <div className="flex flex-wrap gap-2">
             {DATE_PRESETS.map((p) => (
