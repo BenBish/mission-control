@@ -5,7 +5,11 @@
  * throws on non-2xx / success:false so react-query's error state just works.
  */
 
-import { useQuery, type UseQueryResult } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useQuery,
+  type UseQueryResult,
+} from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import type {
   Activity,
@@ -1118,10 +1122,13 @@ export interface RuntimeEvent {
     | "request_cancelled";
   severity: "info" | "warning" | "error";
   summary: string;
-  details: unknown;
+  /** Omitted from list payloads (BSH-102); present only if API includes it. */
+  details?: unknown;
 }
 
 export type RuntimeRange = "1h" | "6h" | "24h" | "7d" | "all";
+
+export type RuntimeSection = "summary" | "lists" | "all";
 
 export interface RuntimeMetrics {
   activeSlots: number;
@@ -1150,8 +1157,10 @@ export interface RuntimeClientVolume {
   completionTokens: number;
 }
 
-export interface RuntimeData {
+/** Summary section: metrics, health, slots — loads first for time-to-content. */
+export interface RuntimeSummaryData {
   range: RuntimeRange;
+  section?: RuntimeSection;
   sources: Source[];
   snapshots: RuntimeSnapshot[];
   metrics: RuntimeMetrics;
@@ -1162,15 +1171,27 @@ export interface RuntimeData {
   };
   /** Request volume by client_label for the selected range (BSH-89). */
   requestsByClient?: RuntimeClientVolume[];
+}
+
+/** Lists section: paginated requests + events (deferred after summary). */
+export interface RuntimeListsData {
+  range: RuntimeRange;
+  section?: RuntimeSection;
   inferenceRequests: RuntimePage<InferenceRequestSummary>;
   runtimeEvents: RuntimePage<RuntimeEvent>;
 }
 
+/** Combined (section=all) response — backward compatible. */
+export interface RuntimeData extends RuntimeSummaryData, RuntimeListsData {}
+
 export interface RuntimeQueryParams {
   range?: RuntimeRange;
+  section?: RuntimeSection;
   sourceId?: string;
   reqStatus?: string;
   reqClient?: string;
+  /** Minimum duration_ms for slow-request triage. */
+  reqMinDurationMs?: number;
   reqPage?: number;
   reqLimit?: number;
   eventKind?: string;
@@ -1181,9 +1202,12 @@ export interface RuntimeQueryParams {
 function buildRuntimeQuery(params: RuntimeQueryParams = {}): string {
   const sp = new URLSearchParams();
   if (params.range) sp.set("range", params.range);
+  if (params.section) sp.set("section", params.section);
   if (params.sourceId) sp.set("sourceId", params.sourceId);
   if (params.reqStatus) sp.set("reqStatus", params.reqStatus);
   if (params.reqClient) sp.set("reqClient", params.reqClient);
+  if (params.reqMinDurationMs != null)
+    sp.set("reqMinDurationMs", String(params.reqMinDurationMs));
   if (params.reqPage != null) sp.set("reqPage", String(params.reqPage));
   if (params.reqLimit != null) sp.set("reqLimit", String(params.reqLimit));
   if (params.eventKind) sp.set("eventKind", params.eventKind);
@@ -1194,13 +1218,50 @@ function buildRuntimeQuery(params: RuntimeQueryParams = {}): string {
   return qs ? `/api/runtime?${qs}` : "/api/runtime";
 }
 
+/** @deprecated Prefer useRuntimeSummary + useRuntimeLists for progressive load. */
 export function useRuntime(
   params: RuntimeQueryParams = {},
 ): UseQueryResult<RuntimeData> {
   return useQuery({
-    queryKey: ["runtime", params],
-    queryFn: () => getJson<RuntimeData>(buildRuntimeQuery(params)),
+    queryKey: ["runtime", "all", params],
+    queryFn: () =>
+      getJson<RuntimeData>(
+        buildRuntimeQuery({ ...params, section: params.section ?? "all" }),
+      ),
     refetchInterval: 5_000,
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** Fleet metrics + slot/source state — first paint for Runtime (BSH-102). */
+export function useRuntimeSummary(
+  params: Pick<RuntimeQueryParams, "range" | "sourceId"> = {},
+): UseQueryResult<RuntimeSummaryData> {
+  return useQuery({
+    queryKey: ["runtime", "summary", params],
+    queryFn: () =>
+      getJson<RuntimeSummaryData>(
+        buildRuntimeQuery({ ...params, section: "summary" }),
+      ),
+    refetchInterval: 5_000,
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** Paginated requests/events — deferred after summary (BSH-102). */
+export function useRuntimeLists(
+  params: RuntimeQueryParams = {},
+): UseQueryResult<RuntimeListsData> {
+  return useQuery({
+    queryKey: ["runtime", "lists", params],
+    queryFn: () =>
+      getJson<RuntimeListsData>(
+        buildRuntimeQuery({ ...params, section: "lists" }),
+      ),
+    // Lists change less urgently than slot/metrics summary; poll a bit slower
+    // to avoid doubling 5s load on SQLite after the progressive split.
+    refetchInterval: 10_000,
+    placeholderData: keepPreviousData,
   });
 }
 

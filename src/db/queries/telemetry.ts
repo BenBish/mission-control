@@ -272,6 +272,8 @@ export interface InferenceRequestFilter {
   since?: string;
   /** ISO timestamp upper bound (inclusive). */
   until?: string;
+  /** Minimum duration_ms (inclusive) — used for "slow request" triage. */
+  minDurationMs?: number;
   limit?: number;
   offset?: number;
 }
@@ -304,6 +306,10 @@ export async function listInferenceRequests(
   if (filter.until) {
     clauses.push("timestamp <= ?");
     params.push(filter.until);
+  }
+  if (filter.minDurationMs != null && Number.isFinite(filter.minDurationMs)) {
+    clauses.push("duration_ms IS NOT NULL AND duration_ms >= ?");
+    params.push(filter.minDurationMs);
   }
 
   const where = buildWhereSql(clauses);
@@ -466,12 +472,19 @@ function percentile(sorted: number[], p: number): number | null {
  * Operational metrics for the Runtime page.
  * Slot occupancy is always "current" (latest snapshots). Rate/latency metrics
  * use the optional `since` lower bound so operators can match the UI time range.
+ *
+ * Pass `snapshots` when the caller already loaded latest snapshots so the
+ * summary path does not double-query (BSH-102).
  */
 export async function getRuntimeMetrics(
   db: SqliteDatabase,
-  opts: { since?: string; windowHours?: number | null } = {},
+  opts: {
+    since?: string;
+    windowHours?: number | null;
+    snapshots?: RuntimeSnapshotRow[];
+  } = {},
 ): Promise<RuntimeMetrics> {
-  const snapshots = await latestRuntimeSnapshots(db);
+  const snapshots = opts.snapshots ?? (await latestRuntimeSnapshots(db));
   let activeSlots = 0;
   let totalSlots = 0;
   for (const s of snapshots) {
