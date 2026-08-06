@@ -1,15 +1,23 @@
 import type { Database as SqliteDatabase } from "sqlite";
 import {
+  classifyFailureSignal,
   computeFailureFingerprint,
   isFailureEventResolved,
   type FailureKind,
+  type FailureSignalClass,
 } from "../../lib/failure-fingerprint.js";
 import type {
   FailureGroup,
   FailureItem,
   FailureResolution,
+  FailureSignalQuality,
   FailureSummary,
+  FailureTriageStatus,
 } from "../../types/failures.js";
+import {
+  effectiveTriageStatus,
+  listFailureIncidentStates,
+} from "./failure-incidents.js";
 
 export type { FailureItem, FailureSummary, FailureGroup };
 
@@ -160,6 +168,13 @@ function rowToItem(row: FailureUnionRow): FailureItem {
     kind: row.kind,
     endedAt: row.ended_at,
   });
+  const signalClass = classifyFailureSignal({
+    kind: row.kind,
+    eventKind: row.event_kind,
+    status: row.status,
+    summary: row.summary,
+    detail: row.detail,
+  });
   return {
     kind: row.kind,
     id: row.id,
@@ -170,6 +185,7 @@ function rowToItem(row: FailureUnionRow): FailureItem {
     endedAt: row.ended_at ?? undefined,
     fingerprint,
     resolved,
+    signalClass,
   };
 }
 
@@ -258,8 +274,13 @@ export interface ListFailureGroupsOpts {
   sourceId?: string;
   kind?: FailureKind;
   resolved?: FailureResolution;
+  /** Filter by signal class (actionable / expected / transient). */
+  signalClass?: FailureSignalClass;
+  /** Filter by effective triage status. */
+  triageStatus?: FailureTriageStatus;
   limit?: number;
   offset?: number;
+  now?: Date;
 }
 
 /**
@@ -273,9 +294,14 @@ export interface ListFailureGroupsOpts {
 export async function listFailureGroups(
   db: SqliteDatabase,
   opts: ListFailureGroupsOpts = {},
-): Promise<{ groups: FailureGroup[]; groupTotal: number }> {
+): Promise<{
+  groups: FailureGroup[];
+  groupTotal: number;
+  signalQuality: FailureSignalQuality;
+}> {
   const limit = safeLimit(opts.limit, 50);
   const offset = safeOffset(opts.offset);
+  const now = opts.now ?? new Date();
 
   const rows = await loadFailureUnionRows(db, {
     sourceId: opts.sourceId,
@@ -292,6 +318,7 @@ export async function listFailureGroups(
     firstSeen: string;
     lastSeen: string;
     openCount: number;
+    signalClass: FailureSignalClass;
   };
 
   const map = new Map<string, Acc>();
@@ -311,15 +338,17 @@ export async function listFailureGroups(
         firstSeen: item.timestamp,
         lastSeen: item.timestamp,
         openCount: item.resolved ? 0 : 1,
+        signalClass: item.signalClass ?? "actionable",
       });
       continue;
     }
     existing.occurrenceCount += 1;
     if (item.timestamp > existing.lastSeen) {
       existing.lastSeen = item.timestamp;
-      // Keep most-recent summary/detail as representative.
+      // Keep most-recent summary/detail/class as representative.
       existing.summary = item.summary;
       existing.detail = item.detail;
+      existing.signalClass = item.signalClass ?? existing.signalClass;
     }
     if (item.timestamp < existing.firstSeen) {
       existing.firstSeen = item.timestamp;
@@ -327,18 +356,37 @@ export async function listFailureGroups(
     if (!item.resolved) existing.openCount += 1;
   }
 
-  let groups: FailureGroup[] = [...map.values()].map((g) => ({
-    fingerprint: g.fingerprint,
-    kind: g.kind,
-    sourceId: g.sourceId,
-    summary: g.summary,
-    detail: g.detail,
-    occurrenceCount: g.occurrenceCount,
-    firstSeen: g.firstSeen,
-    lastSeen: g.lastSeen,
-    openCount: g.openCount,
-    resolved: g.openCount === 0,
-  }));
+  const incidentStates = await listFailureIncidentStates(db, [...map.keys()]);
+
+  let groups: FailureGroup[] = [...map.values()].map((g) => {
+    const state = incidentStates.get(g.fingerprint);
+    const triageStatus = effectiveTriageStatus(state, now);
+    return {
+      fingerprint: g.fingerprint,
+      kind: g.kind,
+      sourceId: g.sourceId,
+      summary: g.summary,
+      detail: g.detail,
+      occurrenceCount: g.occurrenceCount,
+      firstSeen: g.firstSeen,
+      lastSeen: g.lastSeen,
+      openCount: g.openCount,
+      resolved: g.openCount === 0,
+      signalClass: g.signalClass,
+      triageStatus,
+      owner: state?.owner,
+      resolutionReason: state?.resolutionReason,
+      runbookUrl: state?.runbookUrl,
+      notes: state?.notes,
+      snoozedUntil: state?.snoozedUntil,
+      acknowledgedAt: state?.acknowledgedAt,
+      resolvedAt: state?.resolvedAt,
+    };
+  });
+
+  // Signal quality is computed before resolution/triage filters so the
+  // overview reflects the full scoped corpus after kind/source filters.
+  const signalQuality = computeSignalQuality(groups);
 
   if (opts.resolved === "resolved") {
     groups = groups.filter((g) => g.resolved);
@@ -346,7 +394,28 @@ export async function listFailureGroups(
     groups = groups.filter((g) => !g.resolved);
   }
 
+  if (opts.signalClass) {
+    groups = groups.filter((g) => g.signalClass === opts.signalClass);
+  }
+
+  if (opts.triageStatus) {
+    groups = groups.filter((g) => g.triageStatus === opts.triageStatus);
+  }
+
+  // Prioritize: open actionable first, then by recency + recurrence.
   groups.sort((a, b) => {
+    const score = (g: FailureGroup) => {
+      let s = 0;
+      if (g.signalClass === "actionable") s += 100;
+      else if (g.signalClass === "transient") s += 50;
+      if (g.triageStatus === "open") s += 20;
+      else if (g.triageStatus === "acknowledged") s += 10;
+      if (g.occurrenceCount >= 2) s += 5;
+      return s;
+    };
+    const sa = score(a);
+    const sb = score(b);
+    if (sa !== sb) return sb - sa;
     if (a.lastSeen === b.lastSeen) {
       return b.occurrenceCount - a.occurrenceCount;
     }
@@ -355,7 +424,23 @@ export async function listFailureGroups(
 
   const groupTotal = groups.length;
   const page = groups.slice(offset, offset + limit);
-  return { groups: page, groupTotal };
+  return { groups: page, groupTotal, signalQuality };
+}
+
+function computeSignalQuality(groups: FailureGroup[]): FailureSignalQuality {
+  const groupCount = groups.length;
+  const eventCount = groups.reduce((n, g) => n + g.occurrenceCount, 0);
+  const recurringGroups = groups.filter((g) => g.occurrenceCount >= 2).length;
+  const untriagedActionableGroups = groups.filter(
+    (g) => g.signalClass === "actionable" && g.triageStatus === "open",
+  ).length;
+  return {
+    groupCount,
+    avgEventsPerGroup:
+      groupCount === 0 ? 0 : Math.round((eventCount / groupCount) * 100) / 100,
+    recurringGroups,
+    untriagedActionableGroups,
+  };
 }
 
 export interface ListFailureGroupEventsOpts {

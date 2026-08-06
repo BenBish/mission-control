@@ -20,22 +20,30 @@ import type {
   FailureGroup,
   FailureGroupEventsResponse,
   FailureGroupsResponse,
+  FailureIncidentState,
   FailureItem,
   FailureKind,
   FailureResolution,
+  FailureSignalClass,
   FailureSummary,
+  FailureTriageStatus,
   FailuresResponse,
+  UpdateFailureIncidentInput,
 } from "@/types/failures";
 
 export type {
   FailureGroup,
   FailureGroupEventsResponse,
   FailureGroupsResponse,
+  FailureIncidentState,
   FailureItem,
   FailureKind,
   FailureResolution,
+  FailureSignalClass,
   FailureSummary,
+  FailureTriageStatus,
   FailuresResponse,
+  UpdateFailureIncidentInput,
 } from "@/types/failures";
 
 async function getJson<T>(path: string): Promise<T> {
@@ -905,12 +913,16 @@ export function useFailureGroups(
     sourceId?: string;
     kind?: FailureKind | "";
     resolved?: FailureResolution | "";
+    signalClass?: FailureSignalClass | "";
+    triageStatus?: FailureTriageStatus | "";
   } = {},
 ): UseQueryResult<FailureGroupsResponse> {
   const limit = opts.limit ?? 50;
   const offset = opts.offset ?? 0;
   const kind = opts.kind || undefined;
   const resolved = opts.resolved || undefined;
+  const signalClass = opts.signalClass || undefined;
+  const triageStatus = opts.triageStatus || undefined;
   return useQuery({
     queryKey: [
       "failures",
@@ -921,6 +933,8 @@ export function useFailureGroups(
         sourceId: opts.sourceId,
         kind,
         resolved,
+        signalClass,
+        triageStatus,
       },
     ],
     queryFn: async () => {
@@ -935,6 +949,8 @@ export function useFailureGroups(
           sourceId: opts.sourceId,
           kind,
           resolved,
+          signalClass,
+          triageStatus,
         })}`,
       );
       if (!body.summary) {
@@ -949,6 +965,23 @@ export function useFailureGroups(
       };
     },
   });
+}
+
+export async function updateFailureIncident(
+  fingerprint: string,
+  input: UpdateFailureIncidentInput,
+): Promise<FailureIncidentState> {
+  const encoded = encodeURIComponent(fingerprint);
+  const res = await apiFetch(`/api/failures/groups/${encoded}/incident`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const json = await res.json();
+  if (!res.ok || json.success === false) {
+    throw new Error(json.error || `Incident update failed: ${res.status}`);
+  }
+  return json.incident as FailureIncidentState;
 }
 
 export function useFailureGroupEvents(

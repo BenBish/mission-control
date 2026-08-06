@@ -1,8 +1,10 @@
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -21,19 +23,38 @@ import {
 } from "lucide-react";
 import { useFilterableSourceId, useSourceFilter } from "@/app/source-context";
 import { scopePhrase } from "@/config/sourceScope";
-import { useFailureGroupEvents, useFailureGroups } from "@/lib/queries";
+import {
+  updateFailureIncident,
+  useFailureGroupEvents,
+  useFailureGroups,
+} from "@/lib/queries";
 import {
   failureStatusScopeLabel,
   type FailureGroup,
   type FailureItem,
   type FailureKind,
   type FailureResolution,
+  type FailureSignalClass,
+  type FailureTriageStatus,
 } from "@/types/failures";
 
 const KIND_LABEL: Record<FailureKind, string> = {
   activity: "Activity",
   inference_request: "Inference",
   runtime_event: "Runtime",
+};
+
+const SIGNAL_LABEL: Record<FailureSignalClass, string> = {
+  actionable: "Actionable",
+  expected: "Expected",
+  transient: "Transient",
+};
+
+const TRIAGE_LABEL: Record<FailureTriageStatus, string> = {
+  open: "Open",
+  acknowledged: "Acknowledged",
+  snoozed: "Snoozed",
+  resolved: "Resolved",
 };
 
 const PAGE_SIZE = 25;
@@ -100,6 +121,29 @@ function TechnicalDetails({ detail }: { detail: string }) {
       )}
     </div>
   );
+}
+
+function signalBadgeVariant(
+  signal: FailureSignalClass,
+): "destructive" | "secondary" | "warning" {
+  if (signal === "actionable") return "destructive";
+  if (signal === "transient") return "warning";
+  return "secondary";
+}
+
+function triageBadgeVariant(
+  status: FailureTriageStatus,
+): "destructive" | "secondary" | "success" | "info" | "warning" {
+  switch (status) {
+    case "open":
+      return "destructive";
+    case "acknowledged":
+      return "info";
+    case "snoozed":
+      return "warning";
+    case "resolved":
+      return "success";
+  }
 }
 
 const OCCURRENCE_PAGE_SIZE = 20;
@@ -201,6 +245,14 @@ function GroupOccurrences({
               >
                 {ev.resolved ? "resolved" : "open"}
               </Badge>
+              {ev.signalClass && (
+                <Badge
+                  variant={signalBadgeVariant(ev.signalClass)}
+                  className="text-[10px]"
+                >
+                  {SIGNAL_LABEL[ev.signalClass]}
+                </Badge>
+              )}
               <span className="font-mono text-[10px] truncate max-w-[12rem]">
                 {ev.id}
               </span>
@@ -214,12 +266,207 @@ function GroupOccurrences({
   );
 }
 
+function IncidentTriagePanel({
+  group,
+  onUpdated,
+}: {
+  group: FailureGroup;
+  onUpdated: () => void;
+}) {
+  const [owner, setOwner] = useState(group.owner ?? "");
+  const [reason, setReason] = useState(group.resolutionReason ?? "");
+  const [runbook, setRunbook] = useState(group.runbookUrl ?? "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const run = useCallback(
+    async (
+      patch: Parameters<typeof updateFailureIncident>[1],
+      opts?: { requireReason?: boolean },
+    ) => {
+      if (opts?.requireReason && !reason.trim()) {
+        setError("Resolution reason is required");
+        return;
+      }
+      setBusy(true);
+      setError(null);
+      try {
+        await updateFailureIncident(group.fingerprint, {
+          ...patch,
+          owner: owner.trim() || null,
+          resolutionReason: reason.trim() || null,
+          runbookUrl: runbook.trim() || null,
+        });
+        onUpdated();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Update failed");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [group.fingerprint, owner, reason, runbook, onUpdated],
+  );
+
+  return (
+    <div
+      className="mt-3 rounded-md border bg-background/80 p-3 space-y-3"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-medium text-muted-foreground">
+          Incident triage
+        </span>
+        <Badge
+          variant={triageBadgeVariant(group.triageStatus)}
+          className="text-[10px]"
+        >
+          {TRIAGE_LABEL[group.triageStatus]}
+        </Badge>
+        {group.owner && (
+          <span className="text-xs text-muted-foreground">
+            Owner: {group.owner}
+          </span>
+        )}
+        {group.snoozedUntil && group.triageStatus === "snoozed" && (
+          <span className="text-xs text-muted-foreground">
+            Until {formatAbsolute(group.snoozedUntil)}
+          </span>
+        )}
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-3">
+        <div className="space-y-1">
+          <label className="text-[11px] text-muted-foreground">Owner</label>
+          <Input
+            value={owner}
+            onChange={(e) => setOwner(e.target.value)}
+            placeholder="operator@"
+            className="h-8 text-xs"
+            disabled={busy}
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-[11px] text-muted-foreground">
+            Resolution reason
+          </label>
+          <Input
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Why this is resolved"
+            className="h-8 text-xs"
+            disabled={busy}
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-[11px] text-muted-foreground">
+            Runbook / link
+          </label>
+          <Input
+            value={runbook}
+            onChange={(e) => setRunbook(e.target.value)}
+            placeholder="https://…"
+            className="h-8 text-xs"
+            disabled={busy}
+          />
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={busy}
+          onClick={() => run({ triageStatus: "acknowledged" })}
+        >
+          Acknowledge
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={busy}
+          onClick={() =>
+            run({
+              triageStatus: "snoozed",
+              snoozedUntil: new Date(
+                Date.now() + 24 * 60 * 60 * 1000,
+              ).toISOString(),
+            })
+          }
+        >
+          Snooze 24h
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={busy}
+          onClick={() => run({ owner: owner.trim() || null })}
+        >
+          Save owner
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          disabled={busy}
+          onClick={() =>
+            run(
+              {
+                triageStatus: "resolved",
+                resolutionReason: reason.trim(),
+                runbookUrl: runbook.trim() || null,
+              },
+              { requireReason: true },
+            )
+          }
+        >
+          Resolve
+        </Button>
+        {group.triageStatus !== "open" && (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            disabled={busy}
+            onClick={() => run({ triageStatus: "open", snoozedUntil: null })}
+          >
+            Re-open
+          </Button>
+        )}
+      </div>
+
+      {group.resolutionReason && (
+        <p className="text-xs text-muted-foreground">
+          Reason: {group.resolutionReason}
+          {group.runbookUrl && (
+            <>
+              {" · "}
+              <a
+                href={group.runbookUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="underline underline-offset-2"
+              >
+                Runbook
+              </a>
+            </>
+          )}
+        </p>
+      )}
+      {error && <p className="text-xs text-destructive">{error}</p>}
+    </div>
+  );
+}
+
 function GroupRow({
   group,
   sourceId,
+  onTriageUpdated,
 }: {
   group: FailureGroup;
   sourceId?: string;
+  onTriageUpdated: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -247,16 +494,30 @@ function GroupRow({
       <td className="py-3 px-4 text-sm tabular-nums font-medium">
         {group.occurrenceCount.toLocaleString()}
       </td>
-      <td className="py-3 px-4 text-sm">
+      <td className="py-3 px-4 text-sm space-y-1">
+        <div className="flex flex-wrap gap-1">
+          <Badge
+            variant={signalBadgeVariant(group.signalClass)}
+            className="text-xs"
+          >
+            {SIGNAL_LABEL[group.signalClass]}
+          </Badge>
+          <Badge
+            variant={triageBadgeVariant(group.triageStatus)}
+            className="text-xs"
+          >
+            {TRIAGE_LABEL[group.triageStatus]}
+          </Badge>
+        </div>
         <Badge
-          variant={group.resolved ? "secondary" : "destructive"}
-          className="text-xs"
+          variant={group.resolved ? "secondary" : "outline"}
+          className="text-[10px]"
         >
           {group.resolved
-            ? "resolved"
+            ? "events closed"
             : group.openCount > 0
-              ? `open (${group.openCount})`
-              : "open"}
+              ? `${group.openCount} open events`
+              : "open events"}
         </Badge>
       </td>
       <td className="py-3 px-4 text-sm max-w-md">
@@ -278,11 +539,17 @@ function GroupRow({
                 Technical details available
               </span>
             )}
+            {!expanded && group.owner && (
+              <span className="block text-xs text-muted-foreground">
+                Owner {group.owner}
+              </span>
+            )}
           </span>
         </button>
         {expanded && (
           <div className="mt-2 pl-5">
             {group.detail && <TechnicalDetails detail={group.detail} />}
+            <IncidentTriagePanel group={group} onUpdated={onTriageUpdated} />
             <GroupOccurrences group={group} sourceId={sourceId} />
           </div>
         )}
@@ -295,9 +562,14 @@ export default function FailureAnalysis() {
   const { sources } = useSourceFilter();
   const selectedSourceId = useFilterableSourceId();
   const pageDescription = `Grouped failures ${scopePhrase(selectedSourceId, sources)}`;
+  const queryClient = useQueryClient();
 
   const [kind, setKind] = useState<FailureKind | "">("");
   const [resolved, setResolved] = useState<FailureResolution | "">("");
+  const [signalClass, setSignalClass] = useState<FailureSignalClass | "">("");
+  const [triageStatus, setTriageStatus] = useState<FailureTriageStatus | "">(
+    "",
+  );
   const [page, setPage] = useState(1);
   // Reset pagination when the global source filter changes (render-time adjust).
   const [pageSourceId, setPageSourceId] = useState(selectedSourceId);
@@ -316,13 +588,26 @@ export default function FailureAnalysis() {
     setPage(1);
   }, []);
 
-  const clearFilters = useCallback(() => {
-    setKind("");
-    setResolved("");
+  const updateSignal = useCallback((value: string) => {
+    setSignalClass(value === "all" ? "" : (value as FailureSignalClass));
     setPage(1);
   }, []);
 
-  const hasLocalFilters = kind !== "" || resolved !== "";
+  const updateTriage = useCallback((value: string) => {
+    setTriageStatus(value === "all" ? "" : (value as FailureTriageStatus));
+    setPage(1);
+  }, []);
+
+  const clearFilters = useCallback(() => {
+    setKind("");
+    setResolved("");
+    setSignalClass("");
+    setTriageStatus("");
+    setPage(1);
+  }, []);
+
+  const hasLocalFilters =
+    kind !== "" || resolved !== "" || signalClass !== "" || triageStatus !== "";
 
   const {
     data: groupsData,
@@ -334,7 +619,13 @@ export default function FailureAnalysis() {
     sourceId: selectedSourceId,
     kind,
     resolved,
+    signalClass,
+    triageStatus,
   });
+
+  const invalidateGroups = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: ["failures"] });
+  }, [queryClient]);
 
   if (isLoading) {
     return (
@@ -383,6 +674,7 @@ export default function FailureAnalysis() {
   const total = summary.total;
   const last24Hours = summary.last24Hours;
   const openRuntime = summary.openRuntimeEvents;
+  const sq = summary.signalQuality;
   const scopeLabel = failureStatusScopeLabel(summary);
   const totalPages = Math.max(1, Math.ceil(groupTotal / PAGE_SIZE));
   const showingFrom = groupTotal === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
@@ -393,7 +685,7 @@ export default function FailureAnalysis() {
       <PageHeader title="Failure Analysis" description={pageDescription} />
 
       <div className="flex flex-wrap gap-4">
-        <Card className="overflow-hidden border-l-4 border-l-red-500 sm:w-64">
+        <Card className="overflow-hidden border-l-4 border-l-red-500 sm:w-56">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Total Failures
@@ -412,7 +704,7 @@ export default function FailureAnalysis() {
           </CardContent>
         </Card>
 
-        <Card className="overflow-hidden border-l-4 border-l-orange-500 sm:w-64">
+        <Card className="overflow-hidden border-l-4 border-l-orange-500 sm:w-56">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Last 24 Hours
@@ -432,7 +724,7 @@ export default function FailureAnalysis() {
         </Card>
 
         {openRuntime > 0 && (
-          <Card className="overflow-hidden border-l-4 border-l-amber-500 sm:w-64">
+          <Card className="overflow-hidden border-l-4 border-l-amber-500 sm:w-56">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 Open Runtime
@@ -452,7 +744,7 @@ export default function FailureAnalysis() {
           </Card>
         )}
 
-        <Card className="overflow-hidden border-l-4 border-l-slate-400 sm:w-64">
+        <Card className="overflow-hidden border-l-4 border-l-slate-400 sm:w-56">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Unique Groups
@@ -460,13 +752,52 @@ export default function FailureAnalysis() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold tracking-tight tabular-nums">
-              {groupTotal.toLocaleString()}
+              {(sq?.groupCount ?? groupTotal).toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              After kind / resolution filters
+              After kind filter ·{" "}
+              {sq
+                ? `${sq.avgEventsPerGroup} events/group`
+                : "signal quality pending"}
             </p>
           </CardContent>
         </Card>
+
+        {sq && (
+          <>
+            <Card className="overflow-hidden border-l-4 border-l-violet-500 sm:w-56">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Recurring
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold tracking-tight tabular-nums">
+                  {sq.recurringGroups.toLocaleString()}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Groups with 2+ occurrences
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="overflow-hidden border-l-4 border-l-rose-500 sm:w-56">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Untriaged actionable
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold tracking-tight tabular-nums">
+                  {sq.untriagedActionableGroups.toLocaleString()}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Actionable · triage still open
+                </p>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
 
       <Card className="shadow-sm">
@@ -489,16 +820,49 @@ export default function FailureAnalysis() {
           </div>
           <div className="space-y-1">
             <label className="text-xs font-medium text-muted-foreground">
-              Resolution
+              Signal
+            </label>
+            <Select value={signalClass || "all"} onValueChange={updateSignal}>
+              <SelectTrigger className="w-[11rem]">
+                <SelectValue placeholder="All signals" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All signals</SelectItem>
+                <SelectItem value="actionable">Actionable</SelectItem>
+                <SelectItem value="expected">Expected</SelectItem>
+                <SelectItem value="transient">Transient</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">
+              Triage
+            </label>
+            <Select value={triageStatus || "all"} onValueChange={updateTriage}>
+              <SelectTrigger className="w-[11rem]">
+                <SelectValue placeholder="All triage" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All triage</SelectItem>
+                <SelectItem value="open">Open</SelectItem>
+                <SelectItem value="acknowledged">Acknowledged</SelectItem>
+                <SelectItem value="snoozed">Snoozed</SelectItem>
+                <SelectItem value="resolved">Resolved</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">
+              Events
             </label>
             <Select value={resolved || "all"} onValueChange={updateResolved}>
               <SelectTrigger className="w-[11rem]">
                 <SelectValue placeholder="All" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="unresolved">Unresolved</SelectItem>
-                <SelectItem value="resolved">Resolved</SelectItem>
+                <SelectItem value="all">All events</SelectItem>
+                <SelectItem value="unresolved">Open events</SelectItem>
+                <SelectItem value="resolved">Closed events</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -515,7 +879,8 @@ export default function FailureAnalysis() {
           )}
           <p className="text-xs text-muted-foreground ml-auto max-w-sm text-right">
             Source filter is global (header). Groups share a fingerprint of
-            kind, source, structured fields, and normalized message.
+            kind, source, structured fields, and normalized message. Triage
+            state is stored separately from raw events.
           </p>
         </CardContent>
       </Card>
@@ -571,7 +936,7 @@ export default function FailureAnalysis() {
                       Count
                     </th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                      Status
+                      Signal / Triage
                     </th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                       Summary
@@ -584,6 +949,7 @@ export default function FailureAnalysis() {
                       key={g.fingerprint}
                       group={g}
                       sourceId={selectedSourceId}
+                      onTriageUpdated={invalidateGroups}
                     />
                   ))}
                 </tbody>

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  classifyFailureSignal,
   computeFailureFingerprint,
   isFailureEventResolved,
   normalizeFailureMessage,
@@ -17,6 +18,21 @@ describe("normalizeFailureMessage", () => {
       "cancel request 550e8400-e29b-41d4-a716-446655440000 at 2026-07-21T01:08:48.080Z after 12345 ms";
     expect(normalizeFailureMessage(raw)).toBe(
       "cancel request <id> at <ts> after <n> ms",
+    );
+  });
+
+  test("collapses Claude tool_use / tool_result ids", () => {
+    expect(
+      normalizeFailureMessage("Tool result for toolu_01AbCdEfGhIjKlMnOpQrStUv"),
+    ).toBe("tool result for <tool_id>");
+  });
+
+  test("collapses call_ / fc_ ids used by Grok / OpenAI tool calls", () => {
+    expect(
+      normalizeFailureMessage("tool failed call_abc123xyz999 status error"),
+    ).toBe("tool failed <call_id> status error");
+    expect(normalizeFailureMessage("fc_9Z8Y7X6W5V4U3T2S failed")).toBe(
+      "<call_id> failed",
     );
   });
 });
@@ -131,6 +147,86 @@ describe("computeFailureFingerprint", () => {
     });
     expect(a).toBe(b);
     expect(a).toBe("activity|claude-code|tool failed for session <id>");
+  });
+
+  test("Claude tool-result failures with different toolu_ ids share a fingerprint", () => {
+    const a = computeFailureFingerprint({
+      kind: "activity",
+      sourceId: "claude-code",
+      summary: "Tool result for toolu_01AAA1111111111111111111",
+      detail: "Command failed with exit code 1",
+    });
+    const b = computeFailureFingerprint({
+      kind: "activity",
+      sourceId: "claude-code",
+      summary: "Tool result for toolu_01BBB2222222222222222222",
+      detail: "Command failed with exit code 1",
+    });
+    expect(a).toBe(b);
+    expect(a).toContain("<tool_id>");
+  });
+
+  test("Grok call_ ids collapse for activity tool failures", () => {
+    const a = computeFailureFingerprint({
+      kind: "activity",
+      sourceId: "grok",
+      summary: "tool_call failed call_xyz111 status error",
+    });
+    const b = computeFailureFingerprint({
+      kind: "activity",
+      sourceId: "grok",
+      summary: "tool_call failed call_xyz999 status error",
+    });
+    expect(a).toBe(b);
+  });
+});
+
+describe("classifyFailureSignal", () => {
+  test("marks request_cancelled and cancelled inference as expected", () => {
+    expect(
+      classifyFailureSignal({
+        kind: "runtime_event",
+        eventKind: "request_cancelled",
+        summary: "cancelled",
+      }),
+    ).toBe("expected");
+    expect(
+      classifyFailureSignal({
+        kind: "inference_request",
+        status: "cancelled",
+        summary: "cancelled on model (client)",
+      }),
+    ).toBe("expected");
+  });
+
+  test("marks slots_saturated as transient", () => {
+    expect(
+      classifyFailureSignal({
+        kind: "runtime_event",
+        eventKind: "slots_saturated",
+        summary: "slots saturated",
+      }),
+    ).toBe("transient");
+  });
+
+  test("defaults tool errors to actionable", () => {
+    expect(
+      classifyFailureSignal({
+        kind: "activity",
+        summary: "Tool result for toolu_01AAA",
+        detail: "ENOENT",
+      }),
+    ).toBe("actionable");
+  });
+
+  test("interrupted tool results are expected", () => {
+    expect(
+      classifyFailureSignal({
+        kind: "activity",
+        summary: "Tool result for toolu_01AAA",
+        detail: "interrupted by user",
+      }),
+    ).toBe("expected");
   });
 });
 

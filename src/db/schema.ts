@@ -455,6 +455,32 @@ CREATE INDEX IF NOT EXISTS idx_spend_alert_events_fingerprint
   ON spend_alert_events(fingerprint, month_key);
 CREATE INDEX IF NOT EXISTS idx_spend_alert_events_delivery
   ON spend_alert_events(delivery_state, created_at DESC);
+
+-- ============================================================================
+-- FAILURE INCIDENT STATE — triage metadata keyed by fingerprint.
+-- Does not modify raw activities / inference_requests / runtime_events.
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS failure_incident_state (
+  fingerprint TEXT PRIMARY KEY,
+  triage_status TEXT NOT NULL DEFAULT 'open'
+    CHECK (triage_status IN ('open', 'acknowledged', 'snoozed', 'resolved')),
+  owner TEXT,
+  resolution_reason TEXT,
+  runbook_url TEXT,
+  notes TEXT,
+  acknowledged_at DATETIME,
+  snoozed_until DATETIME,
+  resolved_at DATETIME,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_failure_incident_state_triage
+  ON failure_incident_state(triage_status, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_failure_incident_state_owner
+  ON failure_incident_state(owner)
+  WHERE owner IS NOT NULL;
 `;
 
 /**
