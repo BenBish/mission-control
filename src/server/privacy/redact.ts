@@ -38,10 +38,17 @@ const SECRET_PATTERNS: RegExp[] = [
   /\beyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}/g,
 ];
 
-/** Absolute Unix / Windows paths (conservative — avoid eating URLs). */
+/**
+ * Absolute Unix / Windows paths (conservative — avoid eating URLs).
+ * Common sensitive roots first; also any absolute path with ≥2 segments
+ * that is not clearly a URL scheme residue.
+ */
 const PATH_PATTERNS: RegExp[] = [
-  // Unix absolute paths with at least one more segment
-  /(?<![\w:/])(\/(?:home|Users|var|tmp|opt|root|etc|usr)\/[^\s"'`]+)/g,
+  // Unix absolute paths under common sensitive roots
+  /(?<![\w:/])(\/(?:home|Users|var|tmp|opt|root|etc|usr|data|mnt|Volumes)\/[^\s"'`]+)/g,
+  // Other multi-segment absolute paths (e.g. /srv/app/secret) — still avoid
+  // bare single-segment roots like `/bin` used as words in prose.
+  /(?<![\w:/])(\/[A-Za-z0-9._-]+\/[A-Za-z0-9._/-]+)/g,
   // Windows drive paths
   /\b([A-Za-z]:\\(?:[^\s"'`\\]+\\?)+)/g,
   // file:// URLs

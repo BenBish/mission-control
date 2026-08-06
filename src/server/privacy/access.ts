@@ -46,12 +46,16 @@ export function presentSession(
     listView?: boolean;
   },
 ): Record<string, unknown> {
-  const hideRawCwd =
-    opts.listView === true ||
-    !opts.includeSensitive ||
-    opts.policy.hideRawCwdInLists;
+  // List views: always project alias only when policy asks (default).
+  // Detail views: owners may see raw cwd; viewers never do.
+  if (opts.listView) {
+    return sanitizeSessionForClient(session, {
+      includeSensitive: false,
+      hideRawCwd: opts.policy.hideRawCwdInLists,
+    });
+  }
   return sanitizeSessionForClient(session, {
-    includeSensitive: opts.includeSensitive && !opts.listView,
-    hideRawCwd,
+    includeSensitive: opts.includeSensitive,
+    hideRawCwd: !opts.includeSensitive,
   });
 }

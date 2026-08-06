@@ -310,6 +310,24 @@ describe("roles and API field gating", () => {
     expect(sessions[0].project).toBe("secret-project");
   });
 
+  test("owner session detail includes raw cwd; viewer does not", async () => {
+    const ownerToken = await signToken(authConfig, "admin", "owner");
+    const ownerRes = await request(server, "GET", "/api/sessions/sess-1", {
+      cookie: `mc_session=${ownerToken}`,
+    });
+    expect(ownerRes.status).toBe(200);
+    expect(ownerRes.body.session.cwd).toBe("/home/ben/Dev/secret-project");
+    expect(ownerRes.body.session.project).toBe("secret-project");
+
+    const viewerToken = await signToken(authConfig, "viewer", "viewer");
+    const viewerRes = await request(server, "GET", "/api/sessions/sess-1", {
+      cookie: `mc_session=${viewerToken}`,
+    });
+    expect(viewerRes.status).toBe(200);
+    expect(viewerRes.body.session.cwd).toBeUndefined();
+    expect(viewerRes.body.session.project).toBe("secret-project");
+  });
+
   test("list activities omit details/result; owner detail includes them", async () => {
     const token = await signToken(authConfig, "admin", "owner");
     const list = await request(server, "GET", "/api/activities", {

@@ -851,7 +851,16 @@ export default function SettingsPage() {
                         size="sm"
                         variant="destructive"
                         disabled={privacyBusy}
-                        onClick={() => void handlePurgeSensitive(true)}
+                        onClick={() => {
+                          if (
+                            !window.confirm(
+                              "Strict scrub will null activity details/results and truncate long prompt descriptions in the database. Continue?",
+                            )
+                          ) {
+                            return;
+                          }
+                          void handlePurgeSensitive(true);
+                        }}
                       >
                         Strict scrub (truncate prompts)
                       </Button>
