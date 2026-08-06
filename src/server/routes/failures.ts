@@ -18,6 +18,7 @@ import type {
   FailureTriageStatus,
   UpdateFailureIncidentInput,
 } from "../../types/failures.js";
+import { type AuthConfig, requireOwner } from "../auth.js";
 import {
   optionalQueryString,
   parseOptionalNonNegativeInt,
@@ -158,7 +159,16 @@ function optionalBodyString(value: unknown): string | null | undefined {
   return value;
 }
 
-export function registerFailureRoutes(app: Express, db: Database): void {
+export function registerFailureRoutes(
+  app: Express,
+  db: Database,
+  authConfig?: AuthConfig,
+): void {
+  // Tests may omit authConfig — treat as disabled (local owner).
+  const ownerGuard = authConfig
+    ? requireOwner(authConfig)
+    : (_req: Request, _res: Response, next: () => void) => next();
+
   /**
    * Raw recent failures (dashboard + legacy). Aggregate summary is independent
    * of the page limit.
@@ -371,10 +381,11 @@ export function registerFailureRoutes(app: Express, db: Database): void {
 
   /**
    * Update incident triage state (acknowledge / snooze / assign / resolve).
-   * Never mutates raw failure source tables.
+   * Owner-only when auth is enabled. Never mutates raw failure source tables.
    */
   app.patch(
     "/api/failures/groups/:fingerprint/incident",
+    ownerGuard,
     async (req: Request, res: Response) => {
       try {
         const fingerprint = parseFingerprintParam(req.params.fingerprint);
@@ -473,16 +484,14 @@ export function registerFailureRoutes(app: Express, db: Database): void {
           input.snoozedUntil = v ?? null;
         }
 
-        // Resolve requires a reason so the queue is auditable.
-        const nextStatus =
-          input.triageStatus ??
-          (await getFailureIncidentState(db.raw(), fingerprint))?.triageStatus;
+        // Resolve requires a reason so the audit is auditable.
+        const existing = await getFailureIncidentState(db.raw(), fingerprint);
+        const nextStatus = input.triageStatus ?? existing?.triageStatus;
         if (nextStatus === "resolved") {
           const reason =
             input.resolutionReason !== undefined
               ? input.resolutionReason
-              : (await getFailureIncidentState(db.raw(), fingerprint))
-                  ?.resolutionReason;
+              : existing?.resolutionReason;
           if (!reason || !String(reason).trim()) {
             res.status(400).json({
               success: false,

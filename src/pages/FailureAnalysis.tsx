@@ -549,7 +549,11 @@ function GroupRow({
         {expanded && (
           <div className="mt-2 pl-5">
             {group.detail && <TechnicalDetails detail={group.detail} />}
-            <IncidentTriagePanel group={group} onUpdated={onTriageUpdated} />
+            <IncidentTriagePanel
+              key={`${group.fingerprint}:${group.triageStatus}:${group.owner ?? ""}:${group.resolutionReason ?? ""}:${group.runbookUrl ?? ""}`}
+              group={group}
+              onUpdated={onTriageUpdated}
+            />
             <GroupOccurrences group={group} sourceId={sourceId} />
           </div>
         )}
@@ -755,10 +759,16 @@ export default function FailureAnalysis() {
               {(sq?.groupCount ?? groupTotal).toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              After kind filter ·{" "}
+              Kind/source scope (not signal/triage filters) ·{" "}
               {sq
                 ? `${sq.avgEventsPerGroup} events/group`
                 : "signal quality pending"}
+              {groupTotal !== (sq?.groupCount ?? groupTotal) && (
+                <>
+                  {" · "}
+                  table shows {groupTotal.toLocaleString()} after filters
+                </>
+              )}
             </p>
           </CardContent>
         </Card>
@@ -776,7 +786,7 @@ export default function FailureAnalysis() {
                   {sq.recurringGroups.toLocaleString()}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Groups with 2+ occurrences
+                  2+ occurrences · kind/source scope
                 </p>
               </CardContent>
             </Card>
@@ -792,7 +802,7 @@ export default function FailureAnalysis() {
                   {sq.untriagedActionableGroups.toLocaleString()}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Actionable · triage still open
+                  Actionable + open triage · kind/source scope
                 </p>
               </CardContent>
             </Card>

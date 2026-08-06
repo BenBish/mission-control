@@ -62,7 +62,7 @@ export function setupRoutes(
   registerSessionRoutes(app, db, auth);
   registerActivityRoutes(app, db, auth);
   registerConsumptionRoutes(app, db);
-  registerFailureRoutes(app, db);
+  registerFailureRoutes(app, db, auth);
   registerJobRoutes(app, db);
   registerRuntimeRoutes(app, db);
   registerContentionRoutes(app, db);
