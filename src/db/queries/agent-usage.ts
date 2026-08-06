@@ -157,6 +157,91 @@ export async function listAgentUsageFacts(
 }
 
 /**
+ * Daily agent usage facts for spend reconciliation (BSH-101).
+ * Grain: (UTC day of activity/inference timestamp, source, model).
+ * Provider billing uses the same YYYY-MM-DD day keys (UTC).
+ */
+export type AgentUsageDailyFactRow = {
+  day: string;
+  source_id: string;
+  model: string | null;
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
+  cost_usd: number | null;
+  request_count: number;
+};
+
+export async function listAgentUsageDailyFacts(
+  db: SqliteDatabase,
+  opts: AgentUsageRange = {},
+): Promise<AgentUsageDailyFactRow[]> {
+  const { where, params } = buildActivityWhere(opts);
+
+  const infClauses: string[] = [];
+  const infParams: unknown[] = [];
+  if (opts.since) {
+    infClauses.push("i.timestamp >= ?");
+    infParams.push(opts.since);
+  }
+  if (opts.until) {
+    infClauses.push("i.timestamp <= ?");
+    infParams.push(opts.until);
+  }
+  if (opts.sourceId) {
+    infClauses.push("i.source_id = ?");
+    infParams.push(opts.sourceId);
+  }
+  const infWhere = infClauses.length ? `WHERE ${infClauses.join(" AND ")}` : "";
+
+  return db.all<AgentUsageDailyFactRow[]>(
+    `
+    SELECT
+      date(a.timestamp) AS day,
+      a.source_id AS source_id,
+      a.model AS model,
+      SUM(COALESCE(a.input_tokens, 0)) AS input_tokens,
+      SUM(COALESCE(a.output_tokens, 0)) AS output_tokens,
+      SUM(COALESCE(a.cache_read_tokens, 0)) AS cache_read_tokens,
+      SUM(COALESCE(a.cache_write_tokens, 0)) AS cache_write_tokens,
+      CASE
+        WHEN SUM(a.cost_usd) IS NULL THEN NULL
+        ELSE SUM(a.cost_usd)
+      END AS cost_usd,
+      COUNT(
+        DISTINCT CASE
+          WHEN a.request_id IS NOT NULL AND a.request_id != '' THEN a.request_id
+          ELSE a.id
+        END
+      ) AS request_count
+    FROM activities a
+    ${where}
+    GROUP BY date(a.timestamp), a.source_id, a.model
+
+    UNION ALL
+
+    SELECT
+      date(i.timestamp) AS day,
+      i.source_id AS source_id,
+      i.model AS model,
+      SUM(COALESCE(i.prompt_tokens, 0)) AS input_tokens,
+      SUM(COALESCE(i.completion_tokens, 0)) AS output_tokens,
+      SUM(COALESCE(i.cached_tokens, 0)) AS cache_read_tokens,
+      0 AS cache_write_tokens,
+      NULL AS cost_usd,
+      COUNT(*) AS request_count
+    FROM inference_requests i
+    ${infWhere}
+    GROUP BY date(i.timestamp), i.source_id, i.model
+
+    ORDER BY day DESC
+    `,
+    ...([...params, ...infParams] as []),
+  );
+}
+
+/**
  * Distinct sessions contributing to a driver key (for drill-down).
  * Filters are applied in the service after model/project normalization;
  * this returns session-level activity sums for the same time range.

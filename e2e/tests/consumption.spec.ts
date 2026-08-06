@@ -20,9 +20,10 @@ test.describe("Consumption", () => {
     await expect(consumption.heading).toBeVisible();
   });
 
-  test("shows Agent Usage and Direct API Spend tabs", async () => {
+  test("shows Agent Usage, Direct API Spend, and Attribution tabs", async () => {
     await expect(consumption.getTab("Agent Usage")).toBeVisible();
     await expect(consumption.getTab("Direct API Spend")).toBeVisible();
+    await expect(consumption.getTab("Attribution")).toBeVisible();
   });
 
   test("defaults to Tokens unit with real stat values on Agent Usage", async () => {
@@ -105,6 +106,19 @@ test.describe("Consumption", () => {
       "data-state",
       "active",
     );
+  });
+
+  test("Attribution tab shows reconciliation summary", async ({ page }) => {
+    await consumption.selectTab("Attribution");
+    await expect(page).toHaveURL(/view=attribution/);
+    await expect(page.getByTestId("attribution-panel")).toBeVisible();
+    await expect(page.getByTestId("attribution-summary")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Matched spend", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Coverage", exact: true }),
+    ).toBeVisible();
   });
 
   test("source filter shows account-wide note on Direct API Spend", async ({

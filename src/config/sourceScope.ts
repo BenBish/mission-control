@@ -138,7 +138,7 @@ export const ROUTE_SCOPES: Record<string, RouteScope> = {
   "/generations": { mode: "filterable" },
   "/consumption": {
     mode: "mixed",
-    note: "Agent usage respects the source filter; provider API costs are account-wide",
+    note: "Agent usage and attribution respect the source filter; provider API costs are account-wide",
   },
   "/runtime": {
     mode: "unscoped",
