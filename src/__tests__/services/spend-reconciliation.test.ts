@@ -244,6 +244,7 @@ describe("buildReconciliationReport", () => {
           model: "claude-sonnet-4",
           input_tokens: 1000,
           output_tokens: 100,
+          cost_usd: 0.42,
         }),
       ],
       { byokTreatment: "prefer_direct" },
@@ -253,6 +254,9 @@ describe("buildReconciliationReport", () => {
     expect(classes).toContain("duplicate_risk");
     expect(report.summary.matchedSpendUsd).toBeCloseTo(1.2);
     expect(report.summary.duplicateRiskSpendUsd).toBeCloseTo(1);
+    // Same agent contribution on both match rows must not double-count log cost
+    expect(report.summary.agentLogCostUsd).toBe(0.42);
+    expect(report.summary.hasAgentLogCost).toBe(true);
   });
 
   test("exclude_openrouter removes openrouter from provider side", () => {

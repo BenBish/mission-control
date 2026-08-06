@@ -263,11 +263,9 @@ function aggregateProviders(
 ): Map<string, AggProvider> {
   const map = new Map<string, AggProvider>();
   for (const row of rows) {
+    // Unknown/synthetic models keep their normalized key so they still surface
+    // as unmatched_provider rather than vanishing from the report.
     const id = normalizeModelIdentity(row.model);
-    if (id.isSynthetic || id.isUnknown) {
-      // Keep unknown provider models as their raw-normalized key so they can
-      // still surface as unmatched_provider rather than vanishing.
-    }
     const canonical = id.canonical;
     const key = `${row.day}|${canonical}`;
     let agg = map.get(key);
@@ -609,6 +607,9 @@ export function buildReconciliationReport(
   let agentTokensWithoutBilling = 0;
   let agentLogCostUsd: number | null = null;
   let hasAgentLogCost = false;
+  // prefer_direct emits a second match for the same day|model with the same
+  // agent contribution — count session-log cost once per logical agent key.
+  const agentLogCostKeys = new Set<string>();
 
   for (const m of matches) {
     matchCounts[m.classification]++;
@@ -627,8 +628,12 @@ export function buildReconciliationReport(
       agentTokensWithoutBilling += tokensOf(m.agent);
     }
     if (m.agent?.hasLogCost && m.agent.logCostUsd != null) {
-      agentLogCostUsd = (agentLogCostUsd ?? 0) + m.agent.logCostUsd;
-      hasAgentLogCost = true;
+      const agentKey = `${m.day}|${m.canonicalModel}`;
+      if (!agentLogCostKeys.has(agentKey)) {
+        agentLogCostKeys.add(agentKey);
+        agentLogCostUsd = (agentLogCostUsd ?? 0) + m.agent.logCostUsd;
+        hasAgentLogCost = true;
+      }
     }
   }
 
