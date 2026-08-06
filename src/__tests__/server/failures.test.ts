@@ -57,6 +57,7 @@ beforeEach(async () => {
   await raw.run("DELETE FROM sessions");
   await raw.run("DELETE FROM inference_requests");
   await raw.run("DELETE FROM runtime_events");
+  await raw.run("DELETE FROM failure_incident_state");
 });
 
 type FailuresBody = {
@@ -396,6 +397,10 @@ type GroupsBody = {
     lastSeen: string;
     resolved: boolean;
     openCount: number;
+    signalClass?: string;
+    triageStatus?: string;
+    owner?: string;
+    resolutionReason?: string;
   }>;
   groupTotal?: number;
   summary?: {
@@ -406,6 +411,12 @@ type GroupsBody = {
       activity: number;
       inference_request: number;
       runtime_event: number;
+    };
+    signalQuality?: {
+      groupCount: number;
+      avgEventsPerGroup: number;
+      recurringGroups: number;
+      untriagedActionableGroups: number;
     };
   };
 };
@@ -636,5 +647,287 @@ describe("GET /api/failures/groups (BSH-72)", () => {
     expect(page1.events).toHaveLength(2);
     expect(page2.events).toHaveLength(2);
     expect(page1.events![0].id).not.toBe(page2.events![0].id);
+  });
+});
+
+describe("BSH-103 failure fingerprinting + incident triage", () => {
+  async function insertClaudeToolResultFailure(opts: {
+    id: string;
+    toolUseId: string;
+    timestamp: string;
+    error?: string;
+  }) {
+    const sourceId = "claude-code";
+    const sessionId = await ensureSession(sourceId, CC_INSTANCE);
+    await db.raw().run(
+      `INSERT INTO activities (
+        id, source_id, instance_id, session_id, external_id, timestamp,
+        actor_type, actor_id, action_type, description, status, result
+      ) VALUES (?, ?, ?, ?, ?, ?, 'system', 'tool-runtime', 'tool_call', ?, 'failure', ?)`,
+      opts.id,
+      sourceId,
+      CC_INSTANCE,
+      sessionId,
+      `ext-${opts.id}`,
+      opts.timestamp,
+      `Tool result for ${opts.toolUseId}`,
+      JSON.stringify({
+        error: opts.error ?? "Command failed with exit code 1",
+      }),
+    );
+  }
+
+  async function insertGrokToolFailure(opts: {
+    id: string;
+    callId: string;
+    timestamp: string;
+  }) {
+    const sourceId = "grok";
+    const instanceId = "grok@arch-desktop";
+    const sessionId = await ensureSession(sourceId, instanceId);
+    await db.raw().run(
+      `INSERT INTO activities (
+        id, source_id, instance_id, session_id, external_id, timestamp,
+        actor_type, actor_id, action_type, description, status
+      ) VALUES (?, ?, ?, ?, ?, ?, 'agent', 'grok', 'tool_call', ?, 'failure')`,
+      opts.id,
+      sourceId,
+      instanceId,
+      sessionId,
+      `ext-${opts.id}`,
+      opts.timestamp,
+      `tool_call failed ${opts.callId} status error`,
+    );
+  }
+
+  async function insertInference(opts: {
+    id: string;
+    status: string;
+    timestamp: string;
+    error?: string | null;
+    model?: string;
+  }) {
+    await db.raw().run(
+      `INSERT INTO inference_requests (
+        id, source_id, instance_id, timestamp, model, client_label, status, error
+      ) VALUES (?, 'hermes', ?, ?, ?, 'cli', ?, ?)`,
+      opts.id,
+      HERMES_INSTANCE,
+      opts.timestamp,
+      opts.model ?? "test-model",
+      opts.status,
+      opts.error ?? null,
+    );
+  }
+
+  test("Claude tool-result failures with different toolu_ ids group together", async () => {
+    const now = new Date().toISOString();
+    await insertClaudeToolResultFailure({
+      id: "claude-tr-1",
+      toolUseId: "toolu_01AAA1111111111111111111",
+      timestamp: now,
+    });
+    await insertClaudeToolResultFailure({
+      id: "claude-tr-2",
+      toolUseId: "toolu_01BBB2222222222222222222",
+      timestamp: now,
+    });
+
+    const { status, body } = await getGroups(
+      "/api/failures/groups?kind=activity&limit=50",
+    );
+    expect(status).toBe(200);
+    expect(body.groupTotal).toBe(1);
+    expect(body.groups![0].occurrenceCount).toBe(2);
+    expect(body.groups![0].signalClass).toBe("actionable");
+  });
+
+  test("Grok call_ ids group; cancelled inference is expected; slots are transient", async () => {
+    const now = new Date().toISOString();
+    await insertGrokToolFailure({
+      id: "grok-1",
+      callId: "call_abc111111",
+      timestamp: now,
+    });
+    await insertGrokToolFailure({
+      id: "grok-2",
+      callId: "call_xyz999999",
+      timestamp: now,
+    });
+    await insertInference({
+      id: "inf-cancel",
+      status: "cancelled",
+      timestamp: now,
+    });
+    await insertRuntimeEvent({
+      id: "rt-sat",
+      timestamp: now,
+      kind: "slots_saturated",
+      summary: "slots saturated",
+    });
+    await insertRuntimeEvent({
+      id: "rt-err",
+      timestamp: now,
+      kind: "service_down",
+      severity: "error",
+      summary: "backend offline",
+    });
+
+    const all = await getGroups("/api/failures/groups?limit=50");
+    expect(all.status).toBe(200);
+    // grok tool pair → 1 group; cancel → 1; slots → 1; service_down → 1
+    expect(all.body.groupTotal).toBe(4);
+
+    const bySignal = (cls: string) =>
+      (all.body.groups ?? []).filter((g) => g.signalClass === cls);
+
+    expect(bySignal("expected")).toHaveLength(1);
+    expect(bySignal("expected")[0].kind).toBe("inference_request");
+    expect(bySignal("transient")).toHaveLength(1);
+    expect(bySignal("transient")[0].kind).toBe("runtime_event");
+    expect(bySignal("actionable").length).toBeGreaterThanOrEqual(2);
+
+    const sq = all.body.summary?.signalQuality;
+    expect(sq).toBeDefined();
+    expect(sq!.groupCount).toBe(4);
+    expect(sq!.recurringGroups).toBe(1); // only grok pair
+    expect(sq!.untriagedActionableGroups).toBeGreaterThanOrEqual(2);
+    expect(sq!.avgEventsPerGroup).toBeGreaterThan(1);
+  });
+
+  test("PATCH incident acknowledge/snooze/resolve persists without mutating raw events", async () => {
+    const now = new Date().toISOString();
+    await insertClaudeToolResultFailure({
+      id: "triage-1",
+      toolUseId: "toolu_01TRIAGE11111111111111",
+      timestamp: now,
+    });
+    await insertClaudeToolResultFailure({
+      id: "triage-2",
+      toolUseId: "toolu_01TRIAGE22222222222222",
+      timestamp: now,
+    });
+
+    const groups = await getGroups("/api/failures/groups?kind=activity");
+    expect(groups.body.groupTotal).toBe(1);
+    const fp = groups.body.groups![0].fingerprint;
+    const encoded = encodeURIComponent(fp);
+
+    // Count raw failures before triage
+    const beforeCount = await db.raw().get<{
+      n: number;
+    }>("SELECT COUNT(*) AS n FROM activities WHERE status = 'failure'");
+    expect(beforeCount?.n).toBe(2);
+
+    const ack = await fetch(
+      `${baseUrl}/api/failures/groups/${encoded}/incident`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          triageStatus: "acknowledged",
+          owner: "ops@local",
+        }),
+      },
+    );
+    const ackBody = (await ack.json()) as {
+      success: boolean;
+      incident?: { triageStatus: string; owner?: string };
+    };
+    expect(ack.status).toBe(200);
+    expect(ackBody.success).toBe(true);
+    expect(ackBody.incident?.triageStatus).toBe("acknowledged");
+    expect(ackBody.incident?.owner).toBe("ops@local");
+
+    const snoozeUntil = new Date(Date.now() + 3600_000).toISOString();
+    const snooze = await fetch(
+      `${baseUrl}/api/failures/groups/${encoded}/incident`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          triageStatus: "snoozed",
+          snoozedUntil: snoozeUntil,
+        }),
+      },
+    );
+    expect(snooze.status).toBe(200);
+
+    const resolveMissing = await fetch(
+      `${baseUrl}/api/failures/groups/${encoded}/incident`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ triageStatus: "resolved" }),
+      },
+    );
+    expect(resolveMissing.status).toBe(400);
+
+    const resolve = await fetch(
+      `${baseUrl}/api/failures/groups/${encoded}/incident`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          triageStatus: "resolved",
+          resolutionReason: "Known flaky tool; tracked in runbook",
+          runbookUrl: "https://example.com/runbook/tool",
+        }),
+      },
+    );
+    const resolveBody = (await resolve.json()) as {
+      success: boolean;
+      incident?: {
+        triageStatus: string;
+        resolutionReason?: string;
+        runbookUrl?: string;
+      };
+    };
+    expect(resolve.status).toBe(200);
+    expect(resolveBody.incident?.triageStatus).toBe("resolved");
+    expect(resolveBody.incident?.resolutionReason).toContain("flaky");
+    expect(resolveBody.incident?.runbookUrl).toContain("example.com");
+
+    // Raw events unchanged
+    const afterCount = await db.raw().get<{
+      n: number;
+    }>("SELECT COUNT(*) AS n FROM activities WHERE status = 'failure'");
+    expect(afterCount?.n).toBe(beforeCount?.n);
+
+    const descriptions = await db
+      .raw()
+      .all<
+        { description: string }[]
+      >("SELECT description FROM activities WHERE status = 'failure' ORDER BY id");
+    expect(
+      descriptions.every((d) => d.description.startsWith("Tool result")),
+    ).toBe(true);
+
+    // Group reflects triage; occurrence drill-down still works
+    const after = await getGroups(
+      "/api/failures/groups?kind=activity&triageStatus=resolved",
+    );
+    expect(after.body.groupTotal).toBe(1);
+    expect(after.body.groups![0].triageStatus).toBe("resolved");
+    expect(after.body.groups![0].owner).toBe("ops@local");
+    expect(after.body.groups![0].occurrenceCount).toBe(2);
+
+    const eventsRes = await fetch(
+      `${baseUrl}/api/failures/groups/${encoded}/events?limit=50`,
+    );
+    const eventsBody = (await eventsRes.json()) as GroupEventsBody;
+    expect(eventsRes.status).toBe(200);
+    expect(eventsBody.total).toBe(2);
+    expect(eventsBody.events).toHaveLength(2);
+  });
+
+  test("signalClass and triageStatus filters validate input", async () => {
+    const badSignal = await getGroups("/api/failures/groups?signalClass=loud");
+    expect(badSignal.status).toBe(400);
+
+    const badTriage = await getGroups(
+      "/api/failures/groups?triageStatus=maybe",
+    );
+    expect(badTriage.status).toBe(400);
   });
 });
