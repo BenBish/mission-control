@@ -310,6 +310,122 @@ export function useAgentUsageSessions(opts: {
   });
 }
 
+// ─── Spend reconciliation (BSH-101) ─────────────────────────────────────────
+
+export type ByokTreatment =
+  | "flag_overlap"
+  | "exclude_openrouter"
+  | "prefer_direct";
+
+export type MatchClassification =
+  | "exact"
+  | "likely"
+  | "ambiguous"
+  | "duplicate_risk"
+  | "unmatched_provider"
+  | "unmatched_agent";
+
+export type ReconciliationMatch = {
+  key: string;
+  day: string;
+  canonicalModel: string;
+  classification: MatchClassification;
+  ruleHit: string;
+  confidence: number;
+  tokenRatio: number | null;
+  provider: Array<{
+    provider: string;
+    rawModels: string[];
+    inputTokens: number;
+    outputTokens: number;
+    costUsd: number | null;
+    requestCount: number;
+    updatedAt: string | null;
+  }>;
+  agent: {
+    sourceIds: string[];
+    rawModels: string[];
+    inputTokens: number;
+    outputTokens: number;
+    logCostUsd: number | null;
+    hasLogCost: boolean;
+    requestCount: number;
+  } | null;
+  providerCostUsd: number;
+  isMatched: boolean;
+};
+
+export type SpendReconciliation = {
+  success: boolean;
+  source: string;
+  range: { since: string | null; until: string | null };
+  options: {
+    includeProviders: string[] | null;
+    excludeProviders: string[];
+    byokTreatment: ByokTreatment;
+  };
+  summary: {
+    providerSpendUsd: number;
+    matchedSpendUsd: number;
+    unmatchedProviderSpendUsd: number;
+    ambiguousSpendUsd: number;
+    duplicateRiskSpendUsd: number;
+    agentTokensWithoutBilling: number;
+    agentLogCostUsd: number | null;
+    hasAgentLogCost: boolean;
+    coveragePct: number | null;
+    matchCounts: Record<MatchClassification, number>;
+  };
+  matches: ReconciliationMatch[];
+  notes: string[];
+  meta: {
+    source: string;
+    documentation: string;
+    exactTokenRatio: number;
+    computedAt: string;
+  };
+};
+
+export function useSpendReconciliation(opts: {
+  since?: string;
+  until?: string;
+  sourceId?: string;
+  providers?: string[] | null;
+  excludeProviders?: string[];
+  byok?: ByokTreatment;
+  enabled?: boolean;
+}): UseQueryResult<SpendReconciliation> {
+  const {
+    since,
+    until,
+    sourceId,
+    providers,
+    excludeProviders,
+    byok = "flag_overlap",
+    enabled = true,
+  } = opts;
+  return useQuery({
+    queryKey: [
+      "spend-reconciliation",
+      { since, until, sourceId, providers, excludeProviders, byok },
+    ],
+    enabled,
+    queryFn: async () =>
+      getJson<SpendReconciliation>(
+        `/api/consumption/reconciliation${toQueryString({
+          since,
+          until,
+          sourceId,
+          providers: providers?.length ? providers.join(",") : undefined,
+          excludeProviders: excludeProviders?.length
+            ? excludeProviders.join(",")
+            : undefined,
+          byok,
+        })}`,
+      ),
+  });
+}
+
 // ─── Provider API usage (billing connectors) ────────────────────────────────
 
 export interface ProviderStatus {

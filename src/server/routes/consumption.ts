@@ -6,6 +6,11 @@ import {
   getAgentUsageSummary,
   type AgentUsageDimension,
 } from "../../services/agent-usage.js";
+import {
+  getSpendReconciliation,
+  parseByokTreatment,
+  parseProviderList,
+} from "../../services/spend-reconciliation.js";
 import { optionalQueryString } from "../query.js";
 
 const DIMENSIONS = new Set<AgentUsageDimension>([
@@ -115,6 +120,57 @@ export function registerConsumptionRoutes(app: Express, db: Database): void {
         res.status(500).json({
           success: false,
           error: "Failed to load agent usage sessions",
+        });
+      }
+    },
+  );
+
+  /**
+   * Provider billing ↔ agent usage reconciliation (BSH-101).
+   * Derived on read; never sums raw agent + provider totals.
+   *
+   * Query:
+   * - since, until (ISO or YYYY-MM-DD)
+   * - sourceId (agent side only)
+   * - providers (comma list include), excludeProviders (comma list)
+   * - byok: flag_overlap | exclude_openrouter | prefer_direct
+   */
+  app.get(
+    "/api/consumption/reconciliation",
+    async (req: Request, res: Response) => {
+      try {
+        const since = optionalQueryString(req.query.since);
+        const until = optionalQueryString(req.query.until);
+        const sourceId = optionalQueryString(req.query.sourceId);
+        const includeProviders = parseProviderList(
+          optionalQueryString(req.query.providers),
+        );
+        const excludeProviders =
+          parseProviderList(optionalQueryString(req.query.excludeProviders)) ??
+          [];
+        const byokTreatment = parseByokTreatment(
+          optionalQueryString(req.query.byok),
+        );
+
+        const report = await getSpendReconciliation(db.raw(), {
+          since,
+          until,
+          sourceId,
+          includeProviders,
+          excludeProviders,
+          byokTreatment,
+        });
+
+        res.json({
+          success: true,
+          source: "reconciliation",
+          ...report,
+        });
+      } catch (err) {
+        console.error("GET /api/consumption/reconciliation failed:", err);
+        res.status(500).json({
+          success: false,
+          error: "Failed to load spend reconciliation",
         });
       }
     },
