@@ -31,10 +31,21 @@ test.describe("Consumption", () => {
     expect(parseInt(tokens.replace(/,/g, ""), 10)).toBeGreaterThan(0);
   });
 
-  test("By Source & Model table lists seeded activity", async () => {
+  test("Ranked drivers table lists seeded activity", async () => {
     const rows = consumption.getModelRows();
     await expect(rows.first()).toBeVisible();
     await expect(rows).not.toHaveCount(0);
+  });
+
+  test("shows unattributed coverage and dimension switches", async ({
+    page,
+  }) => {
+    await expect(consumption.getCoverageUnattributed()).toBeVisible();
+    await consumption.getDimensionButton("Project").click();
+    await expect(
+      page.getByRole("heading", { name: "Ranked drivers", level: 3 }),
+    ).toBeVisible();
+    await consumption.getDimensionButton("Model").click();
   });
 
   test("switching to USD unit shows agent-scoped empty state", async () => {
