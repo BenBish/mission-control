@@ -17,7 +17,11 @@ import * as path from "path";
 import * as os from "os";
 import { Database } from "../../db/database.js";
 import { setupRoutes } from "../../server/routes/index.js";
-import { RUNTIME_DEFAULT_PAGE_SIZE } from "../../server/routes/runtime.js";
+import {
+  RUNTIME_DEFAULT_PAGE_SIZE,
+  RUNTIME_SUMMARY_TARGET_MS,
+  slimSnapshotPayload,
+} from "../../server/routes/runtime.js";
 
 let fixtureDir: string;
 let server: ReturnType<ReturnType<typeof express>["listen"]>;
@@ -62,8 +66,13 @@ type RuntimeBody = {
   success: boolean;
   error?: string;
   range?: string;
+  section?: string;
   sources?: Array<{ id: string; kind: string; instances: unknown[] }>;
-  snapshots?: unknown[];
+  snapshots?: Array<{
+    kind: string;
+    payload: { port?: number; label?: string } | null;
+    modelsLoaded?: unknown;
+  }>;
   metrics?: {
     activeSlots: number;
     totalSlots: number;
@@ -99,7 +108,12 @@ type RuntimeBody = {
     pageSize: number;
   };
   runtimeEvents?: {
-    items: Array<{ id: string; kind: string; summary: string }>;
+    items: Array<{
+      id: string;
+      kind: string;
+      summary: string;
+      details?: unknown;
+    }>;
     total: number;
     page: number;
     pageSize: number;
@@ -109,7 +123,12 @@ type RuntimeBody = {
 async function getJson(pathAndQuery: string) {
   const res = await fetch(`${baseUrl}${pathAndQuery}`);
   const body = (await res.json()) as RuntimeBody;
-  return { status: res.status, body };
+  return {
+    status: res.status,
+    body,
+    appMs: Number(res.headers.get("x-runtime-app-ms") ?? NaN),
+    sectionHeader: res.headers.get("x-runtime-section"),
+  };
 }
 
 async function insertRequest(opts: {
@@ -482,5 +501,181 @@ describe("GET /api/runtime", () => {
     expect(body.runtimeEvents?.pageSize).toBe(3);
     expect(body.runtimeEvents?.items).toHaveLength(3);
     expect(body.inferenceRequests?.total).toBe(10);
+  });
+
+  // ─── BSH-102: progressive sections, slim payload, slow filter, perf ───
+
+  test("section=summary omits lists; section=lists omits summary fields", async () => {
+    const now = new Date().toISOString();
+    await insertRequest({ id: "s-req", timestamp: now, durationMs: 50 });
+    await insertEvent({ id: "s-evt", timestamp: now });
+    await insertSlotSnapshot({ busy: 1, total: 2 });
+
+    const summary = await getJson("/api/runtime?range=24h&section=summary");
+    expect(summary.status).toBe(200);
+    expect(summary.body.section).toBe("summary");
+    expect(summary.sectionHeader).toBe("summary");
+    expect(summary.body.metrics?.requestCount).toBe(1);
+    expect(summary.body.snapshots?.length).toBeGreaterThan(0);
+    expect(summary.body.filters?.clientLabels).toBeDefined();
+    expect(summary.body.inferenceRequests).toBeUndefined();
+    expect(summary.body.runtimeEvents).toBeUndefined();
+
+    const lists = await getJson("/api/runtime?range=24h&section=lists");
+    expect(lists.status).toBe(200);
+    expect(lists.body.section).toBe("lists");
+    expect(lists.body.inferenceRequests?.total).toBe(1);
+    expect(lists.body.runtimeEvents?.total).toBe(1);
+    expect(lists.body.metrics).toBeUndefined();
+    expect(lists.body.sources).toBeUndefined();
+    expect(lists.body.snapshots).toBeUndefined();
+  });
+
+  test("slims large snapshot payload to port/label only", async () => {
+    const bloated = {
+      port: 9090,
+      label: "backend-heavy",
+      gpuMemory: "8192MB",
+      processes: Array.from({ length: 50 }, (_, i) => ({
+        pid: i,
+        cmd: `worker-${i}`,
+        rss: 1024 * i,
+      })),
+      rawStats: { a: 1, b: 2, nested: { deep: true } },
+    };
+    await db.raw().run(
+      `INSERT INTO runtime_snapshots (
+        source_id, instance_id, timestamp, kind, slots_total, slots_busy, payload
+      ) VALUES ('hermes', ?, ?, 'slots', 2, 1, ?)`,
+      HERMES_INSTANCE,
+      new Date().toISOString(),
+      JSON.stringify(bloated),
+    );
+
+    const { body } = await getJson("/api/runtime?range=1h&section=summary");
+    const slot = body.snapshots?.find((s) => s.kind === "slots");
+    expect(slot?.payload).toEqual({ port: 9090, label: "backend-heavy" });
+    expect(slot?.payload).not.toHaveProperty("gpuMemory");
+    expect(slot?.payload).not.toHaveProperty("processes");
+    expect(slot?.payload).not.toHaveProperty("rawStats");
+  });
+
+  test("slimSnapshotPayload unit: drops non-UI fields", () => {
+    expect(
+      slimSnapshotPayload({
+        port: 1,
+        label: "x",
+        extra: { huge: true },
+      }),
+    ).toEqual({ port: 1, label: "x" });
+    expect(slimSnapshotPayload(null)).toBeNull();
+    expect(slimSnapshotPayload("nope")).toBeNull();
+    expect(slimSnapshotPayload({})).toBeNull();
+  });
+
+  test("omits runtime event details from list payload", async () => {
+    await db.raw().run(
+      `INSERT INTO runtime_events (
+        id, source_id, instance_id, timestamp, ended_at, kind, severity, summary, details
+      ) VALUES (?, 'hermes', ?, ?, NULL, 'slots_saturated', 'warning', 'full', ?)`,
+      "evt-details",
+      HERMES_INSTANCE,
+      new Date().toISOString(),
+      JSON.stringify({ slots: [1, 2, 3], raw: "big" }),
+    );
+    const { body } = await getJson("/api/runtime?range=all&section=lists");
+    const item = body.runtimeEvents?.items.find((e) => e.id === "evt-details");
+    expect(item).toBeDefined();
+    expect(item).not.toHaveProperty("details");
+  });
+
+  test("filters slow requests by reqMinDurationMs", async () => {
+    const now = Date.now();
+    await insertRequest({
+      id: "fast",
+      timestamp: new Date(now).toISOString(),
+      durationMs: 100,
+    });
+    await insertRequest({
+      id: "slow",
+      timestamp: new Date(now - 1000).toISOString(),
+      durationMs: 5000,
+    });
+    await insertRequest({
+      id: "untimed",
+      timestamp: new Date(now - 2000).toISOString(),
+      durationMs: null,
+    });
+
+    const { body } = await getJson(
+      "/api/runtime?range=all&section=lists&reqMinDurationMs=1000",
+    );
+    expect(body.inferenceRequests?.total).toBe(1);
+    expect(body.inferenceRequests?.items[0]?.id).toBe("slow");
+
+    const bad = await getJson("/api/runtime?reqMinDurationMs=0");
+    expect(bad.status).toBe(400);
+    expect(bad.body.error).toMatch(/reqMinDurationMs/);
+  });
+
+  test("summary section meets performance target on live-sized dataset", async () => {
+    // ~live-sized: 5k recent requests, 100 slot snapshots (many historical),
+    // 200 events — summary must not load list pages and stay under target.
+    const now = Date.now();
+    const raw = db.raw();
+
+    for (let i = 0; i < 5000; i++) {
+      await raw.run(
+        `INSERT INTO inference_requests (
+          id, source_id, instance_id, timestamp, model, client_label, status,
+          duration_ms
+        ) VALUES (?, 'hermes', ?, ?, 'm', ?, ?, ?)`,
+        `perf-req-${i}`,
+        HERMES_INSTANCE,
+        new Date(now - i * 100).toISOString(),
+        i % 2 === 0 ? "opencode" : "openclaw",
+        i % 7 === 0 ? "cancelled" : "success",
+        50 + (i % 400),
+      );
+    }
+    for (let i = 0; i < 200; i++) {
+      await raw.run(
+        `INSERT INTO runtime_events (
+          id, source_id, instance_id, timestamp, ended_at, kind, severity, summary, details
+        ) VALUES (?, 'hermes', ?, ?, NULL, 'slots_saturated', 'warning', ?, ?)`,
+        `perf-evt-${i}`,
+        HERMES_INSTANCE,
+        new Date(now - i * 1000).toISOString(),
+        `event ${i}`,
+        JSON.stringify({ bulk: "x".repeat(200) }),
+      );
+    }
+    // One current bloated snapshot + older noise
+    for (let i = 0; i < 50; i++) {
+      await raw.run(
+        `INSERT INTO runtime_snapshots (
+          source_id, instance_id, timestamp, kind, slots_total, slots_busy, payload
+        ) VALUES ('hermes', ?, ?, 'slots', 4, 2, ?)`,
+        HERMES_INSTANCE,
+        new Date(now - i * 5000).toISOString(),
+        JSON.stringify({
+          port: 8080 + (i % 3),
+          label: `backend-${i % 3}`,
+          noise: "y".repeat(500),
+        }),
+      );
+    }
+
+    const { status, body, appMs } = await getJson(
+      "/api/runtime?range=24h&section=summary",
+    );
+    expect(status).toBe(200);
+    expect(body.metrics?.requestCount).toBe(5000);
+    expect(body.inferenceRequests).toBeUndefined();
+    expect(Number.isFinite(appMs)).toBe(true);
+    // Documented budget: RUNTIME_SUMMARY_TARGET_MS (default 250ms).
+    // Allow headroom on CI noise while still catching multi-second regressions.
+    expect(appMs).toBeLessThanOrEqual(RUNTIME_SUMMARY_TARGET_MS * 4);
+    expect(RUNTIME_SUMMARY_TARGET_MS).toBe(250);
   });
 });

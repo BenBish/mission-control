@@ -14,6 +14,14 @@ import { optionalQueryString, parseOptionalPositiveInt } from "../query.js";
 /** Default page size for request/event lists — keeps the Runtime page bounded. */
 export const RUNTIME_DEFAULT_PAGE_SIZE = 20;
 
+/**
+ * Performance target for the default Runtime summary view (BSH-102).
+ * Summary should return under this budget on a live-sized dataset
+ * (~5k inference_requests in the selected window, ~100 snapshots, ~200 events).
+ * Measured via Server-Timing `app` and asserted in runtime tests.
+ */
+export const RUNTIME_SUMMARY_TARGET_MS = 250;
+
 const REQUEST_STATUSES = new Set([
   "success",
   "cancelled",
@@ -33,6 +41,14 @@ const EVENT_KINDS = new Set([
 
 /** Supported time-range presets for metrics + list filters. */
 export type RuntimeRange = "1h" | "6h" | "24h" | "7d" | "all";
+
+/**
+ * Response section for progressive loading (BSH-102):
+ * - summary: sources, slim snapshots, metrics, filters, requestsByClient
+ * - lists: paginated inferenceRequests + runtimeEvents
+ * - all: both (default, backward compatible)
+ */
+export type RuntimeSection = "summary" | "lists" | "all";
 
 const RANGE_MS: Record<Exclude<RuntimeRange, "all">, number> = {
   "1h": 60 * 60 * 1000,
@@ -54,6 +70,11 @@ export function parseRuntimeRange(raw: unknown): RuntimeRange {
   return "24h";
 }
 
+export function parseRuntimeSection(raw: unknown): RuntimeSection {
+  if (raw === "summary" || raw === "lists" || raw === "all") return raw;
+  return "all";
+}
+
 export function rangeToSince(
   range: RuntimeRange,
   now = Date.now(),
@@ -67,16 +88,40 @@ export function rangeToSince(
 }
 
 /**
+ * Slim snapshot payload for the default UI — only port/label are used
+ * for slot occupancy identification. Collectors may store large raw
+ * system-stats objects; never ship those on the Runtime page.
+ */
+export function slimSnapshotPayload(
+  raw: unknown,
+): { port?: number; label?: string } | null {
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
+    return null;
+  }
+  const obj = raw as Record<string, unknown>;
+  const slim: { port?: number; label?: string } = {};
+  if (typeof obj.port === "number" && Number.isFinite(obj.port)) {
+    slim.port = obj.port;
+  }
+  if (typeof obj.label === "string" && obj.label.length > 0) {
+    slim.label = obj.label;
+  }
+  return slim.port != null || slim.label != null ? slim : null;
+}
+
+/**
  * Runtime page data: per-instance health/status (from source_instances —
  * same registry the Dashboard's source chips use), current occupancy per
  * backend (latest runtime_snapshot per instance+kind), operational metrics,
  * and filterable paginated inference_requests / runtime_events.
  *
  * Query params:
+ *   section     – summary|lists|all (default all) — progressive loading
  *   range       – 1h|6h|24h|7d|all (default 24h) — metrics + list time window
  *   sourceId    – filter requests + events by source_id (e.g. hermes)
  *   reqStatus   – success|cancelled|context_overflow|error
  *   reqClient   – client_label exact match
+ *   reqMinDurationMs – minimum duration_ms for "slow" triage
  *   reqPage     – 1-based page (default 1)
  *   reqLimit    – page size (default 20, max 1000)
  *   eventKind   – runtime_events.kind
@@ -86,8 +131,10 @@ export function rangeToSince(
  */
 export function registerRuntimeRoutes(app: Express, db: Database): void {
   app.get("/api/runtime", async (req: Request, res: Response) => {
+    const started = performance.now();
     try {
       const range = parseRuntimeRange(req.query.range);
+      const section = parseRuntimeSection(req.query.section);
       const { since, windowHours } = rangeToSince(range);
 
       const legacyLimit = parseOptionalPositiveInt(req.query.limit, "limit");
@@ -126,6 +173,21 @@ export function registerRuntimeRoutes(app: Express, db: Database): void {
       );
       if (!eventPageResult.ok) {
         res.status(400).json({ success: false, error: eventPageResult.error });
+        return;
+      }
+
+      // Duration is ms (not a page limit) — allow up to 24h so p95-based
+      // "slow" filters are not clamped to MAX_QUERY_LIMIT (1000).
+      const reqMinDurationResult = parseOptionalPositiveInt(
+        req.query.reqMinDurationMs,
+        "reqMinDurationMs",
+        24 * 60 * 60 * 1000,
+      );
+      if (!reqMinDurationResult.ok) {
+        res.status(400).json({
+          success: false,
+          error: reqMinDurationResult.error,
+        });
         return;
       }
 
@@ -175,8 +237,12 @@ export function registerRuntimeRoutes(app: Express, db: Database): void {
       const eventPage = eventPageResult.value ?? 1;
       const reqOffset = (reqPage - 1) * reqLimit;
       const eventOffset = (eventPage - 1) * eventLimit;
+      const reqMinDurationMs = reqMinDurationResult.value;
 
       const raw = db.raw();
+      const wantSummary = section === "summary" || section === "all";
+      const wantLists = section === "lists" || section === "all";
+
       const [
         sources,
         snapshots,
@@ -186,44 +252,87 @@ export function registerRuntimeRoutes(app: Express, db: Database): void {
         clientLabels,
         requestsByClient,
       ] = await Promise.all([
-        listSources(raw),
-        latestRuntimeSnapshots(raw),
-        listInferenceRequests(raw, {
-          status: reqStatus,
-          clientLabel: reqClient,
-          sourceId,
-          since,
-          limit: reqLimit,
-          offset: reqOffset,
-        }),
-        listRuntimeEvents(raw, {
-          kind: eventKind,
-          sourceId,
-          since,
-          limit: eventLimit,
-          offset: eventOffset,
-        }),
-        getRuntimeMetrics(raw, { since, windowHours }),
-        listInferenceClientLabels(raw),
-        listInferenceRequestCountsByClient(raw, { since, sourceId }),
+        wantSummary
+          ? listSources(raw)
+          : Promise.resolve([] as Awaited<ReturnType<typeof listSources>>),
+        wantSummary
+          ? latestRuntimeSnapshots(raw)
+          : Promise.resolve(
+              [] as Awaited<ReturnType<typeof latestRuntimeSnapshots>>,
+            ),
+        wantLists
+          ? listInferenceRequests(raw, {
+              status: reqStatus,
+              clientLabel: reqClient,
+              sourceId,
+              since,
+              minDurationMs: reqMinDurationMs,
+              limit: reqLimit,
+              offset: reqOffset,
+            })
+          : Promise.resolve(null),
+        wantLists
+          ? listRuntimeEvents(raw, {
+              kind: eventKind,
+              sourceId,
+              since,
+              limit: eventLimit,
+              offset: eventOffset,
+            })
+          : Promise.resolve(null),
+        wantSummary
+          ? getRuntimeMetrics(raw, { since, windowHours })
+          : Promise.resolve(null),
+        wantSummary
+          ? listInferenceClientLabels(raw)
+          : Promise.resolve([] as string[]),
+        wantSummary
+          ? listInferenceRequestCountsByClient(raw, { since, sourceId })
+          : Promise.resolve(
+              [] as Awaited<
+                ReturnType<typeof listInferenceRequestCountsByClient>
+              >,
+            ),
       ]);
 
-      res.json({
+      const elapsedMs = Math.round(performance.now() - started);
+      res.setHeader(
+        "Server-Timing",
+        `app;dur=${elapsedMs};desc="runtime ${section}"`,
+      );
+      res.setHeader("X-Runtime-Section", section);
+      res.setHeader("X-Runtime-App-Ms", String(elapsedMs));
+
+      const body: Record<string, unknown> = {
         success: true,
         range,
-        sources: sources.filter((s) => s.kind === "inference"),
-        snapshots: snapshots.map((s) => ({
-          sourceId: s.source_id,
-          instanceId: s.instance_id,
-          timestamp: s.timestamp,
-          kind: s.kind,
-          slotsTotal: s.slots_total,
-          slotsBusy: s.slots_busy,
-          modelsLoaded: s.models_loaded ? JSON.parse(s.models_loaded) : null,
-          healthy: s.healthy == null ? null : Boolean(s.healthy),
-          payload: s.payload ? JSON.parse(s.payload) : null,
-        })),
-        metrics: {
+        section,
+      };
+
+      if (wantSummary && metrics) {
+        body.sources = sources.filter((s) => s.kind === "inference");
+        body.snapshots = snapshots.map((s) => {
+          let parsedPayload: unknown = null;
+          if (s.payload) {
+            try {
+              parsedPayload = JSON.parse(s.payload);
+            } catch {
+              parsedPayload = null;
+            }
+          }
+          return {
+            sourceId: s.source_id,
+            instanceId: s.instance_id,
+            timestamp: s.timestamp,
+            kind: s.kind,
+            slotsTotal: s.slots_total,
+            slotsBusy: s.slots_busy,
+            modelsLoaded: s.models_loaded ? JSON.parse(s.models_loaded) : null,
+            healthy: s.healthy == null ? null : Boolean(s.healthy),
+            payload: slimSnapshotPayload(parsedPayload),
+          };
+        });
+        body.metrics = {
           activeSlots: metrics.activeSlots,
           totalSlots: metrics.totalSlots,
           saturationRate: metrics.saturationRate,
@@ -234,15 +343,18 @@ export function registerRuntimeRoutes(app: Express, db: Database): void {
           requestCount: metrics.requestCount,
           since: metrics.since,
           windowHours: metrics.windowHours,
-        },
-        filters: {
+        };
+        body.filters = {
           clientLabels,
           requestStatuses: [...REQUEST_STATUSES],
           eventKinds: [...EVENT_KINDS],
-        },
+        };
         /** Volume by backend client_label for the selected range (BSH-89). */
-        requestsByClient,
-        inferenceRequests: {
+        body.requestsByClient = requestsByClient;
+      }
+
+      if (wantLists && requests && events) {
+        body.inferenceRequests = {
           items: requests.rows.map((r) => ({
             id: r.id,
             sourceId: r.source_id,
@@ -263,8 +375,10 @@ export function registerRuntimeRoutes(app: Express, db: Database): void {
           total: requests.total,
           page: reqPage,
           pageSize: reqLimit,
-        },
-        runtimeEvents: {
+        };
+        // Event details are omitted from the list payload — default UI only
+        // shows kind/severity/summary/timestamps (BSH-102 payload slim).
+        body.runtimeEvents = {
           items: events.rows.map((e) => ({
             id: e.id,
             sourceId: e.source_id,
@@ -274,13 +388,14 @@ export function registerRuntimeRoutes(app: Express, db: Database): void {
             kind: e.kind,
             severity: e.severity,
             summary: e.summary,
-            details: e.details ? JSON.parse(e.details) : null,
           })),
           total: events.total,
           page: eventPage,
           pageSize: eventLimit,
-        },
-      });
+        };
+      }
+
+      res.json(body);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error("[runtime] GET /api/runtime failed:", message);

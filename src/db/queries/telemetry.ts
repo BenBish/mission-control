@@ -272,6 +272,8 @@ export interface InferenceRequestFilter {
   since?: string;
   /** ISO timestamp upper bound (inclusive). */
   until?: string;
+  /** Minimum duration_ms (inclusive) — used for "slow request" triage. */
+  minDurationMs?: number;
   limit?: number;
   offset?: number;
 }
@@ -304,6 +306,10 @@ export async function listInferenceRequests(
   if (filter.until) {
     clauses.push("timestamp <= ?");
     params.push(filter.until);
+  }
+  if (filter.minDurationMs != null && Number.isFinite(filter.minDurationMs)) {
+    clauses.push("duration_ms IS NOT NULL AND duration_ms >= ?");
+    params.push(filter.minDurationMs);
   }
 
   const where = buildWhereSql(clauses);
