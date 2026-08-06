@@ -16,13 +16,45 @@ import {
   listProviderSyncStatus,
 } from "../../db/queries/provider-usage.js";
 import {
+  deleteSpendBudget,
+  listSpendBudgets,
+  upsertSpendBudget,
+  type SpendBudgetScopeType,
+} from "../../db/queries/spend-budgets.js";
+import {
+  listSpendAlerts,
+  updateSpendAlertDelivery,
+  type SpendAlertDeliveryState,
+} from "../../db/queries/spend-alerts.js";
+import {
   credentialMeta,
   getConnectors,
   isProviderId,
   syncAllProviders,
   type ProviderId,
 } from "../../services/provider-connectors/index.js";
-import { loadSpendInsights } from "../../services/provider-spend-insights.js";
+import {
+  loadSpendInsights,
+  type ForecastMethod,
+} from "../../services/provider-spend-insights.js";
+
+const SCOPE_TYPES = new Set<SpendBudgetScopeType>([
+  "account",
+  "provider",
+  "model",
+  "project",
+]);
+
+function parseForecastMethod(raw: unknown): ForecastMethod | undefined {
+  if (
+    raw === "simple_mtd" ||
+    raw === "trailing_7d" ||
+    raw === "weighted_recency"
+  ) {
+    return raw;
+  }
+  return undefined;
+}
 
 function toIso(sqliteTimestamp: string | null): string | null {
   if (!sqliteTimestamp) return null;
@@ -252,13 +284,29 @@ export function registerProviderRoutes(app: Express, db: Database): void {
 
   /**
    * Budget progress, burn rate, forecast, daily trend, prior-period breakdown,
-   * anomalies, and sync reliability for Direct API Spend.
+   * anomalies, efficiency, recommendations, scoped budgets, alert history,
+   * and sync reliability for Direct API Spend (BSH-105).
+   *
+   * Query: ?method=simple_mtd|trailing_7d|weighted_recency
+   *        &billingLagDays=N
    */
   app.get(
     "/api/providers/spend-insights",
-    async (_req: Request, res: Response) => {
+    async (req: Request, res: Response) => {
       try {
-        const insights = await loadSpendInsights(db.raw());
+        const method = parseForecastMethod(req.query.method);
+        let billingLagDays: number | undefined;
+        if (typeof req.query.billingLagDays === "string") {
+          const n = Number(req.query.billingLagDays);
+          if (Number.isFinite(n) && n >= 0 && n <= 14) {
+            billingLagDays = Math.floor(n);
+          }
+        }
+        const insights = await loadSpendInsights(db.raw(), {
+          forecastMethod: method ?? "trailing_7d",
+          billingLagDays,
+          persistAlerts: true,
+        });
         res.json({
           success: true,
           ...insights,
@@ -268,6 +316,173 @@ export function registerProviderRoutes(app: Express, db: Database): void {
         res.status(500).json({
           success: false,
           error: "Failed to load provider spend insights",
+        });
+      }
+    },
+  );
+
+  /**
+   * Scoped spend budgets (account / provider / model / project).
+   * Consumed against actual provider spend except project scope (agent).
+   */
+  app.get("/api/providers/budgets", async (_req: Request, res: Response) => {
+    try {
+      const budgets = await listSpendBudgets(db.raw());
+      res.json({ success: true, budgets });
+    } catch (err) {
+      console.error("GET /api/providers/budgets failed:", err);
+      res.status(500).json({
+        success: false,
+        error: "Failed to list scoped budgets",
+      });
+    }
+  });
+
+  app.put("/api/providers/budgets", async (req: Request, res: Response) => {
+    try {
+      const body = req.body ?? {};
+      const scopeType = body.scopeType as SpendBudgetScopeType;
+      if (!SCOPE_TYPES.has(scopeType)) {
+        res.status(400).json({
+          success: false,
+          error: "scopeType must be account|provider|model|project",
+        });
+        return;
+      }
+      const scopeKey =
+        typeof body.scopeKey === "string"
+          ? body.scopeKey
+          : scopeType === "account"
+            ? "*"
+            : "";
+      const monthlyBudgetUsd = Number(body.monthlyBudgetUsd);
+      if (!Number.isFinite(monthlyBudgetUsd) || monthlyBudgetUsd < 0) {
+        res.status(400).json({
+          success: false,
+          error: "monthlyBudgetUsd must be a non-negative number",
+        });
+        return;
+      }
+      const budget = await upsertSpendBudget(db.raw(), {
+        id: typeof body.id === "string" ? body.id : undefined,
+        scopeType,
+        scopeKey,
+        monthlyBudgetUsd,
+        warnThresholdPct:
+          body.warnThresholdPct !== undefined
+            ? Number(body.warnThresholdPct)
+            : undefined,
+        criticalThresholdPct:
+          body.criticalThresholdPct !== undefined
+            ? Number(body.criticalThresholdPct)
+            : undefined,
+        enabled: body.enabled === false ? false : true,
+      });
+      res.json({ success: true, budget });
+    } catch (err) {
+      console.error("PUT /api/providers/budgets failed:", err);
+      const message =
+        err instanceof Error ? err.message : "Failed to save scoped budget";
+      const isValidation =
+        /scopeKey|monthlyBudgetUsd|warnThreshold|criticalThreshold/i.test(
+          message,
+        );
+      res.status(isValidation ? 400 : 500).json({
+        success: false,
+        error: message,
+      });
+    }
+  });
+
+  app.delete(
+    "/api/providers/budgets/:id",
+    async (req: Request, res: Response) => {
+      try {
+        const id = req.params.id;
+        if (!id) {
+          res.status(400).json({ success: false, error: "id required" });
+          return;
+        }
+        const ok = await deleteSpendBudget(db.raw(), id);
+        if (!ok) {
+          res.status(404).json({ success: false, error: "Budget not found" });
+          return;
+        }
+        res.json({ success: true });
+      } catch (err) {
+        console.error("DELETE /api/providers/budgets/:id failed:", err);
+        res.status(500).json({
+          success: false,
+          error: "Failed to delete scoped budget",
+        });
+      }
+    },
+  );
+
+  /** Alert delivery history for threshold / anomaly events. */
+  app.get(
+    "/api/providers/spend-alerts",
+    async (req: Request, res: Response) => {
+      try {
+        const limit =
+          typeof req.query.limit === "string" ? Number(req.query.limit) : 50;
+        const monthKey =
+          typeof req.query.monthKey === "string"
+            ? req.query.monthKey
+            : undefined;
+        const deliveryState = (
+          typeof req.query.deliveryState === "string"
+            ? req.query.deliveryState
+            : undefined
+        ) as SpendAlertDeliveryState | undefined;
+        const alerts = await listSpendAlerts(db.raw(), {
+          limit,
+          monthKey,
+          deliveryState,
+        });
+        res.json({ success: true, alerts });
+      } catch (err) {
+        console.error("GET /api/providers/spend-alerts failed:", err);
+        res.status(500).json({
+          success: false,
+          error: "Failed to list spend alerts",
+        });
+      }
+    },
+  );
+
+  app.patch(
+    "/api/providers/spend-alerts/:id",
+    async (req: Request, res: Response) => {
+      try {
+        const id = req.params.id;
+        const state = req.body?.deliveryState as SpendAlertDeliveryState;
+        const allowed: SpendAlertDeliveryState[] = [
+          "pending",
+          "delivered",
+          "acknowledged",
+          "suppressed",
+          "failed",
+        ];
+        if (!id || !allowed.includes(state)) {
+          res.status(400).json({
+            success: false,
+            error:
+              "deliveryState must be pending|delivered|acknowledged|suppressed|failed",
+          });
+          return;
+        }
+        const alert = await updateSpendAlertDelivery(db.raw(), id, state);
+        if (!alert) {
+          res.status(404).json({ success: false, error: "Alert not found" });
+          return;
+        }
+        res.json({ success: true, alert });
+      } catch (err) {
+        console.error("PATCH /api/providers/spend-alerts/:id failed:", err);
+        res.status(500).json({
+          success: false,
+          error: "Failed to update spend alert",
         });
       }
     },

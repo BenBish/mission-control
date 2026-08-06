@@ -257,6 +257,74 @@ describe("GET /api/providers/spend-insights", () => {
     expect(body.meta.notes.some((n: string) => n.includes("session-log"))).toBe(
       true,
     );
+    // BSH-105 extensions
+    expect(body.forecast).toBeTruthy();
+    expect(typeof body.forecast.confidence).toBe("number");
+    expect(Array.isArray(body.forecast.incompleteDays)).toBe(true);
+    expect(typeof body.meta.billingLagDays).toBe("number");
+    expect(body.feeCategories).toBeTruthy();
+    expect(typeof body.feeCategories.actualProviderSpendUsd).toBe("number");
+    expect(Array.isArray(body.efficiency.provider)).toBe(true);
+    expect(Array.isArray(body.recommendations)).toBe(true);
+    expect(Array.isArray(body.alerts)).toBe(true);
+    expect(Array.isArray(body.scopedBudgets)).toBe(true);
+  });
+});
+
+describe("scoped budgets + alerts (BSH-105)", () => {
+  test("CRUD scoped budgets", async () => {
+    const put = await fetch(`${baseUrl}/api/providers/budgets`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        scopeType: "provider",
+        scopeKey: "openrouter",
+        monthlyBudgetUsd: 50,
+        warnThresholdPct: 75,
+        criticalThresholdPct: 100,
+      }),
+    });
+    const putBody = await put.json();
+    expect(put.status).toBe(200);
+    expect(putBody.budget.scopeType).toBe("provider");
+    expect(putBody.budget.scopeKey).toBe("openrouter");
+    expect(putBody.budget.monthlyBudgetUsd).toBe(50);
+
+    const list = await fetch(`${baseUrl}/api/providers/budgets`);
+    const listBody = await list.json();
+    expect(list.status).toBe(200);
+    expect(
+      listBody.budgets.some(
+        (b: { scopeKey: string }) => b.scopeKey === "openrouter",
+      ),
+    ).toBe(true);
+
+    const id = putBody.budget.id as string;
+    const del = await fetch(`${baseUrl}/api/providers/budgets/${id}`, {
+      method: "DELETE",
+    });
+    expect(del.status).toBe(200);
+  });
+
+  test("rejects invalid scopeType", async () => {
+    const res = await fetch(`${baseUrl}/api/providers/budgets`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        scopeType: "wallet",
+        scopeKey: "x",
+        monthlyBudgetUsd: 1,
+      }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  test("lists spend alerts endpoint", async () => {
+    const res = await fetch(`${baseUrl}/api/providers/spend-alerts?limit=10`);
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(Array.isArray(body.alerts)).toBe(true);
   });
 });
 

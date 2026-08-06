@@ -3,11 +3,14 @@ import type { ProviderUsageRow } from "../../db/queries/provider-usage.js";
 import {
   ANOMALY_MIN_USD,
   addDays,
+  computeForecast,
   computeSpendInsights,
   daysInCalendarMonth,
   detectAnomalies,
+  evaluateScopedBudgets,
   evaluateSyncWarnings,
   formatDayInTimeZone,
+  incompleteDaysFor,
   listDaysInclusive,
 } from "../../services/provider-spend-insights.js";
 
@@ -360,5 +363,218 @@ describe("evaluateSyncWarnings", () => {
     expect(
       warnings.some((w) => w.reason === "error" && w.provider === "anthropic"),
     ).toBe(true);
+  });
+});
+
+describe("BSH-105 forecast incomplete days and confidence", () => {
+  test("incompleteDaysFor labels today and billing lag window", () => {
+    const days = incompleteDaysFor("2026-07-01", "2026-07-15", 2);
+    expect(days).toEqual(["2026-07-13", "2026-07-14", "2026-07-15"]);
+  });
+
+  test("trailing forecast excludes incomplete days and reports confidence range", () => {
+    const dayTotals = new Map<string, number>();
+    for (let d = 1; d <= 15; d++) {
+      const day = `2026-07-${String(d).padStart(2, "0")}`;
+      dayTotals.set(day, d === 15 ? 0 : 2); // today incomplete/zero-ish
+    }
+    const incomplete = incompleteDaysFor("2026-07-01", "2026-07-15", 2);
+    const forecast = computeForecast({
+      dayTotals,
+      monthStart: "2026-07-01",
+      today: "2026-07-15",
+      daysInMonth: 31,
+      daysElapsed: 15,
+      incompleteDays: incomplete,
+      billingLagDays: 2,
+      method: "trailing_7d",
+      excludeIncompleteFromBurn: true,
+      forecastReliableFromSync: true,
+    });
+    expect(forecast.incompleteDays).toEqual(incomplete);
+    expect(forecast.incompleteDayTreatment).toBe("excluded_from_burn");
+    expect(forecast.billingLagDays).toBe(2);
+    expect(forecast.daysUsed).toBeGreaterThan(0);
+    expect(forecast.lowUsd).toBeLessThanOrEqual(forecast.pointUsd);
+    expect(forecast.highUsd).toBeGreaterThanOrEqual(forecast.pointUsd);
+    expect(forecast.confidence).toBeGreaterThan(0);
+    expect(forecast.confidence).toBeLessThanOrEqual(0.95);
+    expect(forecast.notes.some((n) => n.includes("Incomplete days"))).toBe(
+      true,
+    );
+  });
+
+  test("sparse data lowers confidence vs dense complete history", () => {
+    const sparse = new Map<string, number>([["2026-07-14", 5]]);
+    const dense = new Map<string, number>();
+    for (let d = 1; d <= 14; d++) {
+      dense.set(`2026-07-${String(d).padStart(2, "0")}`, 2);
+    }
+    const incomplete = incompleteDaysFor("2026-07-01", "2026-07-15", 1);
+    const sparseF = computeForecast({
+      dayTotals: sparse,
+      monthStart: "2026-07-01",
+      today: "2026-07-15",
+      daysInMonth: 31,
+      daysElapsed: 15,
+      incompleteDays: incomplete,
+      billingLagDays: 1,
+      method: "simple_mtd",
+      excludeIncompleteFromBurn: true,
+      forecastReliableFromSync: true,
+    });
+    const denseF = computeForecast({
+      dayTotals: dense,
+      monthStart: "2026-07-01",
+      today: "2026-07-15",
+      daysInMonth: 31,
+      daysElapsed: 15,
+      incompleteDays: incomplete,
+      billingLagDays: 1,
+      method: "simple_mtd",
+      excludeIncompleteFromBurn: true,
+      forecastReliableFromSync: true,
+    });
+    expect(sparseF.confidence).toBeLessThan(denseF.confidence);
+  });
+
+  test("late billing lag widens incomplete set and is documented", () => {
+    const dayTotals = new Map<string, number>();
+    for (let d = 1; d <= 15; d++) {
+      dayTotals.set(`2026-07-${String(d).padStart(2, "0")}`, 3);
+    }
+    const lag0 = computeForecast({
+      dayTotals,
+      monthStart: "2026-07-01",
+      today: "2026-07-15",
+      daysInMonth: 31,
+      daysElapsed: 15,
+      incompleteDays: incompleteDaysFor("2026-07-01", "2026-07-15", 0),
+      billingLagDays: 0,
+      method: "trailing_7d",
+      excludeIncompleteFromBurn: true,
+      forecastReliableFromSync: true,
+    });
+    const lag5 = computeForecast({
+      dayTotals,
+      monthStart: "2026-07-01",
+      today: "2026-07-15",
+      daysInMonth: 31,
+      daysElapsed: 15,
+      incompleteDays: incompleteDaysFor("2026-07-01", "2026-07-15", 5),
+      billingLagDays: 5,
+      method: "trailing_7d",
+      excludeIncompleteFromBurn: true,
+      forecastReliableFromSync: true,
+    });
+    expect(lag5.incompleteDays.length).toBeGreaterThan(
+      lag0.incompleteDays.length,
+    );
+    expect(lag5.daysUsed).toBeLessThanOrEqual(lag0.daysUsed);
+    expect(lag5.notes.some((n) => n.includes("billing lag"))).toBe(true);
+  });
+
+  test("computeSpendInsights surfaces forecast meta, efficiency, fee classes", () => {
+    const insights = computeSpendInsights({
+      usage: [
+        row({
+          provider: "openrouter",
+          day: "2026-07-01",
+          model: "a",
+          cost_usd: 10,
+          request_count: 5,
+          output_tokens: 1000,
+        }),
+        row({
+          provider: "openrouter",
+          day: "2026-07-10",
+          model: "b",
+          cost_usd: 20,
+          request_count: 2,
+          output_tokens: 500,
+        }),
+      ],
+      syncStatus: [
+        {
+          provider: "openrouter",
+          status: "ok",
+          last_sync_at: "2026-07-15 12:00:00",
+          last_success_at: "2026-07-15 12:00:00",
+          last_error: null,
+          cursor_day: null,
+          meta_json: null,
+          updated_at: null,
+        },
+      ],
+      configuredProviderIds: ["openrouter"],
+      budget: { monthlyBudgetUsd: 100, timezone: "UTC" },
+      now: new Date("2026-07-15T18:00:00.000Z"),
+      forecastMethod: "trailing_7d",
+      billingLagDays: 2,
+      agentFacts: [],
+      failureWasteUsd: null,
+    });
+
+    expect(insights.forecast.method).toBe("trailing_7d");
+    expect(insights.meta.billingLagDays).toBe(2);
+    expect(insights.meta.incompleteDays.length).toBeGreaterThan(0);
+    expect(insights.feeCategories.actualProviderSpendUsd).toBeCloseTo(30);
+    expect(insights.feeCategories.notes.some((n) => n.includes("never"))).toBe(
+      true,
+    );
+    expect(insights.efficiency.provider.length).toBeGreaterThan(0);
+    const overall = insights.efficiency.provider.find(
+      (s) => s.dimension === "overall",
+    );
+    expect(overall?.costPerRequest).toBeCloseTo(30 / 7);
+    expect(insights.scopedBudgets).toEqual([]);
+  });
+
+  test("scoped budgets evaluate provider and account progress", () => {
+    const usage = [
+      row({
+        provider: "openrouter",
+        day: "2026-07-05",
+        model: "a",
+        cost_usd: 40,
+      }),
+      row({
+        provider: "anthropic",
+        day: "2026-07-05",
+        model: "b",
+        cost_usd: 10,
+      }),
+    ];
+    const progress = evaluateScopedBudgets(
+      [
+        {
+          id: "1",
+          scopeType: "account",
+          scopeKey: "*",
+          monthlyBudgetUsd: 100,
+          warnThresholdPct: 80,
+          criticalThresholdPct: 100,
+          enabled: true,
+          createdAt: null,
+          updatedAt: null,
+        },
+        {
+          id: "2",
+          scopeType: "provider",
+          scopeKey: "openrouter",
+          monthlyBudgetUsd: 30,
+          warnThresholdPct: 80,
+          criticalThresholdPct: 100,
+          enabled: true,
+          createdAt: null,
+          updatedAt: null,
+        },
+      ],
+      usage,
+    );
+    expect(progress[0].consumedUsd).toBeCloseTo(50);
+    expect(progress[0].status).toBe("ok");
+    expect(progress[1].consumedUsd).toBeCloseTo(40);
+    expect(progress[1].status).toBe("critical");
   });
 });
