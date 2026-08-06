@@ -1,5 +1,7 @@
 import type { Express, Request, Response } from "express";
 import type { Database } from "../../db/database.js";
+import type { AuthConfig } from "../auth.js";
+import { requireOwner } from "../auth.js";
 import {
   getProviderBudgetConfig,
   isValidIanaTimeZone,
@@ -63,7 +65,15 @@ function toIso(sqliteTimestamp: string | null): string | null {
     : `${sqliteTimestamp.replace(" ", "T")}Z`;
 }
 
-export function registerProviderRoutes(app: Express, db: Database): void {
+export function registerProviderRoutes(
+  app: Express,
+  db: Database,
+  authConfig?: AuthConfig,
+): void {
+  // Tests may omit authConfig — treat as disabled (local owner).
+  const ownerGuard = authConfig
+    ? requireOwner(authConfig)
+    : (_req: Request, _res: Response, next: () => void) => next();
   /** Connector registry + last-sync status (never includes secrets). */
   app.get("/api/providers/status", async (_req: Request, res: Response) => {
     try {
@@ -109,27 +119,31 @@ export function registerProviderRoutes(app: Express, db: Database): void {
   });
 
   /** Trigger sync for all configured providers (or subset via body.providers). */
-  app.post("/api/providers/sync", async (req: Request, res: Response) => {
-    try {
-      let providers: ProviderId[] | undefined;
-      const bodyProviders = req.body?.providers;
-      if (Array.isArray(bodyProviders)) {
-        providers = bodyProviders.filter(
-          (p: unknown): p is ProviderId =>
-            typeof p === "string" && isProviderId(p),
-        );
-      }
+  app.post(
+    "/api/providers/sync",
+    ownerGuard,
+    async (req: Request, res: Response) => {
+      try {
+        let providers: ProviderId[] | undefined;
+        const bodyProviders = req.body?.providers;
+        if (Array.isArray(bodyProviders)) {
+          providers = bodyProviders.filter(
+            (p: unknown): p is ProviderId =>
+              typeof p === "string" && isProviderId(p),
+          );
+        }
 
-      const results = await syncAllProviders(db.raw(), { providers });
-      res.json({ success: true, results });
-    } catch (err) {
-      console.error("POST /api/providers/sync failed:", err);
-      res.status(500).json({
-        success: false,
-        error: "Provider sync failed unexpectedly",
-      });
-    }
-  });
+        const results = await syncAllProviders(db.raw(), { providers });
+        res.json({ success: true, results });
+      } catch (err) {
+        console.error("POST /api/providers/sync failed:", err);
+        res.status(500).json({
+          success: false,
+          error: "Provider sync failed unexpectedly",
+        });
+      }
+    },
+  );
 
   /** Daily usage rows from provider APIs (API-sourced, not session logs). */
   app.get("/api/providers/usage", async (req: Request, res: Response) => {
@@ -208,79 +222,85 @@ export function registerProviderRoutes(app: Express, db: Database): void {
     }
   });
 
-  app.put("/api/providers/budget", async (req: Request, res: Response) => {
-    try {
-      const body = req.body ?? {};
-      let monthlyBudgetUsd: number | null;
-      if (body.monthlyBudgetUsd === null || body.monthlyBudgetUsd === "") {
-        monthlyBudgetUsd = null;
-      } else if (typeof body.monthlyBudgetUsd === "number") {
-        monthlyBudgetUsd = body.monthlyBudgetUsd;
-      } else if (
-        typeof body.monthlyBudgetUsd === "string" &&
-        body.monthlyBudgetUsd.trim() !== ""
-      ) {
-        monthlyBudgetUsd = Number(body.monthlyBudgetUsd);
-      } else if (body.monthlyBudgetUsd === undefined) {
-        // Keep existing budget amount; only timezone may change
-        const existing = await getProviderBudgetConfig(db.raw());
-        monthlyBudgetUsd = existing.monthlyBudgetUsd;
-      } else {
-        res.status(400).json({
-          success: false,
-          error: "monthlyBudgetUsd must be a non-negative number or null",
-        });
-        return;
-      }
-
-      if (
-        monthlyBudgetUsd !== null &&
-        (!Number.isFinite(monthlyBudgetUsd) || monthlyBudgetUsd < 0)
-      ) {
-        res.status(400).json({
-          success: false,
-          error: "monthlyBudgetUsd must be a non-negative number or null",
-        });
-        return;
-      }
-
-      let timezone: string | undefined;
-      if (body.timezone !== undefined) {
-        if (
-          typeof body.timezone !== "string" ||
-          !isValidIanaTimeZone(body.timezone)
+  app.put(
+    "/api/providers/budget",
+    ownerGuard,
+    async (req: Request, res: Response) => {
+      try {
+        const body = req.body ?? {};
+        let monthlyBudgetUsd: number | null;
+        if (body.monthlyBudgetUsd === null || body.monthlyBudgetUsd === "") {
+          monthlyBudgetUsd = null;
+        } else if (typeof body.monthlyBudgetUsd === "number") {
+          monthlyBudgetUsd = body.monthlyBudgetUsd;
+        } else if (
+          typeof body.monthlyBudgetUsd === "string" &&
+          body.monthlyBudgetUsd.trim() !== ""
         ) {
+          monthlyBudgetUsd = Number(body.monthlyBudgetUsd);
+        } else if (body.monthlyBudgetUsd === undefined) {
+          // Keep existing budget amount; only timezone may change
+          const existing = await getProviderBudgetConfig(db.raw());
+          monthlyBudgetUsd = existing.monthlyBudgetUsd;
+        } else {
           res.status(400).json({
             success: false,
-            error: "timezone must be a valid IANA timezone string",
+            error: "monthlyBudgetUsd must be a non-negative number or null",
           });
           return;
         }
-        timezone = body.timezone;
-      }
 
-      const budget = await setProviderBudgetConfig(db.raw(), {
-        monthlyBudgetUsd,
-        timezone,
-      });
-      res.json({
-        success: true,
-        source: "provider-api",
-        budget,
-      });
-    } catch (err) {
-      console.error("PUT /api/providers/budget failed:", err);
-      const message =
-        err instanceof Error ? err.message : "Failed to update provider budget";
-      const isValidation = /non-negative|Invalid IANA|must be a valid/i.test(
-        message,
-      );
-      res.status(isValidation ? 400 : 500).json({
-        success: false,
-        error: message,
-      });
-    }
-  });
+        if (
+          monthlyBudgetUsd !== null &&
+          (!Number.isFinite(monthlyBudgetUsd) || monthlyBudgetUsd < 0)
+        ) {
+          res.status(400).json({
+            success: false,
+            error: "monthlyBudgetUsd must be a non-negative number or null",
+          });
+          return;
+        }
+
+        let timezone: string | undefined;
+        if (body.timezone !== undefined) {
+          if (
+            typeof body.timezone !== "string" ||
+            !isValidIanaTimeZone(body.timezone)
+          ) {
+            res.status(400).json({
+              success: false,
+              error: "timezone must be a valid IANA timezone string",
+            });
+            return;
+          }
+          timezone = body.timezone;
+        }
+
+        const budget = await setProviderBudgetConfig(db.raw(), {
+          monthlyBudgetUsd,
+          timezone,
+        });
+        res.json({
+          success: true,
+          source: "provider-api",
+          budget,
+        });
+      } catch (err) {
+        console.error("PUT /api/providers/budget failed:", err);
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Failed to update provider budget";
+        const isValidation = /non-negative|Invalid IANA|must be a valid/i.test(
+          message,
+        );
+        res.status(isValidation ? 400 : 500).json({
+          success: false,
+          error: message,
+        });
+      }
+    },
+  );
 
   /**
    * Budget progress, burn rate, forecast, daily trend, prior-period breakdown,
@@ -338,64 +358,69 @@ export function registerProviderRoutes(app: Express, db: Database): void {
     }
   });
 
-  app.put("/api/providers/budgets", async (req: Request, res: Response) => {
-    try {
-      const body = req.body ?? {};
-      const scopeType = body.scopeType as SpendBudgetScopeType;
-      if (!SCOPE_TYPES.has(scopeType)) {
-        res.status(400).json({
-          success: false,
-          error: "scopeType must be account|provider|model|project",
+  app.put(
+    "/api/providers/budgets",
+    ownerGuard,
+    async (req: Request, res: Response) => {
+      try {
+        const body = req.body ?? {};
+        const scopeType = body.scopeType as SpendBudgetScopeType;
+        if (!SCOPE_TYPES.has(scopeType)) {
+          res.status(400).json({
+            success: false,
+            error: "scopeType must be account|provider|model|project",
+          });
+          return;
+        }
+        const scopeKey =
+          typeof body.scopeKey === "string"
+            ? body.scopeKey
+            : scopeType === "account"
+              ? "*"
+              : "";
+        const monthlyBudgetUsd = Number(body.monthlyBudgetUsd);
+        if (!Number.isFinite(monthlyBudgetUsd) || monthlyBudgetUsd < 0) {
+          res.status(400).json({
+            success: false,
+            error: "monthlyBudgetUsd must be a non-negative number",
+          });
+          return;
+        }
+        const budget = await upsertSpendBudget(db.raw(), {
+          id: typeof body.id === "string" ? body.id : undefined,
+          scopeType,
+          scopeKey,
+          monthlyBudgetUsd,
+          warnThresholdPct:
+            body.warnThresholdPct !== undefined
+              ? Number(body.warnThresholdPct)
+              : undefined,
+          criticalThresholdPct:
+            body.criticalThresholdPct !== undefined
+              ? Number(body.criticalThresholdPct)
+              : undefined,
+          enabled: body.enabled === false ? false : true,
         });
-        return;
-      }
-      const scopeKey =
-        typeof body.scopeKey === "string"
-          ? body.scopeKey
-          : scopeType === "account"
-            ? "*"
-            : "";
-      const monthlyBudgetUsd = Number(body.monthlyBudgetUsd);
-      if (!Number.isFinite(monthlyBudgetUsd) || monthlyBudgetUsd < 0) {
-        res.status(400).json({
+        res.json({ success: true, budget });
+      } catch (err) {
+        console.error("PUT /api/providers/budgets failed:", err);
+        const message =
+          err instanceof Error ? err.message : "Failed to save scoped budget";
+        const isValidation =
+          /scopeKey|monthlyBudgetUsd|warnThreshold|criticalThreshold/i.test(
+            message,
+          );
+        res.status(isValidation ? 400 : 500).json({
           success: false,
-          error: "monthlyBudgetUsd must be a non-negative number",
+          error: message,
         });
-        return;
       }
-      const budget = await upsertSpendBudget(db.raw(), {
-        id: typeof body.id === "string" ? body.id : undefined,
-        scopeType,
-        scopeKey,
-        monthlyBudgetUsd,
-        warnThresholdPct:
-          body.warnThresholdPct !== undefined
-            ? Number(body.warnThresholdPct)
-            : undefined,
-        criticalThresholdPct:
-          body.criticalThresholdPct !== undefined
-            ? Number(body.criticalThresholdPct)
-            : undefined,
-        enabled: body.enabled === false ? false : true,
-      });
-      res.json({ success: true, budget });
-    } catch (err) {
-      console.error("PUT /api/providers/budgets failed:", err);
-      const message =
-        err instanceof Error ? err.message : "Failed to save scoped budget";
-      const isValidation =
-        /scopeKey|monthlyBudgetUsd|warnThreshold|criticalThreshold/i.test(
-          message,
-        );
-      res.status(isValidation ? 400 : 500).json({
-        success: false,
-        error: message,
-      });
-    }
-  });
+    },
+  );
 
   app.delete(
     "/api/providers/budgets/:id",
+    ownerGuard,
     async (req: Request, res: Response) => {
       try {
         const id = req.params.id;
@@ -453,6 +478,7 @@ export function registerProviderRoutes(app: Express, db: Database): void {
 
   app.patch(
     "/api/providers/spend-alerts/:id",
+    ownerGuard,
     async (req: Request, res: Response) => {
       try {
         const id = req.params.id;

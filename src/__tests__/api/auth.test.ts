@@ -144,6 +144,8 @@ describe("Auth Module - Unit Tests", () => {
         enabled: true,
         username: "admin",
         passwordHash: "hash",
+        viewerUsername: undefined,
+        viewerPasswordHash: undefined,
         jwtSecret: new TextEncoder().encode("test-secret-key-32-bytes-long!!"),
         apiKey: undefined,
         sessionTtl: 3600,
@@ -262,6 +264,8 @@ describe("Auth Module - Integration Tests", () => {
       enabled: true,
       username: "admin",
       passwordHash,
+      viewerUsername: undefined,
+      viewerPasswordHash: undefined,
       jwtSecret: new TextEncoder().encode(
         "test-integration-secret-key-32bytes!",
       ),

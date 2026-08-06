@@ -15,8 +15,11 @@ import {
 } from "react";
 import { setUnauthorizedHandler, apiFetch } from "@/lib/api-client";
 
+export type AuthRole = "owner" | "viewer";
+
 interface AuthUser {
   username: string;
+  role: AuthRole;
 }
 
 interface AuthContextType {
@@ -26,6 +29,8 @@ interface AuthContextType {
   authEnabled: boolean;
   /** Whether the initial auth check is still in progress */
   loading: boolean;
+  /** True when production-style unsafe unauthenticated exposure is reported */
+  securityWarning: string | null;
   /** Re-check auth status (e.g. after login) */
   checkAuth: () => Promise<void>;
   /** Logout and clear session */
@@ -38,6 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [authEnabled, setAuthEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [securityWarning, setSecurityWarning] = useState<string | null>(null);
 
   const checkAuth = useCallback(async () => {
     try {
@@ -45,7 +51,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await res.json();
 
       if (res.ok && data.success) {
-        setUser(data.user);
+        const role: AuthRole =
+          data.user?.role === "viewer" || data.user?.role === "owner"
+            ? data.user.role
+            : "owner";
+        setUser(data.user ? { username: data.user.username, role } : null);
         setAuthEnabled(data.authEnabled !== false);
       } else {
         setUser(null);
@@ -57,6 +67,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAuthEnabled(false);
     } finally {
       setLoading(false);
+    }
+
+    // Non-blocking security posture check (also surfaces auth-off warning)
+    try {
+      const pol = await apiFetch("/api/privacy/policy");
+      if (pol.ok) {
+        const body = await pol.json();
+        const warnings: string[] = body.warnings ?? [];
+        if (warnings.length > 0) {
+          setSecurityWarning(warnings[0]);
+        } else if (body.policy?.unsafeUnauthenticated) {
+          setSecurityWarning(
+            "Authentication is disabled while serving potentially sensitive operational data.",
+          );
+        } else if (body.policy && body.policy.authEnabled === false) {
+          setSecurityWarning(
+            "App authentication is off. Anyone who can reach this host can read activity data.",
+          );
+        } else {
+          setSecurityWarning(null);
+        }
+      }
+    } catch {
+      // ignore — policy endpoint may be unavailable during boot
     }
   }, []);
 
@@ -82,7 +116,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, authEnabled, loading, checkAuth, logout }}
+      value={{
+        user,
+        authEnabled,
+        loading,
+        securityWarning,
+        checkAuth,
+        logout,
+      }}
     >
       {children}
     </AuthContext.Provider>

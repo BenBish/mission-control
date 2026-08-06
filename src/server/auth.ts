@@ -4,11 +4,13 @@
  *
  * Environment variables:
  *   MC_AUTH_ENABLED     – "true" to enable (default: "false")
- *   MC_PASSWORD_HASH    – bcrypt hash of admin password (required when auth enabled)
+ *   MC_PASSWORD_HASH    – bcrypt hash of owner password (required when auth enabled)
  *   MC_JWT_SECRET       – HMAC-SHA256 secret for JWT signing (auto-generated if missing)
  *   MC_API_KEY          – API key for collector ingestion on POST /api/ingest/*
  *   MC_SESSION_TTL      – JWT lifetime in seconds (default: 86400 = 24h)
- *   MC_USERNAME         – admin username (default: "admin")
+ *   MC_USERNAME         – owner username (default: "admin")
+ *   MC_VIEWER_USERNAME  – optional read-only viewer username
+ *   MC_VIEWER_PASSWORD_HASH – bcrypt hash for viewer (required if viewer username set)
  */
 
 import { SignJWT, jwtVerify, type JWTPayload } from "jose";
@@ -17,10 +19,21 @@ import crypto from "crypto";
 
 // ─── Configuration ──────────────────────────────────────────────────────────
 
+/** Access roles: owner can mutate + see sensitive detail; viewer is read-only. */
+export type AuthRole = "owner" | "viewer";
+
+export interface AuthUser {
+  username: string;
+  role: AuthRole;
+}
+
 export interface AuthConfig {
   enabled: boolean;
   username: string;
   passwordHash: string;
+  /** Optional second account with viewer role. */
+  viewerUsername: string | undefined;
+  viewerPasswordHash: string | undefined;
   jwtSecret: Uint8Array;
   apiKey: string | undefined;
   sessionTtl: number; // seconds
@@ -37,6 +50,8 @@ export function resolveAuthConfig(): AuthConfig {
   const enabled = process.env.MC_AUTH_ENABLED === "true";
   const passwordHash = process.env.MC_PASSWORD_HASH || "";
   const username = process.env.MC_USERNAME || "admin";
+  const viewerUsername = process.env.MC_VIEWER_USERNAME || undefined;
+  const viewerPasswordHash = process.env.MC_VIEWER_PASSWORD_HASH || undefined;
   const apiKey = process.env.MC_API_KEY || undefined;
   const sessionTtl = parseInt(process.env.MC_SESSION_TTL || "86400", 10);
   const secureCookie = process.env.NODE_ENV === "production";
@@ -45,6 +60,19 @@ export function resolveAuthConfig(): AuthConfig {
     throw new Error(
       "MC_AUTH_ENABLED is true but MC_PASSWORD_HASH is not set. " +
         "Generate a hash with: bun -e \"console.log(await Bun.password.hash('yourpass'))\"",
+    );
+  }
+
+  if (viewerUsername && !viewerPasswordHash) {
+    throw new Error(
+      "MC_VIEWER_USERNAME is set but MC_VIEWER_PASSWORD_HASH is not. " +
+        "Generate a hash with: bun -e \"console.log(await Bun.password.hash('yourpass'))\"",
+    );
+  }
+
+  if (viewerUsername && viewerUsername === username) {
+    throw new Error(
+      "MC_VIEWER_USERNAME must differ from MC_USERNAME (owner account).",
     );
   }
 
@@ -57,6 +85,8 @@ export function resolveAuthConfig(): AuthConfig {
     enabled,
     username,
     passwordHash,
+    viewerUsername,
+    viewerPasswordHash,
     jwtSecret,
     apiKey,
     sessionTtl,
@@ -68,13 +98,15 @@ export function resolveAuthConfig(): AuthConfig {
 
 export interface MCJWTPayload extends JWTPayload {
   sub: string; // username
+  role: AuthRole;
 }
 
 export async function signToken(
   config: AuthConfig,
   username: string,
+  role: AuthRole = "owner",
 ): Promise<string> {
-  return new SignJWT({ sub: username } as MCJWTPayload)
+  return new SignJWT({ sub: username, role } as MCJWTPayload)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(`${config.sessionTtl}s`)
@@ -259,7 +291,56 @@ export function authMiddleware(config: AuthConfig) {
     }
 
     // Attach user info to request for downstream use
-    (req as any).user = { username: payload.sub };
+    const role: AuthRole =
+      payload.role === "viewer" || payload.role === "owner"
+        ? payload.role
+        : payload.sub === config.username
+          ? "owner"
+          : "viewer";
+    (req as Request & { user?: AuthUser }).user = {
+      username: payload.sub,
+      role,
+    };
+    next();
+  };
+}
+
+/**
+ * When auth is disabled, treat the request as the local owner (single-user).
+ * When auth is enabled, use the JWT role (default owner for legacy tokens).
+ */
+export function getRequestUser(
+  req: Request,
+  config: AuthConfig,
+): AuthUser | null {
+  if (!config.enabled) {
+    return { username: config.username, role: "owner" };
+  }
+  const user = (req as Request & { user?: AuthUser }).user;
+  return user ?? null;
+}
+
+export function canViewSensitive(user: AuthUser | null): boolean {
+  return user?.role === "owner";
+}
+
+export function canMutate(user: AuthUser | null): boolean {
+  return user?.role === "owner";
+}
+
+/**
+ * Middleware: require owner role for mutation / admin endpoints.
+ * When auth is disabled, allows through (local single-user = owner).
+ */
+export function requireOwner(config: AuthConfig) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const user = getRequestUser(req, config);
+    if (!canMutate(user)) {
+      return res.status(403).json({
+        success: false,
+        error: "Owner role required",
+      });
+    }
     next();
   };
 }
@@ -303,8 +384,23 @@ export function setupAuthRoutes(
       });
     }
 
-    // Check username
-    if (username !== config.username) {
+    // Resolve account: owner or optional viewer
+    let role: AuthRole | null = null;
+    let expectedHash: string | null = null;
+
+    if (username === config.username) {
+      role = "owner";
+      expectedHash = config.passwordHash;
+    } else if (
+      config.viewerUsername &&
+      username === config.viewerUsername &&
+      config.viewerPasswordHash
+    ) {
+      role = "viewer";
+      expectedHash = config.viewerPasswordHash;
+    }
+
+    if (!role || !expectedHash) {
       if (logActivity) {
         await logActivity("auth:login_failed", {
           username,
@@ -318,8 +414,7 @@ export function setupAuthRoutes(
       });
     }
 
-    // Check password
-    const valid = await verifyPassword(password, config.passwordHash);
+    const valid = await verifyPassword(password, expectedHash);
     if (!valid) {
       if (logActivity) {
         await logActivity("auth:login_failed", {
@@ -334,18 +429,20 @@ export function setupAuthRoutes(
       });
     }
 
-    // Success — issue JWT
+    // Success — issue JWT with role
     limiter.reset(ip);
-    const token = await signToken(config, username);
+    const token = await signToken(config, username, role);
     setAuthCookie(res, token, config);
 
     if (logActivity) {
-      await logActivity("auth:login_success", { username, ip }).catch(() => {});
+      await logActivity("auth:login_success", { username, role, ip }).catch(
+        () => {},
+      );
     }
 
     return res.json({
       success: true,
-      user: { username },
+      user: { username, role },
     });
   });
 
@@ -376,10 +473,10 @@ export function setupAuthRoutes(
    */
   app.get("/api/auth/me", async (req: Request, res: Response) => {
     if (!config.enabled) {
-      // Auth disabled — return an anonymous user
+      // Auth disabled — local single-user is treated as owner
       return res.json({
         success: true,
-        user: { username: "admin" },
+        user: { username: config.username, role: "owner" as AuthRole },
         authEnabled: false,
       });
     }
@@ -398,9 +495,16 @@ export function setupAuthRoutes(
         .json({ success: false, error: "Invalid or expired token" });
     }
 
+    const role: AuthRole =
+      payload.role === "viewer" || payload.role === "owner"
+        ? payload.role
+        : payload.sub === config.username
+          ? "owner"
+          : "viewer";
+
     return res.json({
       success: true,
-      user: { username: payload.sub },
+      user: { username: payload.sub, role },
       authEnabled: true,
     });
   });

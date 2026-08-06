@@ -44,6 +44,13 @@ import { upsertGenerationJob } from "../../db/queries/generation.js";
 import { upsertJobRun } from "../../db/queries/jobs.js";
 import { recordHeartbeat } from "../../db/queries/sources.js";
 import type { Activity } from "../../types/activity.js";
+import { resolvePrivacyPolicy } from "../privacy/policy.js";
+import {
+  redactActivityPayload,
+  redactSessionPayload,
+  redactJobRunPayload,
+  redactInferencePayload,
+} from "../privacy/redact.js";
 
 // ─── Broadcast ──────────────────────────────────────────────────────────────
 
@@ -269,19 +276,23 @@ async function processOneEvent(
   );
   if (isDuplicate) return "duplicate";
 
+  const privacy = resolvePrivacyPolicy();
+
   try {
     switch (event.kind) {
       case "session": {
-        await upsertSession(
-          db,
-          sourceId,
-          instanceId,
+        const sessionPayload = redactSessionPayload(
           parsed.data as SessionPayload,
+          privacy,
         );
+        await upsertSession(db, sourceId, instanceId, sessionPayload);
         break;
       }
       case "activity": {
-        const payload = parsed.data as ActivityPayload;
+        const payload = redactActivityPayload(
+          parsed.data as ActivityPayload,
+          privacy,
+        );
         const existingSessionId = computeSessionId(
           sourceId,
           payload.sessionExternalId,
@@ -314,7 +325,10 @@ async function processOneEvent(
           db,
           sourceId,
           instanceId,
-          parsed.data as InferenceRequestPayload,
+          redactInferencePayload(
+            parsed.data as InferenceRequestPayload,
+            privacy,
+          ),
         );
         break;
       }
@@ -355,7 +369,11 @@ async function processOneEvent(
         break;
       }
       case "job_run": {
-        await upsertJobRun(db, sourceId, parsed.data as JobRunPayload);
+        await upsertJobRun(
+          db,
+          sourceId,
+          redactJobRunPayload(parsed.data as JobRunPayload, privacy),
+        );
         break;
       }
     }

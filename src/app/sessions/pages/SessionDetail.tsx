@@ -230,9 +230,14 @@ export default function SessionDetail() {
                   <span className="text-xs text-muted-foreground">Copied!</span>
                 )}
               </div>
-              {session.cwd && (
+              {(session.project || session.cwd || session.gitBranch) && (
                 <p className="mt-1 text-xs text-muted-foreground font-mono">
-                  {session.cwd}
+                  {session.project ?? session.cwd}
+                  {session.cwd &&
+                  session.project &&
+                  session.cwd !== session.project
+                    ? ` · ${session.cwd}`
+                    : null}
                   {session.gitBranch && ` · ${session.gitBranch}`}
                 </p>
               )}
