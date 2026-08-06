@@ -1,574 +1,253 @@
 # Deployment Guide
 
-Instructions for deploying Mission Control Activity Feed locally and to production.
+How to run Mission Control locally and in the current Tailscale + systemd
+topology. Paths and unit names match the repo under `deploy/`.
 
-## Local Development
+## Local development
 
-### Quick Start
-
-1. **Install dependencies:**
-
-   ```bash
-   cd ~/Dev/openclaw-mission-control
-   bun install
-   ```
-
-2. **Initialize database:**
-
-   ```bash
-   bun run db:migrate
-   ```
-
-3. **Start the API server:**
-
-   ```bash
-   bun run api
-   ```
-
-   Server will start at `http://localhost:3001`
-
-4. **Run tests:**
-   ```bash
-   bun test
-   ```
-
-### Development Workflow
+### 1. Install dependencies
 
 ```bash
-# In one terminal - run API server with auto-reload
+cd ~/Dev/mission-control   # or your clone path
+bun install
+```
+
+### 2. Start the API
+
+```bash
 bun run api
-
-# In another terminal - run tests in watch mode
-bun test:watch
-
-# In third terminal - run example
-node --loader ts-node/esm examples/basic-usage.ts
 ```
 
-## Docker Deployment
+- Listens on **`127.0.0.1:3001`** by default (`PORT`, `HOST` override).
+- SQLite default: `./data/mission-control.db` (`DATABASE_PATH` override).
+- Migrations run on startup via the database layer.
 
-### Build Docker Image
-
-Create `Dockerfile`:
-
-```dockerfile
-FROM node:18-alpine
-
-WORKDIR /app
-
-# Copy package files
-COPY package*.json ./
-
-# Install dependencies
-RUN bun install --only=production
-
-# Copy source and build
-COPY . .
-RUN bun run build
-
-# Create data directory
-RUN mkdir -p /app/data
-
-# Expose port
-EXPOSE 3001
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3001/api/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
-
-# Start server
-CMD ["bun", "start"]
-```
-
-Build and run:
+### 3. Start the frontend
 
 ```bash
-# Build image
-docker build -t mission-control-activity-feed:0.1.0 .
-
-# Run container
-docker run -p 3001:3001 \
-  -v $(pwd)/data:/app/data \
-  -e NODE_ENV=production \
-  mission-control-activity-feed:0.1.0
+bun run dev
 ```
 
-### Docker Compose
+- Vite on **http://localhost:3000**
+- Proxies `/api` → `http://localhost:3001` (`VITE_API_PORT` if API uses another port)
 
-Create `docker-compose.yml`:
-
-```yaml
-version: "3.8"
-
-services:
-  activity-feed:
-    build: .
-    ports:
-      - "3001:3001"
-    environment:
-      NODE_ENV: production
-      PORT: 3001
-      DATABASE_PATH: /app/data/mission-control.db
-      ARCHIVE_PATH: /app/data/archives
-    volumes:
-      - ./data:/app/data
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-```
-
-Run with Docker Compose:
+### 4. Optional desktop collector
 
 ```bash
-docker-compose up -d
+mkdir -p ~/.config/mission-control
+cp deploy/collector.toml.example ~/.config/mission-control/collector.toml
+# Edit server_url + api_key
+bun run collector
 ```
 
-## Systemd Service (Linux)
+For pure local API without Tailscale, set e.g.:
 
-Create `/etc/systemd/system/mission-control-activity-feed.service`:
-
-```ini
-[Unit]
-Description=Mission Control Activity Feed
-After=network.target
-
-[Service]
-Type=simple
-User=ben
-WorkingDirectory=/home/ben/Dev/openclaw-mission-control
-ExecStart=/usr/bin/bun start
-Restart=always
-RestartSec=10
-
-Environment="NODE_ENV=production"
-Environment="PORT=3001"
-Environment="DATABASE_PATH=/home/ben/Dev/openclaw-mission-control/data/mission-control.db"
-
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=multi-user.target
+```toml
+server_url = "http://127.0.0.1:3001"
+api_key = "changeme"
 ```
 
-Enable and start:
+and set the same `MC_API_KEY` in the server environment.
+
+### 5. Tests
 
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable mission-control-activity-feed
-sudo systemctl start mission-control-activity-feed
-
-# Check status
-sudo systemctl status mission-control-activity-feed
-
-# View logs
-sudo journalctl -u mission-control-activity-feed -f
+bun test                 # unit + integration
+bun run ci               # lint, prettier, typecheck, tests
+bun run test:e2e         # Playwright (needs app setup per e2e config)
 ```
-
-## Environment Configuration
-
-### Production Settings
-
-```bash
-# .env.production
-NODE_ENV=production
-PORT=3001
-DATABASE_PATH=/data/mission-control.db
-ARCHIVE_PATH=/data/archives
-
-LOG_LEVEL=warn
-CAPTURE_OUTPUT=true
-MAX_OUTPUT_SIZE=5000
-
-ENABLE_COST_TRACKING=true
-
-RETENTION_HOT_DAYS=7
-RETENTION_WARM_DAYS=90
-
-# Provider billing connectors (optional — account-level usage/cost APIs)
-# Distinct from session-log cost tracking. See deploy/server.env.example.
-# OPENROUTER_API_KEY=
-# ANTHROPIC_ADMIN_KEY=
-# OPENAI_ADMIN_KEY=
-# XAI_API_KEY=
-# MC_XAI_USAGE_ENDPOINT=
-# MC_PROVIDER_SYNC_ENABLED=false
-# MC_PROVIDER_SYNC_INTERVAL_MS=3600000
-```
-
-### Provider API cost connectors
-
-Configure only the providers you use. Missing keys leave that connector in `not_configured` (no errors, no crash).
-
-| Env | Purpose |
-| --- | --- |
-| `OPENROUTER_API_KEY` | OpenRouter activity/usage (management key preferred) |
-| `ANTHROPIC_ADMIN_KEY` | Anthropic Admin Usage & Cost API |
-| `OPENAI_ADMIN_KEY` | OpenAI organization Admin usage/costs (API org spend) |
-| `XAI_API_KEY` | xAI key verification; historical usage needs `MC_XAI_USAGE_ENDPOINT` |
-| `MC_PROVIDER_SYNC_ENABLED` | `true` to poll on interval (default off) |
-| `MC_PROVIDER_SYNC_INTERVAL_MS` | Poll interval (default 3600000) |
-
-Trigger a one-shot sync: `POST /api/providers/sync`. View status: `GET /api/providers/status`. Capacity: `GET /api/providers/credits` (returns `planUsage` + `wallet`). UI: Consumption → **Direct API Spend** with separate **Plan usage**, **Usage credits (wallet)**, and spend sections (BSH-93).
-
-**Three capacity concepts (see `docs/provider-capacity-research.md`):**
-
-1. **Plan usage** — subscription/rate-limit windows (% remaining); Codex session quotas when collected; Claude Pro plan bars not on Admin API.
-2. **Usage credits (wallet)** — prepaid balance; OpenRouter via `GET /api/v1/credits`; Anthropic/OpenAI/xAI honest unavailable/limited (no inventing $0).
-3. **API org spend** — existing Direct API Spend / `provider_usage_daily` (Admin usage/cost).
-
-**Security:** `POST /api/providers/sync` triggers outbound calls with admin/provider keys and can consume provider rate limits. If the API is reachable beyond loopback/tailnet, enable `MC_AUTH_ENABLED=true` (or keep the service strictly private). Never commit real keys. Status responses never include secret values.
-
-**Accuracy notes:** OpenAI cost `line_item` labels may not match completion `model` ids exactly (MC attempts simple normalization). OpenRouter BYOK spend can also appear under a direct Anthropic/OpenAI connector if both are configured.
-
-### Security Hardening
-
-1. **Database encryption** (SQLite):
-   - Use SQLCipher for encrypted database
-   - Set strong encryption password via environment variable
-
-2. **API access control** (Phase 2):
-   - Add JWT authentication
-   - Implement API key management
-   - Add role-based access control
-
-3. **Data redaction**:
-   - Auto-redact sensitive patterns in activity logs
-   - Implement before storage
-
-```typescript
-// Example redaction
-const redact = (text: string): string => {
-  return text
-    .replace(/([A-Za-z0-9+/]{40,})/g, "[REDACTED_KEY]")
-    .replace(/password\s*[:=]\s*\S+/gi, "password=[REDACTED]")
-    .replace(/api[_-]?key\s*[:=]\s*\S+/gi, "api_key=[REDACTED]")
-    .replace(/token\s*[:=]\s*\S+/gi, "token=[REDACTED]");
-};
-```
-
-## Scaling for Production
-
-### Database Upgrade Path
-
-For high-volume scenarios (>1000 activities/day):
-
-1. **Phase 1 (Current):** SQLite
-2. **Phase 2:** PostgreSQL with TimescaleDB
-3. **Phase 3:** PostgreSQL + Elasticsearch + Kafka
-
-### Horizontal Scaling
-
-```yaml
-# docker-compose.yml with multiple instances + reverse proxy
-
-version: "3.8"
-
-services:
-  nginx:
-    image: nginx:latest
-    ports:
-      - "80:80"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf
-    depends_on:
-      - activity-feed-1
-      - activity-feed-2
-
-  activity-feed-1:
-    build: .
-    environment:
-      PORT: 3001
-      DATABASE_PATH: /data/mission-control.db
-    volumes:
-      - ./data:/data
-
-  activity-feed-2:
-    build: .
-    environment:
-      PORT: 3002
-      DATABASE_PATH: /data/mission-control.db
-    volumes:
-      - ./data:/data
-```
-
-## Monitoring
-
-### Health Checks
-
-```bash
-# Check API health
-curl http://localhost:3001/api/health
-
-# Get system stats
-curl http://localhost:3001/api/stats
-
-# Monitor database size
-du -sh ~/Dev/openclaw-mission-control/data/mission-control.db
-```
-
-### Logging Setup
-
-Enable request logging in Express:
-
-```typescript
-app.use((req, res, next) => {
-  const start = Date.now();
-  res.on("finish", () => {
-    const duration = Date.now() - start;
-    console.log(
-      `[${new Date().toISOString()}] ${req.method} ${req.path} ${res.statusCode} ${duration}ms`,
-    );
-  });
-  next();
-});
-```
-
-Aggregate logs with ELK stack (Phase 2):
-
-```yaml
-services:
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:latest
-    environment:
-      - discovery.type=single-node
-
-  kibana:
-    image: docker.elastic.co/kibana/kibana:latest
-    ports:
-      - "5601:5601"
-
-  filebeat:
-    image: docker.elastic.co/beats/filebeat:latest
-    volumes:
-      - /var/log/mission-control:/logs
-      - ./filebeat.yml:/usr/share/filebeat/filebeat.yml
-```
-
-## Backup Strategy
-
-### Database Backup
-
-```bash
-# Manual backup
-cp ~/Dev/openclaw-mission-control/data/mission-control.db \
-   ~/Dev/openclaw-mission-control/data/mission-control.db.backup.$(date +%Y%m%d_%H%M%S)
-
-# Automated backup with cron
-0 2 * * * cp ~/Dev/openclaw-mission-control/data/mission-control.db \
-           ~/Dev/openclaw-mission-control/data/backups/mission-control.db.$(date +\%Y\%m\%d)
-```
-
-### Archive Cleanup
-
-```bash
-# Delete archives older than 90 days
-find ~/Dev/openclaw-mission-control/data/archives -name "*.gz" -mtime +90 -delete
-
-# Or in cron
-0 3 * * 0 find ~/Dev/openclaw-mission-control/data/archives -name "*.gz" -mtime +90 -delete
-```
-
-## Upgrading
-
-### From v0.1.0 to v0.2.0+
-
-1. **Backup current database:**
-
-   ```bash
-   cp data/mission-control.db data/mission-control.db.v0.1.0
-   ```
-
-2. **Pull latest code:**
-
-   ```bash
-   git pull origin main
-   ```
-
-3. **Install dependencies:**
-
-   ```bash
-   bun install
-   ```
-
-4. **Run migrations:**
-
-   ```bash
-   bun run db:migrate
-   ```
-
-5. **Restart service:**
-   ```bash
-   systemctl restart mission-control-activity-feed
-   ```
-
-## Troubleshooting
-
-### Port Already in Use
-
-```bash
-# Find process using port 3001
-lsof -i :3001
-
-# Kill process
-kill -9 <PID>
-```
-
-### Database Locked
-
-SQLite may lock if multiple processes access it. Solutions:
-
-1. Use single instance only
-2. Upgrade to PostgreSQL (Phase 2)
-3. Increase timeout: `PRAGMA busy_timeout = 5000;`
-
-### Out of Memory
-
-Monitor database growth:
-
-```bash
-du -sh data/mission-control.db
-
-# If too large, implement archival:
-# - Move old activities to gzipped JSON
-# - Summarize to cost_summaries table
-```
-
-### Slow Queries
-
-Add indexes for common filters:
-
-```sql
--- Already included in schema, but for reference:
-CREATE INDEX IF NOT EXISTS idx_activities_session_actor
-ON activities(session_id, actor_id);
-
-CREATE INDEX IF NOT EXISTS idx_activities_timestamp
-ON activities(timestamp DESC);
-```
-
-## Performance Tuning
-
-### SQLite Optimizations
-
-```typescript
-// Already configured in schema.ts with:
-PRAGMA journal_mode=WAL;      // Write-ahead logging for concurrency
-PRAGMA synchronous=NORMAL;     // Balanced safety and speed
-
-// For high volume, add:
-PRAGMA cache_size=10000;       // Increase cache
-PRAGMA temp_store=MEMORY;      // Use memory for temp
-```
-
-### API Response Caching
-
-```typescript
-// Cache expensive queries
-const cache = new Map();
-const CACHE_TTL = 60000; // 1 minute
-
-async function getCachedSummary(sessionId) {
-  const cached = cache.get(sessionId);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    return cached.data;
-  }
-
-  const data = await logger.getSessionSummary(sessionId);
-  cache.set(sessionId, { data, timestamp: Date.now() });
-  return data;
-}
-```
-
-## Privacy & access (BSH-100)
-
-Mission Control stores agent activity that can include prompts, tool I/O, and
-working-directory paths. Treat the SQLite DB as sensitive.
-
-### Authentication defaults
-
-| Mode | When | Behaviour |
-|------|------|-----------|
-| Auth off | Local single-user / tailnet-only | Full access as implicit **owner**. UI banner warns that auth is disabled. |
-| Auth on | Shared / production | Cookie JWT login. Owner mutates settings; viewer is read-only. |
-| Production refuse | `NODE_ENV=production` + `MC_REQUIRE_AUTH_IN_PRODUCTION=true` + auth off | Process **refuses to start**. |
-
-```bash
-# Owner (required when MC_AUTH_ENABLED=true)
-MC_AUTH_ENABLED=true
-MC_USERNAME=admin
-MC_PASSWORD_HASH=$(bun -e "console.log(await Bun.password.hash('yourpass'))")
-
-# Optional viewer (read-only; no raw details/result; no mutations)
-MC_VIEWER_USERNAME=viewer
-MC_VIEWER_PASSWORD_HASH=$(bun -e "console.log(await Bun.password.hash('viewerpass'))")
-
-# Hard-fail unsafe production
-MC_REQUIRE_AUTH_IN_PRODUCTION=true
-```
-
-`GET /api/health` and `GET /api/privacy/policy` expose a non-secret security
-snapshot (`authEnabled`, `redactionMode`, `unsafeUnauthenticated`).
-
-### Ingestion redaction
-
-`MC_REDACTION_MODE`:
-
-- **`off`** — store payloads as received (dev only).
-- **`standard`** (default) — scrub secrets/tokens, absolute paths in free text,
-  truncate tool args/stdout/stderr.
-- **`strict`** — also truncate prompt/message descriptions and replace tool
-  bodies with `[REDACTED]`.
-
-Applied in `processIngestBatch` before SQLite writes.
-
-### List views
-
-Session **lists** return a `project` label (last path segment) and omit raw
-`cwd`. Activity **lists** omit `details` / `result` / `metadata`. Owners may
-see full fields on detail endpoints; viewers never do.
-
-### Retention by data class
-
-Configured via env (defaults in parentheses):
-
-| Class | Env | Default |
-|-------|-----|---------|
-| activities | `MC_RETENTION_ACTIVITIES_DAYS` | 90 |
-| sessions | `MC_RETENTION_SESSIONS_DAYS` | 90 |
-| inference | `MC_RETENTION_INFERENCE_DAYS` | 90 |
-| runtime snapshots | `MC_RETENTION_RUNTIME_DAYS` | 7 |
-| generations | `MC_RETENTION_GENERATIONS_DAYS` | 90 |
-| job runs | `MC_RETENTION_JOBS_DAYS` | 90 |
-
-Enforced hourly (and at startup) by `runDataClassRetention`. Owner can trigger
-immediately: `POST /api/privacy/retention/run`.
-
-### Migration / purge of already-stored sensitive data
-
-Data ingested before redaction may still contain raw prompts and tool I/O.
-
-**Safe path (owner only):**
-
-```bash
-# Null activity details/result (and optionally truncate long prompt descriptions)
-curl -X POST -b cookies.txt http://localhost:3001/api/privacy/purge-sensitive \
-  -H 'Content-Type: application/json' \
-  -d '{"strict":true}'
-
-# Then enforce retention windows
-curl -X POST -b cookies.txt http://localhost:3001/api/privacy/retention/run
-```
-
-Or use **Settings → Privacy** in the UI. After scrub, re-ingesting from source
-logs will re-apply the current redaction policy on new writes.
-
-Provider billing aggregates (`provider_usage_daily`) are not purged by the
-sensitive scrub — they do not contain prompt text.
 
 ---
 
-**Status:** Deployment guide including privacy controls (BSH-100)
+## Environment variables
+
+Authoritative examples: `deploy/server.env.example` and
+`deploy/collector.toml.example`.
+
+### Server (common)
+
+| Variable | Default / notes |
+| --- | --- |
+| `PORT` | `3001` |
+| `HOST` | `127.0.0.1` (loopback; use Tailscale Serve for remote) |
+| `DATABASE_PATH` | `./data/mission-control.db` |
+| `NODE_ENV` | `development` / `production` |
+| `MC_API_KEY` | Shared secret for `/api/ingest/*` |
+| `MC_AUTH_ENABLED` | `false` — set `true` for JWT UI auth |
+| `MC_PASSWORD_HASH` | bcrypt hash (required when auth enabled) |
+| `MC_USERNAME` | owner username (default `admin`) |
+| `MC_VIEWER_USERNAME` / `MC_VIEWER_PASSWORD_HASH` | optional read-only account |
+| `MC_JWT_SECRET` | optional; random if unset |
+| `MC_SESSION_TTL` | seconds (default 86400) |
+| `MC_REQUIRE_AUTH_IN_PRODUCTION` | refuse start if prod + auth off |
+| `MC_REDACTION_MODE` | `off` \| `standard` \| `strict` |
+| `MC_RETENTION_*_DAYS` | per data class (see Architecture) |
+| `MC_HERMES_POLLING_ENABLED` | `true` only on the box with llama-swap/journal access |
+| `OPENROUTER_API_KEY`, `ANTHROPIC_ADMIN_KEY`, `OPENAI_ADMIN_KEY`, `XAI_API_KEY` | provider connectors |
+| `MC_PROVIDER_SYNC_ENABLED` | scheduled billing sync |
+| `MC_PROVIDER_SYNC_INTERVAL_MS` | default 3600000 (1h) |
+| `MC_XAI_USAGE_ENDPOINT` | optional custom xAI usage JSON export |
+
+Generate a password hash:
+
+```bash
+bun -e "console.log(await Bun.password.hash('yourpass'))"
+```
+
+### Frontend (dev)
+
+| Variable | Notes |
+| --- | --- |
+| `VITE_PORT` | default `3000` |
+| `VITE_API_PORT` | API port for Vite proxy (default `3001`) |
+
+---
+
+## Production-style host (systemd user unit)
+
+### Server unit
+
+Unit file: `deploy/mission-control.service`
+
+1. Copy/link the unit into the user systemd directory (or point `WorkingDirectory`
+   at your checkout).
+2. Create env file (gitignored):
+
+```bash
+mkdir -p ~/.config/mission-control
+cp deploy/server.env.example ~/.config/mission-control/server.env
+# Set MC_API_KEY, auth, provider keys as needed
+```
+
+3. Ensure DB directory exists:
+
+```bash
+mkdir -p ~/.local/share/mission-control
+```
+
+The example unit sets:
+
+- `DATABASE_PATH=%h/.local/share/mission-control/mc.db`
+- `EnvironmentFile=-%h/.config/mission-control/server.env`
+- `ExecStart=… bun run api`
+- `WorkingDirectory=%h/Dev/mission-control` (adjust to your path)
+
+```bash
+systemctl --user daemon-reload
+systemctl --user enable --now mission-control.service
+systemctl --user status mission-control.service
+```
+
+### Desktop collector unit
+
+Unit file: `deploy/mc-collector.service`
+
+Requires `~/.config/mission-control/collector.toml` with `server_url` + `api_key`.
+
+```bash
+systemctl --user enable --now mc-collector.service
+```
+
+---
+
+## Tailscale access
+
+The server is intentionally **loopback-only** so it does not compete with
+Tailscale’s bind and is not exposed on the LAN.
+
+1. On the server host, expose the API (and optionally static UI served by the
+   same process after `bun run build`):
+
+```bash
+# Example — exact flags depend on your Tailscale version / policy
+tailscale serve --bg 3001
+tailscale serve status
+```
+
+2. Desktop collectors use the **full MagicDNS HTTPS URL** as `server_url`, not
+   a short hostname and not plain `http://` across the tailnet unless you
+   intentionally configure that.
+
+3. Browser users open the Tailscale URL (or local Vite in dev). With auth
+   enabled, login uses `/api/auth/login`.
+
+---
+
+## Production frontend assets
+
+```bash
+bun run build
+```
+
+Vite writes to **`dist-vite/`** (not `dist/`). The Express SPA fallback serves
+`dist-vite/index.html` for non-API paths. In a pure API-only process without a
+build, the SPA fallback returns 404 JSON for unknown routes.
+
+Note: `package.json` `bun start` → `node dist/index.js` is a separate compiled
+server path; day-to-day production on this repo is typically `bun run api`
+(Bun runs TypeScript directly) plus `dist-vite` static files.
+
+---
+
+## Docker
+
+There is **no first-class Dockerfile** in this repository today. Prefer the
+systemd + Tailscale model above. If you containerize:
+
+- Run with Bun
+- Mount a persistent volume for SQLite
+- Pass `MC_API_KEY` / auth / provider env via secrets
+- Keep the process on a private network and put TLS termination in front
+- Point health checks at `GET /api/health`
+
+Do not copy outdated sample Dockerfiles that assumed `package*.json` only or
+`dist/` as the Vite output.
+
+---
+
+## Health & ops checks
+
+```bash
+curl -sS http://127.0.0.1:3001/api/health | jq .
+```
+
+Response includes `security.authEnabled`, redaction mode, and warnings when
+production is unauthenticated.
+
+Provider connector status:
+
+```bash
+curl -sS http://127.0.0.1:3001/api/providers/status | jq .
+```
+
+Manual provider sync (auth cookie or same-origin session as required):
+
+```bash
+curl -sS -X POST http://127.0.0.1:3001/api/providers/sync | jq .
+```
+
+---
+
+## Retention behaviour
+
+Retention runs on a timer inside the server process (see
+`src/db/queries/retention.ts` + privacy policy). Defaults:
+
+- Most event tables: **90 days**
+- Raw `runtime_snapshots`: **7 days** (slots rolled up hourly first)
+
+Operators can also call `POST /api/privacy/retention/run` (owner when auth is
+on). See [ARCHITECTURE.md](./ARCHITECTURE.md#retention).
+
+---
+
+## Troubleshooting
+
+| Symptom | Likely cause |
+| --- | --- |
+| `EADDRINUSE` on 3001 | Another `bun run api` or Tailscale already binding |
+| Collector 401 on ingest | `api_key` ≠ `MC_API_KEY` |
+| Empty agent data | Collector not running / wrong log paths / wrong machine |
+| Empty Hermes runtime | `MC_HERMES_POLLING_ENABLED` false or not on the GPU box |
+| UI loads but API fails in dev | API not running; Vite proxy expects port 3001 |
+| Production UI blank | Forgot `bun run build` → missing `dist-vite/` |

@@ -1,5 +1,5 @@
 /**
- * Ingest wire contract — shared between the server (src/api/routes/ingest.ts,
+ * Ingest wire contract — shared between the server (src/server/routes/ingest.ts,
  * services/ingest-service.ts) and every collector (src/collectors/**).
  *
  * A collector never talks to SQLite directly. It emits IngestEvents, batches

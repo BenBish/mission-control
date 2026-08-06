@@ -2,555 +2,326 @@
 
 ## Overview
 
-Mission Control is a unified observability platform for tracking AI agent activities, costs, and performance metrics across OpenClaw agent systems.
-
-## Core Components
-
-```
-OpenClaw Agents ──▶ Bridge Plugin ──▶ Mission Control API ──▶ SQLite DB
-                                           │
-                                           ▼
-                                    Vite React Dashboard
-```
-
-### Data Flow
-
-1. **Agent Execution** → OpenClaw agents execute tools and LLM calls
-2. **Log Capture** → Bridge plugin forwards activities or Scanner reads JSONL logs
-3. **Database Storage** → SQLite stores activities, sessions, and LLM generations
-4. **API Layer** → Express server provides REST API and SSE streaming
-5. **Dashboard** → React frontend visualizes data in real-time
-
-## Backend Architecture
-
-### API Layer (`src/api/`)
-
-#### File Structure
+Mission Control is a multi-source observability platform for AI agent and local
+inference workloads. It collects session/activity telemetry from coding agents,
+runtime metrics from local model servers, generation jobs from ComfyUI, and
+account-level billing from cloud providers — then presents them in a React
+dashboard with source-scoped filters and real-time SSE updates.
 
 ```
-src/api/
-├── server.ts    # Express server, middleware, initialization
-└── routes.ts    # Route definitions and handlers
+┌──────────────────────────┐     HTTP ingest      ┌─────────────────────────────┐
+│ Desktop collectors       │ ───────────────────▶ │ Mission Control server      │
+│ (Claude Code, Codex,     │   /api/ingest/*      │  Express · SQLite · auth    │
+│  Grok, OpenCode)         │                      │  provider connectors        │
+└──────────────────────────┘                      │  on-box pollers (optional)  │
+                                                  │    Hermes / ComfyUI /       │
+┌──────────────────────────┐   local poll         │    Lemonade                 │
+│ On-server backends       │ ───────────────────▶ │                             │
+│ (llama-swap, ComfyUI,    │                      │  GET /api/*  ·  SSE stream  │
+│  Lemonade, …)            │                      └──────────────┬──────────────┘
+└──────────────────────────┘                                     │
+                                                                 ▼
+                                                      Vite React dashboard
+                                                      (dev :3000 / prod dist-vite)
 ```
 
-#### Route Organization
+### Design principles
 
-```
-setupRoutes(app, logger)
-├── Activity Endpoints
-│   ├── GET  /api/activities          # List with filters
-│   ├── POST /api/activities          # Create from plugin
-│   ├── GET  /api/activities/:id      # Get single activity
-│   └── GET  /api/activities/search   # Full-text search
-├── Session Endpoints
-│   ├── GET  /api/sessions/:id        # Session summary
-│   ├── GET  /api/sessions/:id/activities
-│   └── GET  /api/sessions/:id/cost-report
-├── Aggregation Endpoints
-│   ├── GET  /api/cost-report         # Overall cost aggregation
-│   └── GET  /api/stats               # System statistics
-├── Cost/LLM Generation Endpoints
-│   ├── POST /api/cost/scan           # Trigger incremental scan
-│   ├── POST /api/cost/backfill       # Full historical scan
-│   ├── GET  /api/cost/generations    # List LLM generations
-│   ├── GET  /api/cost/summary        # Aggregated cost by agent/model
-│   └── GET  /api/cost/status         # Scanner health
-├── Health Endpoints
-│   └── GET  /api/health              # Health check
-└── Streaming Endpoints
-    └── GET  /api/stream              # SSE real-time updates
-```
-
-#### SSE (Server-Sent Events)
-
-The `/api/stream` endpoint provides real-time activity streaming:
-
-```typescript
-app.get("/api/stream", (req, res) => {
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-  sseClients.add(res);
-
-  // Heartbeat every 30s
-  const heartbeatInterval = setInterval(() => {
-    res.write(":heartbeat\n\n");
-  }, 30000);
-});
-```
-
-**Features:**
-
-- Persistent connections for live dashboard updates
-- Heartbeat messages prevent timeout
-- Activity events broadcast on `activity:created` and `activity:updated`
+1. **Sources, not profiles** — every row is scoped by `source_id` + `instance_id`.
+2. **Separate authoritative datasets** — agent session costs and provider billing
+   never sum into one opaque total (see [Cost & capacity data classes](#cost--capacity-data-classes)).
+3. **Collectors push or poll** — desktop tools push over HTTP; local services poll
+   on the machine that can reach them.
+4. **Loopback + Tailscale** — server binds `127.0.0.1` by default; remote access
+   is via `tailscale serve`, not open LAN binds.
 
 ---
 
-### Services (`src/services/`)
+## Core components
 
-**Note:** Directory was cleaned in ORC-8. Intended architecture described below.
-
-#### `session-log-scanner.ts`
-
-**Purpose:** Incrementally scan OpenClaw session JSONL files to extract LLM generation data with exact costs.
-
-**How It Works:**
-
-1. **File Discovery:** Glob pattern `~/.openclaw-team/agents/*/sessions/*.jsonl`
-2. **Incremental Scanning:** Uses `scan_state` table to track file offsets
-3. **JSONL Parsing:** Reads line-by-line, parses each JSON record
-4. **Generation Extraction:** Identifies `llm_response` messages
-5. **Upsert to Database:** Stores in `llm_generations` table
-6. **Scheduled Execution:** Runs periodically
-
-**Why Critical:**
-
-- Provides exact costs from LLM provider APIs (not estimates)
-- Enables cost attribution to specific agents and models
-- Supports cache hit tracking for optimization analysis
-- Historical backfill capability
-
-#### `cost-linker.ts`
-
-**Purpose:** Link LLM generation records to activity records for unified cost attribution.
-
-**Functionality:**
-
-1. Queries unlinked generations from `llm_generations` table
-2. Matches to activities by session ID, timestamp proximity, agent ID
-3. Updates activity records with cost and token information
-4. Marks generations as linked
-
----
-
-### Logger (`src/logger/`)
-
-**Note:** Directory was cleaned in ORC-8.
-
-#### `activity-logger.ts`
-
-**Purpose:** Core logging interface for recording agent activities.
-
-**Key Capabilities:**
-
-- EventEmitter-based (emits `activity:created`, `activity:updated`)
-- Supports all ActionType values: tool_call, delegation, api_call, decision, message, event, user_request, agent_spawn, session_start/end
-
-**Event Flow:**
-
-```typescript
-logger.emit("activity:created", activity);
-logger.on("activity:created", (activity) => {
-  app.locals.broadcastActivity(activity);
-});
-```
-
----
-
-### Database (`src/db/`)
-
-#### File Structure
-
-```
-src/db/
-├── database.ts    # Database class with CRUD operations
-├── schema.ts      # SQL schema definitions
-└── migrations.ts  # Migration runner
-```
-
-#### Key Tables
-
-| Table             | Purpose                   | Key Fields                                                      |
-| ----------------- | ------------------------- | --------------------------------------------------------------- |
-| `activities`      | Core activity records     | id, session_id, actor_id, action_type, status, tokens, cost_usd |
-| `sessions`        | Session metadata          | id, start_time, end_time, total_cost_usd                        |
-| `llm_generations` | Exact LLM costs from logs | model, cost_total, cache_read_tokens                            |
-| `scan_state`      | Incremental scan tracking | file_path, last_offset                                          |
-| `cost_summaries`  | Aggregated cost data      | session_id, actor_id, summary_date                              |
-
-#### Schema Snippet
-
-```sql
-CREATE TABLE activities (
-  id TEXT PRIMARY KEY,
-  session_id TEXT NOT NULL,
-  actor_type TEXT NOT NULL,
-  actor_id TEXT NOT NULL,
-  action_type TEXT NOT NULL,
-  tool_name TEXT,
-  description TEXT NOT NULL,
-  status TEXT NOT NULL,
-  input_tokens INTEGER,
-  output_tokens INTEGER,
-  total_tokens INTEGER,
-  cost_usd REAL
-);
-
-CREATE TABLE llm_generations (
-  id TEXT PRIMARY KEY,
-  session_log_file TEXT NOT NULL,
-  agent_id TEXT NOT NULL,
-  model TEXT NOT NULL,
-  input_tokens INTEGER DEFAULT 0,
-  output_tokens INTEGER DEFAULT 0,
-  cache_read_tokens INTEGER DEFAULT 0,
-  cost_total REAL DEFAULT 0,
-  linked_activity_id TEXT
-);
-```
-
----
-
-### Pricing System
-
-Mission Control uses a **multi-source pricing system**:
-
-1. **Exact Costs from Logs:**
-   - Extracted from OpenRouter API responses in JSONL logs
-   - Stored in `llm_generations.cost_total` / activity `cost_usd`
-   - Includes cache read/write pricing
-   - Most accurate when available for agent-attributed spend
-
-2. **Fallback Static Pricing:**
-   - Used when exact costs unavailable
-   - Defined in `src/types/pricing.ts`
-   - Per-model pricing tiers
-   - Updated periodically from OpenRouter
-
-3. **Provider API connectors (BSH-63):**
-   - Account-level usage/cost from OpenRouter, Anthropic, OpenAI, and xAI billing APIs
-   - Stored in `provider_usage_daily` (not mixed into session-log tables)
-   - Prepaid credits / capacity in `provider_credit_snapshots` (not mixed into spend SUMs or session costUsd)
-   - Sync status in `provider_sync_status` (last sync, errors, limited metrics)
-   - REST: `GET /api/providers/status`, `POST /api/providers/sync`, `GET /api/providers/usage`, `GET /api/providers/usage/breakdown`, `GET /api/providers/credits`
-   - Code: `src/services/provider-connectors/`
-   - **Do not double-count** with agent source totals in the UI — Consumption shows a separate “Provider API costs” section
-
-| Provider | Credential env | Primary endpoints |
+| Component | Path | Role |
 | --- | --- | --- |
-| OpenRouter | `OPENROUTER_API_KEY` | `GET /api/v1/activity` (management key; last 30 UTC days) |
-| Anthropic | `ANTHROPIC_ADMIN_KEY` | Admin Usage + Cost report APIs (no remaining balance API — credit snapshot marked unavailable) |
-| OpenAI | `OPENAI_ADMIN_KEY` (+ optional `OPENAI_API_KEY`) | Org Completions usage + Costs; optional credit_grants prepaid USD; Codex session quotas as usage windows |
-| xAI | `XAI_API_KEY` | No public historical usage API; key check via `/v1/models`; optional `MC_XAI_USAGE_ENDPOINT` JSON export |
+| API server | `src/server/server.ts` | Express app, auth middleware, schedulers |
+| Routes | `src/server/routes/` | Domain route modules + SPA fallback |
+| Auth | `src/server/auth.ts` | JWT cookies, API key for ingest, owner/viewer roles |
+| Privacy | `src/server/privacy/` | Redaction + retention policy |
+| Database | `src/db/` | Schema, migrations, query modules |
+| Collectors | `src/collectors/` | Per-source ingestion logic |
+| Desktop entry | `src/collector-main.ts` | Runs JSONL/SQLite collectors → HTTP sink |
+| Provider connectors | `src/services/provider-connectors/` | OpenRouter / Anthropic / OpenAI / xAI billing |
+| Frontend | `src/app/`, `src/pages/`, `src/components/` | React 19 + Router 7 + Tailwind v4 |
 
-Scheduled poll: set `MC_PROVIDER_SYNC_ENABLED=true` (interval `MC_PROVIDER_SYNC_INTERVAL_MS`, default 1h; minimum accepted value 60s). Manual sync always available via POST.
-
-**Caveats:** OpenAI cost `line_item` labels may not match completion `model` keys exactly — breakdown can show cost-only rows. OpenRouter `usage` includes BYOK; enabling both OpenRouter and Anthropic/OpenAI admin connectors can double-count the same underlying spend across providers.
-
----
-
-## Frontend Architecture
-
-### Vite App (`src/app/`)
-
-**Stack:**
-
-- React 19 + TypeScript
-- Tailwind CSS 4.x
-- shadcn/ui components
-- React Router 7
-- Lucide React icons
-
-#### File Structure
-
-```
-src/
-├── app/
-│   ├── providers.tsx    # Theme provider (light/dark/system)
-│   └── router.tsx       # React Router configuration
-├── pages/
-│   ├── DashboardPage.tsx    # Overview stats & recent activity
-│   ├── ActivityFeed.tsx     # Tabular activity list
-│   ├── ActivityDetail.tsx   # Individual activity view
-│   └── CostBreakdown.tsx    # Cost analysis by actor/tool/model
-├── components/
-│   ├── ui/              # shadcn/ui components
-│   └── _shared/         # Layout, Header, Loading, ErrorBoundary
-├── types/
-│   └── activity.ts      # TypeScript type definitions
-└── lib/
-    └── utils.ts         # Utility functions (cn helper)
-```
-
-#### Key Pages
-
-| Page           | Route             | Purpose                                              |
-| -------------- | ----------------- | ---------------------------------------------------- |
-| DashboardPage  | `/`               | Overview stats, recent activity cards, quick actions |
-| ActivityFeed   | `/activities`     | Tabular list of all activities with filtering        |
-| ActivityDetail | `/activities/:id` | Detailed view of single activity                     |
-| CostBreakdown  | `/costs`          | Cost analysis by actor, tool, and model              |
-
-#### API Client Integration
-
-All pages use **native fetch** for API calls:
-
-```typescript
-// Example from DashboardPage.tsx
-const [statsRes, activitiesRes] = await Promise.all([
-  fetch("/api/stats"),
-  fetch("/api/activities?limit=5"),
-]);
-```
-
-**No separate API client** - direct fetch calls keep it simple.
+There is **no** `src/api/` tree. Older docs that referenced a single
+`routes.ts` + OpenClaw-only bridge are obsolete.
 
 ---
 
-## Integration Points
+## Data flow
 
-### OpenClaw Session Logs
-
-#### Where Logs Are Stored
-
-```
-~/.openclaw-team/
-└── agents/
-    ├── main/
-    │   └── sessions/
-    │       └── sessions.json
-    ├── engineer/
-    │   └── sessions/
-    │       └── *.jsonl
-    └── [agent-name]/
-        └── sessions/
-            └── *.jsonl
-```
-
-#### JSONL Format
-
-Each line is a JSON object:
-
-```json
-{
-  "type": "llm_response",
-  "timestamp": "2026-02-18T23:05:00Z",
-  "agentId": "agent:main:main",
-  "model": "openrouter/anthropic/claude-sonnet-4.5",
-  "usage": {
-    "prompt_tokens": 1000,
-    "completion_tokens": 500,
-    "total_tokens": 1500
-  },
-  "cost": {
-    "input_cost": 0.003,
-    "output_cost": 0.015,
-    "total_cost": 0.018
-  }
-}
-```
-
-#### How Scanner Reads Them
-
-1. Glob finds all `*.jsonl` files
-2. Checks `scan_state` for last offset
-3. Reads new lines since last scan
-4. Parses JSON and extracts generations
-5. Upserts to `llm_generations` table
-6. Updates scan state with new offset
+1. **Desktop collectors** read local session logs / DBs and POST batches to
+   `/api/ingest/batch` (authenticated with `MC_API_KEY`).
+2. **On-server collectors** (when enabled) poll Hermes/ComfyUI/Lemonade and
+   write through a local sink into the same SQLite DB.
+3. **Provider sync** (optional interval or manual `POST /api/providers/sync`)
+   pulls account usage/credits into `provider_*` tables.
+4. **Retention** periodically prunes/redacts by data class.
+5. **Dashboard** loads REST endpoints; **SSE** (`/api/stream`) invalidates caches
+   for near-real-time UI updates.
 
 ---
 
-### Mission Control Bridge
+## Collectors
 
-#### What Is The Bridge?
+| Collector | Kind | Where it runs | Input |
+| --- | --- | --- | --- |
+| Claude Code | agentic | Desktop (`collector`) | Session JSONL under `~/.claude` |
+| Codex | agentic | Desktop | Codex session JSONL + quota signals |
+| Grok | agentic | Desktop | `~/.grok/sessions/.../updates.jsonl` |
+| OpenCode | agentic | Desktop | OpenCode SQLite (`opencode.db`) |
+| Hermes | inference | Server (when `MC_HERMES_POLLING_ENABLED`) | llama-swap / llama-server / journal |
+| Lemonade | inference | Server (when configured) | Local inference HTTP |
+| ComfyUI | generation | Server (when configured) | ComfyUI queue/history API |
 
-The **Mission Control Bridge** is an OpenClaw extension plugin that forwards agent activities to Mission Control in real-time.
+Shared collector core: `src/collectors/core/` (`scheduler`, `sinks`,
+`state-store`, `jsonl-scanner`, types).
 
-**Location:** `~/.openclaw-team/workspace/.openclaw/extensions/mission-control-bridge/`
-
-#### How It Connects
-
-1. OpenClaw loads the Bridge as an extension
-2. Bridge intercepts tool calls and agent events
-3. Transforms events to Mission Control activity format
-4. POSTs to `/api/activities` endpoint
-5. Activities appear in dashboard immediately via SSE
-
-#### Configuration
-
-```json
-// package.json
-{
-  "openclaw": {
-    "extensions": ["./index.js"]
-  }
-}
-```
+Desktop config: `~/.config/mission-control/collector.toml`  
+(see `deploy/collector.toml.example`).
 
 ---
 
-## ORC-8 Review
+## Database
 
-### What Was Cleaned
+Schema: `src/db/schema.ts`. Runtime path:
 
-#### 1. `src/frontend/` (Old React Frontend)
+- Dev default: `./data/mission-control.db` (`DATABASE_PATH` override)
+- Production (systemd example): `~/.local/share/mission-control/mc.db`
 
-**Why Safe to Delete:**
+### Registry
 
-- Replaced by new Vite + React frontend in `src/app/` and `src/pages/`
-- Old frontend used different build system (likely Create React App)
-- New frontend uses modern stack: Vite, Tailwind 4, shadcn/ui
-- No references to old frontend in active code
+| Table | Purpose |
+| --- | --- |
+| `sources` | Logical source (kind: agentic / inference / generation / cloud-usage) |
+| `source_instances` | Machine + endpoint + collector heartbeat status |
 
-#### 2. `src/__tests__/` (Legacy Tests)
+### Shape (a) — agentic sessions
 
-**Impact:**
+| Table | Purpose |
+| --- | --- |
+| `sessions` | Session metadata, token totals, optional `cost_usd` |
+| `activities` | Tool calls, messages, tokens, optional per-activity cost |
 
-- Jest configuration still exists (`jest.config.js`, `jest.setup.js`)
-- No test files in current codebase
-- Tests need to be rewritten for new architecture
-- Currently no automated testing
+### Shape (b) — inference + runtime
 
-#### 3. `src/integration/` (Old Integration)
+| Table | Purpose |
+| --- | --- |
+| `inference_requests` | Per-request local model telemetry |
+| `runtime_snapshots` | High-frequency slot/health/models samples |
+| `runtime_slot_rollups` | Hourly rollups after raw retention |
+| `runtime_events` | Discrete runtime incidents |
+| `quota_snapshots` | Plan/rate-limit windows (e.g. Codex) |
 
-**What It Did:**
+### Shape (c) — generation
 
-- Contained OpenClaw integration hooks
-- Provided middleware for instrumenting tool calls
-- Three methods: Event-based, Middleware wrapper, Direct hooks
-- Replaced by Bridge plugin architecture
+| Table | Purpose |
+| --- | --- |
+| `generation_jobs` | ComfyUI (and similar) job lifecycle |
 
-#### 4. `examples/`
+### Background jobs
 
-**Purpose:**
+| Table | Purpose |
+| --- | --- |
+| `background_jobs` | Hermes/collector/scheduled job definitions |
+| `job_runs` | Individual run history |
 
-- Example workflows demonstrating integration
-- Test files for manual validation
-- Not essential for production
+### Ingest + provider + budgets
 
-### What Was Preserved
+| Table | Purpose |
+| --- | --- |
+| `ingest_dedupe` | Idempotent natural-key dedupe for ingest |
+| `provider_usage_daily` | Provider **actual** daily spend/tokens |
+| `provider_sync_status` | Connector health / last sync |
+| `provider_credit_snapshots` | Wallet / prepaid / capacity remaining |
+| `app_settings` | Key/value (legacy account budget, etc.) |
+| `provider_spend_budgets` | Scoped monthly budgets |
+| `spend_alert_events` | Threshold/anomaly alert state |
 
-#### Essential Files Restored
-
-| File                      | Why Essential       | Dependencies                      |
-| ------------------------- | ------------------- | --------------------------------- |
-| `src/api/server.ts`       | Main Express server | Database, Logger, Scanner, Linker |
-| `src/api/routes.ts`       | All API endpoints   | Database, Logger                  |
-| `src/db/database.ts`      | Database operations | sqlite, schema                    |
-| `src/db/schema.ts`        | Table definitions   | -                                 |
-| `src/types/activity.ts`   | Type definitions    | Used by API and frontend          |
-| `src/pages/*.tsx`         | Dashboard pages     | React Router, UI components       |
-| `src/app/router.tsx`      | Route configuration | All pages                         |
-| `src/components/ui/*.tsx` | shadcn components   | Tailwind, Radix                   |
-
-#### Dependencies Between Components
-
-```
-server.ts
-├── routes.ts
-│   └── database.ts
-│       └── schema.ts
-├── logger (referenced but cleaned)
-├── scanner (referenced but cleaned)
-└── cost-linker (referenced but cleaned)
-
-router.tsx
-├── DashboardPage.tsx
-├── ActivityFeed.tsx
-├── ActivityDetail.tsx
-└── CostBreakdown.tsx
-    └── types/activity.ts
-```
+Query modules live under `src/db/queries/`. Migrations: `src/db/migrations.ts`
+(+ `migration-runner.ts`).
 
 ---
 
-## Recommendations
+## Cost & capacity data classes
 
-### Architecture Improvements
+Mission Control keeps **five distinct data classes**. They must not be blindly
+added together in the UI or APIs.
 
-1. **Restore Missing Services**
-   - Re-implement `session-log-scanner.ts` for exact cost tracking
-   - Re-implement `cost-linker.ts` to link costs to activities
-   - Re-implement `activity-logger.ts` for event emission
+| Class | What it answers | Authoritative storage | Provenance |
+| --- | --- | --- | --- |
+| **1. Cost (actual billing)** | How much did the *provider account* charge? | `provider_usage_daily.cost_usd` | Provider Admin/usage APIs via connectors |
+| **2. Usage (agent/session)** | How much did *agents* consume (tokens, requests)? | `activities` / `sessions` / `inference_requests` token fields | Collectors from session logs / local servers |
+| **3. Quota (plan windows)** | How much of a *subscription rate limit* is used? | `quota_snapshots` (+ some credit rows with unit `percent`/`requests`) | Session/tool telemetry (e.g. Codex windows); not USD |
+| **4. Wallet (credits / balance)** | What prepaid capacity remains? | `provider_credit_snapshots` | Provider balance APIs or session-quota derived; **never** summed into spend |
+| **5. Estimate (priced tokens)** | What would usage *cost* if priced from a table? | Session/activity `cost_usd` when log-supplied, else `src/types/pricing.ts` fallbacks | Session-log exact cost preferred; static/OpenRouter table is estimate-only |
 
-2. **Add API Client Abstraction**
-   - Current direct fetch calls are simple but repetitive
-   - Consider a lightweight API client with error handling
-   - Add request/response interceptors for auth if needed
+### Non-double-counting contract
 
-3. **Implement Proper Testing**
-   - Unit tests for database operations
-   - Integration tests for API endpoints
-   - Frontend component tests with React Testing Library
+1. **Never** add agent session `cost_usd` into provider billing totals.
+2. **Never** add wallet remaining into spend charts.
+3. **Never** treat quota % as dollars.
+4. OpenRouter + direct Anthropic/OpenAI/xAI can describe the *same* underlying
+   calls (BYOK). Reconciliation flags overlap — see
+   [spend-reconciliation.md](./spend-reconciliation.md).
+5. Estimates from static pricing are labeled as estimates/provenance
+   `session-log` or pricing-table — not as provider actuals.
+6. Local/self-hosted models often have $0 cost; that is not “missing billing.”
 
-4. **Add Authentication**
-   - Currently no auth on API endpoints
-   - Add API key or session-based auth
-   - Protect sensitive cost data
-
-### Tech Debt Areas
-
-1. **ESLint Configuration**
-   - Currently ignores `src/api/**` and `src/db/**`
-   - These should be linted like the rest of the code
-   - Fix the 21 lint errors by restoring/modifying services
-
-2. **Type Safety**
-   - Some `any` types in database.ts
-   - Add strict typing for query results
-   - Validate API responses with Zod
-
-3. **Error Handling**
-   - Inconsistent error handling across routes
-   - Add centralized error middleware
-   - Standardize error response format
-
-4. **Missing Logger Implementation**
-   - Server imports `ActivityLogger` but implementation missing
-   - Currently falls back to database directly
-   - Breaks SSE broadcasting chain
-
-### Future Refactoring Opportunities
-
-1. **Modularize API Routes**
-   - Split `routes.ts` into separate route files
-   - Group by domain: activities, sessions, costs
-   - Add route-level middleware
-
-2. **Database Migration System**
-   - Current migrations.ts is basic
-   - Consider using a proper migration tool
-   - Add rollback capabilities
-
-3. **Caching Layer**
-   - Cache expensive aggregations (cost-report, stats)
-   - Redis or in-memory cache for frequent queries
-   - Cache invalidation on new activities
-
-4. **Background Job Queue**
-   - Move scanner to background worker
-   - Queue for bulk operations
-   - Retry failed scan attempts
-
-5. **Frontend State Management**
-   - Currently local state in each page
-   - Consider React Query for server state
-   - Centralize activity feed state
-
-6. **Real-Time Enhancements**
-   - WebSocket alternative to SSE for bidirectional
-   - Subscription filtering (by session, actor)
-   - Activity notifications
+UI surfaces (Consumption, Dashboard direct-API cards, reconciliation) keep these
+classes in **separate sections** rather than one combined “total spend.”
 
 ---
 
-## Summary
+## Backend routes
 
-Mission Control is a well-architected observability platform with:
+Route registration: `src/server/routes/index.ts`.
 
-- Clean separation between API, database, and frontend
-- Real-time updates via SSE
-- Comprehensive cost tracking capabilities
-- Modern React frontend with shadcn/ui
+| Area | Methods / paths |
+| --- | --- |
+| Health | `GET /api/health` |
+| Auth | `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me` |
+| Ingest | `POST /api/ingest/batch`, `POST /api/ingest/heartbeat`, `GET /api/ingest/cursors` |
+| Sources | `GET /api/sources` |
+| Sessions | `GET /api/sessions`, `GET /api/sessions/:id` |
+| Activities | `GET /api/activities`, `GET /api/activities/:id` |
+| Consumption | `GET /api/consumption`, `…/agent-usage`, `…/agent-usage/sessions`, `…/reconciliation` |
+| Failures | `GET /api/failures`, `…/groups`, `…/groups/:fingerprint/events` |
+| Jobs | `GET /api/jobs`, `…/:id`, `…/:id/runs` |
+| Runtime | `GET /api/runtime` |
+| Contention | `GET /api/contention` |
+| Generations | `GET /api/generations`, `…/:id` |
+| Providers | status, sync, usage, breakdown, budget(s), spend-insights, spend-alerts, credits |
+| Privacy | `GET /api/privacy/policy`, retention run, purge-sensitive |
+| Stream | `GET /api/stream` (SSE) |
 
-**Current State:** Core functionality preserved after ORC-8 cleanup, but key services (scanner, linker, logger) need restoration for full cost tracking capabilities.
+Full request/response notes: [API_SPECIFICATION.md](./API_SPECIFICATION.md).
 
-**Next Priority:**
+### SSE
 
-1. Restore session-log-scanner.ts for exact cost extraction
-2. Restore cost-linker.ts for cost attribution
-3. Restore activity-logger.ts for proper event emission
-4. Fix ESLint configuration to lint all source files
-5. Add comprehensive test coverage
+`GET /api/stream` keeps long-lived connections and heartbeats. The frontend
+(`useSSE`, dashboard invalidation helpers) refreshes React Query caches when
+events arrive.
+
+---
+
+## Frontend
+
+| Route | Page |
+| --- | --- |
+| `/` | Dashboard |
+| `/activities`, `/activities/:id` | Activity feed + detail |
+| `/sessions`, `/sessions/:id` | Sessions + timeline |
+| `/runtime` | Local inference runtime |
+| `/failures` | Failure analysis |
+| `/consumption` | Spend, agent usage, reconciliation |
+| `/jobs`, `/jobs/:jobId` | Background jobs (workload-gated) |
+| `/generations`, `/generations/:generationId` | Image generations (workload-gated) |
+| `/settings` | Settings / health / budgets |
+
+Router: `src/app/router.tsx`. Layout + nav: `src/components/_shared/MainLayout.tsx`.
+Source filter: global `SourceFilter` + `source-context`.
+
+### Skills Registry (removed)
+
+An unfinished Skills Registry UI (`src/app/skills/**`, `src/types/skills.ts`)
+existed without routes, navigation, or a backend `/api/skills` API. It was
+**removed** in BSH-104 as orphaned code rather than productized. Agent skills
+are not currently a Mission Control domain.
+
+---
+
+## Auth & privacy
+
+### Auth
+
+- Off by default in development (`MC_AUTH_ENABLED=false`).
+- When enabled: owner + optional viewer (read-only), JWT in `mc_session` cookie.
+- Collectors use `MC_API_KEY` on ingest routes (bypass JWT).
+- Production can refuse start without auth via `MC_REQUIRE_AUTH_IN_PRODUCTION`.
+
+See `src/server/auth.ts` and `deploy/server.env.example`.
+
+### Redaction
+
+`MC_REDACTION_MODE`: `off` | `standard` (default) | `strict` — secrets/paths,
+optional prompt redaction, tool payload truncation (`src/server/privacy/`).
+
+### Retention
+
+| Data class | Default days | Env |
+| --- | --- | --- |
+| activities | 90 | `MC_RETENTION_ACTIVITIES_DAYS` |
+| sessions | 90 | `MC_RETENTION_SESSIONS_DAYS` |
+| inference | 90 | `MC_RETENTION_INFERENCE_DAYS` |
+| runtime (raw snapshots) | 7 | `MC_RETENTION_RUNTIME_DAYS` |
+| generations | 90 | `MC_RETENTION_GENERATIONS_DAYS` |
+| jobs | 90 | `MC_RETENTION_JOBS_DAYS` |
+
+Runtime **slots** rows older than the window are rolled into
+`runtime_slot_rollups` before delete. Owner can trigger
+`POST /api/privacy/retention/run` and `POST /api/privacy/purge-sensitive`.
+
+---
+
+## Deployment topology
+
+Typical production shape:
+
+1. **Server host** (e.g. Fedora) runs `bun run api` via
+   `deploy/mission-control.service`, SQLite on disk, optional Hermes/Comfy
+   pollers.
+2. **Tailscale Serve** terminates TLS and proxies to `127.0.0.1:3001`.
+3. **Desktop host** runs `bun run collector` / `mc-collector.service` with
+   `server_url` pointing at the MagicDNS HTTPS endpoint and matching `api_key`.
+
+Details: [DEPLOYMENT.md](./DEPLOYMENT.md).
+
+---
+
+## Provider connectors
+
+Code: `src/services/provider-connectors/`.
+
+| Provider | Credential env | Notes |
+| --- | --- | --- |
+| OpenRouter | `OPENROUTER_API_KEY` | Activity/usage; BYOK may overlap direct providers |
+| Anthropic | `ANTHROPIC_ADMIN_KEY` | Admin usage/cost; balance often unavailable |
+| OpenAI | `OPENAI_ADMIN_KEY` | Org usage/costs; optional credit grants |
+| xAI | `XAI_API_KEY` | Limited public usage history; optional custom export |
+
+`MC_PROVIDER_SYNC_ENABLED=true` schedules sync (interval
+`MC_PROVIDER_SYNC_INTERVAL_MS`, default 1h). Manual: `POST /api/providers/sync`.
+
+---
+
+## Documentation freshness checklist
+
+When a change touches architecture, routes, schema, collectors, auth, or
+deployment, update the matching docs in the same PR:
+
+- [ ] **README.md** — scripts, ports, structure, links still valid
+- [ ] **docs/ARCHITECTURE.md** — diagrams, tables, data classes, routes
+- [ ] **docs/API_SPECIFICATION.md** — added/removed/changed endpoints
+- [ ] **docs/DEPLOYMENT.md** — env vars, systemd, Tailscale, paths
+- [ ] **docs/spend-reconciliation.md** — if matching/BYOK rules change
+- [ ] **CLAUDE.md** / **CONTRIBUTING.md** — if contributor workflow changes
+- [ ] No links to deleted paths (`src/api/`, `docs/SKILLS.md`, Skills UI, etc.)
+- [ ] Cost UI copy still matches the five data classes / non-double-counting rules
+
+---
+
+## Related docs
+
+- [API_SPECIFICATION.md](./API_SPECIFICATION.md)
+- [DEPLOYMENT.md](./DEPLOYMENT.md)
+- [spend-reconciliation.md](./spend-reconciliation.md)
+- [provider-capacity-research.md](./provider-capacity-research.md)

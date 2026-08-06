@@ -27,7 +27,7 @@ function toApiShape(row: GenerationJobRow) {
 /**
  * Generation jobs (ComfyUI today; Lemonade doesn't emit these — it's an
  * inference source, not a generation-job one, per sources.ts's `kind`).
- * Card-grid + detail shape, reusing src/app/skills/** 's UI pattern per
+ * Card-grid + detail shape (list + optional detail panel), per
  * the plan — the backend here is intentionally minimal (list + single-
  * job lookup), no mutation endpoints since these are collector-observed
  * facts, not user-controllable jobs.
