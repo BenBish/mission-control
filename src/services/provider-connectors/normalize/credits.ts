@@ -123,7 +123,7 @@ export function anthropicCreditsUnavailable(
           ],
           note: message,
           planUsageNote:
-            "Claude Pro / Claude Code plan limits are not available via Admin API. Shown in claude.ai settings only.",
+            "Claude Pro / Claude Code plan limits are not available via Admin API. When the desktop collector is running, plan windows come from the Claude Code OAuth usage endpoint (~/.claude/.credentials.json).",
         },
       },
       {
@@ -137,7 +137,7 @@ export function anthropicCreditsUnavailable(
         status: "unavailable",
         surface: "plan_usage",
         details: {
-          note: "Claude Pro / Claude Code plan limits are not available via Admin API. Shown in claude.ai settings only.",
+          note: "Claude Pro / Claude Code plan limits are not available via Admin API. When the desktop collector is running, plan windows come from the Claude Code OAuth usage endpoint (~/.claude/.credentials.json).",
         },
       },
     ],
@@ -205,8 +205,18 @@ export function xaiCreditsLimited(
   };
 }
 
+function sessionQuotaProductLanguage(provider: ProviderId): string {
+  if (provider === "anthropic") {
+    return "Claude Code plan-usage window (subscription rate limit), not prepaid USD credits.";
+  }
+  if (provider === "openai") {
+    return "Codex/OpenAI usage window (rate-limit quota), not prepaid USD credits.";
+  }
+  return "Session quota / plan-usage window (rate-limit), not prepaid USD credits.";
+}
+
 /**
- * Map Codex/session quota_snapshot rows into plan-usage windows (not wallet).
+ * Map session quota_snapshot rows into plan-usage windows (not wallet).
  * used_percent remaining is expressed as percent remaining (100 - used).
  */
 export function normalizeSessionQuotaToCredits(
@@ -221,6 +231,7 @@ export function normalizeSessionQuotaToCredits(
   }>,
   provider: ProviderId = "openai",
 ): CreditSnapshot[] {
+  const productLanguage = sessionQuotaProductLanguage(provider);
   return rows.map((r) => {
     const used = Number.isFinite(r.used_percent) ? r.used_percent : 0;
     const remainingPct = Math.max(0, Math.min(100, 100 - used));
@@ -245,8 +256,7 @@ export function normalizeSessionQuotaToCredits(
         usedPercent: used,
         windowMinutes: r.window_minutes,
         resetsAt: r.resets_at,
-        productLanguage:
-          "Codex/OpenAI usage window (rate-limit quota), not prepaid USD credits.",
+        productLanguage,
       },
     };
   });

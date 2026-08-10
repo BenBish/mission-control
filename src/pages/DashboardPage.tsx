@@ -28,6 +28,7 @@ import {
   useConsumption,
   useFailures,
   useProviderBreakdown,
+  useProviderCredits,
   useProviderStatus,
   useSources,
 } from "@/lib/queries";
@@ -40,6 +41,7 @@ import {
   isCompactSpendPrimary,
   summarizeProviderSync,
 } from "@/lib/direct-api-spend";
+import { summarizePlanUsage } from "@/lib/plan-usage";
 import { getProviderUsageSinceDay, utcDayKey } from "@/lib/date-range";
 import { failureStatusScopeLabel } from "@/types/failures";
 import {
@@ -62,6 +64,7 @@ import {
   XCircle,
   Clock,
   DollarSign,
+  Target,
 } from "lucide-react";
 const STATUS_DOT: Record<string, string> = {
   ok: "bg-green-500",
@@ -135,6 +138,11 @@ export default function DashboardPage() {
     isPending: providerStatusPending,
     isError: providerStatusError,
   } = useProviderStatus();
+  const { data: providerCapacity } = useProviderCredits();
+  const planUsageSummary = useMemo(
+    () => summarizePlanUsage(providerCapacity?.planUsage ?? []),
+    [providerCapacity?.planUsage],
+  );
   // Amount pending is per-window; do not block dollar display on status retries.
   const todayAmountPending = providerTodayPending && !providerTodayError;
   const days30AmountPending = provider30dPending && !provider30dError;
@@ -274,7 +282,7 @@ export default function DashboardPage() {
       <PageHeader title="Dashboard" description={pageDescription} />
 
       {/* Stats Grid */}
-      <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <Card className="min-w-0 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -348,6 +356,70 @@ export default function DashboardPage() {
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
                 Account-wide · independent of source filter
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link
+          to="/consumption?view=direct-api#capacity"
+          className="block rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          aria-label="Plan usage — subscription rate-limit windows remaining"
+          data-testid="plan-usage-kpi-link"
+        >
+          <Card className="min-w-0 h-full shadow-sm transition-colors hover:bg-muted/40">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Plan Usage
+              </CardTitle>
+              <div className="p-2 rounded-lg bg-violet-500/10 dark:bg-violet-500/20">
+                <Target className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              {planUsageSummary.hasFresh && planUsageSummary.mostConstrained ? (
+                <>
+                  <div
+                    className="text-3xl font-bold tracking-tight tabular-nums"
+                    data-testid="plan-usage-kpi-primary"
+                  >
+                    {planUsageSummary.mostConstrained.remainingPercent}% left
+                  </div>
+                  <p
+                    className="text-xs text-muted-foreground mt-1"
+                    data-testid="plan-usage-kpi-meta"
+                  >
+                    {planUsageSummary.mostConstrained.displayName}{" "}
+                    {planUsageSummary.mostConstrained.windowLabel}
+                    {planUsageSummary.perProvider.length > 1
+                      ? ` · ${planUsageSummary.perProvider
+                          .slice(1)
+                          .map(
+                            (p) =>
+                              `${p.displayName} ${p.remainingPercent}% ${p.windowLabel}`,
+                          )
+                          .join(" · ")}`
+                      : ""}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div
+                    className="text-3xl font-bold tracking-tight text-muted-foreground"
+                    data-testid="plan-usage-kpi-primary"
+                  >
+                    —
+                  </div>
+                  <p
+                    className="text-xs text-muted-foreground mt-1"
+                    data-testid="plan-usage-kpi-meta"
+                  >
+                    No fresh plan windows
+                  </p>
+                </>
+              )}
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Subscription windows · not dollars
               </p>
             </CardContent>
           </Card>

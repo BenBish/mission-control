@@ -21,6 +21,7 @@ import {
   getProviderUsageBreakdown,
   listProviderSyncStatus,
 } from "../../db/queries/provider-usage.js";
+import { insertQuotaSnapshot } from "../../db/queries/telemetry.js";
 import {
   mergeAnthropicRows,
   normalizeAnthropicCost,
@@ -37,6 +38,7 @@ import {
   openaiWalletUnavailable,
   xaiCreditsLimited,
   normalizeSessionQuotaToCredits,
+  SESSION_QUOTA_SOURCE_BY_PROVIDER,
   syncAllProviders,
   syncProvider,
   openrouterConnector,
@@ -90,6 +92,7 @@ beforeEach(async () => {
   await db.raw().run(`DELETE FROM provider_usage_daily`);
   await db.raw().run(`DELETE FROM provider_sync_status`);
   await db.raw().run(`DELETE FROM provider_credit_snapshots`);
+  await db.raw().run(`DELETE FROM quota_snapshots`);
 });
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -97,6 +100,25 @@ function jsonResponse(body: unknown, status = 200): Response {
     status,
     headers: { "Content-Type": "application/json" },
   });
+}
+
+/** Seed registry rows so quota_snapshots FK constraints succeed. */
+async function seedSourceAndInstance(
+  raw: ReturnType<Database["raw"]>,
+  sourceId: string,
+  instanceId: string,
+) {
+  await raw.run(
+    `INSERT OR IGNORE INTO sources (id, name, kind, default_unit) VALUES (?, ?, 'agentic', 'quota')`,
+    sourceId,
+    sourceId,
+  );
+  await raw.run(
+    `INSERT OR IGNORE INTO source_instances (id, source_id, machine, collector_kind, status)
+     VALUES (?, ?, 'test', 'jsonl-push', 'ok')`,
+    instanceId,
+    sourceId,
+  );
 }
 
 // ─── Normalize (pure) ───────────────────────────────────────────────────────
@@ -612,13 +634,21 @@ describe("xai connector fetchUsage", () => {
 // ─── Sync orchestration + idempotency ───────────────────────────────────────
 
 describe("syncProvider idempotency", () => {
+  /** Day inside defaultFetchWindow(30) so activity rows are not filtered out. */
+  const recentDay = () => {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() - 2);
+    return d.toISOString().slice(0, 10);
+  };
+
   test("second identical sync does not double-count", async () => {
     setEnv("OPENROUTER_API_KEY", "test-or-key");
+    const day = recentDay();
     const fetchImpl: FetchImpl = async () =>
       jsonResponse({
         data: [
           {
-            date: "2026-07-09",
+            date: day,
             model: "meta/llama",
             prompt_tokens: 1000,
             completion_tokens: 100,
@@ -689,11 +719,12 @@ describe("syncProvider idempotency", () => {
 
   test("re-sync prunes models removed from a day", async () => {
     setEnv("OPENROUTER_API_KEY", "test-or-key");
+    const day = recentDay();
     const first: FetchImpl = async () =>
       jsonResponse({
         data: [
           {
-            date: "2026-07-09",
+            date: day,
             model: "meta/llama",
             prompt_tokens: 100,
             completion_tokens: 10,
@@ -702,7 +733,7 @@ describe("syncProvider idempotency", () => {
             requests: 1,
           },
           {
-            date: "2026-07-09",
+            date: day,
             model: "gone/model",
             prompt_tokens: 50,
             completion_tokens: 5,
@@ -721,7 +752,7 @@ describe("syncProvider idempotency", () => {
       jsonResponse({
         data: [
           {
-            date: "2026-07-09",
+            date: day,
             model: "meta/llama",
             prompt_tokens: 100,
             completion_tokens: 10,
@@ -874,6 +905,78 @@ describe("syncProvider idempotency", () => {
     expect(bal?.remaining).toBeNull();
     const meta = bal?.details_json ? JSON.parse(bal.details_json) : {};
     expect(meta.surface).toBe("wallet");
+  });
+
+  test("SESSION_QUOTA_SOURCE_BY_PROVIDER maps openai→codex and anthropic→claude-code", () => {
+    expect(SESSION_QUOTA_SOURCE_BY_PROVIDER.openai).toBe("codex");
+    expect(SESSION_QUOTA_SOURCE_BY_PROVIDER.anthropic).toBe("claude-code");
+  });
+
+  test("unconfigured anthropic bridges claude-code quota snapshots and drops plan_usage_unavailable", async () => {
+    // No ANTHROPIC_ADMIN_KEY — still bridges session quotas (BSH-147).
+    setEnv("ANTHROPIC_ADMIN_KEY", undefined);
+    await seedSourceAndInstance(db.raw(), "claude-code", "claude-code@test");
+    await insertQuotaSnapshot(db.raw(), "claude-code", "claude-code@test", {
+      timestamp: "2026-08-10T12:00:00.000Z",
+      limitId: "claude:5h",
+      usedPercent: 38,
+      windowMinutes: 300,
+      resetsAt: "2026-08-10T17:00:00.000Z",
+    });
+    await insertQuotaSnapshot(db.raw(), "claude-code", "claude-code@test", {
+      timestamp: "2026-08-10T12:00:00.000Z",
+      limitId: "claude:7d",
+      usedPercent: 12,
+      windowMinutes: 10080,
+      resetsAt: "2026-08-12T00:00:00.000Z",
+    });
+
+    const r = await syncProvider(db.raw(), anthropicConnector, {
+      fetchImpl: async () => jsonResponse({}),
+    });
+    expect(r.status).toBe("not_configured");
+    expect((r.creditSnapshots ?? 0) >= 2).toBe(true);
+
+    const credits = await latestProviderCreditSnapshots(db.raw(), {
+      provider: "anthropic",
+    });
+    const planRows = credits.filter((c) => {
+      const d = c.details_json ? JSON.parse(c.details_json) : {};
+      return d.surface === "plan_usage" || c.unit === "percent";
+    });
+    expect(planRows.some((c) => c.source === "session_quota")).toBe(true);
+    expect(planRows.every((c) => c.label !== "plan_usage_unavailable")).toBe(
+      true,
+    );
+    expect(credits.some((c) => c.label === "plan_usage_unavailable")).toBe(
+      false,
+    );
+    const fiveH = credits.find((c) => c.label.includes("claude:5h"));
+    expect(fiveH?.source).toBe("session_quota");
+    expect(fiveH?.remaining).toBe(62); // 100 - 38
+    expect(fiveH?.unit).toBe("percent");
+  });
+
+  test("openai sync still bridges codex quota snapshots", async () => {
+    setEnv("OPENAI_ADMIN_KEY", undefined);
+    await seedSourceAndInstance(db.raw(), "codex", "codex@test");
+    await insertQuotaSnapshot(db.raw(), "codex", "codex@test", {
+      timestamp: "2026-08-10T12:00:00.000Z",
+      limitId: "codex:primary",
+      usedPercent: 25,
+      windowMinutes: 300,
+      resetsAt: "2026-08-10T17:00:00.000Z",
+    });
+    const r = await syncProvider(db.raw(), openaiConnector, {
+      fetchImpl: async () => jsonResponse({}),
+    });
+    expect(r.status).toBe("not_configured");
+    const credits = await latestProviderCreditSnapshots(db.raw(), {
+      provider: "openai",
+    });
+    const plan = credits.find((c) => c.source === "session_quota");
+    expect(plan).toBeTruthy();
+    expect(plan?.remaining).toBe(75);
   });
 
   test("openrouter sync stores wallet balance from /credits", async () => {

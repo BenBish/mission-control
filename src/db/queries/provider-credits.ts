@@ -66,6 +66,23 @@ export async function upsertProviderCreditSnapshot(
   );
 }
 
+/**
+ * Delete all credit snapshots for a provider + label (e.g. drop
+ * plan_usage_unavailable once real session-quota rows exist).
+ */
+export async function deleteProviderCreditSnapshotsByLabel(
+  db: SqliteDatabase,
+  provider: ProviderId | string,
+  label: string,
+): Promise<number> {
+  const result = await db.run(
+    `DELETE FROM provider_credit_snapshots WHERE provider = ? AND label = ?`,
+    provider,
+    label,
+  );
+  return result.changes ?? 0;
+}
+
 /** Latest snapshot per (provider, label). */
 export async function latestProviderCreditSnapshots(
   db: SqliteDatabase,

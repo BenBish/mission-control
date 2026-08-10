@@ -38,6 +38,7 @@ export {
   syncProvider,
   defaultFetchWindow,
   resetSyncInFlightForTests,
+  SESSION_QUOTA_SOURCE_BY_PROVIDER,
 } from "./sync.js";
 
 export {
