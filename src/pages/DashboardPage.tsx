@@ -138,11 +138,13 @@ export default function DashboardPage() {
     isPending: providerStatusPending,
     isError: providerStatusError,
   } = useProviderStatus();
-  const { data: providerCapacity } = useProviderCredits();
+  const { data: providerCapacity, isPending: providerCreditsPending } =
+    useProviderCredits();
   const planUsageSummary = useMemo(
     () => summarizePlanUsage(providerCapacity?.planUsage ?? []),
     [providerCapacity?.planUsage],
   );
+  const planUsageLoading = providerCreditsPending && !providerCapacity;
   // Amount pending is per-window; do not block dollar display on status retries.
   const todayAmountPending = providerTodayPending && !providerTodayError;
   const days30AmountPending = provider30dPending && !provider30dError;
@@ -377,7 +379,23 @@ export default function DashboardPage() {
               </div>
             </CardHeader>
             <CardContent>
-              {planUsageSummary.hasFresh && planUsageSummary.mostConstrained ? (
+              {planUsageLoading ? (
+                <>
+                  <div
+                    className="text-3xl font-bold tracking-tight text-muted-foreground"
+                    data-testid="plan-usage-kpi-primary"
+                  >
+                    …
+                  </div>
+                  <p
+                    className="text-xs text-muted-foreground mt-1"
+                    data-testid="plan-usage-kpi-meta"
+                  >
+                    Loading plan windows
+                  </p>
+                </>
+              ) : planUsageSummary.hasFresh &&
+                planUsageSummary.mostConstrained ? (
                 <>
                   <div
                     className="text-3xl font-bold tracking-tight tabular-nums"

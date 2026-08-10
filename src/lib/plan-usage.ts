@@ -75,10 +75,10 @@ export function shortWindowLabel(
   }
   if (
     hay.includes("claude:7d") ||
+    hay.includes("claude:7d_opus") ||
     hay.includes(":7d") ||
     hay.includes("_7d") ||
     hay.includes("10080m") ||
-    hay.includes("opus") ||
     windowMinutes === 10080
   ) {
     return "wk";

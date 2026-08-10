@@ -19,6 +19,9 @@ export const DEFAULT_CLAUDE_CREDENTIALS_PATH = path.join(
 /** Poll interval for OAuth usage (ms). Collector tick is 30s; we gate at 5 min. */
 export const CLAUDE_USAGE_POLL_INTERVAL_MS = 5 * 60 * 1000;
 
+/** Soft timeout for OAuth usage HTTP so a hung edge cannot block the tick forever. */
+export const CLAUDE_USAGE_FETCH_TIMEOUT_MS = 15_000;
+
 export interface ClaudeOAuthToken {
   accessToken: string;
   /** Epoch ms when the access token expires, if known. */
@@ -82,6 +85,7 @@ export async function fetchClaudeUsage(
       "anthropic-beta": CLAUDE_OAUTH_BETA,
       "User-Agent": "mission-control-claude-code-collector",
     },
+    signal: AbortSignal.timeout(CLAUDE_USAGE_FETCH_TIMEOUT_MS),
   });
   if (!res.ok) {
     const err = new Error(
