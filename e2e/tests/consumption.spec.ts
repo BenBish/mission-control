@@ -139,27 +139,39 @@ test.describe("Consumption", () => {
   }) => {
     await consumption.selectTab("Direct API Spend");
     const overview = page.getByTestId("direct-api-overview");
-    const capacity = page.getByTestId("direct-api-capacity-health");
+    const planWallet = page.getByTestId("direct-api-capacity-section");
+    const connectors = page.getByTestId("direct-api-capacity-health");
     await expect(overview).toBeVisible();
-    await expect(capacity).toBeVisible();
-    // Overview appears above collapsed capacity in document order
+    await expect(planWallet).toBeVisible();
+    await expect(connectors).toBeVisible();
+    // Overview appears above plan usage & wallet, then connectors accordion
     const order = await page.evaluate(() => {
       const o = document.querySelector('[data-testid="direct-api-overview"]');
+      const p = document.querySelector(
+        '[data-testid="direct-api-capacity-section"]',
+      );
       const c = document.querySelector(
         '[data-testid="direct-api-capacity-health"]',
       );
-      if (!o || !c) return null;
-      return o.compareDocumentPosition(c) & Node.DOCUMENT_POSITION_FOLLOWING
-        ? "overview-before-capacity"
-        : "capacity-before-overview";
+      if (!o || !p || !c) return null;
+      const oBeforeP =
+        o.compareDocumentPosition(p) & Node.DOCUMENT_POSITION_FOLLOWING;
+      const pBeforeC =
+        p.compareDocumentPosition(c) & Node.DOCUMENT_POSITION_FOLLOWING;
+      return oBeforeP && pBeforeC
+        ? "overview-before-plan-before-connectors"
+        : "unexpected-order";
     });
-    expect(order).toBe("overview-before-capacity");
-    // MTD / budget cards live in overview (not under capacity)
+    expect(order).toBe("overview-before-plan-before-connectors");
+    // MTD / budget cards live in overview
     await expect(overview.getByText("MTD spent")).toBeVisible();
-    // Capacity details closed by default — plan usage not forced into first paint
-    await expect(page.getByTestId("provider-plan-usage-card")).toBeHidden();
-    await capacity.locator("summary").click();
+    // Plan usage is promoted (always visible); connector health stays collapsed
     await expect(page.getByTestId("provider-plan-usage-card")).toBeVisible();
+    await expect(page.getByTestId("provider-wallet-card")).toBeVisible();
+    await expect(connectors).not.toHaveAttribute("open", "");
+    await connectors.locator("summary").click();
+    await expect(connectors).toHaveAttribute("open", "");
+    await expect(connectors.getByText(/Connectors/i)).toBeVisible();
   });
 
   test("Direct API Spend has no page-wide overflow at 390px", async ({
