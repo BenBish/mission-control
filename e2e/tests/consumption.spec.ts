@@ -169,9 +169,11 @@ test.describe("Consumption", () => {
     await expect(page.getByTestId("provider-plan-usage-card")).toBeVisible();
     await expect(page.getByTestId("provider-wallet-card")).toBeVisible();
     await expect(connectors).not.toHaveAttribute("open", "");
+    await expect(connectors.locator("summary")).toContainText(
+      "Connectors & data health",
+    );
     await connectors.locator("summary").click();
     await expect(connectors).toHaveAttribute("open", "");
-    await expect(connectors.getByText(/Connectors/i)).toBeVisible();
   });
 
   test("Direct API Spend has no page-wide overflow at 390px", async ({
