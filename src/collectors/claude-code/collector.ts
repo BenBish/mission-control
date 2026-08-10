@@ -13,6 +13,11 @@ import {
   type ClaudeCodeSessionAggregate,
   type ParsedLine,
 } from "./parser.js";
+import {
+  CLAUDE_USAGE_POLL_INTERVAL_MS,
+  DEFAULT_CLAUDE_CREDENTIALS_PATH,
+  pollClaudeUsageEvents,
+} from "./usage-poller.js";
 
 const SOURCE_ID = "claude-code";
 const INSTANCE_ID = "claude-code@arch-desktop";
@@ -24,21 +29,16 @@ export class ClaudeCodeCollector implements Collector {
   instanceId = INSTANCE_ID;
   intervalMs = 30_000;
 
+  /** Last successful-or-attempted OAuth usage poll (ms epoch). */
+  private lastUsagePollMs = 0;
+
   constructor(
     private state: CollectorStateStore,
     private filesGlob: string = DEFAULT_GLOB,
+    private credentialsPath: string = DEFAULT_CLAUDE_CREDENTIALS_PATH,
   ) {}
 
   async tick(sink: Sink): Promise<TickResult> {
-    const files = await glob(this.filesGlob);
-    if (files.length === 0) {
-      return {
-        eventsEmitted: 0,
-        sourceStatus: "off",
-        detail: "no session files found",
-      };
-    }
-
     const events: IngestEvent[] = [];
     // externalId -> updates seen this tick (merged into the persisted aggregate
     // only after a successful send, so a failed batch can be retried safely).
@@ -47,6 +47,9 @@ export class ClaudeCodeCollector implements Collector {
       Partial<ClaudeCodeSessionAggregate>[]
     >();
     const touchedSessions = new Set<string>();
+
+    const files = await glob(this.filesGlob);
+    const noSessionFiles = files.length === 0;
 
     for (const filePath of files) {
       const cursorKey = `${SOURCE_ID}:${filePath}`;
@@ -104,7 +107,27 @@ export class ClaudeCodeCollector implements Collector {
       });
     }
 
+    // Plan-usage OAuth poll (every 5 min). Can emit events even when no session
+    // files changed — do not early-return solely on empty session scan.
+    const nowMs = Date.now();
+    if (nowMs - this.lastUsagePollMs >= CLAUDE_USAGE_POLL_INTERVAL_MS) {
+      // Set before the attempt so failures don't retry every 30s tick.
+      this.lastUsagePollMs = nowMs;
+      const quotaEvents = await pollClaudeUsageEvents({
+        credPath: this.credentialsPath,
+        onWarn: (m) => console.warn(`[claude-code] ${m}`),
+      });
+      events.push(...quotaEvents);
+    }
+
     if (events.length === 0) {
+      if (noSessionFiles) {
+        return {
+          eventsEmitted: 0,
+          sourceStatus: "off",
+          detail: "no session files found",
+        };
+      }
       return { eventsEmitted: 0, sourceStatus: "ok" };
     }
 

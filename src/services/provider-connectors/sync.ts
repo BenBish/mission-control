@@ -4,7 +4,10 @@
  */
 
 import type { Database as SqliteDatabase } from "sqlite";
-import { upsertProviderCreditSnapshot } from "../../db/queries/provider-credits.js";
+import {
+  deleteProviderCreditSnapshotsByLabel,
+  upsertProviderCreditSnapshot,
+} from "../../db/queries/provider-credits.js";
 import {
   pruneStaleProviderUsageModels,
   upsertProviderSyncStatus,
@@ -32,6 +35,17 @@ const ALL_CONNECTORS: ProviderConnector[] = [
   openaiConnector,
   xaiConnector,
 ];
+
+/**
+ * Map provider connector id → collector source_id that emits quota_snapshots
+ * for that provider's plan-usage windows.
+ */
+export const SESSION_QUOTA_SOURCE_BY_PROVIDER: Partial<
+  Record<ProviderId, string>
+> = {
+  openai: "codex",
+  anthropic: "claude-code",
+};
 
 /** Prevent overlapping scheduled/manual syncs from stacking. */
 let syncInFlight: Promise<SyncProviderResult[]> | null = null;
@@ -68,11 +82,49 @@ async function syncCreditsForProvider(
   let count = 0;
   let limitation: string | undefined;
 
+  // Session quota / plan-usage windows from collectors (Codex, Claude Code, …).
+  // Prefer real session rows over placeholder "unavailable" plan-usage tiles.
+  let sessionPlanUsageCount = 0;
+  const sessionSource = SESSION_QUOTA_SOURCE_BY_PROVIDER[connector.id];
+  if (sessionSource) {
+    try {
+      const quotas = await latestQuotaSnapshots(db);
+      const rows = quotas.filter((q) => q.source_id === sessionSource);
+      const snaps = normalizeSessionQuotaToCredits(rows, connector.id);
+      for (const snap of snaps) {
+        await upsertProviderCreditSnapshot(db, snap);
+        count++;
+        sessionPlanUsageCount++;
+      }
+      if (sessionPlanUsageCount > 0) {
+        await deleteProviderCreditSnapshotsByLabel(
+          db,
+          connector.id,
+          "plan_usage_unavailable",
+        );
+      }
+    } catch (err) {
+      console.warn(
+        `[provider-sync] session quota bridge failed for ${connector.id}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+  }
+
   if (connector.fetchCredits) {
     try {
       const result = await connector.fetchCredits(fetchImpl);
       limitation = result.limitation;
       for (const snap of result.snapshots) {
+        // Drop placeholder plan_usage unavailable once real session rows exist.
+        if (
+          sessionPlanUsageCount > 0 &&
+          snap.surface === "plan_usage" &&
+          snap.source === "unavailable"
+        ) {
+          continue;
+        }
         await upsertProviderCreditSnapshot(db, snap);
         count++;
       }
@@ -95,21 +147,6 @@ async function syncCreditsForProvider(
       });
       count++;
       limitation = message;
-    }
-  }
-
-  // Codex session rate-limit windows → OpenAI capacity (not prepaid USD).
-  if (connector.id === "openai") {
-    try {
-      const quotas = await latestQuotaSnapshots(db);
-      const codex = quotas.filter((q) => q.source_id === "codex");
-      const snaps = normalizeSessionQuotaToCredits(codex, "openai");
-      for (const snap of snaps) {
-        await upsertProviderCreditSnapshot(db, snap);
-        count++;
-      }
-    } catch {
-      // Quota table may be empty or query fail — non-fatal.
     }
   }
 

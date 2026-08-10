@@ -1932,7 +1932,112 @@ export default function Consumption() {
                 )}
               </section>
 
-              {/* ── Capacity & data health (collapsed by default) ──────── */}
+              {/* ── Plan usage & wallet (promoted; never mixed with spend) ─ */}
+              <section
+                id="capacity"
+                className="space-y-4 min-w-0"
+                data-testid="direct-api-capacity-section"
+              >
+                <div>
+                  <h3 className="text-sm font-semibold">
+                    Plan usage &amp; wallet
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Plan usage and wallet balances are <strong>not</strong> API
+                    org spend and are never mixed into Direct API Spend totals.
+                  </p>
+                </div>
+
+                <Card
+                  className="border-dashed shadow-none"
+                  data-testid="provider-plan-usage-card"
+                >
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Target className="h-4 w-4" />
+                      Plan usage
+                    </CardTitle>
+                    <CardDescription>
+                      Subscription / rate-limit windows (percent remaining). Not
+                      wallet balance and not Direct API Spend. Expired windows
+                      are never green.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {creditsLoading ? (
+                      <Loading />
+                    ) : planUsageCredits.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        No plan-usage windows yet. Codex and Claude Code quotas
+                        appear after the desktop collector runs; Admin APIs do
+                        not expose subscription plan bars.
+                      </p>
+                    ) : (
+                      <div className="space-y-3">
+                        {planUsageCredits.every(
+                          (c) =>
+                            c.status === "expired" ||
+                            c.status === "stale" ||
+                            c.status === "unavailable",
+                        ) && (
+                          <p
+                            className="text-sm text-muted-foreground"
+                            data-testid="plan-usage-no-fresh"
+                          >
+                            No fresh plan capacity available. Last observations
+                            are expired or unavailable.
+                          </p>
+                        )}
+                        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                          {planUsageCredits.map((c) => (
+                            <CreditSnapshotTile
+                              key={`plan-${c.provider}-${c.label}-${c.asOf}`}
+                              credit={c}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card
+                  className="border-dashed shadow-none"
+                  data-testid="provider-wallet-card"
+                >
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <DollarSign className="h-4 w-4" />
+                      Usage credits (wallet)
+                    </CardTitle>
+                    <CardDescription>
+                      Prepaid credit balance when providers expose it. Never
+                      mixed into Direct API Spend or session costs.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {creditsLoading ? (
+                      <Loading />
+                    ) : walletCredits.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        No wallet snapshots yet. Configure provider keys and
+                        click Sync now.
+                      </p>
+                    ) : (
+                      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                        {walletCredits.map((c) => (
+                          <CreditSnapshotTile
+                            key={`wallet-${c.provider}-${c.label}-${c.asOf}`}
+                            credit={c}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </section>
+
+              {/* ── Connectors & data health (collapsed by default) ─────── */}
               <details
                 className="group rounded-lg border border-dashed bg-muted/20 min-w-0"
                 data-testid="direct-api-capacity-health"
@@ -1941,19 +2046,18 @@ export default function Consumption() {
                   <div className="flex items-center gap-2 min-w-0">
                     <ChevronDown className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" />
                     <span className="text-sm font-semibold">
-                      Capacity &amp; data health
+                      Connectors &amp; data health
                     </span>
                   </div>
                   <span className="text-xs text-muted-foreground">
-                    Plan usage · wallet · connectors · caveats
+                    Connector status · caveats · env vars
                   </span>
                 </summary>
                 <div className="border-t px-4 py-4 space-y-4 min-w-0">
                   <p className="text-xs text-muted-foreground">
-                    Plan usage and wallet balances are <strong>not</strong> API
-                    org spend. If OpenRouter BYOK and a direct provider (e.g.
-                    Anthropic) are both configured, the same spend can appear
-                    under both connectors.
+                    If OpenRouter BYOK and a direct provider (e.g. Anthropic)
+                    are both configured, the same spend can appear under both
+                    connectors.
                   </p>
 
                   {providerStatus && providerStatus.length > 0 && (
@@ -1998,94 +2102,6 @@ export default function Consumption() {
                         </p>
                       </div>
                     ))}
-
-                  <Card
-                    className="border-dashed shadow-none"
-                    data-testid="provider-plan-usage-card"
-                  >
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <Target className="h-4 w-4" />
-                        Plan usage
-                      </CardTitle>
-                      <CardDescription>
-                        Subscription / rate-limit windows (percent remaining).
-                        Not wallet balance and not Direct API Spend. Expired
-                        windows are never green.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      {creditsLoading ? (
-                        <Loading />
-                      ) : planUsageCredits.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">
-                          No plan-usage windows yet. Codex quotas appear after
-                          session collection; Claude Pro limits are not exposed
-                          via Admin API.
-                        </p>
-                      ) : (
-                        <div className="space-y-3">
-                          {planUsageCredits.every(
-                            (c) =>
-                              c.status === "expired" ||
-                              c.status === "stale" ||
-                              c.status === "unavailable",
-                          ) && (
-                            <p
-                              className="text-sm text-muted-foreground"
-                              data-testid="plan-usage-no-fresh"
-                            >
-                              No fresh plan capacity available. Last
-                              observations are expired or unavailable.
-                            </p>
-                          )}
-                          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                            {planUsageCredits.map((c) => (
-                              <CreditSnapshotTile
-                                key={`plan-${c.provider}-${c.label}-${c.asOf}`}
-                                credit={c}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  <Card
-                    className="border-dashed shadow-none"
-                    data-testid="provider-wallet-card"
-                  >
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <DollarSign className="h-4 w-4" />
-                        Usage credits (wallet)
-                      </CardTitle>
-                      <CardDescription>
-                        Prepaid credit balance when providers expose it. Never
-                        mixed into Direct API Spend or session costs.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      {creditsLoading ? (
-                        <Loading />
-                      ) : walletCredits.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">
-                          No wallet snapshots yet. Configure provider keys and
-                          click Sync now.
-                        </p>
-                      ) : (
-                        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                          {walletCredits.map((c) => (
-                            <CreditSnapshotTile
-                              key={`wallet-${c.provider}-${c.label}-${c.asOf}`}
-                              credit={c}
-                            />
-                          ))}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
 
                   {spendInsights && (
                     <p className="text-xs text-muted-foreground">

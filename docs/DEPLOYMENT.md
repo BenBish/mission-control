@@ -49,6 +49,13 @@ api_key = "changeme"
 
 and set the same `MC_API_KEY` in the server environment.
 
+**Claude Code plan usage:** the `claude-code` collector reads
+`~/.claude/.credentials.json` (OAuth access token already present when you use
+Claude Code) and polls Anthropic’s OAuth usage endpoint every 5 minutes. Only
+**percent utilization / resets_at** are sent to the server as `quota_snapshot`
+events — never the access token. After provider credit sync, those rows appear
+as Anthropic plan-usage windows on the Dashboard and Consumption.
+
 ### 5. Tests
 
 ```bash

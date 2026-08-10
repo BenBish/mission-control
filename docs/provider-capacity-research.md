@@ -11,7 +11,7 @@
 
 | # | Surface | Operator question | Typical unit | Mission Control today (post-BSH-92) |
 |---|---------|-------------------|--------------|-------------------------------------|
-| **1** | **Plan usage remaining** | How much of my *subscription / window* quota is left? | % used/remaining, resets_at | Codex `quota_snapshot` → % windows under OpenAI only |
+| **1** | **Plan usage remaining** | How much of my *subscription / window* quota is left? | % used/remaining, resets_at | Codex + Claude Code `quota_snapshot` → % windows (OpenAI + Anthropic via session bridge) |
 | **2** | **Usage credits wallet** | How much *prepaid / promo $ balance* can I burn after plan limits? | USD (+ grant expiry) | `prepaid_balance` snapshots; Anthropic/xAI unavailable; OpenAI `credit_grants` fails with secret keys |
 | **3** | **API org spend** | What did the *org API billing* cost historically / this month? | USD spend (daily/MTD) | **Shipped well** — `provider_usage_daily`, spend insights, budgets |
 
@@ -50,13 +50,14 @@ Admin usage/cost **does not** equal plan usage remaining or usage-credit wallet.
 - **Admin Usage + Cost = API org spend (#3) only.** Keep powering Direct API Spend / `provider_usage_daily`. Never label those rows as “plan remaining” or “wallet balance.”
 - **Rate Limits API** is for **API rate ceiling configuration**, not Pro plan usage bars.
 - **Claude Code Analytics** is useful for **adoption/productivity and estimated Claude Code cost**, not for the Plan usage limits UI the operator screenshots.
-- **Pro plan usage (#1) and usage credits wallet (#2)** currently have **no stable programmatic Admin source** for individual/Pro accounts on Console Admin keys.
+- **Pro plan usage (#1)** is available via the **Claude Code desktop collector** (`GET https://api.anthropic.com/api/oauth/usage` using `~/.claude/.credentials.json`), bridged into Anthropic `plan_usage` credit rows (`source=session_quota`). Admin keys still cannot read these bars.
+- **Usage credits wallet (#2)** still has **no stable programmatic Admin source** for individual/Pro accounts on Console Admin keys.
 
 ### Recommended empty-state copy (Anthropic)
 
 | Surface | When no data | Copy direction |
 |---------|--------------|----------------|
-| Plan usage | Always (until a source exists) | “Claude Pro / Claude Code plan limits are not available via Admin API. Shown in claude.ai settings only.” |
+| Plan usage | No collector data yet | “Claude Pro / Claude Code plan limits are not available via Admin API. When the desktop collector is running, plan windows come from the Claude Code OAuth usage endpoint.” |
 | Usage credits | Always (until a source exists) | “Usage credit wallet is not exposed on Anthropic Admin Usage & Cost APIs.” |
 | API org spend | Not configured | Existing not_configured path for `ANTHROPIC_ADMIN_KEY` |
 
@@ -109,7 +110,7 @@ Statuses: **available** | **limited** | **unavailable** | **needs product decisi
 
 | Provider | #1 Plan usage | #2 Wallet / credits | #3 API org spend | Keys |
 |----------|---------------|---------------------|------------------|------|
-| Anthropic | **unavailable** (Admin); session OTEL/local = limited | **unavailable** (Admin) | **available** | `ANTHROPIC_ADMIN_KEY` |
+| Anthropic | **available via session collector** (OAuth usage endpoint / Claude Code credentials); Admin still unavailable | **unavailable** (Admin) | **available** | `ANTHROPIC_ADMIN_KEY` (spend); collector for plan windows |
 | Anthropic Enterprise Analytics | **needs product decision** | **needs product decision** | **available** (Analytics path) | Analytics API key |
 | OpenAI | **limited** — Codex windows only via session logs | **unavailable** via secret keys (`credit_grants` session-only) | **available** | `OPENAI_ADMIN_KEY`; do not rely on secret for wallet |
 | OpenRouter | N/A (no Pro-style plan UI) | **available** (`GET /api/v1/credits`) | **available** | `OPENROUTER_API_KEY` (management preferred for credits) |

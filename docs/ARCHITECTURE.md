@@ -119,7 +119,7 @@ Schema: `src/db/schema.ts`. Runtime path:
 | `runtime_snapshots` | High-frequency slot/health/models samples |
 | `runtime_slot_rollups` | Hourly rollups after raw retention |
 | `runtime_events` | Discrete runtime incidents |
-| `quota_snapshots` | Plan/rate-limit windows (e.g. Codex) |
+| `quota_snapshots` | Plan/rate-limit windows (Codex, Claude Code OAuth usage, …) |
 
 ### Shape (c) — generation
 
@@ -160,7 +160,7 @@ added together in the UI or APIs.
 | --- | --- | --- | --- |
 | **1. Cost (actual billing)** | How much did the *provider account* charge? | `provider_usage_daily.cost_usd` | Provider Admin/usage APIs via connectors |
 | **2. Usage (agent/session)** | How much did *agents* consume (tokens, requests)? | `activities` / `sessions` / `inference_requests` token fields | Collectors from session logs / local servers |
-| **3. Quota (plan windows)** | How much of a *subscription rate limit* is used? | `quota_snapshots` (+ some credit rows with unit `percent`/`requests`) | Session/tool telemetry (e.g. Codex windows); not USD |
+| **3. Quota (plan windows)** | How much of a *subscription rate limit* is used? | `quota_snapshots` (+ credit rows with unit `percent`/`requests`, surface `plan_usage`) | Session/tool telemetry: Codex windows + Claude Code OAuth usage endpoint via desktop collector; not USD |
 | **4. Wallet (credits / balance)** | What prepaid capacity remains? | `provider_credit_snapshots` | Provider balance APIs or session-quota derived; **never** summed into spend |
 | **5. Estimate (priced tokens)** | What would usage *cost* if priced from a table? | Session/activity `cost_usd` when log-supplied, else `src/types/pricing.ts` fallbacks | Session-log exact cost preferred; static/OpenRouter table is estimate-only |
 
@@ -176,8 +176,10 @@ added together in the UI or APIs.
    `session-log` or pricing-table — not as provider actuals.
 6. Local/self-hosted models often have $0 cost; that is not “missing billing.”
 
-UI surfaces (Consumption, Dashboard direct-API cards, reconciliation) keep these
-classes in **separate sections** rather than one combined “total spend.”
+UI surfaces (Consumption, Dashboard direct-API / Plan Usage cards, reconciliation)
+keep these classes in **separate sections** rather than one combined “total spend.”
+The Dashboard **Plan Usage** KPI shows only fresh (`status=ok`) percent-remaining
+windows and never implies dollars.
 
 ---
 

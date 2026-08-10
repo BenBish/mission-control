@@ -80,6 +80,42 @@ beforeAll(async () => {
       resetsAt: "2026-07-17T12:00:00.000Z",
     },
   });
+  // Fresh Claude Code 5h window via session_quota bridge (BSH-147)
+  await upsertProviderCreditSnapshot(db.raw(), {
+    provider: "anthropic",
+    asOf: new Date().toISOString(),
+    remaining: 62,
+    total: 100,
+    unit: "percent",
+    label: "quota_claude:5h_300m",
+    source: "session_quota",
+    status: "ok",
+    surface: "plan_usage",
+    details: {
+      productLanguage: "Claude Code plan-usage window",
+      limitId: "claude:5h",
+      windowMinutes: 300,
+      resetsAt: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+    },
+  });
+  // Expired Claude 5h row — demoted at read time (BSH-96 / BSH-147)
+  await upsertProviderCreditSnapshot(db.raw(), {
+    provider: "anthropic",
+    asOf: "2026-07-10T12:00:00.000Z",
+    remaining: 55,
+    total: 100,
+    unit: "percent",
+    label: "quota_claude:5h_300m_old",
+    source: "session_quota",
+    status: "ok",
+    surface: "plan_usage",
+    details: {
+      productLanguage: "Claude Code plan-usage window",
+      limitId: "claude:5h",
+      windowMinutes: 300,
+      resetsAt: "2026-07-10T17:00:00.000Z",
+    },
+  });
 
   const app = express();
   app.use(express.json());
@@ -406,6 +442,25 @@ describe("GET /api/providers/credits", () => {
     expect(String(expiredSecondary.details?.freshnessReason ?? "")).toMatch(
       /reset|elapsed/i,
     );
+
+    // Anthropic planUsage includes bridged Claude Code session_quota rows
+    const claudeFresh = body.planUsage.find(
+      (c: { provider: string; label: string; status: string }) =>
+        c.provider === "anthropic" &&
+        c.label === "quota_claude:5h_300m" &&
+        c.status === "ok",
+    );
+    expect(claudeFresh).toBeTruthy();
+    expect(claudeFresh.remaining).toBe(62);
+    expect(claudeFresh.source).toBe("session_quota");
+    expect(claudeFresh.surface).toBe("plan_usage");
+
+    const claudeExpired = body.planUsage.find(
+      (c: { provider: string; label: string }) =>
+        c.provider === "anthropic" && c.label === "quota_claude:5h_300m_old",
+    );
+    expect(claudeExpired).toBeTruthy();
+    expect(claudeExpired.status).toBe("expired");
 
     // Response must not include secret-shaped strings
     expect(JSON.stringify(body)).not.toMatch(/sk-[a-zA-Z0-9]{10,}/);
