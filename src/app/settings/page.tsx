@@ -827,6 +827,7 @@ export default function SettingsPage() {
                         max={100}
                         step="1"
                         value={planWarnPct}
+                        disabled={!isOwner}
                         onChange={(e) => setPlanWarnPct(e.target.value)}
                       />
                     </div>
@@ -844,6 +845,7 @@ export default function SettingsPage() {
                         max={100}
                         step="1"
                         value={planCriticalPct}
+                        disabled={!isOwner}
                         onChange={(e) => setPlanCriticalPct(e.target.value)}
                       />
                     </div>
@@ -860,6 +862,7 @@ export default function SettingsPage() {
                         min={0}
                         step="0.01"
                         value={walletWarnUsd}
+                        disabled={!isOwner}
                         onChange={(e) => setWalletWarnUsd(e.target.value)}
                       />
                     </div>
@@ -876,6 +879,7 @@ export default function SettingsPage() {
                         min={0}
                         step="0.01"
                         value={walletCriticalUsd}
+                        disabled={!isOwner}
                         onChange={(e) => setWalletCriticalUsd(e.target.value)}
                       />
                     </div>

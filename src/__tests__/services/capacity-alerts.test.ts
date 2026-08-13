@@ -329,4 +329,37 @@ describe("persistCapacityAlerts", () => {
     expect(wallet[0].message).toMatch(/prepaid wallet/i);
     expect(wallet[0].estimatedImpactUsd).toBeNull();
   });
+
+  test("concurrent persist does not duplicate the same fingerprint", async () => {
+    const now = new Date("2026-08-13T12:00:00.000Z");
+    await upsertProviderCreditSnapshot(db.raw(), {
+      provider: "openai",
+      asOf: now.toISOString(),
+      remaining: 4,
+      total: 100,
+      unit: "percent",
+      label: "quota_codex:primary_300m",
+      source: "session_quota",
+      status: "ok",
+      surface: "plan_usage",
+      details: {
+        limitId: "codex:primary",
+        windowMinutes: 300,
+        resetsAt: "2026-08-13T17:00:00.000Z",
+      },
+    });
+
+    await Promise.all([
+      persistCapacityAlerts(db.raw(), { now, monthKey: MONTH }),
+      persistCapacityAlerts(db.raw(), { now, monthKey: MONTH }),
+    ]);
+    const quota = await listSpendAlerts(db.raw(), {
+      monthKey: MONTH,
+      dataClass: "quota",
+    });
+    const matches = quota.filter((a) =>
+      a.scopeKey?.includes("codex:primary_300m"),
+    );
+    expect(matches).toHaveLength(1);
+  });
 });

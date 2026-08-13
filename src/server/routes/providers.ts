@@ -358,15 +358,17 @@ export function registerProviderRoutes(
           settings,
         });
       } catch (err) {
-        console.error(
-          "PUT /api/providers/capacity-alert-settings failed:",
-          err,
-        );
         const message =
           err instanceof Error
             ? err.message
             : "Failed to update capacity alert settings";
         const isValidation = /must be|non-negative/i.test(message);
+        if (!isValidation) {
+          console.error(
+            "PUT /api/providers/capacity-alert-settings failed:",
+            err,
+          );
+        }
         res.status(isValidation ? 400 : 500).json({
           success: false,
           error: message,

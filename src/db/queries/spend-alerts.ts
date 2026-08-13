@@ -173,29 +173,48 @@ export async function upsertSpendAlertByFingerprint(
   const deliveredAt = input.autoDeliver ? new Date().toISOString() : null;
   const evidenceJson = input.evidence ? JSON.stringify(input.evidence) : null;
 
-  await db.run(
-    `
+  try {
+    await db.run(
+      `
     INSERT INTO spend_alert_events (
       id, kind, severity, data_class, scope_type, scope_key, title, message,
       evidence_json, estimated_impact_usd, delivery_state, delivered_at,
       fingerprint, month_key, created_at, updated_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     `,
-    id,
-    input.kind,
-    input.severity,
-    input.dataClass ?? "cost",
-    input.scopeType ?? null,
-    input.scopeKey ?? null,
-    input.title,
-    input.message,
-    evidenceJson,
-    input.estimatedImpactUsd ?? null,
-    deliveryState,
-    deliveredAt,
-    input.fingerprint,
-    input.monthKey,
-  );
+      id,
+      input.kind,
+      input.severity,
+      input.dataClass ?? "cost",
+      input.scopeType ?? null,
+      input.scopeKey ?? null,
+      input.title,
+      input.message,
+      evidenceJson,
+      input.estimatedImpactUsd ?? null,
+      deliveryState,
+      deliveredAt,
+      input.fingerprint,
+      input.monthKey,
+    );
+  } catch (err) {
+    const code =
+      err && typeof err === "object" && "code" in err
+        ? String((err as { code: unknown }).code)
+        : "";
+    const message = err instanceof Error ? err.message : String(err);
+    if (code === "SQLITE_CONSTRAINT" || /UNIQUE constraint/i.test(message)) {
+      const raced = await db.get<SpendAlertRow>(
+        `SELECT * FROM spend_alert_events
+         WHERE fingerprint = ? AND month_key = ?
+         ORDER BY created_at DESC LIMIT 1`,
+        input.fingerprint,
+        input.monthKey,
+      );
+      if (raced) return { alert: rowToAlert(raced), created: false };
+    }
+    throw err;
+  }
 
   const row = await db.get<SpendAlertRow>(
     `SELECT * FROM spend_alert_events WHERE id = ?`,

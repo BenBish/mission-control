@@ -460,6 +460,8 @@ CREATE INDEX IF NOT EXISTS idx_spend_alert_events_delivery
   ON spend_alert_events(delivery_state, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_spend_alert_events_data_class
   ON spend_alert_events(data_class, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_spend_alert_events_fingerprint_unique
+  ON spend_alert_events(fingerprint, month_key);
 
 -- ============================================================================
 -- FAILURE INCIDENT STATE — triage metadata keyed by fingerprint.

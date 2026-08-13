@@ -113,6 +113,20 @@ export async function addSpendAlertDataClass(
   `);
 }
 
+/**
+ * BSH-141: fingerprint+month_key upsert is SELECT-then-INSERT; concurrent
+ * GET /credits and GET /spend-insights can both miss the row. Unique index
+ * makes the second insert fail closed instead of duplicating the alert.
+ */
+export async function addSpendAlertFingerprintUnique(
+  db: SqliteDatabase,
+): Promise<void> {
+  await db.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_spend_alert_events_fingerprint_unique
+      ON spend_alert_events(fingerprint, month_key)
+  `);
+}
+
 const MIGRATIONS: Migration[] = [
   {
     version: "001",
@@ -128,6 +142,11 @@ const MIGRATIONS: Migration[] = [
     version: "003",
     name: "spend-alert-data-class",
     up: addSpendAlertDataClass,
+  },
+  {
+    version: "004",
+    name: "spend-alert-fingerprint-unique",
+    up: addSpendAlertFingerprintUnique,
   },
 ];
 
