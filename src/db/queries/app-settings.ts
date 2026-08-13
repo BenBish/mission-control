@@ -4,6 +4,19 @@ export const SETTING_PROVIDER_MONTHLY_BUDGET_USD =
   "provider_monthly_budget_usd";
 export const SETTING_PROVIDER_BUDGET_TIMEZONE = "provider_budget_timezone";
 
+export const SETTING_PLAN_USAGE_WARN_REMAINING_PCT =
+  "plan_usage_warn_remaining_pct";
+export const SETTING_PLAN_USAGE_CRITICAL_REMAINING_PCT =
+  "plan_usage_critical_remaining_pct";
+export const SETTING_WALLET_WARN_REMAINING_USD = "wallet_warn_remaining_usd";
+export const SETTING_WALLET_CRITICAL_REMAINING_USD =
+  "wallet_critical_remaining_usd";
+
+export const DEFAULT_PLAN_USAGE_WARN_REMAINING_PCT = 20;
+export const DEFAULT_PLAN_USAGE_CRITICAL_REMAINING_PCT = 5;
+export const DEFAULT_WALLET_WARN_REMAINING_USD = 10;
+export const DEFAULT_WALLET_CRITICAL_REMAINING_USD = 2;
+
 export const DEFAULT_BUDGET_TIMEZONE = "UTC";
 
 export interface AppSettingRow {
@@ -105,6 +118,141 @@ export async function setProviderBudgetConfig(
   }
 
   return getProviderBudgetConfig(db);
+}
+
+export interface CapacityAlertConfig {
+  /** Warn when a fresh plan-usage window is at or below this remaining %. 0 disables. */
+  planUsageWarnRemainingPct: number;
+  /** Critical when a fresh plan-usage window is at or below this remaining %. 0 disables. */
+  planUsageCriticalRemainingPct: number;
+  /** Warn when a fresh wallet balance is at or below this USD amount. 0 disables. */
+  walletWarnRemainingUsd: number;
+  /** Critical when a fresh wallet balance is at or below this USD amount. 0 disables. */
+  walletCriticalRemainingUsd: number;
+}
+
+function parseNonNegativeNumber(raw: string | null, fallback: number): number {
+  if (raw == null || raw === "") return fallback;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
+}
+
+export function defaultCapacityAlertConfig(): CapacityAlertConfig {
+  return {
+    planUsageWarnRemainingPct: DEFAULT_PLAN_USAGE_WARN_REMAINING_PCT,
+    planUsageCriticalRemainingPct: DEFAULT_PLAN_USAGE_CRITICAL_REMAINING_PCT,
+    walletWarnRemainingUsd: DEFAULT_WALLET_WARN_REMAINING_USD,
+    walletCriticalRemainingUsd: DEFAULT_WALLET_CRITICAL_REMAINING_USD,
+  };
+}
+
+export async function getCapacityAlertConfig(
+  db: SqliteDatabase,
+): Promise<CapacityAlertConfig> {
+  const [warnPct, critPct, warnUsd, critUsd] = await Promise.all([
+    getSetting(db, SETTING_PLAN_USAGE_WARN_REMAINING_PCT),
+    getSetting(db, SETTING_PLAN_USAGE_CRITICAL_REMAINING_PCT),
+    getSetting(db, SETTING_WALLET_WARN_REMAINING_USD),
+    getSetting(db, SETTING_WALLET_CRITICAL_REMAINING_USD),
+  ]);
+  return {
+    planUsageWarnRemainingPct: parseNonNegativeNumber(
+      warnPct,
+      DEFAULT_PLAN_USAGE_WARN_REMAINING_PCT,
+    ),
+    planUsageCriticalRemainingPct: parseNonNegativeNumber(
+      critPct,
+      DEFAULT_PLAN_USAGE_CRITICAL_REMAINING_PCT,
+    ),
+    walletWarnRemainingUsd: parseNonNegativeNumber(
+      warnUsd,
+      DEFAULT_WALLET_WARN_REMAINING_USD,
+    ),
+    walletCriticalRemainingUsd: parseNonNegativeNumber(
+      critUsd,
+      DEFAULT_WALLET_CRITICAL_REMAINING_USD,
+    ),
+  };
+}
+
+function assertThresholdPair(
+  warn: number,
+  critical: number,
+  warnName: string,
+  criticalName: string,
+  max?: number,
+): void {
+  if (!Number.isFinite(warn) || warn < 0) {
+    throw new Error(`${warnName} must be a non-negative number`);
+  }
+  if (!Number.isFinite(critical) || critical < 0) {
+    throw new Error(`${criticalName} must be a non-negative number`);
+  }
+  if (max != null && (warn > max || critical > max)) {
+    throw new Error(`${warnName} and ${criticalName} must be ≤ ${max}`);
+  }
+  if (critical > 0 && warn > 0 && critical > warn) {
+    throw new Error(
+      `${criticalName} must be ≤ ${warnName} (critical is the lower remaining threshold)`,
+    );
+  }
+}
+
+export async function setCapacityAlertConfig(
+  db: SqliteDatabase,
+  config: Partial<CapacityAlertConfig>,
+): Promise<CapacityAlertConfig> {
+  const current = await getCapacityAlertConfig(db);
+  const next: CapacityAlertConfig = {
+    planUsageWarnRemainingPct:
+      config.planUsageWarnRemainingPct ?? current.planUsageWarnRemainingPct,
+    planUsageCriticalRemainingPct:
+      config.planUsageCriticalRemainingPct ??
+      current.planUsageCriticalRemainingPct,
+    walletWarnRemainingUsd:
+      config.walletWarnRemainingUsd ?? current.walletWarnRemainingUsd,
+    walletCriticalRemainingUsd:
+      config.walletCriticalRemainingUsd ?? current.walletCriticalRemainingUsd,
+  };
+
+  assertThresholdPair(
+    next.planUsageWarnRemainingPct,
+    next.planUsageCriticalRemainingPct,
+    "planUsageWarnRemainingPct",
+    "planUsageCriticalRemainingPct",
+    100,
+  );
+  assertThresholdPair(
+    next.walletWarnRemainingUsd,
+    next.walletCriticalRemainingUsd,
+    "walletWarnRemainingUsd",
+    "walletCriticalRemainingUsd",
+  );
+
+  await Promise.all([
+    setSetting(
+      db,
+      SETTING_PLAN_USAGE_WARN_REMAINING_PCT,
+      String(next.planUsageWarnRemainingPct),
+    ),
+    setSetting(
+      db,
+      SETTING_PLAN_USAGE_CRITICAL_REMAINING_PCT,
+      String(next.planUsageCriticalRemainingPct),
+    ),
+    setSetting(
+      db,
+      SETTING_WALLET_WARN_REMAINING_USD,
+      String(next.walletWarnRemainingUsd),
+    ),
+    setSetting(
+      db,
+      SETTING_WALLET_CRITICAL_REMAINING_USD,
+      String(next.walletCriticalRemainingUsd),
+    ),
+  ]);
+
+  return getCapacityAlertConfig(db);
 }
 
 /** Validate IANA timezone via Intl (throws RangeError if invalid). */

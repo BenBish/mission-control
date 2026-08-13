@@ -648,6 +648,7 @@ export interface SpendAlert {
   id: string;
   kind: "threshold" | "anomaly";
   severity: "info" | "warn" | "critical";
+  dataClass?: "cost" | "quota" | "wallet";
   scopeType: string | null;
   scopeKey: string | null;
   title: string;
@@ -666,6 +667,14 @@ export interface SpendAlert {
   monthKey: string;
   createdAt: string | null;
   updatedAt: string | null;
+}
+
+export function isCostClassAlert(alert: SpendAlert): boolean {
+  return alert.dataClass == null || alert.dataClass === "cost";
+}
+
+export function isCapacityAlert(alert: SpendAlert): boolean {
+  return alert.dataClass === "quota" || alert.dataClass === "wallet";
 }
 
 export interface SpendBudget {
@@ -785,6 +794,42 @@ export async function deleteScopedSpendBudget(id: string): Promise<void> {
   if (!res.ok || json.success === false) {
     throw new Error(json.error || `Scoped budget delete failed: ${res.status}`);
   }
+}
+
+export interface CapacityAlertConfig {
+  planUsageWarnRemainingPct: number;
+  planUsageCriticalRemainingPct: number;
+  walletWarnRemainingUsd: number;
+  walletCriticalRemainingUsd: number;
+}
+
+export function useCapacityAlertSettings(): UseQueryResult<CapacityAlertConfig> {
+  return useQuery({
+    queryKey: ["capacity-alert-settings"],
+    queryFn: async () =>
+      (
+        await getJson<{ settings: CapacityAlertConfig }>(
+          "/api/providers/capacity-alert-settings",
+        )
+      ).settings,
+  });
+}
+
+export async function updateCapacityAlertSettings(
+  body: Partial<CapacityAlertConfig>,
+): Promise<CapacityAlertConfig> {
+  const res = await apiFetch("/api/providers/capacity-alert-settings", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const json = await res.json();
+  if (!res.ok || json.success === false) {
+    throw new Error(
+      json.error || `Capacity alert settings update failed: ${res.status}`,
+    );
+  }
+  return json.settings as CapacityAlertConfig;
 }
 
 export async function acknowledgeSpendAlert(id: string): Promise<SpendAlert> {

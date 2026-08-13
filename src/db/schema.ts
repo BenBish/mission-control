@@ -435,6 +435,9 @@ CREATE TABLE IF NOT EXISTS spend_alert_events (
   id TEXT PRIMARY KEY,
   kind TEXT NOT NULL CHECK (kind IN ('threshold', 'anomaly')),
   severity TEXT NOT NULL CHECK (severity IN ('info', 'warn', 'critical')),
+  -- cost = Direct API Spend; quota = plan-usage windows; wallet = prepaid credits
+  data_class TEXT NOT NULL DEFAULT 'cost'
+    CHECK (data_class IN ('cost', 'quota', 'wallet')),
   scope_type TEXT,
   scope_key TEXT,
   title TEXT NOT NULL,
@@ -457,6 +460,10 @@ CREATE INDEX IF NOT EXISTS idx_spend_alert_events_fingerprint
   ON spend_alert_events(fingerprint, month_key);
 CREATE INDEX IF NOT EXISTS idx_spend_alert_events_delivery
   ON spend_alert_events(delivery_state, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_spend_alert_events_data_class
+  ON spend_alert_events(data_class, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_spend_alert_events_fingerprint_unique
+  ON spend_alert_events(fingerprint, month_key);
 
 -- ============================================================================
 -- FAILURE INCIDENT STATE — triage metadata keyed by fingerprint.

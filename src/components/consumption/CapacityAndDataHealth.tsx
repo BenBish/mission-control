@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Card,
   CardContent,
@@ -6,12 +7,15 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Loading } from "@/components/_shared/Loading";
 import { DollarSign, Target, ChevronDown, Info } from "lucide-react";
-import type {
-  ProviderCredit,
-  ProviderStatus,
-  SpendInsights,
+import {
+  acknowledgeSpendAlert,
+  isCapacityAlert,
+  type ProviderCredit,
+  type ProviderStatus,
+  type SpendInsights,
 } from "@/lib/queries";
 import { statusBadgeVariant } from "./helpers";
 import { CreditSnapshotTile } from "./CreditSnapshotTile";
@@ -29,6 +33,8 @@ export function CapacityAndDataHealth({
   providerStatus: ProviderStatus[] | undefined;
   spendInsights: SpendInsights | undefined;
 }) {
+  const queryClient = useQueryClient();
+  const capacityAlerts = (spendInsights?.alerts ?? []).filter(isCapacityAlert);
   return (
     <>
       {/* ── Plan usage & wallet (promoted; never mixed with spend) ─ */}
@@ -131,6 +137,65 @@ export function CapacityAndDataHealth({
             )}
           </CardContent>
         </Card>
+
+        {capacityAlerts.length > 0 && (
+          <Card className="shadow-sm min-w-0" data-testid="capacity-alerts">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">
+                Plan &amp; wallet capacity alerts
+              </CardTitle>
+              <CardDescription>
+                Subscription quota and prepaid-wallet remaining thresholds.
+                These are not Direct API Spend alerts.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {capacityAlerts.slice(0, 12).map((a) => (
+                <div
+                  key={a.id}
+                  className="rounded-md border px-3 py-2 text-sm min-w-0"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium break-words">{a.title}</p>
+                    <Badge variant="secondary" className="text-xs">
+                      {a.dataClass}
+                    </Badge>
+                    <Badge variant="outline" className="text-xs">
+                      {a.deliveryState}
+                    </Badge>
+                    <Badge
+                      variant={
+                        a.severity === "critical" ? "destructive" : "secondary"
+                      }
+                      className="text-xs"
+                    >
+                      {a.severity}
+                    </Badge>
+                    {a.deliveryState !== "acknowledged" && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs ml-auto"
+                        onClick={() => {
+                          void acknowledgeSpendAlert(a.id).then(() => {
+                            void queryClient.invalidateQueries({
+                              queryKey: ["provider-spend-insights"],
+                            });
+                          });
+                        }}
+                      >
+                        Acknowledge
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1 break-words">
+                    {a.message}
+                  </p>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
       </section>
 
       {/* ── Connectors & data health (collapsed by default) ─────── */}

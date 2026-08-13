@@ -3,10 +3,13 @@ import type { Database } from "../../db/database.js";
 import type { AuthConfig } from "../auth.js";
 import { requireOwner } from "../auth.js";
 import {
+  getCapacityAlertConfig,
   getProviderBudgetConfig,
   isValidIanaTimeZone,
+  setCapacityAlertConfig,
   setProviderBudgetConfig,
 } from "../../db/queries/app-settings.js";
+import { persistCapacityAlerts } from "../../services/capacity-alerts.js";
 import {
   latestProviderCreditSnapshots,
   listProviderCreditHistory,
@@ -26,6 +29,7 @@ import {
 import {
   listSpendAlerts,
   updateSpendAlertDelivery,
+  type SpendAlertDataClass,
   type SpendAlertDeliveryState,
 } from "../../db/queries/spend-alerts.js";
 import {
@@ -303,6 +307,77 @@ export function registerProviderRoutes(
   );
 
   /**
+   * Plan-usage remaining-% and wallet remaining-$ alert thresholds.
+   * Distinct from Direct API Spend budgets — never applied to cost-class alerts.
+   */
+  app.get(
+    "/api/providers/capacity-alert-settings",
+    async (_req: Request, res: Response) => {
+      try {
+        const settings = await getCapacityAlertConfig(db.raw());
+        res.json({
+          success: true,
+          source: "capacity-alerts",
+          settings,
+        });
+      } catch (err) {
+        console.error(
+          "GET /api/providers/capacity-alert-settings failed:",
+          err,
+        );
+        res.status(500).json({
+          success: false,
+          error: "Failed to load capacity alert settings",
+        });
+      }
+    },
+  );
+
+  app.put(
+    "/api/providers/capacity-alert-settings",
+    ownerGuard,
+    async (req: Request, res: Response) => {
+      try {
+        const body = req.body ?? {};
+        const parseNum = (v: unknown): number | undefined => {
+          if (v === undefined || v === null || v === "") return undefined;
+          const n = typeof v === "number" ? v : Number(v);
+          return Number.isFinite(n) ? n : Number.NaN;
+        };
+        const settings = await setCapacityAlertConfig(db.raw(), {
+          planUsageWarnRemainingPct: parseNum(body.planUsageWarnRemainingPct),
+          planUsageCriticalRemainingPct: parseNum(
+            body.planUsageCriticalRemainingPct,
+          ),
+          walletWarnRemainingUsd: parseNum(body.walletWarnRemainingUsd),
+          walletCriticalRemainingUsd: parseNum(body.walletCriticalRemainingUsd),
+        });
+        res.json({
+          success: true,
+          source: "capacity-alerts",
+          settings,
+        });
+      } catch (err) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Failed to update capacity alert settings";
+        const isValidation = /must be|non-negative/i.test(message);
+        if (!isValidation) {
+          console.error(
+            "PUT /api/providers/capacity-alert-settings failed:",
+            err,
+          );
+        }
+        res.status(isValidation ? 400 : 500).json({
+          success: false,
+          error: message,
+        });
+      }
+    },
+  );
+
+  /**
    * Budget progress, burn rate, forecast, daily trend, prior-period breakdown,
    * anomalies, efficiency, recommendations, scoped budgets, alert history,
    * and sync reliability for Direct API Spend (BSH-105).
@@ -460,10 +535,21 @@ export function registerProviderRoutes(
             ? req.query.deliveryState
             : undefined
         ) as SpendAlertDeliveryState | undefined;
+        const dataClassRaw =
+          typeof req.query.dataClass === "string"
+            ? req.query.dataClass
+            : undefined;
+        const dataClass =
+          dataClassRaw === "cost" ||
+          dataClassRaw === "quota" ||
+          dataClassRaw === "wallet"
+            ? (dataClassRaw as SpendAlertDataClass)
+            : undefined;
         const alerts = await listSpendAlerts(db.raw(), {
           limit,
           monthKey,
           deliveryState,
+          dataClass,
         });
         res.json({ success: true, alerts });
       } catch (err) {
@@ -546,6 +632,14 @@ export function registerProviderRoutes(
       const planUsage = credits.filter((c) => c.surface === "plan_usage");
       const wallet = credits.filter((c) => c.surface === "wallet");
 
+      let capacityAlerts: Awaited<ReturnType<typeof persistCapacityAlerts>> =
+        [];
+      try {
+        capacityAlerts = await persistCapacityAlerts(db.raw());
+      } catch (persistErr) {
+        console.error("persistCapacityAlerts failed:", persistErr);
+      }
+
       res.json({
         success: true,
         source: "provider-credits",
@@ -554,6 +648,10 @@ export function registerProviderRoutes(
         credits,
         planUsage,
         wallet,
+        /** Quota/wallet threshold alerts only — never cost-class spend alerts. */
+        capacityAlerts: capacityAlerts.filter(
+          (a) => a.dataClass === "quota" || a.dataClass === "wallet",
+        ),
       });
     } catch (err) {
       console.error("GET /api/providers/credits failed:", err);
