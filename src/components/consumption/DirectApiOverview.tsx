@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import {
   Card,
@@ -10,6 +11,11 @@ import { Badge } from "@/components/ui/badge";
 import { Loading } from "@/components/_shared/Loading";
 import { DollarSign, AlertTriangle, TrendingUp, Target } from "lucide-react";
 import type { SpendInsights } from "@/lib/queries";
+import {
+  forecastUnavailableCaption,
+  formatBurnRate,
+  formatForecastMonthEnd,
+} from "@/lib/spend-insights-display";
 
 export function DirectApiOverview({
   insightsLoading,
@@ -20,6 +26,30 @@ export function DirectApiOverview({
   insightsError: Error | null;
   spendInsights: SpendInsights | undefined;
 }) {
+  const spendRateDisplay = useMemo(() => {
+    if (!spendInsights) return null;
+    return {
+      burn: formatBurnRate({
+        reliable: spendInsights.meta.forecastReliable,
+        usdPerDay: spendInsights.burnRateUsdPerDay,
+      }),
+      forecast: formatForecastMonthEnd({
+        reliable: spendInsights.meta.forecastReliable,
+        pointUsd:
+          spendInsights.forecast?.pointUsd ?? spendInsights.forecastMonthEndUsd,
+      }),
+      forecastCaption: forecastUnavailableCaption({
+        reliable: spendInsights.meta.forecastReliable,
+        hasNoSyncData: spendInsights.syncWarnings.some(
+          (w) => w.reason === "no_sync_data",
+        ),
+        hasStaleOrErrorSync: spendInsights.syncWarnings.some(
+          (w) => w.reason === "stale" || w.reason === "error",
+        ),
+      }),
+    };
+  }, [spendInsights]);
+
   return (
     <>
       {/* ── Overview: spend risk first ─────────────────────────── */}
@@ -189,15 +219,25 @@ export function DirectApiOverview({
                   <TrendingUp className="h-4 w-4 text-purple-600 shrink-0" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold tabular-nums">
-                    ${spendInsights.burnRateUsdPerDay.toFixed(2)}
-                    <span className="text-sm font-normal text-muted-foreground">
-                      /day
-                    </span>
+                  <div
+                    className={`text-2xl font-bold ${
+                      spendRateDisplay?.burn.available
+                        ? "tabular-nums"
+                        : "text-muted-foreground"
+                    }`}
+                    data-testid="burn-rate-value"
+                  >
+                    {spendRateDisplay?.burn.primary ?? "—"}
+                    {spendRateDisplay?.burn.available ? (
+                      <span className="text-sm font-normal text-muted-foreground">
+                        /day
+                      </span>
+                    ) : null}
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Day {spendInsights.meta.daysElapsed} of{" "}
-                    {spendInsights.meta.daysInMonth}
+                    {spendRateDisplay?.burn.available
+                      ? `Day ${spendInsights.meta.daysElapsed} of ${spendInsights.meta.daysInMonth}`
+                      : "Insufficient data"}
                   </p>
                 </CardContent>
               </Card>
@@ -221,19 +261,17 @@ export function DirectApiOverview({
                 </CardHeader>
                 <CardContent>
                   <div
-                    className={`text-2xl font-bold tabular-nums ${
-                      !spendInsights.meta.forecastReliable
-                        ? "text-muted-foreground"
-                        : ""
+                    className={`text-2xl font-bold ${
+                      spendRateDisplay?.forecast.available
+                        ? "tabular-nums"
+                        : "text-muted-foreground"
                     }`}
+                    data-testid="forecast-month-end-value"
                   >
-                    $
-                    {(
-                      spendInsights.forecast?.pointUsd ??
-                      spendInsights.forecastMonthEndUsd
-                    ).toFixed(2)}
+                    {spendRateDisplay?.forecast.primary ?? "—"}
                   </div>
-                  {spendInsights.forecast && (
+                  {spendRateDisplay?.forecast.available &&
+                  spendInsights.forecast ? (
                     <p className="text-xs text-muted-foreground mt-1 tabular-nums">
                       Range ${spendInsights.forecast.lowUsd.toFixed(2)}
                       –$
@@ -241,15 +279,12 @@ export function DirectApiOverview({
                       {(spendInsights.forecast.confidence * 100).toFixed(0)}%
                       conf
                     </p>
-                  )}
+                  ) : null}
                   <p className="text-xs text-muted-foreground mt-1">
-                    {spendInsights.meta.forecastReliable
+                    {spendRateDisplay?.forecast.available
                       ? `${spendInsights.forecast?.method ?? spendInsights.meta.forecastMethod ?? "burn"} · lag ${spendInsights.meta.billingLagDays ?? spendInsights.forecast?.billingLagDays ?? 0}d`
-                      : spendInsights.syncWarnings.some(
-                            (w) => w.reason === "no_sync_data",
-                          )
-                        ? "No sync history — do not trust this figure"
-                        : "Stale/failed sync — do not trust this figure"}
+                      : (spendRateDisplay?.forecastCaption ??
+                        "Insufficient data")}
                   </p>
                   {spendInsights.forecast?.incompleteDays?.length ? (
                     <p className="text-[11px] text-muted-foreground mt-1 break-words">

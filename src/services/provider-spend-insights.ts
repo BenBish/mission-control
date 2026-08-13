@@ -16,7 +16,8 @@
  *   labeled and optionally excluded from burn; confidence range is reported.
  * - Delayed provider finalization can understate MTD; when any *observed*
  *   connector is error/stale, or when there is no usable sync/usage signal,
- *   forecastReliable is false.
+ *   forecastReliable is false. The Consumption Overview cards must not render
+ *   an unreliable burn/forecast as $0.00 (see spend-insights-display).
  */
 
 import type { Database as SqliteDatabase } from "sqlite";
