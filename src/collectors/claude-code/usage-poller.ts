@@ -6,6 +6,10 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
+import {
+  PLAN_WINDOW_FIVE_HOUR_MINUTES,
+  PLAN_WINDOW_WEEKLY_MINUTES,
+} from "../../lib/plan-windows.js";
 import type { IngestEvent } from "../../types/ingest.js";
 
 export const CLAUDE_USAGE_URL = "https://api.anthropic.com/api/oauth/usage";
@@ -35,9 +39,21 @@ const WINDOW_MAP: Array<{
   limitId: string;
   windowMinutes: number;
 }> = [
-  { key: "five_hour", limitId: "claude:5h", windowMinutes: 300 },
-  { key: "seven_day", limitId: "claude:7d", windowMinutes: 10080 },
-  { key: "seven_day_opus", limitId: "claude:7d_opus", windowMinutes: 10080 },
+  {
+    key: "five_hour",
+    limitId: "claude:5h",
+    windowMinutes: PLAN_WINDOW_FIVE_HOUR_MINUTES,
+  },
+  {
+    key: "seven_day",
+    limitId: "claude:7d",
+    windowMinutes: PLAN_WINDOW_WEEKLY_MINUTES,
+  },
+  {
+    key: "seven_day_opus",
+    limitId: "claude:7d_opus",
+    windowMinutes: PLAN_WINDOW_WEEKLY_MINUTES,
+  },
 ];
 
 /**

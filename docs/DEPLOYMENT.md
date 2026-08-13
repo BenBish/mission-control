@@ -62,9 +62,12 @@ session token already present after `grok login`) and polls
 Only **creditUsagePercent / period end** become `quota_snapshot` events
 (typically `grok:week`) — never the access token, and never wallet fields
 (`prepaidBalance`, on-demand caps). After provider credit sync those rows
-appear as xAI plan-usage windows. Override the proxy base with
-`GROK_CLI_CHAT_PROXY_BASE_URL` if needed. OpenCode session DBs were
-investigated and have no equivalent quota telemetry.
+appear as xAI plan-usage windows. Dashboard and Consumption always show
+canonical **5-hour** and **weekly** slots; SuperGrok usually only exposes
+weekly, so 5-hour is an explicit unavailable slot (not a fabricated %).
+Override the proxy base with `GROK_CLI_CHAT_PROXY_BASE_URL` if needed.
+OpenCode session DBs were investigated and have no equivalent quota
+telemetry.
 
 ### 5. Tests
 

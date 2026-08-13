@@ -1066,6 +1066,47 @@ describe("syncProvider idempotency", () => {
       false,
     );
   });
+
+  test("sync drops leftover quota_slot:5h once a real 5h window appears", async () => {
+    setEnv("XAI_API_KEY", undefined);
+    await seedSourceAndInstance(db.raw(), "grok", "grok@prune");
+    await insertQuotaSnapshot(db.raw(), "grok", "grok@prune", {
+      timestamp: "2026-08-13T12:00:00.000Z",
+      limitId: "grok:week",
+      usedPercent: 53,
+      windowMinutes: 10080,
+      resetsAt: "2026-08-17T02:53:15.569Z",
+    });
+    await syncProvider(db.raw(), xaiConnector, {
+      fetchImpl: async () => jsonResponse({}),
+    });
+    let credits = await latestProviderCreditSnapshots(db.raw(), {
+      provider: "xai",
+    });
+    expect(credits.some((c) => c.label === "quota_slot:5h")).toBe(true);
+
+    await insertQuotaSnapshot(db.raw(), "grok", "grok@prune", {
+      timestamp: "2026-08-13T13:00:00.000Z",
+      limitId: "grok:5h",
+      usedPercent: 10,
+      windowMinutes: 300,
+      resetsAt: "2026-08-13T18:00:00.000Z",
+    });
+    await syncProvider(db.raw(), xaiConnector, {
+      fetchImpl: async () => jsonResponse({}),
+    });
+    credits = await latestProviderCreditSnapshots(db.raw(), {
+      provider: "xai",
+    });
+    expect(credits.some((c) => c.label === "quota_slot:5h")).toBe(false);
+    expect(
+      credits.some(
+        (c) =>
+          c.source === "session_quota" &&
+          Boolean(c.details_json?.includes('"limitId":"grok:5h"')),
+      ),
+    ).toBe(true);
+  });
 });
 
 describe("credit normalize helpers", () => {
@@ -1127,5 +1168,35 @@ describe("credit normalize helpers", () => {
     expect(snaps[0].source).toBe("session_quota");
     expect(snaps[0].surface).toBe("plan_usage");
     expect(capacitySurfaceOf(snaps[0])).toBe("plan_usage");
+    expect(snaps[0].details?.slot).toBe("5h");
+    const missingWeek = snaps.find((s) => s.label === "quota_slot:wk");
+    expect(missingWeek?.status).toBe("unavailable");
+    expect(missingWeek?.remaining).toBeNull();
+  });
+
+  test("normalizeSessionQuotaToCredits fills Grok 5h as unavailable when only weekly exists", () => {
+    const snaps = normalizeSessionQuotaToCredits(
+      [
+        {
+          source_id: "grok",
+          instance_id: "local",
+          timestamp: "2026-08-13T12:00:00Z",
+          limit_id: "grok:week",
+          used_percent: 53,
+          window_minutes: 10080,
+          resets_at: "2026-08-17T02:53:15.569Z",
+        },
+      ],
+      "xai",
+    );
+    const week = snaps.find((s) => s.details?.limitId === "grok:week");
+    expect(week?.remaining).toBe(47);
+    expect(week?.source).toBe("session_quota");
+    expect(week?.details?.slot).toBe("wk");
+    const fiveH = snaps.find((s) => s.label === "quota_slot:5h");
+    expect(fiveH?.status).toBe("unavailable");
+    expect(fiveH?.remaining).toBeNull();
+    expect(fiveH?.details?.slot).toBe("5h");
+    expect(fiveH?.details?.note).toMatch(/5-hour/i);
   });
 });

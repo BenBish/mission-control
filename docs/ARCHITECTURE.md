@@ -160,7 +160,7 @@ added together in the UI or APIs.
 | --- | --- | --- | --- |
 | **1. Cost (actual billing)** | How much did the *provider account* charge? | `provider_usage_daily.cost_usd` | Provider Admin/usage APIs via connectors |
 | **2. Usage (agent/session)** | How much did *agents* consume (tokens, requests)? | `activities` / `sessions` / `inference_requests` token fields | Collectors from session logs / local servers |
-| **3. Quota (plan windows)** | How much of a *subscription rate limit* is used? | `quota_snapshots` (+ credit rows with unit `percent`/`requests`, surface `plan_usage`) | Session/tool telemetry: Codex windows + Claude Code OAuth usage + Grok CLI billing (`/v1/billing?format=credits`) via desktop collector; not USD |
+| **3. Quota (plan windows)** | How much of a *subscription rate limit* is used? | `quota_snapshots` (+ credit rows with unit `percent`/`requests`, surface `plan_usage`) | Session/tool telemetry: Codex windows + Claude Code OAuth usage + Grok CLI billing (`/v1/billing?format=credits`) via desktop collector; not USD. Subscriptions always present the same canonical slots (**5-hour** + **weekly**); missing windows are `unavailable`, never invented %. Provider extras (Claude Opus weekly, Grok month/product bars) stay labeled separately. Contract: `src/lib/plan-windows.ts`. |
 | **4. Wallet (credits / balance)** | What prepaid capacity remains? | `provider_credit_snapshots` | Provider balance APIs or session-quota derived; **never** summed into spend |
 | **5. Estimate (priced tokens)** | What would usage *cost* if priced from a table? | Session/activity `cost_usd` when log-supplied, else `src/types/pricing.ts` fallbacks | Session-log exact cost preferred; static/OpenRouter table is estimate-only |
 

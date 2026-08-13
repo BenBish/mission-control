@@ -17,6 +17,7 @@ import {
   type ProviderStatus,
   type SpendInsights,
 } from "@/lib/queries";
+import { groupPlanUsageCredits } from "@/lib/plan-usage";
 import { statusBadgeVariant } from "./helpers";
 import { CreditSnapshotTile } from "./CreditSnapshotTile";
 
@@ -61,8 +62,10 @@ export function CapacityAndDataHealth({
               Plan usage
             </CardTitle>
             <CardDescription>
-              Subscription / rate-limit windows (percent remaining). Not wallet
-              balance and not Direct API Spend. Expired windows are never green.
+              Subscription / rate-limit windows (percent remaining). Each plan
+              lists 5-hour and weekly slots; extras such as Opus weekly stay
+              separate. Not wallet balance and not Direct API Spend. Expired
+              windows are never green.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -70,9 +73,11 @@ export function CapacityAndDataHealth({
               <Loading />
             ) : planUsageCredits.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No plan-usage windows yet. Codex and Claude Code quotas appear
-                after the desktop collector runs; Admin APIs do not expose
-                subscription plan bars.
+                No plan-usage windows yet. Codex, Claude Code, and Grok quotas
+                appear after the desktop collector runs; Admin APIs do not
+                expose subscription plan bars. Each subscription lists 5-hour
+                and weekly slots (unavailable when the provider does not expose
+                that window).
               </p>
             ) : (
               <div className="space-y-3">
@@ -90,12 +95,25 @@ export function CapacityAndDataHealth({
                     expired or unavailable.
                   </p>
                 )}
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                  {planUsageCredits.map((c) => (
-                    <CreditSnapshotTile
-                      key={`plan-${c.provider}-${c.label}-${c.asOf}`}
-                      credit={c}
-                    />
+                <div className="space-y-4">
+                  {groupPlanUsageCredits(planUsageCredits).map((group) => (
+                    <div
+                      key={group.provider}
+                      className="space-y-2"
+                      data-testid={`plan-usage-group-${group.provider}`}
+                    >
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {group.displayName}
+                      </p>
+                      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                        {group.credits.map((c) => (
+                          <CreditSnapshotTile
+                            key={`plan-${c.provider}-${c.label}-${c.asOf}`}
+                            credit={c}
+                          />
+                        ))}
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>

@@ -8,6 +8,14 @@
  * API org spend is NOT represented here (provider_usage_daily).
  */
 
+import {
+  CANONICAL_PLAN_WINDOW_MINUTES,
+  UNAVAILABLE_SLOT_LABEL,
+  canonicalSlotLabel,
+  classifyPlanWindow,
+  fillCanonicalPlanSlots,
+  type CanonicalPlanSlot,
+} from "../../../lib/plan-windows.js";
 import type {
   CapacitySurface,
   CreditFetchResult,
@@ -249,13 +257,18 @@ export function normalizeSessionQuotaToCredits(
   provider: ProviderId = "openai",
 ): CreditSnapshot[] {
   const productLanguage = sessionQuotaProductLanguage(provider);
-  return rows.map((r) => {
+  const snaps: CreditSnapshot[] = rows.map((r) => {
     const used = Number.isFinite(r.used_percent) ? r.used_percent : 0;
     const remainingPct = Math.max(0, Math.min(100, 100 - used));
     const windowLabel =
       r.window_minutes != null
         ? `quota_${r.limit_id}_${r.window_minutes}m`
         : `quota_${r.limit_id}`;
+    const classified = classifyPlanWindow({
+      limitId: r.limit_id,
+      windowMinutes: r.window_minutes,
+      label: windowLabel,
+    });
     return {
       provider,
       asOf: r.timestamp,
@@ -274,7 +287,64 @@ export function normalizeSessionQuotaToCredits(
         windowMinutes: r.window_minutes,
         resetsAt: r.resets_at,
         productLanguage,
+        slot: classified.key,
+        canonical: classified.kind !== "extra",
       },
     };
   });
+
+  return fillCanonicalPlanSlots(snaps, {
+    classify: (snap) =>
+      classifyPlanWindow({
+        limitId:
+          typeof snap.details?.limitId === "string"
+            ? snap.details.limitId
+            : undefined,
+        windowMinutes:
+          typeof snap.details?.windowMinutes === "number"
+            ? snap.details.windowMinutes
+            : undefined,
+        label: snap.label,
+      }),
+    buildUnavailable: (slot) =>
+      canonicalSlotUnavailable(
+        provider,
+        slot,
+        newestAsOf(snaps),
+        productLanguage,
+      ),
+  });
+}
+
+function newestAsOf(snaps: CreditSnapshot[]): string {
+  return snaps.reduce((latest, snap) => {
+    return snap.asOf > latest ? snap.asOf : latest;
+  }, snaps[0]?.asOf ?? new Date().toISOString());
+}
+
+function canonicalSlotUnavailable(
+  provider: ProviderId,
+  slot: CanonicalPlanSlot,
+  asOf: string,
+  productLanguage: string,
+): CreditSnapshot {
+  const windowName = canonicalSlotLabel(slot);
+  return {
+    provider,
+    asOf,
+    remaining: null,
+    total: null,
+    unit: "percent",
+    label: UNAVAILABLE_SLOT_LABEL[slot],
+    source: "unavailable",
+    status: "unavailable",
+    surface: "plan_usage",
+    details: {
+      slot,
+      canonical: true,
+      windowMinutes: CANONICAL_PLAN_WINDOW_MINUTES[slot],
+      note: `${provider} does not expose a ${windowName} plan window.`,
+      productLanguage,
+    },
+  };
 }
