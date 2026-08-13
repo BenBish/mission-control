@@ -114,7 +114,7 @@ Statuses: **available** | **limited** | **unavailable** | **needs product decisi
 | Anthropic Enterprise Analytics | **needs product decision** | **needs product decision** | **available** (Analytics path) | Analytics API key |
 | OpenAI | **limited** — Codex windows only via session logs | **unavailable** via secret keys (`credit_grants` session-only) | **available** | `OPENAI_ADMIN_KEY`; do not rely on secret for wallet |
 | OpenRouter | N/A (no Pro-style plan UI) | **available** (`GET /api/v1/credits`) | **available** | `OPENROUTER_API_KEY` (management preferred for credits) |
-| xAI | **available via Grok CLI collector** (billing `creditUsagePercent` + period window); API key still unavailable | **unavailable** (API key) | **limited** (export endpoint) | `XAI_API_KEY`, optional `MC_XAI_USAGE_ENDPOINT`; collector uses `~/.grok/auth.json` for plan windows |
+| xAI | **available via Grok CLI collector** (billing `creditUsagePercent` + period window); API key still unavailable. Canonical **5h** is usually `unavailable` — SuperGrok billing typically exposes weekly (or monthly as an extra), not a 5-hour bar. | **unavailable** (API key) | **limited** (export endpoint) | `XAI_API_KEY`, optional `MC_XAI_USAGE_ENDPOINT`; collector uses `~/.grok/auth.json` for plan windows |
 
 ---
 
@@ -124,7 +124,8 @@ Prefer **three first-class concepts** in API/UI (names illustrative):
 
 1. **`plan_usage` / capacity windows**  
    - Fields: `provider`, `product` (e.g. `codex:primary`, `claude-code`), `used_percent` or `remaining_percent`, `window_minutes`, `resets_at`, `source` (`session_quota` \| `provider_api` \| `unavailable`)  
-   - UI section: **Plan usage**  
+   - Canonical slots (BSH-171): every Claude / OpenAI / xAI subscription presents **5-hour** (300m) and **weekly** (10080m). Shared contract: `src/lib/plan-windows.ts`. Claude, Codex, and Grok collectors emit into that contract; normalize fills a missing slot as `unavailable` rather than inventing %. Extras (Claude Opus weekly, Grok month / product bars) are labeled separately and never occupy 5h/weekly.  
+   - UI section: **Plan usage** (Dashboard KPI + Consumption list both slots, not only the tightest window)  
    - Seed from: existing `quota_snapshots` + future real plan APIs if any  
 
 2. **`usage_credits` / wallet**  

@@ -11,6 +11,12 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
+import {
+  PLAN_WINDOW_FIVE_HOUR_MINUTES,
+  PLAN_WINDOW_MONTH_MINUTES,
+  PLAN_WINDOW_WEEKLY_MINUTES,
+  classifyPlanWindow,
+} from "../../lib/plan-windows.js";
 import type { IngestEvent } from "../../types/ingest.js";
 
 export const DEFAULT_GROK_AUTH_PATH = path.join(
@@ -157,27 +163,33 @@ export function windowFromPeriod(
     Number.isFinite(startMs) && Number.isFinite(endMs) && endMs > startMs
       ? Math.round((endMs - startMs) / 60_000)
       : undefined;
-  const t = typeof type === "string" ? type.toUpperCase() : "";
-
-  if (
-    t.includes("FIVE_HOUR") ||
-    t.includes("5H") ||
-    t.includes("5_HOUR") ||
-    computed === 300
-  ) {
-    return { limitId: "grok:5h", windowMinutes: computed ?? 300 };
+  const classified = classifyPlanWindow({
+    periodType: typeof type === "string" ? type : undefined,
+    windowMinutes: computed,
+  });
+  if (classified.kind === "5h") {
+    return {
+      limitId: "grok:5h",
+      windowMinutes: classified.windowMinutes ?? PLAN_WINDOW_FIVE_HOUR_MINUTES,
+    };
   }
-  if (t.includes("WEEK") || t.includes("SEVEN_DAY") || computed === 10_080) {
-    return { limitId: "grok:week", windowMinutes: computed ?? 10_080 };
+  if (classified.kind === "wk") {
+    return {
+      limitId: "grok:week",
+      windowMinutes: classified.windowMinutes ?? PLAN_WINDOW_WEEKLY_MINUTES,
+    };
   }
-  if (
-    t.includes("MONTH") ||
-    (computed != null && computed >= 28 * 1440 && computed <= 31 * 1440)
-  ) {
-    return { limitId: "grok:month", windowMinutes: computed ?? 43_200 };
+  if (classified.key === "month") {
+    return {
+      limitId: "grok:month",
+      windowMinutes: classified.windowMinutes ?? PLAN_WINDOW_MONTH_MINUTES,
+    };
   }
-  if ((t.includes("DAY") && !t.includes("WEEK")) || computed === 1440) {
-    return { limitId: "grok:day", windowMinutes: computed ?? 1440 };
+  if (classified.key === "day") {
+    return {
+      limitId: "grok:day",
+      windowMinutes: classified.windowMinutes ?? 1_440,
+    };
   }
   return computed != null && computed > 0
     ? { limitId: "grok:plan", windowMinutes: computed }

@@ -15,9 +15,19 @@ function formatCreditRemaining(c: ProviderCredit): string {
   return `${c.remaining.toLocaleString()} ${c.unit}`;
 }
 
-function creditLabelDisplay(label: string): string {
+function creditLabelDisplay(
+  label: string,
+  details?: Record<string, unknown> | null,
+): string {
   if (label === "prepaid_balance") return "Wallet balance";
   if (label === "plan_usage_unavailable") return "Plan limits";
+  if (label === "quota_slot:5h") return "5-hour window";
+  if (label === "quota_slot:wk") return "Weekly window";
+  const slot = typeof details?.slot === "string" ? details.slot : null;
+  if (slot === "5h") return "5-hour window";
+  if (slot === "wk") return "Weekly window";
+  if (slot === "opus_wk") return "Opus weekly";
+  if (slot === "month") return "Monthly window";
   if (label.startsWith("quota_")) {
     return label.replace(/^quota_/, "Usage window · ").replace(/_/g, " ");
   }
@@ -70,7 +80,7 @@ export function CreditSnapshotTile({ credit }: { credit: ProviderCredit }) {
         </Badge>
       </div>
       <p className="text-xs text-muted-foreground">
-        {creditLabelDisplay(credit.label)}
+        {creditLabelDisplay(credit.label, credit.details)}
         {credit.source === "session_quota" ? " · session quota" : ""}
         {credit.source === "provider_api" ? " · provider API" : ""}
         {credit.source === "unavailable" ? " · not available" : ""}

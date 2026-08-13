@@ -16,6 +16,21 @@ function planUsage(
     remainingPercent,
     windowLabel: "5h",
     label: "quota_claude:5h_300m",
+    fiveHour: {
+      slot: "5h" as const,
+      windowLabel: "5h",
+      remainingPercent,
+      status: "ok",
+      label: "quota_claude:5h_300m",
+    },
+    weekly: {
+      slot: "wk" as const,
+      windowLabel: "wk",
+      remainingPercent: 80,
+      status: "ok",
+      label: "quota_claude:7d_10080m",
+    },
+    extras: [],
     ...overrides,
   };
   return {

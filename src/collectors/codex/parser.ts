@@ -14,7 +14,9 @@
  *     resets_at}, secondary: {...} }`. resets_at is a Unix timestamp in
  *     seconds, not an ISO string. Each token_count record with rate_limits
  *     present yields two quota_snapshot events (one per window), keyed
- *     `${limit_id}:primary` / `${limit_id}:secondary`.
+ *     `${limit_id}:primary` / `${limit_id}:secondary`. Those map onto the
+ *     shared 5h / weekly plan-window contract in `src/lib/plan-windows.ts`
+ *     (primary ≈ 5h, secondary ≈ weekly when window_minutes match).
  *  3. function_call has no turn_id field (the design doc's assumption was
  *     wrong) — it has `call_id`, which this parser uses for correlation
  *     instead.

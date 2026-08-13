@@ -45,7 +45,7 @@ import {
   isCompactSpendPrimary,
   summarizeProviderSync,
 } from "@/lib/direct-api-spend";
-import { summarizePlanUsage } from "@/lib/plan-usage";
+import { formatProviderPlanLine, summarizePlanUsage } from "@/lib/plan-usage";
 import { getProviderUsageSinceDay, utcDayKey } from "@/lib/date-range";
 import { failureStatusScopeLabel } from "@/types/failures";
 import {
@@ -437,16 +437,20 @@ export default function DashboardPage() {
                   >
                     {planUsageSummary.mostConstrained.displayName}{" "}
                     {planUsageSummary.mostConstrained.windowLabel}
-                    {planUsageSummary.perProvider.length > 1
-                      ? ` · ${planUsageSummary.perProvider
-                          .slice(1)
-                          .map(
-                            (p) =>
-                              `${p.displayName} ${p.remainingPercent}% ${p.windowLabel}`,
-                          )
-                          .join(" · ")}`
-                      : ""}
                   </p>
+                  <ul
+                    className="mt-1 space-y-0.5"
+                    data-testid="plan-usage-kpi-slots"
+                  >
+                    {planUsageSummary.perProvider.map((p) => (
+                      <li
+                        key={p.provider}
+                        className="text-xs text-muted-foreground"
+                      >
+                        {formatProviderPlanLine(p)}
+                      </li>
+                    ))}
+                  </ul>
                 </>
               ) : (
                 <>
@@ -462,6 +466,21 @@ export default function DashboardPage() {
                   >
                     No fresh plan windows
                   </p>
+                  {planUsageSummary.perProvider.length > 0 && (
+                    <ul
+                      className="mt-1 space-y-0.5"
+                      data-testid="plan-usage-kpi-slots"
+                    >
+                      {planUsageSummary.perProvider.map((p) => (
+                        <li
+                          key={p.provider}
+                          className="text-xs text-muted-foreground"
+                        >
+                          {formatProviderPlanLine(p)}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </>
               )}
               <p className="text-xs text-muted-foreground mt-0.5">

@@ -38,7 +38,8 @@ const ALL_CONNECTORS: ProviderConnector[] = [
 
 /**
  * Map provider connector id → collector source_id that emits quota_snapshots
- * for that provider's plan-usage windows.
+ * for that provider's plan-usage windows. Those snapshots are classified
+ * into the shared 5h / weekly contract (`src/lib/plan-windows.ts`).
  */
 export const SESSION_QUOTA_SOURCE_BY_PROVIDER: Partial<
   Record<ProviderId, string>

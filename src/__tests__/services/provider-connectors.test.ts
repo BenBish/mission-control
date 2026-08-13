@@ -1127,5 +1127,35 @@ describe("credit normalize helpers", () => {
     expect(snaps[0].source).toBe("session_quota");
     expect(snaps[0].surface).toBe("plan_usage");
     expect(capacitySurfaceOf(snaps[0])).toBe("plan_usage");
+    expect(snaps[0].details?.slot).toBe("5h");
+    const missingWeek = snaps.find((s) => s.label === "quota_slot:wk");
+    expect(missingWeek?.status).toBe("unavailable");
+    expect(missingWeek?.remaining).toBeNull();
+  });
+
+  test("normalizeSessionQuotaToCredits fills Grok 5h as unavailable when only weekly exists", () => {
+    const snaps = normalizeSessionQuotaToCredits(
+      [
+        {
+          source_id: "grok",
+          instance_id: "local",
+          timestamp: "2026-08-13T12:00:00Z",
+          limit_id: "grok:week",
+          used_percent: 53,
+          window_minutes: 10080,
+          resets_at: "2026-08-17T02:53:15.569Z",
+        },
+      ],
+      "xai",
+    );
+    const week = snaps.find((s) => s.details?.limitId === "grok:week");
+    expect(week?.remaining).toBe(47);
+    expect(week?.source).toBe("session_quota");
+    expect(week?.details?.slot).toBe("wk");
+    const fiveH = snaps.find((s) => s.label === "quota_slot:5h");
+    expect(fiveH?.status).toBe("unavailable");
+    expect(fiveH?.remaining).toBeNull();
+    expect(fiveH?.details?.slot).toBe("5h");
+    expect(fiveH?.details?.note).toMatch(/5-hour/i);
   });
 });
