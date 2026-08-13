@@ -447,7 +447,7 @@ export default function DashboardPage() {
                         key={p.provider}
                         className="text-xs text-muted-foreground"
                       >
-                        {formatProviderPlanLine(p)}
+                        {formatProviderPlanLine(p, { includeExtras: false })}
                       </li>
                     ))}
                   </ul>
@@ -476,7 +476,7 @@ export default function DashboardPage() {
                           key={p.provider}
                           className="text-xs text-muted-foreground"
                         >
-                          {formatProviderPlanLine(p)}
+                          {formatProviderPlanLine(p, { includeExtras: false })}
                         </li>
                       ))}
                     </ul>

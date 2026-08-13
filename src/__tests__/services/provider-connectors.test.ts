@@ -1066,6 +1066,47 @@ describe("syncProvider idempotency", () => {
       false,
     );
   });
+
+  test("sync drops leftover quota_slot:5h once a real 5h window appears", async () => {
+    setEnv("XAI_API_KEY", undefined);
+    await seedSourceAndInstance(db.raw(), "grok", "grok@prune");
+    await insertQuotaSnapshot(db.raw(), "grok", "grok@prune", {
+      timestamp: "2026-08-13T12:00:00.000Z",
+      limitId: "grok:week",
+      usedPercent: 53,
+      windowMinutes: 10080,
+      resetsAt: "2026-08-17T02:53:15.569Z",
+    });
+    await syncProvider(db.raw(), xaiConnector, {
+      fetchImpl: async () => jsonResponse({}),
+    });
+    let credits = await latestProviderCreditSnapshots(db.raw(), {
+      provider: "xai",
+    });
+    expect(credits.some((c) => c.label === "quota_slot:5h")).toBe(true);
+
+    await insertQuotaSnapshot(db.raw(), "grok", "grok@prune", {
+      timestamp: "2026-08-13T13:00:00.000Z",
+      limitId: "grok:5h",
+      usedPercent: 10,
+      windowMinutes: 300,
+      resetsAt: "2026-08-13T18:00:00.000Z",
+    });
+    await syncProvider(db.raw(), xaiConnector, {
+      fetchImpl: async () => jsonResponse({}),
+    });
+    credits = await latestProviderCreditSnapshots(db.raw(), {
+      provider: "xai",
+    });
+    expect(credits.some((c) => c.label === "quota_slot:5h")).toBe(false);
+    expect(
+      credits.some(
+        (c) =>
+          c.source === "session_quota" &&
+          Boolean(c.details_json?.includes('"limitId":"grok:5h"')),
+      ),
+    ).toBe(true);
+  });
 });
 
 describe("credit normalize helpers", () => {

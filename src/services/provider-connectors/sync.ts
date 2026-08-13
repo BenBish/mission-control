@@ -20,6 +20,10 @@ import { openrouterConnector } from "./connectors/openrouter.js";
 import { xaiConnector } from "./connectors/xai.js";
 import { credentialMeta } from "./credentials.js";
 import { sanitizeMessage } from "./http.js";
+import {
+  CANONICAL_PLAN_SLOTS,
+  UNAVAILABLE_SLOT_LABEL,
+} from "../../lib/plan-windows.js";
 import { normalizeSessionQuotaToCredits } from "./normalize/credits.js";
 import type {
   FetchImpl,
@@ -104,6 +108,18 @@ async function syncCreditsForProvider(
           connector.id,
           "plan_usage_unavailable",
         );
+      }
+      for (const slot of CANONICAL_PLAN_SLOTS) {
+        const hasRealSlot = snaps.some(
+          (s) => s.source === "session_quota" && s.details?.slot === slot,
+        );
+        if (hasRealSlot) {
+          await deleteProviderCreditSnapshotsByLabel(
+            db,
+            connector.id,
+            UNAVAILABLE_SLOT_LABEL[slot],
+          );
+        }
       }
     } catch (err) {
       console.warn(

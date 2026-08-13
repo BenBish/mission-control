@@ -160,7 +160,7 @@ function isDayWindow(hay: string, minutes: number | null): boolean {
   if (minutes === 1_440) return true;
   const hasDay = /\bday\b/.test(hay) || hay.includes(":day");
   const hasWeek = hay.includes("week") || hay.includes("seven_day");
-  return hasDay && !hasWeek && !/\bmonth/.test(hay);
+  return hasDay && !hasWeek && !hay.includes("month");
 }
 
 function grokProductExtraKey(limitId: string): string | null {

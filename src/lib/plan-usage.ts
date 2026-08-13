@@ -229,6 +229,11 @@ function preferSlot(
   if (next.status === "unavailable") return current;
   if (current.status === "ok" && next.status !== "ok") return current;
   if (next.status === "ok" && current.status !== "ok") return next;
+  if (current.status === "ok" && next.status === "ok") {
+    const a = current.remainingPercent;
+    const b = next.remainingPercent;
+    if (a != null && b != null) return a <= b ? current : next;
+  }
   return next;
 }
 
@@ -249,8 +254,12 @@ export function formatPlanSlotChip(slot: PlanUsageSlotView): string {
 
 export function formatProviderPlanLine(
   summary: PlanUsageProviderSummary,
+  opts: { includeExtras?: boolean } = {},
 ): string {
-  const extras = summary.extras.map(formatPlanSlotChip).join(" · ");
+  const includeExtras = opts.includeExtras !== false;
+  const extras = includeExtras
+    ? summary.extras.map(formatPlanSlotChip).join(" · ")
+    : "";
   const canonical = `${formatPlanSlotChip(summary.fiveHour)} · ${formatPlanSlotChip(summary.weekly)}`;
   return extras
     ? `${summary.displayName} ${canonical} · ${extras}`

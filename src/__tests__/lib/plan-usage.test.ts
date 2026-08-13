@@ -165,6 +165,28 @@ describe("summarizePlanUsage", () => {
     expect(summary.mostConstrained?.remainingPercent).toBe(80);
   });
 
+  test("keeps the tighter remaining percent when two ok rows share a slot", () => {
+    const summary = summarizePlanUsage([
+      credit({
+        provider: "openai",
+        label: "quota_codex:primary_300m",
+        remaining: 80,
+        status: "ok",
+        details: { limitId: "codex:primary", windowMinutes: 300 },
+      }),
+      credit({
+        provider: "openai",
+        label: "quota_codex:primary_alt_300m",
+        remaining: 25,
+        status: "ok",
+        details: { limitId: "codex:primary", windowMinutes: 300 },
+      }),
+    ]);
+    const openai = summary.perProvider.find((p) => p.provider === "openai");
+    expect(openai?.fiveHour.remainingPercent).toBe(25);
+    expect(summary.mostConstrained?.remainingPercent).toBe(25);
+  });
+
   test("maps Grok weekly and leaves 5h unavailable", () => {
     const summary = summarizePlanUsage([
       credit({
