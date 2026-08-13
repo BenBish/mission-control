@@ -25,13 +25,17 @@ import {
 } from "@/lib/dashboard-sse-invalidation";
 import {
   useActivityList,
+  useCapacityAlertSettings,
   useConsumption,
   useFailures,
   useProviderBreakdown,
   useProviderCredits,
+  useProviderSpendInsights,
   useProviderStatus,
   useSources,
 } from "@/lib/queries";
+import { buildDashboardAttentionItems } from "@/lib/dashboard-attention";
+import { DashboardAttentionCard } from "@/pages/DashboardAttentionCard";
 import { formatLastActive } from "@/lib/date-utils";
 import {
   aggregateProviderCost,
@@ -140,9 +144,33 @@ export default function DashboardPage() {
   } = useProviderStatus();
   const { data: providerCapacity, isPending: providerCreditsPending } =
     useProviderCredits();
+  const { data: spendInsights } = useProviderSpendInsights();
+  const { data: capacityAlertSettings } = useCapacityAlertSettings();
   const planUsageSummary = useMemo(
     () => summarizePlanUsage(providerCapacity?.planUsage ?? []),
     [providerCapacity?.planUsage],
+  );
+  const attentionItems = useMemo(
+    () =>
+      buildDashboardAttentionItems({
+        failureLast24Hours: failureSummary?.last24Hours,
+        openRuntimeEvents: failureSummary?.openRuntimeEvents,
+        planUsage: planUsageSummary,
+        capacitySettings: capacityAlertSettings,
+        budget: spendInsights?.budget,
+        scopedBudgets: spendInsights?.scopedBudgets,
+        alerts: spendInsights?.alerts,
+        anomalies: spendInsights?.anomalies,
+        recommendations: spendInsights?.recommendations,
+        topBreakdown: spendInsights?.topBreakdown,
+      }),
+    [
+      failureSummary?.last24Hours,
+      failureSummary?.openRuntimeEvents,
+      planUsageSummary,
+      capacityAlertSettings,
+      spendInsights,
+    ],
   );
   const planUsageLoading = providerCreditsPending && !providerCapacity;
   // Amount pending is per-window; do not block dollar display on status retries.
@@ -512,6 +540,8 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      <DashboardAttentionCard items={attentionItems} />
 
       <div className="grid min-w-0 gap-6 lg:grid-cols-7">
         {/* Recent Activity Card */}

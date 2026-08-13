@@ -115,6 +115,8 @@ describe("ALL_DASHBOARD_QUERY_FAMILIES", () => {
   test("includes provider-status for reconnect recovery", () => {
     expect(ALL_DASHBOARD_QUERY_FAMILIES).toContain("provider-status");
     expect(ALL_DASHBOARD_QUERY_FAMILIES).toContain("provider-breakdown");
+    expect(ALL_DASHBOARD_QUERY_FAMILIES).toContain("provider-credits");
+    expect(ALL_DASHBOARD_QUERY_FAMILIES).toContain("provider-spend-insights");
   });
 });
 

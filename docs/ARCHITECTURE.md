@@ -180,6 +180,9 @@ UI surfaces (Consumption, Dashboard direct-API / Plan Usage cards, reconciliatio
 keep these classes in **separate sections** rather than one combined “total spend.”
 The Dashboard **Plan Usage** KPI shows only fresh (`status=ok`) percent-remaining
 windows and never implies dollars.
+The Dashboard **Needs attention** strip composes existing failures, plan-usage,
+and spend-insight signals into recommended actions; it does not add collection
+or mix quota percent with billed dollars. Recent Activity remains the raw feed.
 
 Quota and wallet **capacity threshold alerts** reuse `spend_alert_events` with
 `data_class` `quota` or `wallet` (never `cost`). They fire when a fresh plan-
