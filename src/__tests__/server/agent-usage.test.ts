@@ -184,6 +184,58 @@ describe("GET /api/consumption/agent-usage", () => {
   });
 });
 
+describe("GET /api/consumption/agent-usage/export", () => {
+  test("serializes ranked drivers as CSV for the current filters", async () => {
+    const res = await fetch(
+      `${baseUrl}/api/consumption/agent-usage/export?format=csv&since=2026-08-01T00:00:00.000Z&dimension=model`,
+    );
+    const body = await res.text();
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toMatch(/text\/csv/);
+    expect(res.headers.get("content-disposition")).toMatch(
+      /attachment; filename="agent-usage-drivers-model-since-2026-08-01.csv"/,
+    );
+    expect(body).toContain("key,source_id,canonical_model,raw_models,project");
+    expect(body).toContain("claude-code");
+    expect(body).toContain("claude-3.5-sonnet");
+    expect(body).not.toContain("/home/ben/Dev");
+  });
+
+  test("JSON export includes source scope and omits non-material by default", async () => {
+    const res = await fetch(
+      `${baseUrl}/api/consumption/agent-usage/export?format=json&sourceId=claude-code`,
+    );
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.dataset).toBe("agent-usage-drivers");
+    expect(body.filters.sourceId).toBe("claude-code");
+    expect(body.filters.includeNonMaterial).toBe(false);
+    expect(body.drivers.length).toBeGreaterThan(0);
+    expect(
+      body.drivers.every(
+        (d: { attribution: string; materiality: string }) =>
+          d.attribution === "known" && d.materiality === "material",
+      ),
+    ).toBe(true);
+  });
+
+  test("includeNonMaterial=1 is reflected in JSON filters", async () => {
+    const res = await fetch(
+      `${baseUrl}/api/consumption/agent-usage/export?format=json&includeNonMaterial=1`,
+    );
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.filters.includeNonMaterial).toBe(true);
+  });
+
+  test("rejects unknown format", async () => {
+    const res = await fetch(
+      `${baseUrl}/api/consumption/agent-usage/export?format=xlsx`,
+    );
+    expect(res.status).toBe(400);
+  });
+});
+
 describe("GET /api/consumption/agent-usage/sessions", () => {
   test("requires driverKey", async () => {
     const res = await fetch(

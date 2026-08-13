@@ -15,7 +15,10 @@ import type {
   AgentUsageSessionRow,
   AgentUsageSummary,
 } from "@/lib/queries";
+import { agentUsageDriversExportPath } from "@/lib/consumption-export";
+import { downloadConsumptionExport } from "@/lib/download-export";
 import { AGENT_DIMENSIONS, UNITS } from "./constants";
+import { ExportMenu } from "./ExportMenu";
 import { formatCompute } from "./helpers";
 import type { AgentUsageTotals, Unit, UpdateConsumptionParams } from "./types";
 
@@ -36,6 +39,7 @@ export function AgentUsageTab({
   drivers,
   drillLoading,
   drillSessions,
+  since,
 }: {
   unit: Unit;
   totals: AgentUsageTotals;
@@ -53,6 +57,7 @@ export function AgentUsageTab({
   drivers: AgentUsageDriver[];
   drillLoading: boolean;
   drillSessions: { sessions: AgentUsageSessionRow[] } | undefined;
+  since?: string;
 }) {
   return (
     <>
@@ -248,18 +253,35 @@ export function AgentUsageTab({
                       Zero-token and synthetic rows are excluded by default.
                     </CardDescription>
                   </div>
-                  <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="rounded border-muted-foreground"
-                      checked={includeNonMaterial}
-                      onChange={(e) => {
-                        setIncludeNonMaterial(e.target.checked);
-                        setExpandedDriverKey(null);
-                      }}
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="rounded border-muted-foreground"
+                        checked={includeNonMaterial}
+                        onChange={(e) => {
+                          setIncludeNonMaterial(e.target.checked);
+                          setExpandedDriverKey(null);
+                        }}
+                      />
+                      Show zero / synthetic
+                    </label>
+                    <ExportMenu
+                      testId="export-agent-usage"
+                      disabled={!agentUsage}
+                      onExport={(format) =>
+                        downloadConsumptionExport(
+                          agentUsageDriversExportPath({
+                            format,
+                            since,
+                            sourceId: selectedSourceId,
+                            dimension: agentDimension,
+                            includeNonMaterial,
+                          }),
+                        )
+                      }
                     />
-                    Show zero / synthetic
-                  </label>
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {AGENT_DIMENSIONS.map((d) => (

@@ -12,6 +12,13 @@ import {
   parseProviderList,
 } from "../../services/spend-reconciliation.js";
 import { optionalQueryString } from "../query.js";
+import {
+  buildAgentUsageDriversExportJson,
+  consumptionExportFilename,
+  parseExportFormat,
+  serializeAgentUsageDriversCsv,
+} from "../../lib/consumption-export.js";
+import { sendConsumptionExport } from "../export-response.js";
 
 const DIMENSIONS = new Set<AgentUsageDimension>([
   "model",
@@ -72,6 +79,66 @@ export function registerConsumptionRoutes(app: Express, db: Database): void {
         res.status(500).json({
           success: false,
           error: "Failed to load agent usage summary",
+        });
+      }
+    },
+  );
+
+  /**
+   * CSV/JSON download of ranked agent-usage drivers (BSH-146).
+   * Same filters as GET /api/consumption/agent-usage:
+   * since, until, sourceId, dimension, includeNonMaterial, format=csv|json.
+   */
+  app.get(
+    "/api/consumption/agent-usage/export",
+    async (req: Request, res: Response) => {
+      try {
+        const format = parseExportFormat(req.query.format);
+        if (!format) {
+          res.status(400).json({
+            success: false,
+            error: "format must be csv or json",
+          });
+          return;
+        }
+        const since = optionalQueryString(req.query.since);
+        const until = optionalQueryString(req.query.until);
+        const sourceId = optionalQueryString(req.query.sourceId);
+        const dimension = parseDimension(
+          optionalQueryString(req.query.dimension),
+        );
+        const includeNonMaterial =
+          optionalQueryString(req.query.includeNonMaterial) === "1" ||
+          optionalQueryString(req.query.includeNonMaterial) === "true";
+
+        const summary = await getAgentUsageSummary(db.raw(), {
+          since,
+          until,
+          sourceId,
+          dimension,
+          includeNonMaterial,
+        });
+
+        sendConsumptionExport(res, {
+          format,
+          filename: consumptionExportFilename("agent-usage-drivers", format, {
+            since,
+            dimension,
+          }),
+          csv: serializeAgentUsageDriversCsv(summary.drivers),
+          jsonBody: buildAgentUsageDriversExportJson(summary.drivers, {
+            since: summary.range.since,
+            until: summary.range.until,
+            sourceId,
+            dimension: summary.dimension,
+            includeNonMaterial: summary.includeNonMaterial,
+          }),
+        });
+      } catch (err) {
+        console.error("GET /api/consumption/agent-usage/export failed:", err);
+        res.status(500).json({
+          success: false,
+          error: "Failed to export agent usage drivers",
         });
       }
     },

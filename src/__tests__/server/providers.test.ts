@@ -168,6 +168,50 @@ describe("GET /api/providers/usage", () => {
   });
 });
 
+describe("GET /api/providers/usage/export", () => {
+  test("serializes daily usage as CSV with attachment headers", async () => {
+    const res = await fetch(
+      `${baseUrl}/api/providers/usage/export?format=csv&since=2026-07-01`,
+    );
+    const body = await res.text();
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toMatch(/text\/csv/);
+    expect(res.headers.get("content-disposition")).toMatch(
+      /attachment; filename="provider-usage-since-2026-07-01.csv"/,
+    );
+    expect(body).toContain("day,provider,model,input_tokens");
+    expect(body).toContain("2026-07-10,openrouter,test/model,42,7,0.003,1");
+  });
+
+  test("serializes daily usage as JSON with filter metadata", async () => {
+    const res = await fetch(
+      `${baseUrl}/api/providers/usage/export?format=json&since=2026-07-10`,
+    );
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toMatch(/application\/json/);
+    expect(body.dataset).toBe("provider-usage");
+    expect(body.filters.since).toBe("2026-07-10");
+    expect(
+      body.usage.some((u: { model: string }) => u.model === "test/model"),
+    ).toBe(true);
+  });
+
+  test("respects since filter (day after seeded row is empty)", async () => {
+    const res = await fetch(
+      `${baseUrl}/api/providers/usage/export?format=json&since=2026-07-11`,
+    );
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.usage).toEqual([]);
+  });
+
+  test("rejects unknown format", async () => {
+    const res = await fetch(`${baseUrl}/api/providers/usage/export?format=xml`);
+    expect(res.status).toBe(400);
+  });
+});
+
 describe("GET /api/providers/usage/breakdown", () => {
   test("aggregates by provider and model", async () => {
     const res = await fetch(

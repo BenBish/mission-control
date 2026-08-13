@@ -201,13 +201,13 @@ Route registration: `src/server/routes/index.ts`.
 | Sources | `GET /api/sources` |
 | Sessions | `GET /api/sessions`, `GET /api/sessions/:id` |
 | Activities | `GET /api/activities`, `GET /api/activities/:id` |
-| Consumption | `GET /api/consumption`, `…/agent-usage`, `…/agent-usage/sessions`, `…/reconciliation` |
+| Consumption | `GET /api/consumption`, `…/agent-usage`, `…/agent-usage/export`, `…/agent-usage/sessions`, `…/reconciliation` |
 | Failures | `GET /api/failures`, `…/groups`, `…/groups/:fingerprint/events` |
 | Jobs | `GET /api/jobs`, `…/:id`, `…/:id/runs` |
 | Runtime | `GET /api/runtime` |
 | Contention | `GET /api/contention` |
 | Generations | `GET /api/generations`, `…/:id` |
-| Providers | status, sync, usage, breakdown, budget(s), spend-insights, spend-alerts, capacity-alert-settings, credits |
+| Providers | status, sync, usage, usage/export, breakdown, budget(s), spend-insights, spend-alerts, capacity-alert-settings, credits |
 | Privacy | `GET /api/privacy/policy`, retention run, purge-sensitive |
 | Stream | `GET /api/stream` (SSE) |
 

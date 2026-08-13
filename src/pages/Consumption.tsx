@@ -336,6 +336,7 @@ export default function Consumption() {
             drivers={drivers}
             drillLoading={drillLoading}
             drillSessions={drillSessions}
+            since={agentSince}
           />
         </TabsContent>
 
@@ -358,6 +359,7 @@ export default function Consumption() {
             planUsageCredits={planUsageCredits}
             walletCredits={walletCredits}
             providerStatus={providerStatus}
+            since={providerSince}
           />
         </TabsContent>
 

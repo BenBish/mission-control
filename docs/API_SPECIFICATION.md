@@ -96,6 +96,7 @@ Authenticated with API key when configured.
 | --- | --- | --- |
 | `GET` | `/api/consumption` | Consumption rollup for the UI |
 | `GET` | `/api/consumption/agent-usage` | Normalized agent usage dimensions |
+| `GET` | `/api/consumption/agent-usage/export` | CSV/JSON download of ranked agent-usage drivers (`format=csv\|json`; same filters as agent-usage) |
 | `GET` | `/api/consumption/agent-usage/sessions` | Session breakdown for agent usage |
 | `GET` | `/api/consumption/reconciliation` | Provider vs agent linking (see spend-reconciliation.md) |
 
@@ -149,6 +150,7 @@ totals client-side without reading reconciliation classifications.
 | `GET` | `/api/providers/status` | Connector config/sync status |
 | `POST` | `/api/providers/sync` | Trigger sync now |
 | `GET` | `/api/providers/usage` | Daily usage rows |
+| `GET` | `/api/providers/usage/export` | CSV/JSON download of daily usage (`format=csv\|json`; same filters as usage) |
 | `GET` | `/api/providers/usage/breakdown` | Breakdown by model/provider |
 | `GET` | `/api/providers/credits` | Wallet / credit snapshots (+ persist quota/wallet capacity alerts) |
 | `GET` / `PUT` | `/api/providers/budget` | Legacy account monthly budget |
