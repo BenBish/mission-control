@@ -177,6 +177,44 @@ describe("computeSpendInsights", () => {
         (w) => w.provider === "openrouter" && w.reason === "stale",
       ),
     ).toBe(true);
+    // API still emits numbers; the Overview UI must not render them as $0.00.
+    expect(typeof insights.forecastMonthEndUsd).toBe("number");
+    expect(typeof insights.burnRateUsdPerDay).toBe("number");
+  });
+
+  test("start-of-month trailing forecast with only incomplete days is unreliable", () => {
+    const monthStart = new Date("2026-07-01T18:00:00.000Z");
+    const insights = computeSpendInsights({
+      usage: [
+        row({
+          provider: "openrouter",
+          day: "2026-07-01",
+          model: "a",
+          cost_usd: 0.67,
+        }),
+      ],
+      syncStatus: [
+        {
+          provider: "openrouter",
+          status: "ok",
+          last_sync_at: "2026-07-01 18:00:00",
+          last_success_at: "2026-07-01 18:00:00",
+          last_error: null,
+          cursor_day: null,
+          meta_json: null,
+          updated_at: null,
+        },
+      ],
+      configuredProviderIds: ["openrouter"],
+      budget: { monthlyBudgetUsd: 50, timezone: "UTC" },
+      now: monthStart,
+      forecastMethod: "trailing_7d",
+    });
+
+    expect(insights.budget.consumedUsd).toBeCloseTo(0.67);
+    expect(insights.forecast.daysUsed).toBe(0);
+    expect(insights.burnRateUsdPerDay).toBe(0);
+    expect(insights.meta.forecastReliable).toBe(false);
   });
 
   test("error status marks forecast unreliable", () => {
