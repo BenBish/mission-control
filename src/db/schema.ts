@@ -376,6 +376,8 @@ CREATE TABLE IF NOT EXISTS provider_sync_status (
 
 -- Provider prepaid credits / balance / capacity snapshots (API or session-quota).
 -- Distinct from provider_usage_daily (spend history) and from agent session costUsd.
+-- status CHECK is persistable connector outcomes only. API 'stale'/'expired'
+-- are derived at read time (evaluateCreditFreshness) and must never be written.
 CREATE TABLE IF NOT EXISTS provider_credit_snapshots (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   provider TEXT NOT NULL CHECK (provider IN ('openrouter', 'anthropic', 'openai', 'xai')),

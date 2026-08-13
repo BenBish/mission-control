@@ -15,9 +15,11 @@ import type { RetentionPolicy } from "../../server/privacy/policy.js";
  * retention window are just deleted, not aggregated — there's no
  * long-term trend anyone queries from those.
  *
- * inference_requests/runtime_events/quota_snapshots are event-driven
- * (one row per actual request/transition/quota-check), not fixed-interval
- * polling — their volume is bounded by real usage, not a 5s timer.
+ * inference_requests/runtime_events are event-driven (one row per
+ * request/transition), not fixed-interval polling.
+ * quota_snapshots is mixed: Codex session checks are event-driven, but
+ * the Claude Code usage-poller writes ~3 windows every 5 minutes, so
+ * history is pruned with the inference retention window below.
  * BSH-100 adds configurable retention by data class for those plus
  * activities/sessions/generation content.
  */
@@ -143,6 +145,8 @@ export async function runDataClassRetention(
     cutoffIso(retention.runtimeDays),
   );
 
+  // Same window as inference: quota rows are telemetry, not billing.
+  // Claude Code usage-poller (~3 windows / 5 min) would grow unbounded otherwise.
   const quota = await db.run(
     `DELETE FROM quota_snapshots WHERE timestamp < ?`,
     inferenceCutoff,

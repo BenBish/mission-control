@@ -46,6 +46,11 @@ e2e/playwright-report/
 e2e/test-results/
 e2e/.auth/
 
+# Manual / agent verification screenshots at repo root.
+# Durable fixtures belong in docs/verification/ if they must be committed.
+/manual-*.png
+/bsh*-*.png
+
 # Ralph
 .ralph/
 .playwright-cli/
