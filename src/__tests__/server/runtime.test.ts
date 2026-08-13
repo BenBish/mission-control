@@ -410,7 +410,7 @@ describe("GET /api/runtime", () => {
     expect(body.metrics?.requestCount).toBe(1);
     expect(body.metrics?.totalSlots).toBe(8);
     expect(body.metrics?.activeSlots).toBe(1);
-    expect(body.sources?.every((s) => s.id === "lemonade")).toBe(true);
+    expect(body.sources).toEqual([expect.objectContaining({ id: "lemonade" })]);
   });
 
   test("time range excludes old rows from lists and metrics", async () => {

@@ -4,6 +4,7 @@ import {
   FILTERABLE_QUERY_KEYS,
   getRouteScope,
   isSourceSelectorEnabled,
+  runtimeApiSourceId,
   scopePhrase,
 } from "../../config/sourceScope.js";
 
@@ -60,5 +61,16 @@ describe("source scope contract", () => {
     expect(scopePhrase("grok", [{ id: "grok", name: "Grok" }])).toBe(
       "for Grok",
     );
+  });
+
+  test("runtimeApiSourceId only scopes inference sources", () => {
+    const sources = [
+      { id: "hermes", kind: "inference" },
+      { id: "grok", kind: "agentic" },
+    ];
+    expect(runtimeApiSourceId(undefined, sources)).toBeUndefined();
+    expect(runtimeApiSourceId("hermes", sources)).toBe("hermes");
+    expect(runtimeApiSourceId("grok", sources)).toBeUndefined();
+    expect(runtimeApiSourceId("hermes", [])).toBe("hermes");
   });
 });

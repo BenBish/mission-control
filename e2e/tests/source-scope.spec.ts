@@ -182,4 +182,29 @@ test.describe("Source filter scope", () => {
       0,
     );
   });
+
+  test("Runtime keeps fleet data when an agent source is selected", async ({
+    page,
+  }) => {
+    await page.goto("/runtime");
+    await page
+      .getByRole("heading", { name: "Runtime", level: 1 })
+      .waitFor({ state: "visible" });
+
+    const agentScoped: string[] = [];
+    page.on("request", (r) => {
+      if (isApi(r, "/api/runtime") && sourceIdFrom(r) === "claude-code") {
+        agentScoped.push(r.url());
+      }
+    });
+
+    await selectSource(page, "Claude Code");
+    await expect(
+      page.getByText(/Source filter “Claude Code” does not apply here/i),
+    ).toBeVisible();
+    await expect(
+      page.getByText(/Local inference telemetry across inference sources/i),
+    ).toBeVisible();
+    expect(agentScoped).toEqual([]);
+  });
 });

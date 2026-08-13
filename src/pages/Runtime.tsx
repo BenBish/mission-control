@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   Card,
@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import { PageHeader } from "@/components/_shared/PageHeader";
 import { useFilterableSourceId, useSourceFilter } from "@/app/source-context";
-import { scopePhrase } from "@/config/sourceScope";
+import { runtimeApiSourceId, scopePhrase } from "@/config/sourceScope";
 import {
   Server,
   Cpu,
@@ -768,7 +768,8 @@ export default function Runtime() {
   );
 
   const range = parseRange(searchParams.get("range"));
-  const sourceId = selectedSourceId;
+  const sourceId = runtimeApiSourceId(selectedSourceId, filterSources);
+  const sourceFilterIgnored = Boolean(selectedSourceId) && !sourceId;
   const reqStatus = parseOptionalFilter(searchParams.get("reqStatus"));
   const reqClient = parseOptionalFilter(searchParams.get("reqClient"));
   const reqMinDurationMs = parseOptionalPositiveInt(
@@ -892,6 +893,13 @@ export default function Runtime() {
     [setSearchParams],
   );
 
+  const prevApiSourceId = useRef(sourceId);
+  useEffect(() => {
+    if (prevApiSourceId.current === sourceId) return;
+    prevApiSourceId.current = sourceId;
+    updateParams({ reqPage: 1, eventPage: 1 });
+  }, [sourceId, updateParams]);
+
   const summaryParams = useMemo(() => ({ range, sourceId }), [range, sourceId]);
 
   const listParams: RuntimeQueryParams = useMemo(
@@ -993,7 +1001,12 @@ export default function Runtime() {
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [summary?.metrics.p95LatencyMs, updateParams]);
 
-  const pageDescription = `Local inference telemetry ${scopePhrase(selectedSourceId, filterSources)}`;
+  const pageDescription = sourceFilterIgnored
+    ? "Local inference telemetry across inference sources"
+    : `Local inference telemetry ${scopePhrase(selectedSourceId, filterSources)}`;
+  const selectedSourceName =
+    filterSources.find((s) => s.id === selectedSourceId)?.name ??
+    selectedSourceId;
 
   // Hard error only when we have no summary to show yet.
   if (summaryError && !summary) {
@@ -1092,6 +1105,16 @@ export default function Runtime() {
         )}
       </div>
 
+      {sourceFilterIgnored && selectedSourceName && (
+        <div
+          className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground"
+          role="note"
+        >
+          Source filter “{selectedSourceName}” does not apply here — Runtime is
+          local inference (Hermes, Lemonade).
+        </div>
+      )}
+
       {summaryLoading && !summary ? (
         <MetricsSkeleton />
       ) : !anyInstances && summary ? (
@@ -1099,8 +1122,8 @@ export default function Runtime() {
           <CardContent className="py-12 text-center">
             <Server className="mx-auto h-12 w-12 text-muted-foreground/30" />
             <p className="mt-4 text-muted-foreground">
-              {selectedSourceId
-                ? `No inference telemetry ${scopePhrase(selectedSourceId, filterSources)}.`
+              {sourceId
+                ? `No inference telemetry ${scopePhrase(sourceId, filterSources)}.`
                 : "No inference sources registered yet."}
             </p>
           </CardContent>

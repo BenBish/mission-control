@@ -183,3 +183,20 @@ export function scopePhrase(
   const name = sources?.find((s) => s.id === selectedSourceId)?.name;
   return name ? `for ${name}` : `for ${selectedSourceId}`;
 }
+
+/**
+ * Source id to send on Runtime APIs.
+ * Only inference sources (Hermes, Lemonade) have runtime telemetry.
+ * Agent/generation selections stay fleet-wide; while the registry is
+ * still loading, pass the raw selection.
+ */
+export function runtimeApiSourceId(
+  selectedSourceId: string | undefined,
+  sources: { id: string; kind: string }[],
+): string | undefined {
+  if (!selectedSourceId) return undefined;
+  if (sources.length === 0) return selectedSourceId;
+  return sources.find((s) => s.id === selectedSourceId)?.kind === "inference"
+    ? selectedSourceId
+    : undefined;
+}
