@@ -10,7 +10,11 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import { Database } from "../../db/database.js";
-import { runRuntimeSnapshotRetention } from "../../db/queries/retention.js";
+import {
+  runRuntimeSnapshotRetention,
+  runDataClassRetention,
+} from "../../db/queries/retention.js";
+import { insertQuotaSnapshot } from "../../db/queries/telemetry.js";
 
 let fixtureDir: string;
 let db: Database;
@@ -172,5 +176,45 @@ describe("runRuntimeSnapshotRetention", () => {
     // busy=1) — not overwritten down to just the second pass's 1 sample.
     expect(rollups[0].sample_count).toBe(2);
     expect(rollups[0].slots_busy_avg).toBeCloseTo(0.5, 5);
+  });
+});
+
+describe("runDataClassRetention quota_snapshots", () => {
+  const POLICY = {
+    activitiesDays: 90,
+    sessionsDays: 90,
+    inferenceDays: 90,
+    runtimeDays: 7,
+    generationsDays: 90,
+    jobsDays: 90,
+  };
+
+  test("deletes quota rows older than the inference window and keeps recent ones", async () => {
+    const instanceId = "claude-code@arch-desktop";
+    await insertQuotaSnapshot(db.raw(), "claude-code", instanceId, {
+      timestamp: daysAgo(120),
+      limitId: "claude:5h",
+      usedPercent: 40,
+      windowMinutes: 300,
+      resetsAt: daysAgo(119),
+    });
+    await insertQuotaSnapshot(db.raw(), "claude-code", instanceId, {
+      timestamp: daysAgo(1),
+      limitId: "claude:5h",
+      usedPercent: 10,
+      windowMinutes: 300,
+      resetsAt: daysAgo(0),
+    });
+
+    const result = await runDataClassRetention(db.raw(), POLICY);
+    expect(result.quotaSnapshotsDeleted).toBe(1);
+
+    const remaining = await db
+      .raw()
+      .all<
+        { timestamp: string; used_percent: number }[]
+      >(`SELECT timestamp, used_percent FROM quota_snapshots ORDER BY timestamp`);
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0].used_percent).toBe(10);
   });
 });

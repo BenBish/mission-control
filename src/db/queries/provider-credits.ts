@@ -6,13 +6,34 @@
 import type { Database as SqliteDatabase } from "sqlite";
 import { capacitySurfaceOf } from "../../services/provider-connectors/normalize/credits.js";
 import { evaluateCreditFreshness } from "../../services/provider-connectors/normalize/credits-freshness.js";
-import type {
-  CapacitySurface,
-  CreditSnapshot,
-  CreditStatus,
-  CreditUnit,
-  ProviderId,
+import {
+  PERSISTED_CREDIT_STATUSES,
+  type CapacitySurface,
+  type CreditSnapshot,
+  type CreditStatus,
+  type CreditUnit,
+  type PersistedCreditStatus,
+  type ProviderId,
 } from "../../services/provider-connectors/types.js";
+
+const PERSISTED_CREDIT_STATUS_SET = new Set<string>(PERSISTED_CREDIT_STATUSES);
+
+/**
+ * Map a CreditStatus to a value the table CHECK will accept.
+ * `stale`/`expired` are read-time freshness over an originally-ok observation.
+ * Other unrecognized values are left unchanged so the CHECK still rejects them.
+ */
+export function toPersistedCreditStatus(
+  status: CreditStatus | string,
+): PersistedCreditStatus | string {
+  if (PERSISTED_CREDIT_STATUS_SET.has(status)) {
+    return status as PersistedCreditStatus;
+  }
+  if (status === "stale" || status === "expired") {
+    return "ok";
+  }
+  return status;
+}
 
 export interface ProviderCreditSnapshotRow {
   id: number;
@@ -61,7 +82,7 @@ export async function upsertProviderCreditSnapshot(
     snap.unit,
     snap.label,
     snap.source,
-    snap.status,
+    toPersistedCreditStatus(snap.status),
     detailsJson,
   );
 }

@@ -49,14 +49,20 @@ export const CREDIT_UNITS = [
 export type CreditUnit = (typeof CREDIT_UNITS)[number];
 
 export type CreditSource = "provider_api" | "session_quota" | "unavailable";
-/** ok = fresh; expired = quota window past; stale = aged without hard reset. */
-export type CreditStatus =
-  | "ok"
-  | "limited"
-  | "unavailable"
-  | "error"
-  | "stale"
-  | "expired";
+/** Connector outcomes that may be written to `provider_credit_snapshots.status`. */
+export const PERSISTED_CREDIT_STATUSES = [
+  "ok",
+  "limited",
+  "unavailable",
+  "error",
+] as const;
+export type PersistedCreditStatus = (typeof PERSISTED_CREDIT_STATUSES)[number];
+/**
+ * API/UI status. `stale` / `expired` are read-time freshness only
+ * (`evaluateCreditFreshness` in rowToApiCredit) and must never be persisted —
+ * the table CHECK matches `PersistedCreditStatus`, not this full union.
+ */
+export type CreditStatus = PersistedCreditStatus | "stale" | "expired";
 /**
  * BSH-93 product surface — do not collapse plan windows with prepaid wallets.
  * API org spend is `provider_usage_daily` / Direct API Spend, not this type.

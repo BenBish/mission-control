@@ -269,7 +269,8 @@ optional prompt redaction, tool payload truncation (`src/server/privacy/`).
 | jobs | 90 | `MC_RETENTION_JOBS_DAYS` |
 
 Runtime **slots** rows older than the window are rolled into
-`runtime_slot_rollups` before delete. Owner can trigger
+`runtime_slot_rollups` before delete. `quota_snapshots` (including Claude
+Code usage-poller rows) prune on the inference window. Owner can trigger
 `POST /api/privacy/retention/run` and `POST /api/privacy/purge-sensitive`.
 
 ---
