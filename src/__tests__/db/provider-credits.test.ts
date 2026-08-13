@@ -28,6 +28,10 @@ describe("toPersistedCreditStatus", () => {
     expect(toPersistedCreditStatus("stale")).toBe("ok");
     expect(toPersistedCreditStatus("expired")).toBe("ok");
   });
+
+  test("leaves unknown statuses unchanged so the CHECK can reject them", () => {
+    expect(toPersistedCreditStatus("not-a-status")).toBe("not-a-status");
+  });
 });
 
 describe("upsertProviderCreditSnapshot persistable status", () => {
@@ -63,7 +67,7 @@ describe("upsertProviderCreditSnapshot persistable status", () => {
     };
   }
 
-  test("refuses to persist stale/expired (CHECK would reject them)", async () => {
+  test("persists stale/expired as ok", async () => {
     await upsertProviderCreditSnapshot(db.raw(), snap("expired"));
     await upsertProviderCreditSnapshot(db.raw(), {
       ...snap("stale"),
@@ -76,6 +80,15 @@ describe("upsertProviderCreditSnapshot persistable status", () => {
 
     const rows = await latestProviderCreditSnapshots(db.raw());
     expect(rows.every((r) => r.status === "ok")).toBe(true);
+  });
+
+  test("upsert of an unknown status fails the schema CHECK", async () => {
+    await expect(
+      upsertProviderCreditSnapshot(
+        db.raw(),
+        snap("not-a-status" as CreditSnapshot["status"]),
+      ),
+    ).rejects.toThrow(/CHECK/i);
   });
 
   test("raw INSERT of stale fails the schema CHECK", async () => {

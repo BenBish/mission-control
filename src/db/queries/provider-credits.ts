@@ -21,14 +21,18 @@ const PERSISTED_CREDIT_STATUS_SET = new Set<string>(PERSISTED_CREDIT_STATUSES);
 /**
  * Map a CreditStatus to a value the table CHECK will accept.
  * `stale`/`expired` are read-time freshness over an originally-ok observation.
+ * Other unrecognized values are left unchanged so the CHECK still rejects them.
  */
 export function toPersistedCreditStatus(
   status: CreditStatus | string,
-): PersistedCreditStatus {
+): PersistedCreditStatus | string {
   if (PERSISTED_CREDIT_STATUS_SET.has(status)) {
     return status as PersistedCreditStatus;
   }
-  return "ok";
+  if (status === "stale" || status === "expired") {
+    return "ok";
+  }
+  return status;
 }
 
 export interface ProviderCreditSnapshotRow {
