@@ -48,6 +48,67 @@ test.describe("Dashboard", () => {
     expect(count).toBeGreaterThanOrEqual(5);
   });
 
+  test("shows a Needs attention summary distinct from Recent Activity", async ({
+    page,
+  }) => {
+    await expect(
+      page.getByRole("heading", { name: "Needs attention" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Recent Activity" }),
+    ).toBeVisible();
+    await expect(dashboard.getViewAllButton()).toBeVisible();
+  });
+
+  test("Needs attention links failures to the Failures page", async ({
+    page,
+  }) => {
+    await page.route("**/api/failures**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          success: true,
+          failures: [
+            {
+              kind: "activity",
+              id: "mock-fail-attn",
+              sourceId: "claude-code",
+              timestamp: new Date().toISOString(),
+              summary: "Mock attention failure",
+            },
+          ],
+          summary: {
+            total: 1,
+            last24Hours: 4,
+            openRuntimeEvents: 1,
+            byKind: { activity: 1, inference_request: 0, runtime_event: 0 },
+            definitions: {
+              total: "all-time matching failures",
+              last24Hours: "matching failures with timestamp >= now-24h",
+              openRuntimeEvents:
+                "runtime_events with severity != info and ended_at IS NULL",
+              statusScope:
+                "activity failure | inference non-success | runtime non-info",
+            },
+          },
+        }),
+      });
+    });
+
+    await dashboard.goto();
+    await dashboard.waitForStats();
+
+    const item = dashboard
+      .getAttentionItems()
+      .filter({ hasText: /failures/i })
+      .first();
+    await expect(item).toBeVisible();
+    await item.click();
+    await page.waitForURL("/failures");
+    expect(page.url()).toContain("/failures");
+  });
+
   test("shows recent activity list with items", async ({ page }) => {
     await expect(
       page.getByRole("heading", { name: "Recent Activity" }),

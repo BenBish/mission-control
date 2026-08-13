@@ -85,6 +85,15 @@ export class DashboardPage extends BasePage {
       .first();
   }
 
+  /** Get the Needs attention summary card (BSH-144) */
+  getAttentionCard(): Locator {
+    return this.page.getByTestId("dashboard-attention");
+  }
+
+  getAttentionItems(): Locator {
+    return this.page.getByTestId("dashboard-attention-item");
+  }
+
   /** Get the Recent Activity card root */
   getRecentActivityCard(): Locator {
     return this.cardRootForHeading("Recent Activity");
