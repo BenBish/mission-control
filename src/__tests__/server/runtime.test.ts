@@ -380,6 +380,7 @@ describe("GET /api/runtime", () => {
       id: "hermes-evt",
       timestamp: now,
     });
+    await insertSlotSnapshot({ busy: 2, total: 4 });
     // lemonade source rows (seeded source/instance)
     await db.raw().run(
       `INSERT INTO inference_requests (
@@ -393,12 +394,23 @@ describe("GET /api/runtime", () => {
       ) VALUES ('lem-evt', 'lemonade', 'lemonade@strix-halo', ?, NULL, 'service_down', 'error', 'down')`,
       now,
     );
+    await db.raw().run(
+      `INSERT INTO runtime_snapshots (
+        source_id, instance_id, timestamp, kind, slots_total, slots_busy, payload
+      ) VALUES ('lemonade', 'lemonade@strix-halo', ?, 'slots', 8, 1, ?)`,
+      now,
+      JSON.stringify({ port: 9000, label: "lem" }),
+    );
 
     const { body } = await getJson("/api/runtime?range=all&sourceId=lemonade");
     expect(body.inferenceRequests?.total).toBe(1);
     expect(body.inferenceRequests?.items[0]?.id).toBe("lem-req");
     expect(body.runtimeEvents?.total).toBe(1);
     expect(body.runtimeEvents?.items[0]?.id).toBe("lem-evt");
+    expect(body.metrics?.requestCount).toBe(1);
+    expect(body.metrics?.totalSlots).toBe(8);
+    expect(body.metrics?.activeSlots).toBe(1);
+    expect(body.sources?.every((s) => s.id === "lemonade")).toBe(true);
   });
 
   test("time range excludes old rows from lists and metrics", async () => {

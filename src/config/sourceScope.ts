@@ -105,9 +105,10 @@ export const DATASET_SCOPES: readonly DatasetScope[] = [
   {
     id: "runtime",
     page: "Runtime",
-    mode: "fleet",
+    mode: "filterable",
     queryKey: "runtime",
-    description: "Hermes inference fleet telemetry (slots, requests, events)",
+    description:
+      "Local inference telemetry (slots, requests, events) scoped by the global Source filter",
   },
 ] as const;
 
@@ -140,10 +141,7 @@ export const ROUTE_SCOPES: Record<string, RouteScope> = {
     mode: "mixed",
     note: "Agent usage and attribution respect the source filter; provider API costs are account-wide",
   },
-  "/runtime": {
-    mode: "unscoped",
-    reason: "Runtime shows fleet-wide inference telemetry",
-  },
+  "/runtime": { mode: "filterable" },
   "/settings": {
     mode: "unscoped",
     reason: "Settings are not source-scoped",
