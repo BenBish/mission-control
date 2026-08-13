@@ -338,11 +338,14 @@ export async function listRecentInferenceRequests(
 /** Distinct non-null client labels for filter dropdowns. */
 export async function listInferenceClientLabels(
   db: SqliteDatabase,
+  sourceId?: string,
 ): Promise<string[]> {
+  const sourceClause = sourceId ? " AND source_id = ?" : "";
   const rows = await db.all<{ client_label: string }[]>(
     `SELECT DISTINCT client_label FROM inference_requests
-     WHERE client_label IS NOT NULL AND client_label != ''
+     WHERE client_label IS NOT NULL AND client_label != ''${sourceClause}
      ORDER BY client_label ASC`,
+    ...(sourceId ? [sourceId] : []),
   );
   return rows.map((r) => r.client_label);
 }
@@ -417,7 +420,9 @@ export interface RuntimeSnapshotRow {
  *  health/model inventory). */
 export async function latestRuntimeSnapshots(
   db: SqliteDatabase,
+  sourceId?: string,
 ): Promise<RuntimeSnapshotRow[]> {
+  const sourceClause = sourceId ? " AND s.source_id = ?" : "";
   return db.all<RuntimeSnapshotRow[]>(
     `SELECT s.* FROM runtime_snapshots s
      INNER JOIN (
@@ -430,7 +435,8 @@ export async function latestRuntimeSnapshots(
      ) latest
      ON s.instance_id = latest.instance_id AND s.kind = latest.kind
        AND s.timestamp = latest.max_ts
-       AND (json_extract(s.payload, '$.port') IS latest.port)`,
+       AND (json_extract(s.payload, '$.port') IS latest.port)${sourceClause}`,
+    ...(sourceId ? [sourceId] : []),
   );
 }
 
@@ -482,9 +488,12 @@ export async function getRuntimeMetrics(
     since?: string;
     windowHours?: number | null;
     snapshots?: RuntimeSnapshotRow[];
+    sourceId?: string;
   } = {},
 ): Promise<RuntimeMetrics> {
-  const snapshots = opts.snapshots ?? (await latestRuntimeSnapshots(db));
+  const snapshots = (
+    opts.snapshots ?? (await latestRuntimeSnapshots(db, opts.sourceId))
+  ).filter((s) => !opts.sourceId || s.source_id === opts.sourceId);
   let activeSlots = 0;
   let totalSlots = 0;
   for (const s of snapshots) {
@@ -498,6 +507,10 @@ export async function getRuntimeMetrics(
   if (opts.since) {
     clauses.push("timestamp >= ?");
     params.push(opts.since);
+  }
+  if (opts.sourceId) {
+    clauses.push("source_id = ?");
+    params.push(opts.sourceId);
   }
   const where = buildWhereSql(clauses);
 

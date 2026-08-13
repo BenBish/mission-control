@@ -129,7 +129,7 @@ totals client-side without reading reconciliation classifications.
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| `GET` | `/api/runtime` | Slots, models, health, recent inference |
+| `GET` | `/api/runtime` | Slots, models, health, recent inference (`sourceId` scopes lists + summary) |
 | `GET` | `/api/contention` | Contention incidents |
 
 ---

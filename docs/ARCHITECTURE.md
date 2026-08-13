@@ -239,7 +239,10 @@ events arrive.
 | `/settings` | Settings / health / budgets |
 
 Router: `src/app/router.tsx`. Layout + nav: `src/components/_shared/MainLayout.tsx`.
-Source filter: global `SourceFilter` + `source-context`.
+Source filter: global `SourceFilter` + `source-context`. Runtime is
+filterable like other list pages (no second in-page source control);
+time range stays page-local. Agent/generation selections leave Runtime
+fleet-wide (inference backends only). Settings remains unscoped.
 
 ### Skills Registry (removed)
 

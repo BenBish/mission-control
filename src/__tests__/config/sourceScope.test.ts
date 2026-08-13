@@ -4,6 +4,7 @@ import {
   FILTERABLE_QUERY_KEYS,
   getRouteScope,
   isSourceSelectorEnabled,
+  runtimeApiSourceId,
   scopePhrase,
 } from "../../config/sourceScope.js";
 
@@ -24,6 +25,7 @@ describe("source scope contract", () => {
         "failures",
         "generations",
         "jobs",
+        "runtime",
         "sessions",
       ].sort(),
     );
@@ -38,19 +40,16 @@ describe("source scope contract", () => {
       "/failures",
       "/jobs",
       "/generations",
+      "/runtime",
     ]) {
       expect(getRouteScope(path).mode).toBe("filterable");
       expect(isSourceSelectorEnabled(path)).toBe(true);
     }
   });
 
-  test("consumption is mixed; runtime and settings are unscoped", () => {
+  test("consumption is mixed; settings is unscoped", () => {
     expect(getRouteScope("/consumption").mode).toBe("mixed");
     expect(isSourceSelectorEnabled("/consumption")).toBe(true);
-
-    expect(getRouteScope("/runtime").mode).toBe("unscoped");
-    expect(isSourceSelectorEnabled("/runtime")).toBe(false);
-    expect(getRouteScope("/runtime").reason).toMatch(/fleet/i);
 
     expect(getRouteScope("/settings").mode).toBe("unscoped");
     expect(isSourceSelectorEnabled("/settings")).toBe(false);
@@ -62,5 +61,16 @@ describe("source scope contract", () => {
     expect(scopePhrase("grok", [{ id: "grok", name: "Grok" }])).toBe(
       "for Grok",
     );
+  });
+
+  test("runtimeApiSourceId only scopes inference sources", () => {
+    const sources = [
+      { id: "hermes", kind: "inference" },
+      { id: "grok", kind: "agentic" },
+    ];
+    expect(runtimeApiSourceId(undefined, sources)).toBeUndefined();
+    expect(runtimeApiSourceId("hermes", sources)).toBe("hermes");
+    expect(runtimeApiSourceId("grok", sources)).toBeUndefined();
+    expect(runtimeApiSourceId("hermes", [])).toBe("hermes");
   });
 });

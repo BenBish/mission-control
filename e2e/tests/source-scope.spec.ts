@@ -1,7 +1,7 @@
 /**
  * Source filter scope E2E — selecting a source must appear on compatible
- * list APIs (Dashboard, Consumption, Activities, Sessions, Failures) and
- * must not imply filtering for account-wide provider billing.
+ * list APIs (Dashboard, Consumption, Activities, Sessions, Failures,
+ * Runtime) and must not imply filtering for account-wide provider billing.
  */
 
 import { type Page, type Request } from "@playwright/test";
@@ -158,22 +158,53 @@ test.describe("Source filter scope", () => {
     await expect(page.getByText(/Partial scope/i)).toBeVisible();
   });
 
-  test("Runtime disables the source selector", async ({ page }) => {
+  test("Runtime requests include sourceId after selecting Hermes", async ({
+    page,
+  }) => {
     await page.goto("/runtime");
     await page
       .getByRole("heading", { name: "Runtime", level: 1 })
       .waitFor({ state: "visible" });
 
     const trigger = sourceFilterTrigger(page);
-    await expect(trigger).toBeDisabled();
-    // Scope to the header control — page copy also says "not filtered by source".
+    await expect(trigger).toBeEnabled();
+
+    const runtimeReq = page.waitForRequest(
+      (r) => isApi(r, "/api/runtime") && sourceIdFrom(r) === "hermes",
+    );
+    await selectSource(page, "Hermes");
+    await runtimeReq;
+
     await expect(
-      page
-        .getByTestId("source-filter")
-        .getByText("Not filtered", { exact: true }),
+      page.getByText(/Local inference telemetry for Hermes/i),
+    ).toBeVisible();
+    await expect(page.getByText("Not filtered", { exact: true })).toHaveCount(
+      0,
+    );
+  });
+
+  test("Runtime keeps fleet data when an agent source is selected", async ({
+    page,
+  }) => {
+    await page.goto("/runtime");
+    await page
+      .getByRole("heading", { name: "Runtime", level: 1 })
+      .waitFor({ state: "visible" });
+
+    const agentScoped: string[] = [];
+    page.on("request", (r) => {
+      if (isApi(r, "/api/runtime") && sourceIdFrom(r) === "claude-code") {
+        agentScoped.push(r.url());
+      }
+    });
+
+    await selectSource(page, "Claude Code");
+    await expect(
+      page.getByText(/Source filter “Claude Code” does not apply here/i),
     ).toBeVisible();
     await expect(
-      page.getByText(/Fleet-wide inference telemetry/i),
+      page.getByText(/Local inference telemetry across inference sources/i),
     ).toBeVisible();
+    expect(agentScoped).toEqual([]);
   });
 });

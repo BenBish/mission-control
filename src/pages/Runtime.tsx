@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   Card,
@@ -17,6 +17,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PageHeader } from "@/components/_shared/PageHeader";
+import { useFilterableSourceId, useSourceFilter } from "@/app/source-context";
+import { runtimeApiSourceId, scopePhrase } from "@/config/sourceScope";
 import {
   Server,
   Cpu,
@@ -759,12 +761,15 @@ function PaginationBar({
 export default function Runtime() {
   const [searchParams, setSearchParams] = useSearchParams();
   const now = useNow();
+  const { sources: filterSources, setSelectedSourceId } = useSourceFilter();
+  const selectedSourceId = useFilterableSourceId();
   const [expandedRequestId, setExpandedRequestId] = useState<string | null>(
     null,
   );
 
   const range = parseRange(searchParams.get("range"));
-  const sourceId = parseOptionalFilter(searchParams.get("sourceId"));
+  const sourceId = runtimeApiSourceId(selectedSourceId, filterSources);
+  const sourceFilterIgnored = Boolean(selectedSourceId) && !sourceId;
   const reqStatus = parseOptionalFilter(searchParams.get("reqStatus"));
   const reqClient = parseOptionalFilter(searchParams.get("reqClient"));
   const reqMinDurationMs = parseOptionalPositiveInt(
@@ -775,6 +780,8 @@ export default function Runtime() {
   const eventPage = parsePage(searchParams.get("eventPage"));
 
   // Normalize missing/invalid query params so the URL always reflects selection.
+  // Legacy ?sourceId= bookmarks adopt the global Source filter, then drop the
+  // duplicate query param so Runtime has a single source of truth.
   useEffect(() => {
     const rawRange = searchParams.get("range");
     const rangeOk =
@@ -791,8 +798,21 @@ export default function Runtime() {
     const eventPageOk =
       rawEventPage == null ||
       (Number.isInteger(Number(rawEventPage)) && Number(rawEventPage) >= 1);
+    const legacySourceId = parseOptionalFilter(searchParams.get("sourceId"));
 
-    if (rangeOk && reqPageOk && eventPageOk && rawRange != null) return;
+    if (
+      rangeOk &&
+      reqPageOk &&
+      eventPageOk &&
+      rawRange != null &&
+      !legacySourceId
+    ) {
+      return;
+    }
+
+    if (legacySourceId) {
+      setSelectedSourceId(legacySourceId);
+    }
 
     setSearchParams(
       (prev) => {
@@ -800,17 +820,17 @@ export default function Runtime() {
         next.set("range", parseRange(prev.get("range")));
         if (!reqPageOk) next.set("reqPage", "1");
         if (!eventPageOk) next.set("eventPage", "1");
+        next.delete("sourceId");
         return next;
       },
       { replace: true },
     );
-  }, [searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams, setSelectedSourceId]);
 
   const updateParams = useCallback(
     (
       patch: Partial<{
         range: RuntimeRange;
-        sourceId: string | undefined;
         reqStatus: string | undefined;
         reqClient: string | undefined;
         reqMinDurationMs: number | undefined;
@@ -832,7 +852,6 @@ export default function Runtime() {
             else next.delete(key);
           };
 
-          if ("sourceId" in patch) setOrDelete("sourceId", patch.sourceId);
           if ("reqStatus" in patch) setOrDelete("reqStatus", patch.reqStatus);
           if ("reqClient" in patch) setOrDelete("reqClient", patch.reqClient);
           if ("eventKind" in patch) setOrDelete("eventKind", patch.eventKind);
@@ -856,14 +875,13 @@ export default function Runtime() {
           // Changing filters/range resets pages unless an explicit page was set.
           if (
             "range" in patch ||
-            "sourceId" in patch ||
             "reqStatus" in patch ||
             "reqClient" in patch ||
             "reqMinDurationMs" in patch
           ) {
             if (!("reqPage" in patch)) next.delete("reqPage");
           }
-          if ("range" in patch || "sourceId" in patch || "eventKind" in patch) {
+          if ("range" in patch || "eventKind" in patch) {
             if (!("eventPage" in patch)) next.delete("eventPage");
           }
 
@@ -874,6 +892,13 @@ export default function Runtime() {
     },
     [setSearchParams],
   );
+
+  const prevApiSourceId = useRef(sourceId);
+  useEffect(() => {
+    if (prevApiSourceId.current === sourceId) return;
+    prevApiSourceId.current = sourceId;
+    updateParams({ reqPage: 1, eventPage: 1 });
+  }, [sourceId, updateParams]);
 
   const summaryParams = useMemo(() => ({ range, sourceId }), [range, sourceId]);
 
@@ -976,14 +1001,18 @@ export default function Runtime() {
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [summary?.metrics.p95LatencyMs, updateParams]);
 
+  const pageDescription = sourceFilterIgnored
+    ? "Local inference telemetry across inference sources"
+    : `Local inference telemetry ${scopePhrase(selectedSourceId, filterSources)}`;
+  const selectedSourceName =
+    filterSources.find((s) => s.id === selectedSourceId)?.name ??
+    selectedSourceId;
+
   // Hard error only when we have no summary to show yet.
   if (summaryError && !summary) {
     return (
       <div className="space-y-6">
-        <PageHeader
-          title="Runtime"
-          description="Fleet-wide inference telemetry (not filtered by source)"
-        />
+        <PageHeader title="Runtime" description={pageDescription} />
         <Card className="border-destructive">
           <CardContent className="flex items-center gap-3 py-6">
             <AlertCircle className="h-5 w-5 text-destructive" />
@@ -1046,10 +1075,7 @@ export default function Runtime() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Runtime"
-        description="Fleet-wide inference telemetry (not filtered by source)"
-      />
+      <PageHeader title="Runtime" description={pageDescription} />
 
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1">
@@ -1072,40 +1098,22 @@ export default function Runtime() {
             </SelectContent>
           </Select>
         </div>
-        {(sources.length > 0 || summaryLoading) && (
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">
-              Source
-            </label>
-            <Select
-              value={sourceId ?? "all"}
-              onValueChange={(v) =>
-                updateParams({
-                  sourceId: v === "all" ? undefined : v,
-                })
-              }
-              disabled={summaryLoading && sources.length === 0}
-            >
-              <SelectTrigger className="w-[160px]" aria-label="Source filter">
-                <SelectValue placeholder="All" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All sources</SelectItem>
-                {sources.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
         {(summaryFetching || listsFetching) && summary && (
           <p className="text-xs text-muted-foreground self-end pb-2">
             Refreshing…
           </p>
         )}
       </div>
+
+      {sourceFilterIgnored && selectedSourceName && (
+        <div
+          className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground"
+          role="note"
+        >
+          Source filter “{selectedSourceName}” does not apply here — Runtime is
+          local inference (Hermes, Lemonade).
+        </div>
+      )}
 
       {summaryLoading && !summary ? (
         <MetricsSkeleton />
@@ -1114,7 +1122,9 @@ export default function Runtime() {
           <CardContent className="py-12 text-center">
             <Server className="mx-auto h-12 w-12 text-muted-foreground/30" />
             <p className="mt-4 text-muted-foreground">
-              No inference sources registered yet.
+              {sourceId
+                ? `No inference telemetry ${scopePhrase(sourceId, filterSources)}.`
+                : "No inference sources registered yet."}
             </p>
           </CardContent>
         </Card>

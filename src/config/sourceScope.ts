@@ -105,9 +105,10 @@ export const DATASET_SCOPES: readonly DatasetScope[] = [
   {
     id: "runtime",
     page: "Runtime",
-    mode: "fleet",
+    mode: "filterable",
     queryKey: "runtime",
-    description: "Hermes inference fleet telemetry (slots, requests, events)",
+    description:
+      "Local inference telemetry (slots, requests, events) scoped by the global Source filter",
   },
 ] as const;
 
@@ -140,10 +141,7 @@ export const ROUTE_SCOPES: Record<string, RouteScope> = {
     mode: "mixed",
     note: "Agent usage and attribution respect the source filter; provider API costs are account-wide",
   },
-  "/runtime": {
-    mode: "unscoped",
-    reason: "Runtime shows fleet-wide inference telemetry",
-  },
+  "/runtime": { mode: "filterable" },
   "/settings": {
     mode: "unscoped",
     reason: "Settings are not source-scoped",
@@ -184,4 +182,21 @@ export function scopePhrase(
   if (!selectedSourceId) return "across all sources";
   const name = sources?.find((s) => s.id === selectedSourceId)?.name;
   return name ? `for ${name}` : `for ${selectedSourceId}`;
+}
+
+/**
+ * Source id to send on Runtime APIs.
+ * Only inference sources (Hermes, Lemonade) have runtime telemetry.
+ * Agent/generation selections stay fleet-wide; while the registry is
+ * still loading, pass the raw selection.
+ */
+export function runtimeApiSourceId(
+  selectedSourceId: string | undefined,
+  sources: { id: string; kind: string }[],
+): string | undefined {
+  if (!selectedSourceId) return undefined;
+  if (sources.length === 0) return selectedSourceId;
+  return sources.find((s) => s.id === selectedSourceId)?.kind === "inference"
+    ? selectedSourceId
+    : undefined;
 }
