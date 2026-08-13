@@ -144,7 +144,7 @@ Schema: `src/db/schema.ts`. Runtime path:
 | `provider_credit_snapshots` | Wallet / prepaid / capacity remaining |
 | `app_settings` | Key/value (legacy account budget, etc.) |
 | `provider_spend_budgets` | Scoped monthly budgets |
-| `spend_alert_events` | Threshold/anomaly alert state |
+| `spend_alert_events` | Threshold/anomaly alert state (`data_class`: cost / quota / wallet) |
 
 Query modules live under `src/db/queries/`. Migrations: `src/db/migrations.ts`
 (+ `migration-runner.ts`).
@@ -181,6 +181,12 @@ keep these classes in **separate sections** rather than one combined “total sp
 The Dashboard **Plan Usage** KPI shows only fresh (`status=ok`) percent-remaining
 windows and never implies dollars.
 
+Quota and wallet **capacity threshold alerts** reuse `spend_alert_events` with
+`data_class` `quota` or `wallet` (never `cost`). They fire when a fresh plan-
+usage window is at or below a remaining-% setting, or a fresh wallet is at or
+below a remaining-$ setting. Stale/expired snapshots never alert. Thresholds
+live in `app_settings` (`GET`/`PUT` `/api/providers/capacity-alert-settings`).
+
 ---
 
 ## Backend routes
@@ -201,7 +207,7 @@ Route registration: `src/server/routes/index.ts`.
 | Runtime | `GET /api/runtime` |
 | Contention | `GET /api/contention` |
 | Generations | `GET /api/generations`, `…/:id` |
-| Providers | status, sync, usage, breakdown, budget(s), spend-insights, spend-alerts, credits |
+| Providers | status, sync, usage, breakdown, budget(s), spend-insights, spend-alerts, capacity-alert-settings, credits |
 | Privacy | `GET /api/privacy/policy`, retention run, purge-sensitive |
 | Stream | `GET /api/stream` (SSE) |
 

@@ -150,12 +150,13 @@ totals client-side without reading reconciliation classifications.
 | `POST` | `/api/providers/sync` | Trigger sync now |
 | `GET` | `/api/providers/usage` | Daily usage rows |
 | `GET` | `/api/providers/usage/breakdown` | Breakdown by model/provider |
-| `GET` | `/api/providers/credits` | Wallet / credit snapshots |
+| `GET` | `/api/providers/credits` | Wallet / credit snapshots (+ persist quota/wallet capacity alerts) |
 | `GET` / `PUT` | `/api/providers/budget` | Legacy account monthly budget |
 | `GET` / `PUT` | `/api/providers/budgets` | Scoped budgets |
 | `DELETE` | `/api/providers/budgets/:id` | Delete scoped budget |
+| `GET` / `PUT` | `/api/providers/capacity-alert-settings` | Plan-usage remaining-% and wallet remaining-$ thresholds |
 | `GET` | `/api/providers/spend-insights` | Burn rate / insights |
-| `GET` | `/api/providers/spend-alerts` | Alert events |
+| `GET` | `/api/providers/spend-alerts` | Alert events (`?dataClass=cost\|quota\|wallet`) |
 | `PATCH` | `/api/providers/spend-alerts/:id` | Ack/suppress delivery state |
 
 Credentials and env: see Deployment + Architecture. **Credits are not spend.**

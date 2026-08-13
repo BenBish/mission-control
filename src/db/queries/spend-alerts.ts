@@ -9,6 +9,7 @@ import type { Database as SqliteDatabase } from "sqlite";
 
 export type SpendAlertKind = "threshold" | "anomaly";
 export type SpendAlertSeverity = "info" | "warn" | "critical";
+export type SpendAlertDataClass = "cost" | "quota" | "wallet";
 export type SpendAlertDeliveryState =
   | "pending"
   | "delivered"
@@ -20,6 +21,7 @@ export interface SpendAlertRow {
   id: string;
   kind: SpendAlertKind;
   severity: SpendAlertSeverity;
+  data_class?: SpendAlertDataClass | null;
   scope_type: string | null;
   scope_key: string | null;
   title: string;
@@ -39,6 +41,7 @@ export interface SpendAlert {
   id: string;
   kind: SpendAlertKind;
   severity: SpendAlertSeverity;
+  dataClass: SpendAlertDataClass;
   scopeType: string | null;
   scopeKey: string | null;
   title: string;
@@ -66,11 +69,17 @@ function parseEvidence(raw: string | null): Record<string, unknown> | null {
   }
 }
 
+function parseDataClass(raw: string | null | undefined): SpendAlertDataClass {
+  if (raw === "quota" || raw === "wallet" || raw === "cost") return raw;
+  return "cost";
+}
+
 function rowToAlert(row: SpendAlertRow): SpendAlert {
   return {
     id: row.id,
     kind: row.kind,
     severity: row.severity,
+    dataClass: parseDataClass(row.data_class),
     scopeType: row.scope_type,
     scopeKey: row.scope_key,
     title: row.title,
@@ -93,6 +102,7 @@ export async function listSpendAlerts(
     limit?: number;
     monthKey?: string;
     deliveryState?: SpendAlertDeliveryState;
+    dataClass?: SpendAlertDataClass;
   } = {},
 ): Promise<SpendAlert[]> {
   const limit =
@@ -108,6 +118,10 @@ export async function listSpendAlerts(
   if (opts.deliveryState) {
     clauses.push("delivery_state = ?");
     params.push(opts.deliveryState);
+  }
+  if (opts.dataClass) {
+    clauses.push("data_class = ?");
+    params.push(opts.dataClass);
   }
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   const rows = await db.all<SpendAlertRow[]>(
@@ -128,6 +142,7 @@ export async function upsertSpendAlertByFingerprint(
   input: {
     kind: SpendAlertKind;
     severity: SpendAlertSeverity;
+    dataClass?: SpendAlertDataClass;
     scopeType?: string | null;
     scopeKey?: string | null;
     title: string;
@@ -161,14 +176,15 @@ export async function upsertSpendAlertByFingerprint(
   await db.run(
     `
     INSERT INTO spend_alert_events (
-      id, kind, severity, scope_type, scope_key, title, message,
+      id, kind, severity, data_class, scope_type, scope_key, title, message,
       evidence_json, estimated_impact_usd, delivery_state, delivered_at,
       fingerprint, month_key, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     `,
     id,
     input.kind,
     input.severity,
+    input.dataClass ?? "cost",
     input.scopeType ?? null,
     input.scopeKey ?? null,
     input.title,

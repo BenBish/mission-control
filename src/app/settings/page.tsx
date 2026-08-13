@@ -29,8 +29,10 @@ import {
 import { AlertCircle, DollarSign, Info, Server, Shield } from "lucide-react";
 import {
   deleteScopedSpendBudget,
+  updateCapacityAlertSettings,
   updateProviderBudget,
   upsertScopedSpendBudget,
+  useCapacityAlertSettings,
   useProviderBudget,
   useScopedSpendBudgets,
   useSources,
@@ -104,6 +106,11 @@ export default function SettingsPage() {
     isLoading: scopedLoading,
     error: scopedError,
   } = useScopedSpendBudgets();
+  const {
+    data: capacitySettings,
+    isLoading: capacityLoading,
+    error: capacityError,
+  } = useCapacityAlertSettings();
   const { user } = useAuth();
   const isOwner = !user || user.role === "owner";
   const queryClient = useQueryClient();
@@ -134,6 +141,16 @@ export default function SettingsPage() {
   const [scopeMessage, setScopeMessage] = useState<string | null>(null);
   const [scopeError, setScopeError] = useState<string | null>(null);
 
+  const [planWarnPct, setPlanWarnPct] = useState("20");
+  const [planCriticalPct, setPlanCriticalPct] = useState("5");
+  const [walletWarnUsd, setWalletWarnUsd] = useState("10");
+  const [walletCriticalUsd, setWalletCriticalUsd] = useState("2");
+  const [capacitySaving, setCapacitySaving] = useState(false);
+  const [capacityMessage, setCapacityMessage] = useState<string | null>(null);
+  const [capacitySaveError, setCapacitySaveError] = useState<string | null>(
+    null,
+  );
+
   function setActiveTab(tab: SettingsTab) {
     setSearchParams(
       (prev) => {
@@ -153,6 +170,14 @@ export default function SettingsPage() {
     );
     setTimezone(budget.timezone || "UTC");
   }, [budget]);
+
+  useEffect(() => {
+    if (!capacitySettings) return;
+    setPlanWarnPct(String(capacitySettings.planUsageWarnRemainingPct));
+    setPlanCriticalPct(String(capacitySettings.planUsageCriticalRemainingPct));
+    setWalletWarnUsd(String(capacitySettings.walletWarnRemainingUsd));
+    setWalletCriticalUsd(String(capacitySettings.walletCriticalRemainingUsd));
+  }, [capacitySettings]);
 
   useEffect(() => {
     if (activeTab !== "privacy") return;
@@ -305,6 +330,39 @@ export default function SettingsPage() {
       );
     } finally {
       setScopeSaving(false);
+    }
+  }
+
+  async function handleSaveCapacitySettings() {
+    setCapacitySaving(true);
+    setCapacityMessage(null);
+    setCapacitySaveError(null);
+    try {
+      const planUsageWarnRemainingPct = Number(planWarnPct);
+      const planUsageCriticalRemainingPct = Number(planCriticalPct);
+      const walletWarnRemainingUsd = Number(walletWarnUsd);
+      const walletCriticalRemainingUsd = Number(walletCriticalUsd);
+      await updateCapacityAlertSettings({
+        planUsageWarnRemainingPct,
+        planUsageCriticalRemainingPct,
+        walletWarnRemainingUsd,
+        walletCriticalRemainingUsd,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["capacity-alert-settings"],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["provider-spend-insights"],
+      });
+      setCapacityMessage("Capacity alert thresholds saved");
+    } catch (err) {
+      setCapacitySaveError(
+        err instanceof Error
+          ? err.message
+          : "Failed to save capacity alert settings",
+      );
+    } finally {
+      setCapacitySaving(false);
     }
   }
 
@@ -725,6 +783,119 @@ export default function SettingsPage() {
                     )}
                     {scopeError && (
                       <p className="text-sm text-destructive">{scopeError}</p>
+                    )}
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card data-testid="capacity-alert-settings">
+            <CardHeader>
+              <CardTitle>Plan &amp; wallet capacity alerts</CardTitle>
+              <CardDescription>
+                Warn when a fresh plan-usage window drops to N% remaining, or a
+                prepaid wallet drops below $X. These are quota/wallet alerts —
+                they never mix with Direct API Spend budgets. Stale or expired
+                snapshots are ignored. Set a threshold to 0 to disable that
+                level.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {capacityLoading ? (
+                <Loading />
+              ) : capacityError ? (
+                <p className="text-sm text-destructive">
+                  {capacityError instanceof Error
+                    ? capacityError.message
+                    : "Failed to load capacity alert settings"}
+                </p>
+              ) : (
+                <>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 max-w-3xl">
+                    <div className="space-y-2">
+                      <label
+                        className="text-sm font-medium"
+                        htmlFor="plan-warn-pct"
+                      >
+                        Plan warn remaining %
+                      </label>
+                      <Input
+                        id="plan-warn-pct"
+                        type="number"
+                        min={0}
+                        max={100}
+                        step="1"
+                        value={planWarnPct}
+                        onChange={(e) => setPlanWarnPct(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label
+                        className="text-sm font-medium"
+                        htmlFor="plan-critical-pct"
+                      >
+                        Plan critical remaining %
+                      </label>
+                      <Input
+                        id="plan-critical-pct"
+                        type="number"
+                        min={0}
+                        max={100}
+                        step="1"
+                        value={planCriticalPct}
+                        onChange={(e) => setPlanCriticalPct(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label
+                        className="text-sm font-medium"
+                        htmlFor="wallet-warn-usd"
+                      >
+                        Wallet warn remaining $
+                      </label>
+                      <Input
+                        id="wallet-warn-usd"
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={walletWarnUsd}
+                        onChange={(e) => setWalletWarnUsd(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label
+                        className="text-sm font-medium"
+                        htmlFor="wallet-critical-usd"
+                      >
+                        Wallet critical remaining $
+                      </label>
+                      <Input
+                        id="wallet-critical-usd"
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={walletCriticalUsd}
+                        onChange={(e) => setWalletCriticalUsd(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button
+                      onClick={() => void handleSaveCapacitySettings()}
+                      disabled={capacitySaving || !isOwner}
+                    >
+                      {capacitySaving ? "Saving…" : "Save capacity alerts"}
+                    </Button>
+                    {capacityMessage && (
+                      <p className="text-sm text-muted-foreground">
+                        {capacityMessage}
+                      </p>
+                    )}
+                    {capacitySaveError && (
+                      <p className="text-sm text-destructive">
+                        {capacitySaveError}
+                      </p>
                     )}
                   </div>
                 </>

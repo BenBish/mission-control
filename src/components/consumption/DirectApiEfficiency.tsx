@@ -9,7 +9,11 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { acknowledgeSpendAlert, type SpendInsights } from "@/lib/queries";
+import {
+  acknowledgeSpendAlert,
+  isCostClassAlert,
+  type SpendInsights,
+} from "@/lib/queries";
 
 export function DirectApiEfficiency({
   spendInsights,
@@ -277,66 +281,72 @@ export function DirectApiEfficiency({
           </Card>
         )}
 
-        {spendInsights.alerts?.length > 0 && (
+        {spendInsights.alerts?.filter(isCostClassAlert).length > 0 && (
           <Card className="shadow-sm min-w-0" data-testid="spend-alerts">
             <CardHeader className="pb-2">
               <CardTitle className="text-base">
                 Alert delivery history
               </CardTitle>
               <CardDescription>
-                Threshold and anomaly alerts with delivery state
+                Direct API Spend threshold and anomaly alerts. Plan-usage and
+                wallet capacity alerts are listed under Plan usage &amp; wallet.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
-              {spendInsights.alerts.slice(0, 12).map((a) => (
-                <div
-                  key={a.id}
-                  className="rounded-md border px-3 py-2 text-sm min-w-0"
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-medium break-words">{a.title}</p>
-                    <Badge variant="secondary" className="text-xs">
-                      {a.kind}
-                    </Badge>
-                    <Badge variant="outline" className="text-xs">
-                      {a.deliveryState}
-                    </Badge>
-                    <Badge
-                      variant={
-                        a.severity === "critical" ? "destructive" : "secondary"
-                      }
-                      className="text-xs"
-                    >
-                      {a.severity}
-                    </Badge>
-                    {a.deliveryState !== "acknowledged" && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 text-xs ml-auto"
-                        onClick={() => {
-                          void acknowledgeSpendAlert(a.id).then(() => {
-                            void queryClient.invalidateQueries({
-                              queryKey: ["provider-spend-insights"],
-                            });
-                          });
-                        }}
+              {spendInsights.alerts
+                .filter(isCostClassAlert)
+                .slice(0, 12)
+                .map((a) => (
+                  <div
+                    key={a.id}
+                    className="rounded-md border px-3 py-2 text-sm min-w-0"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-medium break-words">{a.title}</p>
+                      <Badge variant="secondary" className="text-xs">
+                        {a.kind}
+                      </Badge>
+                      <Badge variant="outline" className="text-xs">
+                        {a.deliveryState}
+                      </Badge>
+                      <Badge
+                        variant={
+                          a.severity === "critical"
+                            ? "destructive"
+                            : "secondary"
+                        }
+                        className="text-xs"
                       >
-                        Acknowledge
-                      </Button>
+                        {a.severity}
+                      </Badge>
+                      {a.deliveryState !== "acknowledged" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs ml-auto"
+                          onClick={() => {
+                            void acknowledgeSpendAlert(a.id).then(() => {
+                              void queryClient.invalidateQueries({
+                                queryKey: ["provider-spend-insights"],
+                              });
+                            });
+                          }}
+                        >
+                          Acknowledge
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1 break-words">
+                      {a.message}
+                    </p>
+                    {a.estimatedImpactUsd != null && (
+                      <p className="text-[11px] tabular-nums text-muted-foreground mt-0.5">
+                        Impact ${a.estimatedImpactUsd.toFixed(2)}
+                        {a.deliveredAt ? ` · delivered ${a.deliveredAt}` : ""}
+                      </p>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1 break-words">
-                    {a.message}
-                  </p>
-                  {a.estimatedImpactUsd != null && (
-                    <p className="text-[11px] tabular-nums text-muted-foreground mt-0.5">
-                      Impact ${a.estimatedImpactUsd.toFixed(2)}
-                      {a.deliveredAt ? ` · delivered ${a.deliveredAt}` : ""}
-                    </p>
-                  )}
-                </div>
-              ))}
+                ))}
             </CardContent>
           </Card>
         )}

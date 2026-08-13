@@ -70,10 +70,6 @@ export async function normalizeGrokCacheInclusiveInputTokens(
 }
 
 /**
- * Versioned data/schema migrations. Base tables come from schema.ts;
- * this list is for changes after the baseline.
- */
-/**
  * BSH-90: Before activity upsert, tool completion events failed UNIQUE
  * (source_id, session_id, external_id) while their natural keys were still
  * recorded in ingest_dedupe. Clear terminal-status activity keys so a
@@ -95,6 +91,28 @@ export async function clearBurnedTerminalActivityDedupeKeys(
   `);
 }
 
+/**
+ * BSH-141: Tag spend_alert_events with a cost/quota/wallet data class so
+ * plan-usage and wallet threshold alerts are never mixed with Direct API Spend.
+ */
+export async function addSpendAlertDataClass(
+  db: SqliteDatabase,
+): Promise<void> {
+  const cols = await db.all<{ name: string }[]>(
+    `PRAGMA table_info(spend_alert_events)`,
+  );
+  if (!cols.some((c) => c.name === "data_class")) {
+    await db.exec(`
+      ALTER TABLE spend_alert_events
+      ADD COLUMN data_class TEXT NOT NULL DEFAULT 'cost'
+    `);
+  }
+  await db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_spend_alert_events_data_class
+      ON spend_alert_events(data_class, created_at DESC)
+  `);
+}
+
 const MIGRATIONS: Migration[] = [
   {
     version: "001",
@@ -105,6 +123,11 @@ const MIGRATIONS: Migration[] = [
     version: "002",
     name: "clear-burned-terminal-activity-dedupe-keys",
     up: clearBurnedTerminalActivityDedupeKeys,
+  },
+  {
+    version: "003",
+    name: "spend-alert-data-class",
+    up: addSpendAlertDataClass,
   },
 ];
 

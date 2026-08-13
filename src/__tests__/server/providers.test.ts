@@ -466,3 +466,95 @@ describe("GET /api/providers/credits", () => {
     expect(JSON.stringify(body)).not.toMatch(/sk-[a-zA-Z0-9]{10,}/);
   });
 });
+
+describe("capacity alert settings + persist (BSH-141)", () => {
+  test("GET/PUT capacity-alert-settings", async () => {
+    const getRes = await fetch(
+      `${baseUrl}/api/providers/capacity-alert-settings`,
+    );
+    const getBody = await getRes.json();
+    expect(getRes.status).toBe(200);
+    expect(getBody.success).toBe(true);
+    expect(getBody.settings.planUsageWarnRemainingPct).toBe(20);
+    expect(getBody.settings.walletWarnRemainingUsd).toBe(10);
+
+    const put = await fetch(
+      `${baseUrl}/api/providers/capacity-alert-settings`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          planUsageWarnRemainingPct: 25,
+          planUsageCriticalRemainingPct: 8,
+          walletWarnRemainingUsd: 15,
+          walletCriticalRemainingUsd: 3,
+        }),
+      },
+    );
+    const putBody = await put.json();
+    expect(put.status).toBe(200);
+    expect(putBody.settings.planUsageWarnRemainingPct).toBe(25);
+    expect(putBody.settings.walletCriticalRemainingUsd).toBe(3);
+
+    const bad = await fetch(
+      `${baseUrl}/api/providers/capacity-alert-settings`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          planUsageWarnRemainingPct: 5,
+          planUsageCriticalRemainingPct: 20,
+        }),
+      },
+    );
+    expect(bad.status).toBe(400);
+  });
+
+  test("credits GET persists quota alert for a fresh low window, not expired", async () => {
+    await upsertProviderCreditSnapshot(db.raw(), {
+      provider: "anthropic",
+      asOf: new Date().toISOString(),
+      remaining: 9,
+      total: 100,
+      unit: "percent",
+      label: "quota_claude:weekly_10080m",
+      source: "session_quota",
+      status: "ok",
+      surface: "plan_usage",
+      details: {
+        limitId: "claude:weekly",
+        windowMinutes: 10080,
+        resetsAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+    });
+
+    const creditsRes = await fetch(`${baseUrl}/api/providers/credits`);
+    const creditsBody = await creditsRes.json();
+    expect(creditsRes.status).toBe(200);
+    expect(Array.isArray(creditsBody.capacityAlerts)).toBe(true);
+    const quotaAlert = creditsBody.capacityAlerts.find(
+      (a: { dataClass: string; scopeKey: string }) =>
+        a.dataClass === "quota" && a.scopeKey.includes("claude:weekly"),
+    );
+    expect(quotaAlert).toBeTruthy();
+    expect(quotaAlert.message).toMatch(/not Direct API Spend/i);
+
+    const list = await fetch(
+      `${baseUrl}/api/providers/spend-alerts?dataClass=quota&limit=20`,
+    );
+    const listBody = await list.json();
+    expect(list.status).toBe(200);
+    expect(
+      listBody.alerts.some(
+        (a: { dataClass: string; scopeKey: string }) =>
+          a.dataClass === "quota" && a.scopeKey.includes("claude:weekly"),
+      ),
+    ).toBe(true);
+
+    const expiredStill = listBody.alerts.filter(
+      (a: { scopeKey: string }) =>
+        typeof a.scopeKey === "string" && a.scopeKey.includes("5h_300m_old"),
+    );
+    expect(expiredStill).toHaveLength(0);
+  });
+});

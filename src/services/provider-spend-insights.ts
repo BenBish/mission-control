@@ -41,6 +41,7 @@ import {
   upsertSpendAlertByFingerprint,
   type SpendAlert,
 } from "../db/queries/spend-alerts.js";
+import { persistCapacityAlerts } from "./capacity-alerts.js";
 import { credentialMeta, getConnectors } from "./provider-connectors/index.js";
 import {
   applyFailureWaste,
@@ -1069,6 +1070,7 @@ export async function persistInsightAlerts(
     await upsertSpendAlertByFingerprint(db, {
       kind: "threshold",
       severity,
+      dataClass: "cost",
       scopeType: sb.scopeType,
       scopeKey: sb.scopeKey,
       title: `Budget ${sb.status}: ${sb.scopeType}/${sb.scopeKey}`,
@@ -1097,6 +1099,7 @@ export async function persistInsightAlerts(
       await upsertSpendAlertByFingerprint(db, {
         kind: "threshold",
         severity: status,
+        dataClass: "cost",
         scopeType: "account",
         scopeKey: "*",
         title: `Account budget ${status}`,
@@ -1122,6 +1125,7 @@ export async function persistInsightAlerts(
     await upsertSpendAlertByFingerprint(db, {
       kind: "anomaly",
       severity: a.ratio >= 3 ? "critical" : "warn",
+      dataClass: "cost",
       scopeType: a.provider ? "model" : "account",
       scopeKey: a.provider ? `${a.provider}/${a.model ?? ""}` : "*",
       title: a.provider
@@ -1197,6 +1201,8 @@ export async function loadSpendInsights(
     return insights;
   }
 
+  const monthKey = insights.meta.monthStart.slice(0, 7);
+  await persistCapacityAlerts(db, { now, monthKey });
   const alerts = await persistInsightAlerts(db, insights);
   return { ...insights, alerts };
 }
