@@ -145,7 +145,7 @@ export interface RuntimeEventPayload {
 
 export interface QuotaSnapshotPayload {
   timestamp: string;
-  /** Codex rate_limits.limit_id, e.g. 'primary' | 'secondary' */
+  /** e.g. Codex 'primary'/'secondary', Claude 'claude:5h', Grok 'grok:week' */
   limitId: string;
   usedPercent: number;
   windowMinutes?: number;

@@ -56,6 +56,16 @@ Claude Code) and polls Anthropic’s OAuth usage endpoint every 5 minutes. Only
 events — never the access token. After provider credit sync, those rows appear
 as Anthropic plan-usage windows on the Dashboard and Consumption.
 
+**Grok plan usage:** the `grok` collector reads `~/.grok/auth.json` (OIDC
+session token already present after `grok login`) and polls
+`https://cli-chat-proxy.grok.com/v1/billing?format=credits` every 5 minutes.
+Only **creditUsagePercent / period end** become `quota_snapshot` events
+(typically `grok:week`) — never the access token, and never wallet fields
+(`prepaidBalance`, on-demand caps). After provider credit sync those rows
+appear as xAI plan-usage windows. Override the proxy base with
+`GROK_CLI_CHAT_PROXY_BASE_URL` if needed. OpenCode session DBs were
+investigated and have no equivalent quota telemetry.
+
 ### 5. Tests
 
 ```bash

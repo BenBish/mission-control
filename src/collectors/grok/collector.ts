@@ -14,6 +14,11 @@ import {
   type GrokSessionAggregate,
   type ParsedLine,
 } from "./parser.js";
+import {
+  DEFAULT_GROK_AUTH_PATH,
+  GROK_USAGE_POLL_INTERVAL_MS,
+  pollGrokUsageEvents,
+} from "./usage-poller.js";
 
 const SOURCE_ID = "grok";
 const INSTANCE_ID = "grok@arch-desktop";
@@ -33,20 +38,18 @@ export class GrokCollector implements Collector {
   instanceId = INSTANCE_ID;
   intervalMs = 30_000;
 
+  /** Last successful-or-attempted billing poll (ms epoch). */
+  private lastUsagePollMs = 0;
+
   constructor(
     private state: StateStore,
     private filesGlob: string = DEFAULT_GLOB,
+    private authPath: string = DEFAULT_GROK_AUTH_PATH,
   ) {}
 
   async tick(sink: Sink): Promise<TickResult> {
     const files = await glob(this.filesGlob);
-    if (files.length === 0) {
-      return {
-        eventsEmitted: 0,
-        sourceStatus: "off",
-        detail: "no session files found",
-      };
-    }
+    const noSessionFiles = files.length === 0;
 
     const events: IngestEvent[] = [];
     const pendingUpdates = new Map<string, Partial<GrokSessionAggregate>[]>();
@@ -131,7 +134,26 @@ export class GrokCollector implements Collector {
       });
     }
 
+    // Plan-usage billing poll (every 5 min). Can emit events even when no
+    // session files changed — do not early-return solely on empty session scan.
+    const nowMs = Date.now();
+    if (nowMs - this.lastUsagePollMs >= GROK_USAGE_POLL_INTERVAL_MS) {
+      this.lastUsagePollMs = nowMs;
+      const quotaEvents = await pollGrokUsageEvents({
+        authPath: this.authPath,
+        onWarn: (m) => console.warn(`[grok] ${m}`),
+      });
+      events.push(...quotaEvents);
+    }
+
     if (events.length === 0) {
+      if (noSessionFiles) {
+        return {
+          eventsEmitted: 0,
+          sourceStatus: "off",
+          detail: "no session files found",
+        };
+      }
       return { eventsEmitted: 0, sourceStatus: "ok" };
     }
 

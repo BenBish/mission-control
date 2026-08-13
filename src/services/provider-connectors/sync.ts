@@ -45,6 +45,7 @@ export const SESSION_QUOTA_SOURCE_BY_PROVIDER: Partial<
 > = {
   openai: "codex",
   anthropic: "claude-code",
+  xai: "grok",
 };
 
 /** Prevent overlapping scheduled/manual syncs from stacking. */

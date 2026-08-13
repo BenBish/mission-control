@@ -907,9 +907,10 @@ describe("syncProvider idempotency", () => {
     expect(meta.surface).toBe("wallet");
   });
 
-  test("SESSION_QUOTA_SOURCE_BY_PROVIDER maps openai→codex and anthropic→claude-code", () => {
+  test("SESSION_QUOTA_SOURCE_BY_PROVIDER maps openai→codex, anthropic→claude-code, xai→grok", () => {
     expect(SESSION_QUOTA_SOURCE_BY_PROVIDER.openai).toBe("codex");
     expect(SESSION_QUOTA_SOURCE_BY_PROVIDER.anthropic).toBe("claude-code");
+    expect(SESSION_QUOTA_SOURCE_BY_PROVIDER.xai).toBe("grok");
   });
 
   test("unconfigured anthropic bridges claude-code quota snapshots and drops plan_usage_unavailable", async () => {
@@ -1028,8 +1029,42 @@ describe("syncProvider idempotency", () => {
     const credits = await latestProviderCreditSnapshots(db.raw(), {
       provider: "xai",
     });
-    expect(credits[0]?.status).toBe("limited");
-    expect(credits[0]?.remaining).toBeNull();
+    const wallet = credits.find((c) => c.label === "prepaid_balance");
+    expect(wallet?.status).toBe("limited");
+    expect(wallet?.remaining).toBeNull();
+    expect(credits.some((c) => c.label === "plan_usage_unavailable")).toBe(
+      true,
+    );
+  });
+
+  test("unconfigured xai bridges grok quota snapshots and drops plan_usage_unavailable", async () => {
+    setEnv("XAI_API_KEY", undefined);
+    await seedSourceAndInstance(db.raw(), "grok", "grok@test");
+    await insertQuotaSnapshot(db.raw(), "grok", "grok@test", {
+      timestamp: "2026-08-13T12:00:00.000Z",
+      limitId: "grok:week",
+      usedPercent: 53,
+      windowMinutes: 10080,
+      resetsAt: "2026-08-17T02:53:15.569Z",
+    });
+
+    const r = await syncProvider(db.raw(), xaiConnector, {
+      fetchImpl: async () => jsonResponse({}),
+    });
+    expect(r.status).toBe("not_configured");
+    expect((r.creditSnapshots ?? 0) >= 1).toBe(true);
+
+    const credits = await latestProviderCreditSnapshots(db.raw(), {
+      provider: "xai",
+    });
+    const plan = credits.find((c) => c.source === "session_quota");
+    expect(plan).toBeTruthy();
+    expect(plan?.remaining).toBe(47); // 100 - 53
+    expect(plan?.unit).toBe("percent");
+    expect(plan?.label).toContain("grok:week");
+    expect(credits.some((c) => c.label === "plan_usage_unavailable")).toBe(
+      false,
+    );
   });
 });
 
@@ -1064,8 +1099,12 @@ describe("credit normalize helpers", () => {
 
   test("xaiCreditsLimited is limited not ok", () => {
     const r = xaiCreditsLimited();
-    expect(r.snapshots[0].status).toBe("limited");
-    expect(r.snapshots[0].surface).toBe("wallet");
+    const wallet = r.snapshots.find((s) => s.surface === "wallet");
+    const plan = r.snapshots.find((s) => s.surface === "plan_usage");
+    expect(wallet?.status).toBe("limited");
+    expect(wallet?.remaining).toBeNull();
+    expect(plan?.status).toBe("unavailable");
+    expect(plan?.remaining).toBeNull();
   });
 
   test("normalizeSessionQuotaToCredits maps used_percent to remaining percent", () => {

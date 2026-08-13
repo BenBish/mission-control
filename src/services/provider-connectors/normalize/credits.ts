@@ -184,8 +184,10 @@ export function openaiWalletUnavailable(
 export function xaiCreditsLimited(
   asOf: string = new Date().toISOString(),
 ): CreditFetchResult {
-  const message =
+  const walletMessage =
     "xAI has no public prepaid balance/credits API; remaining capacity is not available programmatically.";
+  const planMessage =
+    "Grok SuperGrok plan windows are not available via XAI_API_KEY. When the desktop collector is running, they come from the Grok CLI billing endpoint (~/.grok/auth.json).";
   return {
     snapshots: [
       {
@@ -198,10 +200,22 @@ export function xaiCreditsLimited(
         source: "unavailable",
         status: "limited",
         surface: "wallet",
-        details: { note: message },
+        details: { note: walletMessage },
+      },
+      {
+        provider: "xai",
+        asOf,
+        remaining: null,
+        total: null,
+        unit: "percent",
+        label: "plan_usage_unavailable",
+        source: "unavailable",
+        status: "unavailable",
+        surface: "plan_usage",
+        details: { note: planMessage },
       },
     ],
-    limitation: message,
+    limitation: walletMessage,
   };
 }
 
@@ -211,6 +225,9 @@ function sessionQuotaProductLanguage(provider: ProviderId): string {
   }
   if (provider === "openai") {
     return "Codex/OpenAI usage window (rate-limit quota), not prepaid USD credits.";
+  }
+  if (provider === "xai") {
+    return "Grok SuperGrok / Grok Build plan-usage window (subscription rate limit), not prepaid USD credits.";
   }
   return "Session quota / plan-usage window (rate-limit), not prepaid USD credits.";
 }

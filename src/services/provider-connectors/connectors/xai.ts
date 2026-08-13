@@ -15,6 +15,10 @@ import type {
  * Behaviour:
  * 1. If MC_XAI_USAGE_ENDPOINT is set, GET that URL with Bearer auth and normalize JSON.
  * 2. Else verify the API key via GET /v1/models and return empty rows with a limitation note.
+ *
+ * Plan usage (#1): Grok CLI billing snapshots are attached in sync.ts
+ * (`SESSION_QUOTA_SOURCE_BY_PROVIDER.xai = "grok"`). fetchCredits remains
+ * wallet-limited; it does not invent plan %.
  */
 export const xaiConnector: ProviderConnector = {
   id: "xai",
