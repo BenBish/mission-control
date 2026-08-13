@@ -1,5 +1,8 @@
 import { Loading } from "@/components/_shared/Loading";
+import { providerUsageExportPath } from "@/lib/consumption-export";
+import { downloadConsumptionExport } from "@/lib/download-export";
 import type { ProviderBreakdownRow } from "@/lib/queries";
+import { ExportMenu } from "./ExportMenu";
 import type { ProviderTotals, UpdateConsumptionParams } from "./types";
 
 export function ProviderBreakdown({
@@ -8,12 +11,14 @@ export function ProviderBreakdown({
   providerTotals,
   providerBreakdown,
   updateParams,
+  since,
 }: {
   rangeLabel: string;
   providerLoading: boolean;
   providerTotals: ProviderTotals;
   providerBreakdown: ProviderBreakdownRow[] | undefined;
   updateParams: UpdateConsumptionParams;
+  since?: string;
 }) {
   return (
     <>
@@ -23,16 +28,28 @@ export function ProviderBreakdown({
         data-testid="direct-api-attribution"
         aria-labelledby="direct-api-attribution-heading"
       >
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2
-            id="direct-api-attribution-heading"
-            className="text-sm font-semibold tracking-wide text-muted-foreground uppercase"
-          >
-            Provider breakdown
-          </h2>
-          <span className="text-xs text-muted-foreground">
-            Billing rows in selected range ({rangeLabel}) — not agent matched
-          </span>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="space-y-0.5 min-w-0">
+            <h2
+              id="direct-api-attribution-heading"
+              className="text-sm font-semibold tracking-wide text-muted-foreground uppercase"
+            >
+              Provider breakdown
+            </h2>
+            <span className="text-xs text-muted-foreground">
+              Billing rows in selected range ({rangeLabel}) — not agent matched
+            </span>
+          </div>
+          <ExportMenu
+            testId="export-provider-usage"
+            label="Export daily usage"
+            disabled={providerLoading}
+            onExport={(format) =>
+              downloadConsumptionExport(
+                providerUsageExportPath({ format, since }),
+              )
+            }
+          />
         </div>
 
         {providerLoading ? (

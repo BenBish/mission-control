@@ -15,7 +15,10 @@ import type {
   AgentUsageSessionRow,
   AgentUsageSummary,
 } from "@/lib/queries";
+import { agentUsageDriversExportPath } from "@/lib/consumption-export";
+import { downloadConsumptionExport } from "@/lib/download-export";
 import { AGENT_DIMENSIONS, UNITS } from "./constants";
+import { ExportMenu } from "./ExportMenu";
 import { formatCompute } from "./helpers";
 import type { AgentUsageTotals, Unit, UpdateConsumptionParams } from "./types";
 
@@ -36,6 +39,7 @@ export function AgentUsageTab({
   drivers,
   drillLoading,
   drillSessions,
+  since,
 }: {
   unit: Unit;
   totals: AgentUsageTotals;
@@ -53,7 +57,20 @@ export function AgentUsageTab({
   drivers: AgentUsageDriver[];
   drillLoading: boolean;
   drillSessions: { sessions: AgentUsageSessionRow[] } | undefined;
+  since?: string;
 }) {
+  function exportDrivers(format: "csv" | "json") {
+    return downloadConsumptionExport(
+      agentUsageDriversExportPath({
+        format,
+        since,
+        sourceId: selectedSourceId,
+        dimension: agentDimension,
+        includeNonMaterial,
+      }),
+    );
+  }
+
   return (
     <>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -99,6 +116,15 @@ export function AgentUsageTab({
                 </button>{" "}
                 view — it is a separate dataset.
               </p>
+              {!(drivers.length > 0 || coverage) && (
+                <div className="pt-2">
+                  <ExportMenu
+                    testId="export-agent-usage"
+                    disabled={!agentUsage}
+                    onExport={exportDrivers}
+                  />
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -207,316 +233,318 @@ export function AgentUsageTab({
               </>
             )}
           </div>
-
-          {coverage && coverage.totalTokens > 0 && (
-            <Card className="border-dashed">
-              <CardContent className="py-3 text-sm text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
-                <span>
-                  Material ranked:{" "}
-                  <strong className="text-foreground">
-                    {coverage.materialTokens.toLocaleString()}
-                  </strong>{" "}
-                  tokens
-                </span>
-                <span>
-                  Unknown model: {coverage.unknownModelTokens.toLocaleString()}
-                </span>
-                <span>
-                  Synthetic: {coverage.syntheticTokens.toLocaleString()}
-                </span>
-                <span>
-                  Zero-token rows excluded: {coverage.zeroTokenFactCount}
-                </span>
-                <span>
-                  Missing project:{" "}
-                  {coverage.missingProjectTokens.toLocaleString()} tokens
-                </span>
-              </CardContent>
-            </Card>
-          )}
-
-          {drivers.length > 0 || coverage ? (
-            <Card className="shadow-sm">
-              <CardHeader className="pb-4 border-b space-y-3">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <CardTitle className="text-lg">Ranked drivers</CardTitle>
-                    <CardDescription>
-                      Canonical model identities with raw aliases for
-                      diagnostics
-                      {selectedSourceId ? ` · filtered to ${agentScope}` : ""}.
-                      Zero-token and synthetic rows are excluded by default.
-                    </CardDescription>
-                  </div>
-                  <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="rounded border-muted-foreground"
-                      checked={includeNonMaterial}
-                      onChange={(e) => {
-                        setIncludeNonMaterial(e.target.checked);
-                        setExpandedDriverKey(null);
-                      }}
-                    />
-                    Show zero / synthetic
-                  </label>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {AGENT_DIMENSIONS.map((d) => (
-                    <Button
-                      key={d.value}
-                      variant={
-                        agentDimension === d.value ? "default" : "outline"
-                      }
-                      size="sm"
-                      onClick={() => {
-                        setAgentDimension(d.value);
-                        setExpandedDriverKey(null);
-                      }}
-                    >
-                      {d.label}
-                    </Button>
-                  ))}
-                </div>
-              </CardHeader>
-              <CardContent className="pt-4 px-0">
-                {drivers.length === 0 ? (
-                  <p className="px-4 pb-4 text-sm text-muted-foreground">
-                    No material drivers for this grouping
-                    {includeNonMaterial ? "" : " (try Show zero / synthetic)"}.
-                  </p>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b bg-muted/50">
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                            Source
-                          </th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                            {agentDimension === "model"
-                              ? "Model"
-                              : agentDimension === "project"
-                                ? "Project"
-                                : agentDimension === "actor"
-                                  ? "Actor"
-                                  : agentDimension === "session"
-                                    ? "Session"
-                                    : "Driver"}
-                          </th>
-                          {unit === "tokens" && (
-                            <>
-                              <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                Input
-                              </th>
-                              <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                Output
-                              </th>
-                              <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                Cache
-                              </th>
-                            </>
-                          )}
-                          {unit === "usd" && (
-                            <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                              Cost
-                            </th>
-                          )}
-                          {unit === "compute" && (
-                            <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                              Requests
-                            </th>
-                          )}
-                          <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                            Sessions
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {drivers.map((row) => {
-                          const open = expandedDriverKey === row.key;
-                          const label =
-                            agentDimension === "model"
-                              ? row.canonicalModel
-                              : agentDimension === "project"
-                                ? (row.project ?? "unassigned")
-                                : agentDimension === "actor"
-                                  ? (row.actorId ?? "—")
-                                  : agentDimension === "session"
-                                    ? (row.sessionTitle ?? row.sessionId ?? "—")
-                                    : row.sourceId;
-                          return (
-                            <Fragment key={row.key}>
-                              <tr
-                                className="border-b last:border-0 hover:bg-muted/40 cursor-pointer"
-                                onClick={() =>
-                                  setExpandedDriverKey(open ? null : row.key)
-                                }
-                              >
-                                <td className="py-3 px-4 text-sm">
-                                  <span className="font-medium">
-                                    {row.sourceId}
-                                  </span>
-                                </td>
-                                <td className="py-3 px-4 text-sm">
-                                  <div className="font-mono text-xs">
-                                    {label}
-                                  </div>
-                                  {agentDimension === "model" &&
-                                    row.rawModels.length > 0 && (
-                                      <div className="text-[11px] text-muted-foreground mt-0.5">
-                                        raw: {row.rawModels.join(", ")}
-                                      </div>
-                                    )}
-                                  {row.project &&
-                                    agentDimension !== "project" && (
-                                      <div className="text-[11px] text-muted-foreground">
-                                        {row.project}
-                                      </div>
-                                    )}
-                                </td>
-                                {unit === "tokens" && (
-                                  <>
-                                    <td className="py-3 px-4 text-sm text-right tabular-nums">
-                                      {row.inputTokens.toLocaleString()}
-                                    </td>
-                                    <td className="py-3 px-4 text-sm text-right tabular-nums">
-                                      {row.outputTokens.toLocaleString()}
-                                    </td>
-                                    <td className="py-3 px-4 text-sm text-right tabular-nums text-muted-foreground">
-                                      {(
-                                        row.cacheReadTokens +
-                                        row.cacheWriteTokens
-                                      ).toLocaleString()}
-                                    </td>
-                                  </>
-                                )}
-                                {unit === "usd" && (
-                                  <td className="py-3 px-4 text-sm text-right tabular-nums">
-                                    {row.hasCost
-                                      ? `$${(row.costUsd ?? 0).toFixed(4)}`
-                                      : "—"}
-                                  </td>
-                                )}
-                                {unit === "compute" && (
-                                  <td className="py-3 px-4 text-sm text-right tabular-nums">
-                                    {row.requestCount.toLocaleString()}
-                                  </td>
-                                )}
-                                <td className="py-3 px-4 text-sm text-right tabular-nums">
-                                  {row.sessionCount.toLocaleString()}
-                                </td>
-                              </tr>
-                              {open && (
-                                <tr className="bg-muted/30">
-                                  <td
-                                    colSpan={unit === "tokens" ? 6 : 4}
-                                    className="px-4 py-3"
-                                  >
-                                    <p className="text-xs font-medium mb-2">
-                                      Contributing sessions
-                                    </p>
-                                    {drillLoading ? (
-                                      <p className="text-xs text-muted-foreground">
-                                        Loading…
-                                      </p>
-                                    ) : (
-                                      <div className="overflow-x-auto">
-                                        <table className="w-full text-xs">
-                                          <thead>
-                                            <tr className="text-muted-foreground">
-                                              <th className="text-left py-1 pr-2">
-                                                Session
-                                              </th>
-                                              <th className="text-left py-1 pr-2">
-                                                Project
-                                              </th>
-                                              <th className="text-right py-1 pr-2">
-                                                Tokens
-                                              </th>
-                                              <th className="text-right py-1">
-                                                Requests
-                                              </th>
-                                            </tr>
-                                          </thead>
-                                          <tbody>
-                                            {(
-                                              drillSessions?.sessions ?? []
-                                            ).map((s) => (
-                                              <tr key={s.sessionId}>
-                                                <td className="py-1 pr-2">
-                                                  {s.sessionId.startsWith(
-                                                    "inference:",
-                                                  ) ? (
-                                                    <span className="text-muted-foreground">
-                                                      inference bucket
-                                                    </span>
-                                                  ) : (
-                                                    <Link
-                                                      to={`/sessions/${encodeURIComponent(s.sessionId)}`}
-                                                      className="underline hover:text-foreground"
-                                                      onClick={(e) =>
-                                                        e.stopPropagation()
-                                                      }
-                                                    >
-                                                      {s.title ??
-                                                        s.externalId ??
-                                                        s.sessionId}
-                                                    </Link>
-                                                  )}
-                                                </td>
-                                                <td className="py-1 pr-2 text-muted-foreground">
-                                                  {s.project ?? "—"}
-                                                </td>
-                                                <td className="py-1 pr-2 text-right tabular-nums">
-                                                  {(
-                                                    s.inputTokens +
-                                                    s.outputTokens
-                                                  ).toLocaleString()}
-                                                </td>
-                                                <td className="py-1 text-right tabular-nums">
-                                                  {s.requestCount.toLocaleString()}
-                                                </td>
-                                              </tr>
-                                            ))}
-                                            {(drillSessions?.sessions?.length ??
-                                              0) === 0 && (
-                                              <tr>
-                                                <td
-                                                  colSpan={4}
-                                                  className="py-2 text-muted-foreground"
-                                                >
-                                                  No sessions for this driver.
-                                                </td>
-                                              </tr>
-                                            )}
-                                          </tbody>
-                                        </table>
-                                      </div>
-                                    )}
-                                  </td>
-                                </tr>
-                              )}
-                            </Fragment>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <p className="text-muted-foreground">
-                  No Agent Usage data for this range
-                  {selectedSourceId ? ` and ${agentScope}` : ""} yet.
-                </p>
-              </CardContent>
-            </Card>
-          )}
         </>
+      )}
+
+      {coverage && coverage.totalTokens > 0 && (
+        <Card className="border-dashed">
+          <CardContent className="py-3 text-sm text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
+            <span>
+              Material ranked:{" "}
+              <strong className="text-foreground">
+                {coverage.materialTokens.toLocaleString()}
+              </strong>{" "}
+              tokens
+            </span>
+            <span>
+              Unknown model: {coverage.unknownModelTokens.toLocaleString()}
+            </span>
+            <span>Synthetic: {coverage.syntheticTokens.toLocaleString()}</span>
+            <span>Zero-token rows excluded: {coverage.zeroTokenFactCount}</span>
+            <span>
+              Missing project: {coverage.missingProjectTokens.toLocaleString()}{" "}
+              tokens
+            </span>
+          </CardContent>
+        </Card>
+      )}
+
+      {drivers.length > 0 || coverage ? (
+        <Card className="shadow-sm">
+          <CardHeader className="pb-4 border-b space-y-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <CardTitle className="text-lg">Ranked drivers</CardTitle>
+                <CardDescription>
+                  Canonical model identities with raw aliases for diagnostics
+                  {selectedSourceId ? ` · filtered to ${agentScope}` : ""}.
+                  Zero-token and synthetic rows are excluded by default.
+                </CardDescription>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="rounded border-muted-foreground"
+                    checked={includeNonMaterial}
+                    onChange={(e) => {
+                      setIncludeNonMaterial(e.target.checked);
+                      setExpandedDriverKey(null);
+                    }}
+                  />
+                  Show zero / synthetic
+                </label>
+                <ExportMenu
+                  testId="export-agent-usage"
+                  disabled={!agentUsage}
+                  onExport={exportDrivers}
+                />
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {AGENT_DIMENSIONS.map((d) => (
+                <Button
+                  key={d.value}
+                  variant={agentDimension === d.value ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    setAgentDimension(d.value);
+                    setExpandedDriverKey(null);
+                  }}
+                >
+                  {d.label}
+                </Button>
+              ))}
+            </div>
+          </CardHeader>
+          <CardContent className="pt-4 px-0">
+            {drivers.length === 0 ? (
+              <p className="px-4 pb-4 text-sm text-muted-foreground">
+                No material drivers for this grouping
+                {includeNonMaterial ? "" : " (try Show zero / synthetic)"}.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Source
+                      </th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        {agentDimension === "model"
+                          ? "Model"
+                          : agentDimension === "project"
+                            ? "Project"
+                            : agentDimension === "actor"
+                              ? "Actor"
+                              : agentDimension === "session"
+                                ? "Session"
+                                : "Driver"}
+                      </th>
+                      {unit === "tokens" && (
+                        <>
+                          <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            Input
+                          </th>
+                          <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            Output
+                          </th>
+                          <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            Cache
+                          </th>
+                        </>
+                      )}
+                      {unit === "usd" && (
+                        <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                          Cost
+                        </th>
+                      )}
+                      {unit === "compute" && (
+                        <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                          Requests
+                        </th>
+                      )}
+                      <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Sessions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {drivers.map((row) => {
+                      const open = expandedDriverKey === row.key;
+                      const label =
+                        agentDimension === "model"
+                          ? row.canonicalModel
+                          : agentDimension === "project"
+                            ? (row.project ?? "unassigned")
+                            : agentDimension === "actor"
+                              ? (row.actorId ?? "—")
+                              : agentDimension === "session"
+                                ? (row.sessionTitle ?? row.sessionId ?? "—")
+                                : row.sourceId;
+                      return (
+                        <Fragment key={row.key}>
+                          <tr
+                            className="border-b last:border-0 hover:bg-muted/40 cursor-pointer"
+                            onClick={() =>
+                              setExpandedDriverKey(open ? null : row.key)
+                            }
+                          >
+                            <td className="py-3 px-4 text-sm">
+                              <span className="font-medium">
+                                {row.sourceId}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-sm">
+                              <div className="font-mono text-xs">{label}</div>
+                              {agentDimension === "model" &&
+                                row.rawModels.length > 0 && (
+                                  <div className="text-[11px] text-muted-foreground mt-0.5">
+                                    raw: {row.rawModels.join(", ")}
+                                  </div>
+                                )}
+                              {row.project && agentDimension !== "project" && (
+                                <div className="text-[11px] text-muted-foreground">
+                                  {row.project}
+                                </div>
+                              )}
+                            </td>
+                            {unit === "tokens" && (
+                              <>
+                                <td className="py-3 px-4 text-sm text-right tabular-nums">
+                                  {row.inputTokens.toLocaleString()}
+                                </td>
+                                <td className="py-3 px-4 text-sm text-right tabular-nums">
+                                  {row.outputTokens.toLocaleString()}
+                                </td>
+                                <td className="py-3 px-4 text-sm text-right tabular-nums text-muted-foreground">
+                                  {(
+                                    row.cacheReadTokens + row.cacheWriteTokens
+                                  ).toLocaleString()}
+                                </td>
+                              </>
+                            )}
+                            {unit === "usd" && (
+                              <td className="py-3 px-4 text-sm text-right tabular-nums">
+                                {row.hasCost
+                                  ? `$${(row.costUsd ?? 0).toFixed(4)}`
+                                  : "—"}
+                              </td>
+                            )}
+                            {unit === "compute" && (
+                              <td className="py-3 px-4 text-sm text-right tabular-nums">
+                                {row.requestCount.toLocaleString()}
+                              </td>
+                            )}
+                            <td className="py-3 px-4 text-sm text-right tabular-nums">
+                              {row.sessionCount.toLocaleString()}
+                            </td>
+                          </tr>
+                          {open && (
+                            <tr className="bg-muted/30">
+                              <td
+                                colSpan={unit === "tokens" ? 6 : 4}
+                                className="px-4 py-3"
+                              >
+                                <p className="text-xs font-medium mb-2">
+                                  Contributing sessions
+                                </p>
+                                {drillLoading ? (
+                                  <p className="text-xs text-muted-foreground">
+                                    Loading…
+                                  </p>
+                                ) : (
+                                  <div className="overflow-x-auto">
+                                    <table className="w-full text-xs">
+                                      <thead>
+                                        <tr className="text-muted-foreground">
+                                          <th className="text-left py-1 pr-2">
+                                            Session
+                                          </th>
+                                          <th className="text-left py-1 pr-2">
+                                            Project
+                                          </th>
+                                          <th className="text-right py-1 pr-2">
+                                            Tokens
+                                          </th>
+                                          <th className="text-right py-1">
+                                            Requests
+                                          </th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {(drillSessions?.sessions ?? []).map(
+                                          (s) => (
+                                            <tr key={s.sessionId}>
+                                              <td className="py-1 pr-2">
+                                                {s.sessionId.startsWith(
+                                                  "inference:",
+                                                ) ? (
+                                                  <span className="text-muted-foreground">
+                                                    inference bucket
+                                                  </span>
+                                                ) : (
+                                                  <Link
+                                                    to={`/sessions/${encodeURIComponent(s.sessionId)}`}
+                                                    className="underline hover:text-foreground"
+                                                    onClick={(e) =>
+                                                      e.stopPropagation()
+                                                    }
+                                                  >
+                                                    {s.title ??
+                                                      s.externalId ??
+                                                      s.sessionId}
+                                                  </Link>
+                                                )}
+                                              </td>
+                                              <td className="py-1 pr-2 text-muted-foreground">
+                                                {s.project ?? "—"}
+                                              </td>
+                                              <td className="py-1 pr-2 text-right tabular-nums">
+                                                {(
+                                                  s.inputTokens + s.outputTokens
+                                                ).toLocaleString()}
+                                              </td>
+                                              <td className="py-1 text-right tabular-nums">
+                                                {s.requestCount.toLocaleString()}
+                                              </td>
+                                            </tr>
+                                          ),
+                                        )}
+                                        {(drillSessions?.sessions?.length ??
+                                          0) === 0 && (
+                                          <tr>
+                                            <td
+                                              colSpan={4}
+                                              className="py-2 text-muted-foreground"
+                                            >
+                                              No sessions for this driver.
+                                            </td>
+                                          </tr>
+                                        )}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      ) : unit === "usd" && !totals.hasCost ? null : (
+        <Card>
+          <CardContent className="py-12 text-center space-y-4">
+            <p className="text-muted-foreground">
+              No Agent Usage data for this range
+              {selectedSourceId ? ` and ${agentScope}` : ""} yet.
+            </p>
+            <div className="flex justify-center">
+              <ExportMenu
+                testId="export-agent-usage"
+                disabled={!agentUsage}
+                onExport={exportDrivers}
+              />
+            </div>
+          </CardContent>
+        </Card>
       )}
     </>
   );

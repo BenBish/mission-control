@@ -43,6 +43,14 @@ import {
   loadSpendInsights,
   type ForecastMethod,
 } from "../../services/provider-spend-insights.js";
+import {
+  buildProviderUsageExportJson,
+  consumptionExportFilename,
+  parseExportFormat,
+  serializeProviderUsageCsv,
+} from "../../lib/consumption-export.js";
+import { sendConsumptionExport } from "../export-response.js";
+import { optionalQueryString } from "../query.js";
 
 const SCOPE_TYPES = new Set<SpendBudgetScopeType>([
   "account",
@@ -173,6 +181,47 @@ export function registerProviderRoutes(
       });
     }
   });
+
+  /**
+   * CSV/JSON download of daily provider usage for the same filters as
+   * GET /api/providers/usage (BSH-146). Query: format=csv|json, since, provider.
+   */
+  app.get(
+    "/api/providers/usage/export",
+    async (req: Request, res: Response) => {
+      try {
+        const format = parseExportFormat(req.query.format);
+        if (!format) {
+          res.status(400).json({
+            success: false,
+            error: "format must be csv or json",
+          });
+          return;
+        }
+        const since = optionalQueryString(req.query.since);
+        const provider =
+          typeof req.query.provider === "string" &&
+          isProviderId(req.query.provider)
+            ? req.query.provider
+            : undefined;
+        const rows = await getProviderUsage(db.raw(), { since, provider });
+        sendConsumptionExport(res, {
+          format,
+          filename: consumptionExportFilename("provider-usage", format, {
+            since,
+          }),
+          csv: serializeProviderUsageCsv(rows),
+          jsonBody: buildProviderUsageExportJson(rows, { since, provider }),
+        });
+      } catch (err) {
+        console.error("GET /api/providers/usage/export failed:", err);
+        res.status(500).json({
+          success: false,
+          error: "Failed to export provider usage",
+        });
+      }
+    },
+  );
 
   /** Aggregated breakdown by provider + model for Consumption UI. */
   app.get(

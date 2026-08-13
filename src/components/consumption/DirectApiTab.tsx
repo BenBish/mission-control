@@ -40,6 +40,7 @@ export function DirectApiTab({
   planUsageCredits,
   walletCredits,
   providerStatus,
+  since,
 }: {
   selectedSourceId: string | undefined;
   agentScope: string;
@@ -58,6 +59,7 @@ export function DirectApiTab({
   planUsageCredits: ProviderCredit[];
   walletCredits: ProviderCredit[];
   providerStatus: ProviderStatus[] | undefined;
+  since?: string;
 }) {
   return (
     <Card className="shadow-sm border-dashed min-w-0 overflow-hidden">
@@ -128,6 +130,7 @@ export function DirectApiTab({
           providerTotals={providerTotals}
           providerBreakdown={providerBreakdown}
           updateParams={updateParams}
+          since={since}
         />
         <CapacityAndDataHealth
           creditsLoading={creditsLoading}
