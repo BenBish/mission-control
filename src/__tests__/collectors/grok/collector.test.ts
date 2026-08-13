@@ -123,6 +123,7 @@ describe("GrokCollector", () => {
       const collector = new GrokCollector(
         state,
         path.join(root, "*", "*", "updates.jsonl"),
+        path.join(root, "missing-auth.json"),
       );
       const sink = new CapturingSink();
 
@@ -148,6 +149,7 @@ describe("GrokCollector", () => {
       const collector = new GrokCollector(
         state,
         path.join(root, "*", "*", "updates.jsonl"),
+        path.join(root, "missing-auth.json"),
       );
       const sink = new CapturingSink();
 

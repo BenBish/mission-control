@@ -119,7 +119,7 @@ Schema: `src/db/schema.ts`. Runtime path:
 | `runtime_snapshots` | High-frequency slot/health/models samples |
 | `runtime_slot_rollups` | Hourly rollups after raw retention |
 | `runtime_events` | Discrete runtime incidents |
-| `quota_snapshots` | Plan/rate-limit windows (Codex, Claude Code OAuth usage, …) |
+| `quota_snapshots` | Plan/rate-limit windows (Codex, Claude Code OAuth usage, Grok CLI billing, …) |
 
 ### Shape (c) — generation
 
@@ -160,7 +160,7 @@ added together in the UI or APIs.
 | --- | --- | --- | --- |
 | **1. Cost (actual billing)** | How much did the *provider account* charge? | `provider_usage_daily.cost_usd` | Provider Admin/usage APIs via connectors |
 | **2. Usage (agent/session)** | How much did *agents* consume (tokens, requests)? | `activities` / `sessions` / `inference_requests` token fields | Collectors from session logs / local servers |
-| **3. Quota (plan windows)** | How much of a *subscription rate limit* is used? | `quota_snapshots` (+ credit rows with unit `percent`/`requests`, surface `plan_usage`) | Session/tool telemetry: Codex windows + Claude Code OAuth usage endpoint via desktop collector; not USD |
+| **3. Quota (plan windows)** | How much of a *subscription rate limit* is used? | `quota_snapshots` (+ credit rows with unit `percent`/`requests`, surface `plan_usage`) | Session/tool telemetry: Codex windows + Claude Code OAuth usage + Grok CLI billing (`/v1/billing?format=credits`) via desktop collector; not USD |
 | **4. Wallet (credits / balance)** | What prepaid capacity remains? | `provider_credit_snapshots` | Provider balance APIs or session-quota derived; **never** summed into spend |
 | **5. Estimate (priced tokens)** | What would usage *cost* if priced from a table? | Session/activity `cost_usd` when log-supplied, else `src/types/pricing.ts` fallbacks | Session-log exact cost preferred; static/OpenRouter table is estimate-only |
 
@@ -276,7 +276,7 @@ optional prompt redaction, tool payload truncation (`src/server/privacy/`).
 
 Runtime **slots** rows older than the window are rolled into
 `runtime_slot_rollups` before delete. `quota_snapshots` (including Claude
-Code usage-poller rows) prune on the inference window. Owner can trigger
+Code and Grok usage-poller rows) prune on the inference window. Owner can trigger
 `POST /api/privacy/retention/run` and `POST /api/privacy/purge-sensitive`.
 
 ---

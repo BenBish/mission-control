@@ -11,7 +11,7 @@
 
 | # | Surface | Operator question | Typical unit | Mission Control today (post-BSH-92) |
 |---|---------|-------------------|--------------|-------------------------------------|
-| **1** | **Plan usage remaining** | How much of my *subscription / window* quota is left? | % used/remaining, resets_at | Codex + Claude Code `quota_snapshot` → % windows (OpenAI + Anthropic via session bridge) |
+| **1** | **Plan usage remaining** | How much of my *subscription / window* quota is left? | % used/remaining, resets_at | Codex + Claude Code + Grok `quota_snapshot` → % windows (OpenAI + Anthropic + xAI via session bridge) |
 | **2** | **Usage credits wallet** | How much *prepaid / promo $ balance* can I burn after plan limits? | USD (+ grant expiry) | `prepaid_balance` snapshots; Anthropic/xAI unavailable; OpenAI `credit_grants` fails with secret keys |
 | **3** | **API org spend** | What did the *org API billing* cost historically / this month? | USD spend (daily/MTD) | **Shipped well** — `provider_usage_daily`, spend insights, budgets |
 
@@ -98,9 +98,9 @@ Admin usage/cost **does not** equal plan usage remaining or usage-credit wallet.
 |----------|-------------|--------|-------|
 | `GET /v1/models` (key check) | Connectivity | **Available** | Existing |
 | Historical usage | **#3** | **Limited** | Optional `MC_XAI_USAGE_ENDPOINT` export only |
-| Prepaid balance / plan windows | #1 / #2 | **Unavailable** | No public API; BSH-92 correctly stores `limited` |
+| Prepaid balance / plan windows | #1 / #2 | **#1 available via Grok CLI collector**; #2 still limited | No public Admin/API-key plan %. SuperGrok weekly (or monthly) remaining comes from `GET https://cli-chat-proxy.grok.com/v1/billing?format=credits` using `~/.grok/auth.json` (BSH-143). `prepaidBalance` / on-demand stay wallet and are not treated as plan %. `XAI_API_KEY` still cannot read these bars. Session `updates.jsonl` usage events are tokens only — no Codex-style `rate_limits`. OpenCode SQLite has no quota tables. |
 
-Keep explicit limited empty states; do not invent dollars.
+Keep explicit limited empty states for wallet; do not invent dollars.
 
 ---
 
@@ -114,7 +114,7 @@ Statuses: **available** | **limited** | **unavailable** | **needs product decisi
 | Anthropic Enterprise Analytics | **needs product decision** | **needs product decision** | **available** (Analytics path) | Analytics API key |
 | OpenAI | **limited** — Codex windows only via session logs | **unavailable** via secret keys (`credit_grants` session-only) | **available** | `OPENAI_ADMIN_KEY`; do not rely on secret for wallet |
 | OpenRouter | N/A (no Pro-style plan UI) | **available** (`GET /api/v1/credits`) | **available** | `OPENROUTER_API_KEY` (management preferred for credits) |
-| xAI | **unavailable** | **unavailable** | **limited** (export endpoint) | `XAI_API_KEY`, optional `MC_XAI_USAGE_ENDPOINT` |
+| xAI | **available via Grok CLI collector** (billing `creditUsagePercent` + period window); API key still unavailable | **unavailable** (API key) | **limited** (export endpoint) | `XAI_API_KEY`, optional `MC_XAI_USAGE_ENDPOINT`; collector uses `~/.grok/auth.json` for plan windows |
 
 ---
 

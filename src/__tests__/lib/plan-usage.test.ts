@@ -32,6 +32,12 @@ describe("shortWindowLabel", () => {
     expect(
       shortWindowLabel("quota_codex:primary_300m", { windowMinutes: 300 }),
     ).toBe("5h");
+    expect(
+      shortWindowLabel("quota_grok:week_10080m", {
+        limitId: "grok:week",
+        windowMinutes: 10080,
+      }),
+    ).toBe("wk");
   });
 });
 
