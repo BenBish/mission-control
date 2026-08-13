@@ -50,6 +50,7 @@ import {
   serializeProviderUsageCsv,
 } from "../../lib/consumption-export.js";
 import { sendConsumptionExport } from "../export-response.js";
+import { optionalQueryString } from "../query.js";
 
 const SCOPE_TYPES = new Set<SpendBudgetScopeType>([
   "account",
@@ -197,8 +198,7 @@ export function registerProviderRoutes(
           });
           return;
         }
-        const since =
-          typeof req.query.since === "string" ? req.query.since : undefined;
+        const since = optionalQueryString(req.query.since);
         const provider =
           typeof req.query.provider === "string" &&
           isProviderId(req.query.provider)

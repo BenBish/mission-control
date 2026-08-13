@@ -208,7 +208,7 @@ export function consumptionExportFilename(
   format: ExportFormat,
   extras: { since?: string; dimension?: string } = {},
 ): string {
-  const parts = [dataset];
+  const parts: string[] = [dataset];
   if (extras.dimension) {
     const dim = sanitizeFilenamePart(extras.dimension);
     if (dim) parts.push(dim);

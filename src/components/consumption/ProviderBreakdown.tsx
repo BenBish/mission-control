@@ -42,6 +42,7 @@ export function ProviderBreakdown({
           </div>
           <ExportMenu
             testId="export-provider-usage"
+            label="Export daily usage"
             disabled={providerLoading}
             onExport={(format) =>
               downloadConsumptionExport(
