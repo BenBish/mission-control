@@ -123,9 +123,16 @@ export default function Consumption() {
   // inside Direct API Spend, while moving operators to the correct data class.
   useEffect(() => {
     if (view === "direct-api" && window.location.hash === "#capacity") {
-      updateParams({ view: "plan-wallet" });
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set("view", "plan-wallet");
+          return next;
+        },
+        { replace: true },
+      );
     }
-  }, [updateParams, view]);
+  }, [setSearchParams, view]);
 
   // Memoized on datePreset only — these helpers read the current time, so
   // calling them directly in the hook args would produce a new query key

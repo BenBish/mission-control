@@ -193,7 +193,7 @@ spend, and legacy `?view=direct-api#capacity` links migrate to the new view.
 
 | Provider / surface | Secure source | Authentication | Freshness/reset semantics | Result |
 |---|---|---|---|---|
-| Codex 5-hour window | Local rollout JSONL `token_count.rate_limits.primary` | Existing local Codex session; credentials are not copied | Event timestamp plus provider `resets_at`; accepted only when `window_minutes` classifies as 300 | Supported when present; primary/secondary names never determine the slot. |
+| Codex 5-hour window | Local rollout JSONL `token_count.rate_limits.primary/secondary` | Existing local Codex session; credentials are not copied | Event timestamp plus provider `resets_at`; accepted only when `window_minutes` classifies as 300 | Supported when present; primary/secondary names never determine the slot. |
 | Grok 5-hour window | Grok CLI billing `currentPeriod` | Existing local OIDC token, never ingested or logged | Polled every five minutes; period end is the reset; type/duration must classify as 300 minutes | Observed SuperGrok data is weekly, so 5-hour remains explicitly unavailable. |
 | Anthropic usage-credit wallet | Documented Admin Usage & Cost APIs | Organization Admin key | APIs report historical usage/cost, not authoritative prepaid balance | No reliable automated source; the approximately $93 UI balance must not be scraped or fabricated. |
 

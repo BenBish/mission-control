@@ -172,6 +172,13 @@ test.describe("Consumption", () => {
     await expect(
       page.getByTestId("plan-wallet-capacity-section"),
     ).toBeVisible();
+
+    await page.goBack();
+    await expect(page).toHaveURL(/view=agent/);
+    await expect(consumption.getTab("Agent Usage")).toHaveAttribute(
+      "data-state",
+      "active",
+    );
   });
 
   test("Direct API Spend has no page-wide overflow at 390px", async ({
