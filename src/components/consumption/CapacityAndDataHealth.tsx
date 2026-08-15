@@ -42,7 +42,7 @@ export function CapacityAndDataHealth({
       <section
         id="capacity"
         className="space-y-4 min-w-0"
-        data-testid="direct-api-capacity-section"
+        data-testid="plan-wallet-capacity-section"
       >
         <div>
           <h3 className="text-sm font-semibold">Plan usage &amp; wallet</h3>
@@ -219,7 +219,7 @@ export function CapacityAndDataHealth({
       {/* ── Connectors & data health (collapsed by default) ─────── */}
       <details
         className="group rounded-lg border border-dashed bg-muted/20 min-w-0"
-        data-testid="direct-api-capacity-health"
+        data-testid="plan-wallet-capacity-health"
       >
         <summary className="cursor-pointer list-none flex flex-wrap items-center justify-between gap-2 px-4 py-3 select-none [&::-webkit-details-marker]:hidden">
           <div className="flex items-center gap-2 min-w-0">

@@ -20,8 +20,9 @@ test.describe("Consumption", () => {
     await expect(consumption.heading).toBeVisible();
   });
 
-  test("shows Agent Usage, Direct API Spend, and Attribution tabs", async () => {
+  test("shows all four data-class tabs", async () => {
     await expect(consumption.getTab("Agent Usage")).toBeVisible();
+    await expect(consumption.getTab("Plan usage & wallet")).toBeVisible();
     await expect(consumption.getTab("Direct API Spend")).toBeVisible();
     await expect(consumption.getTab("Attribution")).toBeVisible();
   });
@@ -84,14 +85,12 @@ test.describe("Consumption", () => {
       page.getByRole("heading", { name: "Direct API Spend", level: 3 }),
     ).toBeVisible();
     await expect(page.getByText("Account-wide").first()).toBeVisible();
-    // BSH-98: decision sections first; BYOK caveat lives under Capacity details
+    // Direct API Spend keeps only API organization spend content.
     await expect(page.getByTestId("direct-api-overview")).toBeVisible();
     await expect(page.getByTestId("direct-api-drivers")).toBeVisible();
-    await page
-      .getByTestId("direct-api-capacity-health")
-      .locator("summary")
-      .click();
-    await expect(page.getByText(/OpenRouter BYOK/i)).toBeVisible();
+    await expect(page.getByTestId("plan-wallet-capacity-section")).toHaveCount(
+      0,
+    );
 
     await consumption.selectPreset("Last 7 days");
     await expect(page).toHaveURL(/range=7d/);
@@ -134,38 +133,22 @@ test.describe("Consumption", () => {
     await consumption.selectAllSourcesFilter();
   });
 
-  test("Direct API Spend shows overview before capacity diagnostics", async ({
+  test("separates plan and wallet capacity from Direct API Spend", async ({
     page,
   }) => {
     await consumption.selectTab("Direct API Spend");
     const overview = page.getByTestId("direct-api-overview");
-    const planWallet = page.getByTestId("direct-api-capacity-section");
-    const connectors = page.getByTestId("direct-api-capacity-health");
     await expect(overview).toBeVisible();
-    await expect(planWallet).toBeVisible();
-    await expect(connectors).toBeVisible();
-    // Overview appears above plan usage & wallet, then connectors accordion
-    const order = await page.evaluate(() => {
-      const o = document.querySelector('[data-testid="direct-api-overview"]');
-      const p = document.querySelector(
-        '[data-testid="direct-api-capacity-section"]',
-      );
-      const c = document.querySelector(
-        '[data-testid="direct-api-capacity-health"]',
-      );
-      if (!o || !p || !c) return null;
-      const oBeforeP =
-        o.compareDocumentPosition(p) & Node.DOCUMENT_POSITION_FOLLOWING;
-      const pBeforeC =
-        p.compareDocumentPosition(c) & Node.DOCUMENT_POSITION_FOLLOWING;
-      return oBeforeP && pBeforeC
-        ? "overview-before-plan-before-connectors"
-        : "unexpected-order";
-    });
-    expect(order).toBe("overview-before-plan-before-connectors");
-    // MTD / budget cards live in overview
     await expect(overview.getByText("MTD spent")).toBeVisible();
-    // Plan usage is promoted (always visible); connector health stays collapsed
+    await expect(page.getByTestId("provider-plan-usage-card")).toHaveCount(0);
+    await expect(page.getByTestId("provider-wallet-card")).toHaveCount(0);
+
+    await consumption.selectTab("Plan usage & wallet");
+    await expect(page).toHaveURL(/view=plan-wallet/);
+    const connectors = page.getByTestId("plan-wallet-capacity-health");
+    await expect(
+      page.getByTestId("plan-wallet-capacity-section"),
+    ).toBeVisible();
     await expect(page.getByTestId("provider-plan-usage-card")).toBeVisible();
     await expect(page.getByTestId("provider-wallet-card")).toBeVisible();
     await expect(connectors).not.toHaveAttribute("open", "");
@@ -174,6 +157,21 @@ test.describe("Consumption", () => {
     );
     await connectors.locator("summary").click();
     await expect(connectors).toHaveAttribute("open", "");
+  });
+
+  test("redirects the legacy Direct API capacity deep link", async ({
+    page,
+  }) => {
+    await consumption.goto("?view=direct-api&range=30d#capacity");
+    await consumption.waitForData();
+    await expect(page).toHaveURL(/view=plan-wallet/);
+    await expect(consumption.getTab("Plan usage & wallet")).toHaveAttribute(
+      "data-state",
+      "active",
+    );
+    await expect(
+      page.getByTestId("plan-wallet-capacity-section"),
+    ).toBeVisible();
   });
 
   test("Direct API Spend has no page-wide overflow at 390px", async ({
@@ -191,6 +189,22 @@ test.describe("Consumption", () => {
         clientWidth: doc.clientWidth,
       };
     });
+    expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth + 1);
+  });
+
+  test("Plan usage & wallet has no page-wide overflow at 390px", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await consumption.goto("?view=plan-wallet&range=30d");
+    await consumption.waitForData();
+    await expect(
+      page.getByTestId("plan-wallet-capacity-section"),
+    ).toBeVisible();
+    const overflow = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+    }));
     expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth + 1);
   });
 });

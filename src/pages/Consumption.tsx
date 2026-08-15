@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/_shared/PageHeader";
 import { Loading } from "@/components/_shared/Loading";
-import { Calendar, Cloud, Bot, Link2 } from "lucide-react";
+import { Calendar, Cloud, Bot, Link2, Gauge, RefreshCw } from "lucide-react";
 import { useSourceFilter } from "@/app/source-context";
 import {
   useAgentUsage,
@@ -29,6 +29,7 @@ import {
 import { AgentUsageTab } from "@/components/consumption/AgentUsageTab";
 import { AttributionTab } from "@/components/consumption/AttributionTab";
 import { DirectApiTab } from "@/components/consumption/DirectApiTab";
+import { CapacityAndDataHealth } from "@/components/consumption/CapacityAndDataHealth";
 import { DATE_PRESETS } from "@/components/consumption/constants";
 import {
   parseRange,
@@ -101,6 +102,7 @@ export default function Consumption() {
     const rawUnit = searchParams.get("unit");
     const viewOk =
       rawView === "agent" ||
+      rawView === "plan-wallet" ||
       rawView === "direct-api" ||
       rawView === "attribution";
     const rangeOk =
@@ -116,6 +118,14 @@ export default function Consumption() {
       updateParams({});
     }
   }, [searchParams, updateParams]);
+
+  // Preserve legacy deep links to the capacity section that previously lived
+  // inside Direct API Spend, while moving operators to the correct data class.
+  useEffect(() => {
+    if (view === "direct-api" && window.location.hash === "#capacity") {
+      updateParams({ view: "plan-wallet" });
+    }
+  }, [updateParams, view]);
 
   // Memoized on datePreset only — these helpers read the current time, so
   // calling them directly in the hook args would produce a new query key
@@ -241,7 +251,7 @@ export default function Consumption() {
 
   const rangeLabel =
     DATE_PRESETS.find((p) => p.value === datePreset)?.label ?? "Last 30 days";
-  const pageDescription = `Agent session usage for ${agentScope}; Direct API Spend is account-wide; Attribution links them with confidence — never summed blindly`;
+  const pageDescription = `Agent usage for ${agentScope}; subscription capacity, prepaid wallets, and account-wide Direct API Spend stay separate; Attribution links usage and spend without summing blindly`;
 
   if (isLoading && view === "agent") {
     return (
@@ -277,7 +287,7 @@ export default function Consumption() {
         onValueChange={(v) => updateParams({ view: parseView(v) })}
       >
         <div className="flex flex-wrap items-center justify-between gap-3 min-w-0">
-          {/* Scrollable tab strip so three labels never widen the page at 390px */}
+          {/* Scrollable tab strip so labels never widen the page at 390px */}
           <div className="min-w-0 max-w-full overflow-x-auto">
             <TabsList className="h-auto w-max max-w-none">
               <TabsTrigger value="agent" className="gap-1.5 shrink-0">
@@ -287,6 +297,10 @@ export default function Consumption() {
               <TabsTrigger value="direct-api" className="gap-1.5 shrink-0">
                 <Cloud className="h-4 w-4 shrink-0" />
                 Direct API Spend
+              </TabsTrigger>
+              <TabsTrigger value="plan-wallet" className="gap-1.5 shrink-0">
+                <Gauge className="h-4 w-4 shrink-0" />
+                Plan usage &amp; wallet
               </TabsTrigger>
               <TabsTrigger
                 value="attribution"
@@ -355,12 +369,53 @@ export default function Consumption() {
             providerTotals={providerTotals}
             providerBreakdown={providerBreakdown}
             updateParams={updateParams}
-            creditsLoading={creditsLoading}
-            planUsageCredits={planUsageCredits}
-            walletCredits={walletCredits}
-            providerStatus={providerStatus}
             since={providerSince}
           />
+        </TabsContent>
+
+        <TabsContent value="plan-wallet" className="space-y-4 mt-4 min-w-0">
+          <Card className="shadow-sm border-dashed min-w-0 overflow-hidden">
+            <CardContent className="pt-6 space-y-6 min-w-0">
+              <div>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="text-lg font-semibold flex items-center gap-2">
+                      <Gauge className="h-5 w-5 shrink-0" />
+                      Plan usage &amp; wallet
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-1 max-w-3xl">
+                      Subscription windows and prepaid balances are capacity,
+                      not API organization spend. Unavailable slots remain
+                      explicit instead of being inferred from other windows.
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void handleProviderSync()}
+                    disabled={syncing}
+                  >
+                    <RefreshCw
+                      className={`h-3.5 w-3.5 mr-1.5 ${syncing ? "animate-spin" : ""}`}
+                    />
+                    {syncing ? "Syncing…" : "Sync capacity"}
+                  </Button>
+                </div>
+                {syncMessage && (
+                  <p className="text-xs text-muted-foreground mt-2 font-mono break-all">
+                    {syncMessage}
+                  </p>
+                )}
+              </div>
+              <CapacityAndDataHealth
+                creditsLoading={creditsLoading}
+                planUsageCredits={planUsageCredits}
+                walletCredits={walletCredits}
+                providerStatus={providerStatus}
+                spendInsights={spendInsights}
+              />
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent

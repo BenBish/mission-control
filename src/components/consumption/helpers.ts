@@ -3,6 +3,7 @@ import type { DatePreset } from "@/lib/date-range";
 import type { ConsumptionView, Unit } from "./types";
 
 export function parseView(raw: string | null): ConsumptionView {
+  if (raw === "plan-wallet") return "plan-wallet";
   if (raw === "direct-api") return "direct-api";
   if (raw === "attribution") return "attribution";
   return "agent";

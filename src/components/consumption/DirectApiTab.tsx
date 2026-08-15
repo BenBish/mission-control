@@ -9,18 +9,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Cloud, Info, RefreshCw } from "lucide-react";
-import type {
-  ProviderBreakdownRow,
-  ProviderCredit,
-  ProviderStatus,
-  SpendInsights,
-} from "@/lib/queries";
+import type { ProviderBreakdownRow, SpendInsights } from "@/lib/queries";
 import type { ProviderTotals, UpdateConsumptionParams } from "./types";
 import { DirectApiOverview } from "./DirectApiOverview";
 import { DirectApiDrivers } from "./DirectApiDrivers";
 import { DirectApiEfficiency } from "./DirectApiEfficiency";
 import { ProviderBreakdown } from "./ProviderBreakdown";
-import { CapacityAndDataHealth } from "./CapacityAndDataHealth";
 
 export function DirectApiTab({
   selectedSourceId,
@@ -36,10 +30,6 @@ export function DirectApiTab({
   providerTotals,
   providerBreakdown,
   updateParams,
-  creditsLoading,
-  planUsageCredits,
-  walletCredits,
-  providerStatus,
   since,
 }: {
   selectedSourceId: string | undefined;
@@ -55,10 +45,6 @@ export function DirectApiTab({
   providerTotals: ProviderTotals;
   providerBreakdown: ProviderBreakdownRow[] | undefined;
   updateParams: UpdateConsumptionParams;
-  creditsLoading: boolean;
-  planUsageCredits: ProviderCredit[];
-  walletCredits: ProviderCredit[];
-  providerStatus: ProviderStatus[] | undefined;
   since?: string;
 }) {
   return (
@@ -113,7 +99,7 @@ export function DirectApiTab({
       </CardHeader>
 
       <CardContent className="pt-4 space-y-8 min-w-0">
-        {/* BSH-98: decision content first — Overview → Drivers → Attribution → Capacity */}
+        {/* API organization spend only; capacity has a dedicated tab. */}
         <DirectApiOverview
           insightsLoading={insightsLoading}
           insightsError={insightsError}
@@ -131,13 +117,6 @@ export function DirectApiTab({
           providerBreakdown={providerBreakdown}
           updateParams={updateParams}
           since={since}
-        />
-        <CapacityAndDataHealth
-          creditsLoading={creditsLoading}
-          planUsageCredits={planUsageCredits}
-          walletCredits={walletCredits}
-          providerStatus={providerStatus}
-          spendInsights={spendInsights}
         />
       </CardContent>
     </Card>

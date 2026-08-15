@@ -1,7 +1,11 @@
 import type { DatePreset } from "@/lib/date-range";
 
 export type Unit = "tokens" | "compute" | "usd";
-export type ConsumptionView = "agent" | "direct-api" | "attribution";
+export type ConsumptionView =
+  | "agent"
+  | "plan-wallet"
+  | "direct-api"
+  | "attribution";
 
 export type UpdateConsumptionParams = (patch: {
   view?: ConsumptionView;

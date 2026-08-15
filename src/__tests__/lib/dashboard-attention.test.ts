@@ -114,6 +114,7 @@ describe("buildDashboardAttentionItems", () => {
     expect(items[0]?.detail).toMatch(/12% remaining/);
     expect(items[0]?.detail).toMatch(/not dollars/i);
     expect(items[0]?.href).toContain("#capacity");
+    expect(items[0]?.href).toContain("view=plan-wallet");
   });
 
   test("uses critical plan-usage threshold when remaining is at or below it", () => {
