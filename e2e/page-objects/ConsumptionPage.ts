@@ -1,7 +1,6 @@
 /**
  * ConsumptionPage — page object for the Consumption view (src/pages/Consumption.tsx).
- * Tabs: Agent Usage (session-derived), Direct API Spend (provider billing),
- * Attribution (reconciliation / BSH-101).
+ * Tabs: Agent Usage, Plan usage & wallet, Direct API Spend, and Attribution.
  * View + range (+ unit on Agent Usage) are encoded in the URL.
  */
 
@@ -40,6 +39,7 @@ export class ConsumptionPage extends BasePage {
         this.page.getByRole("heading", { name: "Direct API Spend", level: 3 }),
       )
       .or(this.page.getByTestId("direct-api-overview"))
+      .or(this.page.getByTestId("plan-wallet-capacity-section"))
       .or(this.page.getByTestId("attribution-panel"))
       .or(this.agentUsdEmptyState())
       .or(this.noDataState())
@@ -47,11 +47,23 @@ export class ConsumptionPage extends BasePage {
       .waitFor({ state: "visible" });
   }
 
-  getTab(name: "Agent Usage" | "Direct API Spend" | "Attribution"): Locator {
+  getTab(
+    name:
+      | "Agent Usage"
+      | "Plan usage & wallet"
+      | "Direct API Spend"
+      | "Attribution",
+  ): Locator {
     return this.page.getByRole("tab", { name, exact: true });
   }
 
-  async selectTab(name: "Agent Usage" | "Direct API Spend" | "Attribution") {
+  async selectTab(
+    name:
+      | "Agent Usage"
+      | "Plan usage & wallet"
+      | "Direct API Spend"
+      | "Attribution",
+  ) {
     await this.getTab(name).click();
   }
 

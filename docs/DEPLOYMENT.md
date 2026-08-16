@@ -69,6 +69,17 @@ Override the proxy base with `GROK_CLI_CHAT_PROXY_BASE_URL` if needed.
 OpenCode session DBs were investigated and have no equivalent quota
 telemetry.
 
+**Codex plan usage:** the collector reads `rate_limits` records already in
+local rollout JSONL and emits utilization, `window_minutes`, and reset time. A
+real 300-minute duration fills the canonical 5-hour slot; primary/secondary
+names are not used to guess it. Otherwise the slot remains unavailable.
+
+**Anthropic usage-credit wallet:** the documented Admin Usage & Cost APIs do
+not expose remaining prepaid balance. Mission Control therefore shows an
+unavailable wallet even when the provider UI shows credits. Do not provide
+browser cookies/session credentials or scrape the billing UI; check it directly
+until Anthropic offers a supported balance source.
+
 ### 5. Tests
 
 ```bash

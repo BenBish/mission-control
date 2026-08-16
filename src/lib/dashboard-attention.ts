@@ -82,7 +82,7 @@ function alertKind(alert: SpendAlert): AttentionKind {
 
 function alertHref(alert: SpendAlert): string {
   if (alert.dataClass === "quota" || alert.dataClass === "wallet") {
-    return "/consumption?view=direct-api#capacity";
+    return "/consumption?view=plan-wallet#capacity";
   }
   return "/consumption?view=direct-api";
 }
@@ -184,7 +184,7 @@ export function buildDashboardAttentionItems(
             : "warn",
         title: `${constrained.displayName} ${constrained.windowLabel} window is low`,
         detail: `${constrained.remainingPercent}% remaining · not dollars`,
-        href: "/consumption?view=direct-api#capacity",
+        href: "/consumption?view=plan-wallet#capacity",
       });
     }
   }

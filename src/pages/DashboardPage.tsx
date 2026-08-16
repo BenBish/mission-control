@@ -392,7 +392,7 @@ export default function DashboardPage() {
         </Link>
 
         <Link
-          to="/consumption?view=direct-api#capacity"
+          to="/consumption?view=plan-wallet#capacity"
           className="block rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           aria-label="Plan usage — subscription rate-limit windows remaining"
           data-testid="plan-usage-kpi-link"
