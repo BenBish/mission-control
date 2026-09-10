@@ -42,7 +42,7 @@ Admin usage/cost **does not** equal plan usage remaining or usage-credit wallet.
 | Claude Enterprise Analytics API | Analytics key | Enterprise claude.ai usage/cost | **Needs product decision** | Different key path for Enterprise parents; not the Console Admin key |
 | claude.ai plan usage UI | User session (browser) | **#1 plan usage** | **Unavailable** via Admin API | No documented public Admin/API for Pro/Max weekly/session remaining. Multiple Claude Code feature requests for `claude usage` / local quota export remain open |
 | claude.ai usage credits UI | User session (browser) | **#2 wallet** | **Unavailable** via Admin API | No documented remaining-balance endpoint (confirmed in BSH-92 + platform docs). Console “credit balance too low” is billing-side; not exposed on Usage & Cost API |
-| Claude Code status bar / OTEL | Local session | **#1** (session-time only) | **Limited** | Visible in-session only; not org-wide durable snapshots without new collector plumbing. OTEL is real-time custom metrics, not Admin plan % |
+| Claude Code status bar / OTEL | Local session | **#1** (session-time only) | **Limited** | Visible in-session only; not org-wide durable snapshots without new collector plumbing. OTEL is real-time custom metrics, not Admin plan %. See [BSH-348](#bsh-348-claude-code-collector--otel-vs-admin-analytics-api-vs-current-2026-09-10) for a deeper evaluation, including real cost data OTel can supply that the current collector cannot |
 | Scraping claude.ai HTML | User cookies | #1 / #2 | **Needs product decision** | Explicitly out of scope as default long-term approach (BSH-94). Accept only if product signs risk |
 
 ### Mapping confirmation
@@ -201,6 +201,124 @@ The safest Anthropic fallback is an explicit unavailable tile directing the
 operator to the provider billing UI. Automation should wait for a documented
 balance endpoint or safe local client export that needs no browser credentials.
 
+## BSH-348: Claude Code collector — OTel vs. Admin Analytics API vs. current (2026-09-10)
+
+**Spike outcome for [BSH-348](https://linear.app/bshp/issue/BSH-348).** Follows up on the
+"Claude Code status bar / OTEL" row above, which was noted as limited but never evaluated
+in depth. This section compares three ways to source Claude Code usage/cost data.
+
+### Current approach (shipped)
+
+`src/collectors/claude-code/` runs inside the desktop collector process
+(`src/collector-main.ts`) with **zero configuration** — no env vars, no API key setup:
+
+- `collector.ts` globs `~/.claude/projects/**/*.jsonl` every 30s and tails new lines via
+  `parser.ts`, emitting `session`/`activity` events with tokens, tool calls, and turn counts.
+- `usage-poller.ts` separately polls the private, undocumented
+  `GET https://api.anthropic.com/api/oauth/usage` endpoint every 5 minutes (using the OAuth
+  token in `~/.claude/.credentials.json`) for 5h/7d/7d-opus plan-window quota %, mapped to
+  `quota_snapshot` events.
+- **Gap:** `costUsd` (`src/types/ingest.ts:55,83`) is never populated — session JSONL carries
+  tokens/model, not dollars. Multi-tool-call assistant turns are undercounted (only the first
+  tool per turn is recorded, `parser.ts:38-46`, an accepted P1 simplification). OAuth token
+  refresh isn't implemented (`usage-poller.ts:218`), so quota polling can go stale.
+
+### Option A — Claude Code native OpenTelemetry
+
+Enabled via `CLAUDE_CODE_ENABLE_TELEMETRY=1` plus `OTEL_METRICS_EXPORTER`/`OTEL_LOGS_EXPORTER`
+(`otlp`, `console`, or `prometheus`). Metrics and event logs are **stable** (distributed
+tracing is beta and out of scope here).
+
+**Empirically verified** (2026-09-10, `claude -p "..."` with
+`OTEL_METRICS_EXPORTER=console OTEL_LOGS_EXPORTER=console`): confirmed real, well-formed data —
+a `claude_code.cost.usage` counter (`unit: USD`) emitted `value: 0.059912` tagged with
+`model`, `session.id`, `query_source`, `effort`; a matching `claude_code.api_request` event
+carried `cost_usd`, `cost_usd_micros`, `input_tokens`/`output_tokens`/`cache_read_tokens`/
+`cache_creation_tokens`, and `request_id`. `claude_code.token.usage` breaks tokens out by
+`type` (`input`/`output`/`cacheRead`/`cacheCreation`). This is real per-request cost data the
+current collector has never had.
+
+Other relevant metrics: `claude_code.session.count` (`start_type`), `claude_code.lines_of_code.count`
+(`type: added|removed`, `model`), `claude_code.code_edit_tool.decision` (`accept|reject`),
+`claude_code.active_time.total`. Event log covers `user_prompt`, `assistant_response`,
+`tool_decision`, `tool_result`, `api_request`, `api_error`, `mcp_server_connection`, etc.
+
+Content is redacted by default (`OTEL_LOG_USER_PROMPTS`, `OTEL_LOG_TOOL_DETAILS`, etc. opt
+back in) — cost/token/session metrics are unaffected by redaction, only prompt/tool content is.
+
+**Integration cost, not just a config flag:**
+
+- No local dashboard or file output exists for OTel — "all metrics/events must be exported
+  via OpenTelemetry to an external backend" (Anthropic docs). Mission Control's desktop
+  collector would need to run its own OTLP receiver (HTTP/gRPC listener) to ingest this
+  in-process, which is new plumbing beyond today's file-glob + HTTP-poll model.
+- Unlike the current collector, **OTel is not zero-config**: the env vars above must be set
+  in every shell/session that launches `claude`, persistently (e.g. shell profile), for
+  telemetry to cover all usage — a real adoption/reliability difference from passively
+  tailing JSONL files that Claude Code always writes regardless of configuration.
+- Metrics are per-session/user scoped, not org-wide aggregates — fine for Mission Control's
+  single-desktop model, matching the existing quota poller's scope.
+- Does **not** solve plan-window quota % (5h/7d/7d-opus) — OTel has no equivalent to the
+  `/api/oauth/usage` windows, so the private-endpoint poller would still be needed for that
+  surface even if OTel replaced the cost/token side.
+
+### Option B — Claude Code Analytics (Admin) API
+
+`GET /v1/organizations/usage_report/claude_code` (verified 2026-09-10 against
+`platform.claude.com/docs/en/manage-claude/claude-code-analytics-api`): daily, per-user
+aggregates with `core_metrics` (sessions, LOC added/removed, commits, PRs), `tool_actions`
+(accept/reject per tool), and `model_breakdown[]` with `tokens.{input,output,cache_read,
+cache_creation}` and `estimated_cost.{amount,currency}` (cents, USD) per model.
+
+- **Blocker: Admin API is unavailable for individual accounts** — it requires an
+  organization (Console → Settings → Organization) and an Admin API key, OAuth token with
+  `org:admin` scope, or unscoped personal/service key. A personal Claude Pro/Max account with
+  no organization cannot call this endpoint at all.
+- Daily aggregation only, ~1 hour freshness delay, no real-time/session-level granularity —
+  materially coarser than either the current collector or OTel.
+- Would reuse existing Admin-key plumbing (`src/services/provider-connectors/`, already used
+  for Anthropic org spend) rather than requiring new receiver infrastructure — the lowest
+  integration cost of the three **if** an org/Admin key is available.
+- Only covers usage through the Claude API/Console; excludes Bedrock/Vertex/Foundry deployments
+  (not relevant to Mission Control's desktop-collector scope today).
+
+### Comparison
+
+| Dimension | Current (JSONL + OAuth) | OTel | Admin Analytics API |
+|---|---|---|---|
+| Cost (`costUsd`) data | **None** | Yes, per-request, real $ | Yes, daily per-model estimate |
+| Tool-call accuracy | Undercounts multi-tool turns | Accurate (per-decision events) | Accept/reject counts only, daily |
+| Plan-window quota % | Yes (private endpoint) | No | No |
+| Freshness | Real-time (30s tick) | Real-time (configurable export interval) | ~1 hour, daily granularity |
+| Setup required | None (zero-config) | Persistent env vars + OTLP receiver | Admin API key + organization |
+| Works on individual (non-org) account | Yes | Yes | **No** |
+| Reliance on undocumented endpoint | Yes (`/api/oauth/usage`) | No | No |
+
+### Recommendation
+
+**Partial adoption, not a replacement.** None of the three sources alone covers everything
+Mission Control needs:
+
+1. **Keep** the OAuth `/api/oauth/usage` poller — it is still the only source for plan-window
+   quota % (data class: quota), which neither OTel nor the Admin API provide.
+2. **Add OTel as an opt-in enhancement** for cost (`claude_code.cost.usage`) and more accurate
+   tool-call/token data, gated behind the user enabling `CLAUDE_CODE_ENABLE_TELEMETRY=1` +
+   pointing `OTEL_EXPORTER_OTLP_ENDPOINT` at a small receiver the desktop collector exposes.
+   This directly closes the `costUsd` gap the current JSONL parser cannot close, without
+   requiring an organization or Admin key. Treat it as additive: if the user hasn't opted in,
+   fall back to today's zero-config JSONL behavior exactly as now.
+3. **Do not build on the Admin Analytics API** for the default single-user desktop-collector
+   path — it's blocked for individual accounts, which is Mission Control's primary use case.
+   Revisit only if/when Mission Control targets org/team deployments with an Admin key already
+   configured (at which point it's a low-cost addition since the connector plumbing exists).
+4. Any OTel integration is new scope (an embedded OTLP receiver, config surface for the env
+   vars, redaction-safe defaults) — worth its own follow-up task rather than folding into this
+   spike.
+
+- [Claude Code monitoring and usage (OpenTelemetry reference)](https://code.claude.com/docs/en/monitoring-usage)
+
+---
+
 ## References
 
 - [Usage and Cost API](https://platform.claude.com/docs/en/manage-claude/usage-cost-api)  
@@ -219,3 +337,11 @@ balance endpoint or safe local client export that needs no browser credentials.
 - [x] Endpoint/key matrix with available / limited / unavailable / needs product decision  
 - [x] Phase 1 vs later recommendations for BSH-93  
 - [x] Link from BSH-93 (Linear comment on merge of this PR)
+
+## BSH-348 spike checklist
+
+- [x] Determine whether OTel can supply real `costUsd` data — confirmed empirically, see above
+- [x] Assess integration cost (OTLP receiver, redaction, opt-in env vars) — see above
+- [x] Compare current vs. OTel vs. Admin Analytics API across cost/accuracy/quota/freshness/setup
+- [x] Recommendation with rationale — partial adoption (OTel for cost, keep OAuth poller for quota)
+- [x] Reference document updated (this file)
