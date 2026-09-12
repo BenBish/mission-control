@@ -319,6 +319,178 @@ Mission Control needs:
 
 ---
 
+## BSH-371: Codex and Grok CLI native telemetry (2026-09-12)
+
+**Spike outcome for [BSH-371](https://linear.app/bshp/issue/BSH-371).** Both CLIs now
+have native, customer-directed OpenTelemetry export. Neither currently supplies the missing
+capacity datum that made Claude Code OTel worth partially adopting: Codex CLI exports tokens
+but not authoritative CLI cost or plan quota, while Grok exports tokens but explicitly has no
+cost metric and does not export billing periods. The existing local collectors remain the
+better default because they are zero-config and already capture those token/session signals.
+
+### Codex CLI
+
+#### Native mechanism and setup
+
+Codex has documented OTLP export for logs, traces, and metrics. It is configured in
+`~/.codex/config.toml`, not by a single Claude-style enablement environment variable:
+
+```toml
+[otel]
+environment = "production"
+log_user_prompt = false
+exporter = { otlp-http = { endpoint = "http://127.0.0.1:4318/v1/logs", protocol = "binary" } }
+metrics_exporter = { otlp-http = { endpoint = "http://127.0.0.1:4318/v1/metrics", protocol = "binary" } }
+trace_exporter = { otlp-http = { endpoint = "http://127.0.0.1:4318/v1/traces", protocol = "binary" } }
+```
+
+`otlp-http` and `otlp-grpc` support endpoints, static headers, and TLS client/CA paths. Log
+and trace export default to `none`; `metrics_exporter` defaults to OpenAI's `statsig` target,
+so a customer must explicitly replace it with their own OTLP destination. This is opt-in
+collector configuration, not zero-config local output. Prompt bodies are redacted unless
+`otel.log_user_prompt = true`, although `tool_result` can include an output snippet and should
+still be treated as potentially sensitive.
+
+The documented run events include `codex.conversation_starts`, `codex.api_request`,
+`codex.sse_event`, `codex.websocket_request`, `codex.websocket_event`, `codex.user_prompt`,
+`codex.tool_decision`, and `codex.tool_result`. Relevant metrics include
+`codex.turn.token_usage` (histogram, `token_type` = `total|input|cached_input|output|reasoning_output`),
+API/stream request counts and durations, turn latency, and tool calls/approvals. Default tags
+include `auth_mode`, `originator`, `session_source`, `model`, and `app.version`.
+
+#### Coverage and stability
+
+- **Tokens/session activity:** available in near real time and structured, but substantially
+  overlaps the cumulative `token_count` records Mission Control already tails from rollout
+  JSONL with no user setup. OTel can improve broader tool/approval/request observability, but
+  that is not a current capacity-collector gap.
+- **Cost:** unavailable from the CLI's documented telemetry. Upstream contains
+  `codex.turn.cost_microusd` / `codex.turn_cost`, but as of the research date the only
+  production call site is the app-server turn-cost worker, not the interactive or `exec` CLI,
+  and the metric is not in the documented Codex CLI metric contract. Treating tokens times a
+  price sheet as cost would be an estimate, not authoritative spend: ChatGPT subscription
+  use is not per-token API billing, and model aliases/auth mode/service tier complicate pricing.
+- **Plan quota / wallet:** unavailable. OTel has no rate-limit-window, reset, remaining-credit,
+  or wallet metric/event. Keep rollout JSONL `token_count.rate_limits` for 5-hour/weekly plan
+  windows and the Admin APIs for API-org usage/cost; OTel cannot remove either dependency.
+- **Stability:** the feature and core event/metric names are documented, but no versioned or
+  stable schema promise is published. The implementation is moving quickly. A current upstream
+  report also shows `codex exec` exporting logs/traces but not `codex.turn.token_usage` metrics,
+  while the interactive TUI does; consumers would need version/mode compatibility tests.
+
+#### Codex comparison and recommendation
+
+| Dimension | Current rollout JSONL + Admin API | Codex OTel |
+|---|---|---|
+| Cost availability / accuracy | Authoritative org spend via Admin API; no subscription/session cost | No documented CLI cost; token-derived estimates are not authoritative |
+| Token/session data | Yes, cumulative local token counts and sessions | Yes, near-real-time turn metrics/events; mostly duplicate |
+| Plan quota / wallet | Plan windows from local `rate_limits`; wallet unavailable | Neither |
+| Freshness | JSONL event-driven; Admin spend bucketed by API | Near real time; exporter interval/batching applies |
+| Setup | JSONL zero-config; Admin key for org spend | Opt-in config plus OTLP receiver/backend |
+| Undocumented dependency | Local rollout schema; Admin APIs documented | Customer OTLP is documented; schema has no stability guarantee |
+
+**Recommendation: not applicable for the capacity collector today.** Do not add an OTLP
+receiver solely for Codex. It would duplicate token/session data while closing none of the
+collector's cost, wallet, or quota gaps. Keep it on the roadmap as a separate, partial adoption
+for richer tool/request observability if Mission Control expands beyond capacity, and re-evaluate
+if `codex.turn.cost_microusd` becomes a documented CLI signal or quota windows enter the export.
+
+- [Codex advanced configuration: observability and telemetry](https://developers.openai.com/codex/config-advanced/#observability-and-telemetry)
+- [Codex configuration reference (`otel.*`)](https://developers.openai.com/codex/config-reference/#otel)
+- [Codex OTel metric names (upstream, researched revision)](https://github.com/openai/codex/blob/53ff712a48379ce8df605e292afd6046ca88ae9b/codex-rs/otel/src/metrics/names.rs)
+- [Current `codex exec` token-metric gap](https://github.com/openai/codex/issues/33668)
+
+### Grok CLI (xAI)
+
+#### Native mechanism and setup
+
+Grok CLI has a dedicated external OTel stream for metrics and log events. It is off by default
+and deliberately requires a double opt-in: the Grok-specific master switch plus at least one
+exporter selection.
+
+```bash
+export GROK_EXTERNAL_OTEL=1
+export OTEL_METRICS_EXPORTER=otlp
+export OTEL_LOGS_EXPORTER=otlp
+export OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318
+grok
+```
+
+Equivalent persistent keys are available under `[telemetry]` in `config.toml`, including
+`otel_enabled`, `otel_metrics_exporter`, `otel_logs_exporter`, `otel_endpoint`, protocol,
+certificate paths, export intervals, and four content gates. HTTP/protobuf and gRPC are
+supported; `console`, `otlp`, and `none` are exporter choices. External OTel is independent of
+`GROK_TELEMETRY_ENABLED` (xAI product analytics), privacy/data-retention settings, and trace
+upload. It exports logs and metrics only, not customer-directed traces.
+
+The schema omits prompt, response, and tool content by default, but it is not anonymous:
+`user.id` is attached to events and metrics, while `session.id` is always present on events and
+included on metrics by default. Operators can set `OTEL_METRICS_INCLUDE_SESSION_ID=0` to remove
+`session.id` from metrics, but not from events. For OAuth and gateway sessions, `user.email` is
+also attached to both logs and metrics and cannot be disabled independently. These identity
+attributes leave the process through a stream that is independent of xAI privacy/data-retention
+settings, so operators must treat the OTel destination and transport as handling personal data.
+Its `ai.xai.grok_code` meter includes
+`grok_code.session.count`, `grok_code.token.usage` (`input|output|reasoning|cache_read` by
+model), `grok_code.turn.count`, turn latency, tool decisions/usage, errors, and startup health.
+Events include `grok_code.session_start`, `session_end`, `api_request` (including all four token
+classes), `turn_completed`, tool decisions/results, errors, compaction, auth, and model switches.
+Prompt, assistant-response, tool-detail, and tool-content fields have independent opt-in gates.
+
+#### Coverage and stability
+
+- **Tokens/session activity:** available in near real time and more granular than Mission
+  Control's completed-turn `updates.jsonl` aggregate, but it does not add a capacity surface.
+  The existing collector already gets exact token classes, sessions, activity, and tool events
+  without requiring users to enable an exporter.
+- **Cost:** explicitly unavailable (`grok_code.cost.usage` does not exist). xAI directs users to
+  join token metrics to their own price sheet. That can produce estimated API-equivalent cost,
+  but is not authoritative SuperGrok subscription spend and Mission Control does not currently
+  have a verified price for Grok Build/Grok 4.5.
+- **Plan quota / wallet:** unavailable from OTel. No `currentPeriod`, `creditUsagePercent`, reset,
+  prepaid-balance, or on-demand-credit fields are exported. The OIDC-authenticated
+  `cli-chat-proxy.grok.com/v1/billing?format=credits` poll remains the only observed source for
+  SuperGrok weekly/monthly plan windows and still relies on a non-public endpoint.
+- **Stability:** xAI explicitly labels the feature **alpha**. The wire schema is versioned with
+  `grok_code.schema.version = v1`; additive changes may occur without notice, while
+  rename/removal is promised to bump the version and appear in the changelog. This is a clearer
+  compatibility contract than Codex currently publishes, but not a stable guarantee.
+
+#### Grok comparison and recommendation
+
+| Dimension | Current `updates.jsonl` + billing poller | Grok external OTel |
+|---|---|---|
+| Cost availability / accuracy | No verified cost; billing gives plan %, not dollars | No cost metric; price-sheet join is only an estimate |
+| Token/session data | Yes, local exact counters and activity | Yes, near-real-time metrics plus richer request/events; mostly duplicate |
+| Plan quota / wallet | Weekly/monthly plan window via OIDC billing; wallet limited | Neither |
+| Freshness | Session files event-driven; billing polled every 5 minutes | Logs batched ~5s, metrics ~60s by default |
+| Setup | Zero-config files/OIDC token reuse | Double opt-in plus OTLP receiver/backend |
+| Undocumented dependency | Private CLI billing endpoint | External OTel is documented, but alpha |
+
+**Recommendation: not applicable for the capacity collector today.** Keep the billing poller
+for plan usage and the JSONL parser for local activity. External OTel closes neither the cost
+nor quota gap, so its receiver and user-configuration cost are unjustified for BSH-371. A
+future non-capacity analytics feature could partially adopt it for fleet-level request/tool
+telemetry; require `schema.version = v1`, content gates off, graceful fallback to JSONL, and a
+security/data-governance review of the user identifier, event-level session identifier,
+default metric-level session identifier, and OAuth/gateway email before enabling export.
+
+- [Grok CLI external OpenTelemetry guide (researched revision)](https://github.com/xai-org/grok-build/blob/37949780c144e37df692e3d669051a21fec24f20/crates/codegen/xai-grok-pager/docs/user-guide/24-monitoring-usage.md)
+- [Grok external OTel implementation and schema (researched revision)](https://github.com/xai-org/grok-build/tree/37949780c144e37df692e3d669051a21fec24f20/crates/codegen/xai-grok-telemetry/src/external)
+
+### BSH-371 next steps
+
+1. Close the spike without an implementation follow-up for either capacity collector.
+2. Watch Codex releases for a documented CLI cost metric and either CLI for plan-window/reset
+   export; either change would justify reassessment.
+3. If Mission Control adds fleet/tool analytics, create a separate OTel receiver spike covering
+   signal deduplication, version/mode compatibility, privacy defaults, and failure isolation.
+4. Preserve the current source split: local session data for activity/tokens, provider-specific
+   session quota sources for subscription windows, and Admin APIs for organization spend.
+
+---
+
 ## References
 
 - [Usage and Cost API](https://platform.claude.com/docs/en/manage-claude/usage-cost-api)  
@@ -345,3 +517,11 @@ Mission Control needs:
 - [x] Compare current vs. OTel vs. Admin Analytics API across cost/accuracy/quota/freshness/setup
 - [x] Recommendation with rationale — partial adoption (OTel for cost, keep OAuth poller for quota)
 - [x] Reference document updated (this file)
+
+## BSH-371 spike checklist
+
+- [x] Codex native OTel configuration, signals, stability, and gaps evaluated
+- [x] Grok native external OTel configuration, signals, alpha schema, and gaps evaluated
+- [x] Both compared with current collectors across cost, freshness, setup, and undocumented APIs
+- [x] Provider recommendations recorded — not applicable to capacity today; reconsider partial
+  adoption for broader analytics or if authoritative cost/quota signals ship
