@@ -397,7 +397,7 @@ if `codex.turn.cost_microusd` becomes a documented CLI signal or quota windows e
 
 - [Codex advanced configuration: observability and telemetry](https://developers.openai.com/codex/config-advanced/#observability-and-telemetry)
 - [Codex configuration reference (`otel.*`)](https://developers.openai.com/codex/config-reference/#otel)
-- [Codex OTel metric names (upstream)](https://github.com/openai/codex/blob/main/codex-rs/otel/src/metrics/names.rs)
+- [Codex OTel metric names (upstream, researched revision)](https://github.com/openai/codex/blob/53ff712a48379ce8df605e292afd6046ca88ae9b/codex-rs/otel/src/metrics/names.rs)
 - [Current `codex exec` token-metric gap](https://github.com/openai/codex/issues/33668)
 
 ### Grok CLI (xAI)
@@ -425,8 +425,10 @@ supported; `console`, `otlp`, and `none` are exporter choices. External OTel is 
 upload. It exports logs and metrics only, not customer-directed traces.
 
 The schema omits prompt, response, and tool content by default, but it is not anonymous:
-`user.id` and `session.id` are always exported. For OAuth and gateway sessions, `user.email`
-is also attached to both logs and metrics and cannot be disabled independently. These identity
+`user.id` is attached to events and metrics, while `session.id` is always present on events and
+included on metrics by default. Operators can set `OTEL_METRICS_INCLUDE_SESSION_ID=0` to remove
+`session.id` from metrics, but not from events. For OAuth and gateway sessions, `user.email` is
+also attached to both logs and metrics and cannot be disabled independently. These identity
 attributes leave the process through a stream that is independent of xAI privacy/data-retention
 settings, so operators must treat the OTel destination and transport as handling personal data.
 Its `ai.xai.grok_code` meter includes
@@ -471,11 +473,11 @@ for plan usage and the JSONL parser for local activity. External OTel closes nei
 nor quota gap, so its receiver and user-configuration cost are unjustified for BSH-371. A
 future non-capacity analytics feature could partially adopt it for fleet-level request/tool
 telemetry; require `schema.version = v1`, content gates off, graceful fallback to JSONL, and a
-security/data-governance review of the mandatory user/session identifiers and OAuth/gateway
-email before enabling export.
+security/data-governance review of the user identifier, event-level session identifier,
+default metric-level session identifier, and OAuth/gateway email before enabling export.
 
-- [Grok CLI external OpenTelemetry guide](https://github.com/xai-org/grok-build/blob/main/crates/codegen/xai-grok-pager/docs/user-guide/24-monitoring-usage.md)
-- [Grok external OTel implementation and schema](https://github.com/xai-org/grok-build/tree/main/crates/codegen/xai-grok-telemetry/src/external)
+- [Grok CLI external OpenTelemetry guide (researched revision)](https://github.com/xai-org/grok-build/blob/37949780c144e37df692e3d669051a21fec24f20/crates/codegen/xai-grok-pager/docs/user-guide/24-monitoring-usage.md)
+- [Grok external OTel implementation and schema (researched revision)](https://github.com/xai-org/grok-build/tree/37949780c144e37df692e3d669051a21fec24f20/crates/codegen/xai-grok-telemetry/src/external)
 
 ### BSH-371 next steps
 
