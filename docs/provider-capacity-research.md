@@ -424,7 +424,12 @@ supported; `console`, `otlp`, and `none` are exporter choices. External OTel is 
 `GROK_TELEMETRY_ENABLED` (xAI product analytics), privacy/data-retention settings, and trace
 upload. It exports logs and metrics only, not customer-directed traces.
 
-The schema is content-free by default. Its `ai.xai.grok_code` meter includes
+The schema omits prompt, response, and tool content by default, but it is not anonymous:
+`user.id` and `session.id` are always exported. For OAuth and gateway sessions, `user.email`
+is also attached to both logs and metrics and cannot be disabled independently. These identity
+attributes leave the process through a stream that is independent of xAI privacy/data-retention
+settings, so operators must treat the OTel destination and transport as handling personal data.
+Its `ai.xai.grok_code` meter includes
 `grok_code.session.count`, `grok_code.token.usage` (`input|output|reasoning|cache_read` by
 model), `grok_code.turn.count`, turn latency, tool decisions/usage, errors, and startup health.
 Events include `grok_code.session_start`, `session_end`, `api_request` (including all four token
@@ -465,7 +470,9 @@ Prompt, assistant-response, tool-detail, and tool-content fields have independen
 for plan usage and the JSONL parser for local activity. External OTel closes neither the cost
 nor quota gap, so its receiver and user-configuration cost are unjustified for BSH-371. A
 future non-capacity analytics feature could partially adopt it for fleet-level request/tool
-telemetry; require `schema.version = v1`, content gates off, and graceful fallback to JSONL.
+telemetry; require `schema.version = v1`, content gates off, graceful fallback to JSONL, and a
+security/data-governance review of the mandatory user/session identifiers and OAuth/gateway
+email before enabling export.
 
 - [Grok CLI external OpenTelemetry guide](https://github.com/xai-org/grok-build/blob/main/crates/codegen/xai-grok-pager/docs/user-guide/24-monitoring-usage.md)
 - [Grok external OTel implementation and schema](https://github.com/xai-org/grok-build/tree/main/crates/codegen/xai-grok-telemetry/src/external)
