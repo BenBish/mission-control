@@ -60,9 +60,14 @@
  *    `rate_limits` — plan-quota snapshots still depend on the legacy
  *    `token_count` event, which the CLI still emits alongside the new
  *    shape as of this writing but is not guaranteed to keep emitting.
- *  - `task_started`/`task_complete` bookend a turn; only used here to keep
- *    `endedAt` moving forward on sessions that otherwise emit only new-
- *    shape lines.
+ *  - `task_started`/`task_complete`/`turn_aborted` bookend a turn; only used
+ *    here to keep `endedAt` moving forward on sessions that otherwise emit
+ *    only new-shape lines.
+ *  - `thread_settings_applied` carries `thread_settings.model_provider_id`,
+ *    a fallback `modelProvider` source alongside `session_meta`'s.
+ *  - `response_item`'s new-format types (`message`/`reasoning`/
+ *    `custom_tool_call`/`custom_tool_call_output`) are deliberately not
+ *    handled — see the comment at the `response_item` branch below.
  */
 
 import type {
@@ -204,7 +209,9 @@ function parseItemCompleted(
   }
 
   if (itemType === "CommandExecution") {
-    const command = item.command as string[] | undefined;
+    const command = Array.isArray(item.command)
+      ? (item.command as string[])
+      : undefined;
     const status = item.status === "failed" ? "failed" : "success";
     const description = (command?.join(" ") ?? "(command)").slice(0, 500);
     const activity: ActivityPayload = {
@@ -431,12 +438,27 @@ export function parseCodexLine(
       };
     }
 
-    if (payloadType === "task_started" || payloadType === "task_complete") {
+    if (
+      payloadType === "task_started" ||
+      payloadType === "task_complete" ||
+      payloadType === "turn_aborted"
+    ) {
       return { sessionExternalId, sessionUpdate: { endedAt: timestamp } };
     }
 
     if (payloadType === "item_completed") {
       return parseItemCompleted(record, sessionExternalId, filePath, timestamp);
+    }
+
+    if (payloadType === "thread_settings_applied") {
+      const settings = record.payload?.thread_settings as
+        | { model_provider_id?: string }
+        | undefined;
+      if (!settings?.model_provider_id) return null;
+      return {
+        sessionExternalId,
+        sessionUpdate: { modelProvider: settings.model_provider_id },
+      };
     }
 
     return null;
@@ -467,6 +489,17 @@ export function parseCodexLine(
 
   if (record.type === "response_item") {
     const payloadType = record.payload?.type;
+
+    // The new CLI schema's response_item types (message/reasoning/
+    // custom_tool_call/custom_tool_call_output) are deliberately NOT handled
+    // here. Verified against real session data: a custom_tool_call's
+    // call_id/command matches its event_msg:item_completed/CommandExecution
+    // counterpart exactly — it's the same tool call reported twice (raw
+    // model-transcript item vs. the CLI's turn-summary item). response_item
+    // "message" entries also include internal role:"developer" scaffolding
+    // (skill instructions, tool descriptions) with no item_completed
+    // counterpart at all. Handling both would double-count tool calls and
+    // flood Activities with non-user-facing noise.
 
     if (payloadType === "function_call") {
       const name = record.payload?.name as string | undefined;

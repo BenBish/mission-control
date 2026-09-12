@@ -174,6 +174,28 @@ describe("Codex parser — new CLI schema (BSH-372)", () => {
     );
   });
 
+  test("item_completed/CommandExecution tolerates a non-array command instead of throwing", () => {
+    const parsed = parseCodexLine(
+      line({
+        type: "event_msg",
+        timestamp: "2026-09-11T18:02:07.000Z",
+        payload: {
+          type: "item_completed",
+          item: {
+            type: "CommandExecution",
+            id: "exec-malformed",
+            command: "not-an-array",
+            status: "completed",
+          },
+        },
+      }),
+      FILE_PATH,
+    );
+    expect((parsed?.activity?.payload as ActivityPayload).description).toBe(
+      "(command)",
+    );
+  });
+
   test("item_completed/McpToolCall becomes a tool_call named server.tool", () => {
     const parsed = parseCodexLine(
       line({
@@ -239,7 +261,7 @@ describe("Codex parser — new CLI schema (BSH-372)", () => {
     expect(parsed).toBeNull();
   });
 
-  test("task_started/task_complete keep endedAt moving without other data", () => {
+  test("task_started/task_complete/turn_aborted keep endedAt moving without other data", () => {
     const started = parseCodexLine(
       line({
         type: "event_msg",
@@ -252,6 +274,50 @@ describe("Codex parser — new CLI schema (BSH-372)", () => {
       endedAt: "2026-09-11T18:02:25.000Z",
     });
     expect(started?.activity).toBeUndefined();
+
+    const aborted = parseCodexLine(
+      line({
+        type: "event_msg",
+        timestamp: "2026-09-11T18:02:26.000Z",
+        payload: {
+          type: "turn_aborted",
+          turn_id: "turn-1",
+          reason: "interrupted",
+        },
+      }),
+      FILE_PATH,
+    );
+    expect(aborted?.sessionUpdate).toEqual({
+      endedAt: "2026-09-11T18:02:26.000Z",
+    });
+  });
+
+  test("thread_settings_applied backfills modelProvider as a session_meta fallback", () => {
+    const parsed = parseCodexLine(
+      line({
+        type: "event_msg",
+        timestamp: "2026-09-11T18:02:27.000Z",
+        payload: {
+          type: "thread_settings_applied",
+          thread_settings: {
+            model: "gpt-5.6-sol",
+            model_provider_id: "openai",
+          },
+        },
+      }),
+      FILE_PATH,
+    );
+    expect(parsed?.sessionUpdate).toEqual({ modelProvider: "openai" });
+
+    const withoutProvider = parseCodexLine(
+      line({
+        type: "event_msg",
+        timestamp: "2026-09-11T18:02:28.000Z",
+        payload: { type: "thread_settings_applied", thread_settings: {} },
+      }),
+      FILE_PATH,
+    );
+    expect(withoutProvider).toBeNull();
   });
 
   test("token_usage_record maps thread_token_usage onto cumulative totals", () => {
