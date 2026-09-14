@@ -68,6 +68,12 @@ export interface ClaudeCodeSessionAggregate {
   outputTokens: number;
   cacheReadTokens: number;
   cacheWriteTokens: number;
+  /**
+   * Real per-session $ from the opt-in OTel `claude_code.cost.usage` metric
+   * (see otel-receiver.ts). Undefined — never 0 — until the user opts in and
+   * a delta actually arrives; the JSONL log itself never carries cost.
+   */
+  costUsd?: number;
 }
 
 export function emptyAggregate(externalId: string): ClaudeCodeSessionAggregate {
@@ -102,6 +108,7 @@ export function aggregateToSessionPayload(
     outputTokens: agg.outputTokens,
     cacheReadTokens: agg.cacheReadTokens,
     cacheWriteTokens: agg.cacheWriteTokens,
+    costUsd: agg.costUsd,
   };
 }
 
@@ -341,5 +348,9 @@ export function mergeSessionUpdate(
     outputTokens: agg.outputTokens + (update.outputTokens ?? 0),
     cacheReadTokens: agg.cacheReadTokens + (update.cacheReadTokens ?? 0),
     cacheWriteTokens: agg.cacheWriteTokens + (update.cacheWriteTokens ?? 0),
+    costUsd:
+      update.costUsd === undefined && agg.costUsd === undefined
+        ? undefined
+        : (agg.costUsd ?? 0) + (update.costUsd ?? 0),
   };
 }

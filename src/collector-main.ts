@@ -90,14 +90,25 @@ async function main() {
   ];
   const scheduler = new Scheduler(collectors, sink);
 
+  async function shutdown() {
+    scheduler.stop();
+    // Not every collector holds a closeable resource (e.g. the Claude Code
+    // collector's OTLP receiver socket) — only close() is called instead of
+    // requiring every Collector to implement it.
+    await Promise.all(
+      collectors.map((c) =>
+        "close" in c && typeof c.close === "function" ? c.close() : undefined,
+      ),
+    );
+    process.exit(0);
+  }
+
   process.on("SIGINT", () => {
     console.log("[collector] shutting down...");
-    scheduler.stop();
-    process.exit(0);
+    void shutdown();
   });
   process.on("SIGTERM", () => {
-    scheduler.stop();
-    process.exit(0);
+    void shutdown();
   });
 
   scheduler.start();
