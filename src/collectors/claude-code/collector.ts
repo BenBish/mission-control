@@ -172,6 +172,11 @@ export class ClaudeCodeCollector implements Collector {
     return { eventsEmitted: events.length, sourceStatus: "ok" };
   }
 
+  /** Closes the OTLP receiver's socket. Call on process shutdown. */
+  async close(): Promise<void> {
+    await this.otelReceiver.stop();
+  }
+
   /**
    * Attach real $ from a matching `claude_code.api_request` OTel event onto
    * this activity, correlated by `requestId`. Best-effort: if the OTel

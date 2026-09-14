@@ -273,6 +273,45 @@ describe("extractSessionCostDeltas", () => {
     };
     expect(extractSessionCostDeltas(body, cumulative)).toEqual([]);
   });
+
+  test("delta temporality uses each export's raw value directly, not diffed against the previous export", () => {
+    const cumulative = new Map<string, number>();
+    const deltaMetric = (value: number): OtlpExportMetricsServiceRequest => ({
+      resourceMetrics: [
+        {
+          scopeMetrics: [
+            {
+              metrics: [
+                {
+                  name: "claude_code.cost.usage",
+                  sum: {
+                    aggregationTemporality: 1, // AGGREGATION_TEMPORALITY_DELTA
+                    dataPoints: [
+                      {
+                        attributes: [kv("session.id", "sess-delta")],
+                        asDouble: value,
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    // First interval's own cost is 0.05.
+    expect(extractSessionCostDeltas(deltaMetric(0.05), cumulative)).toEqual([
+      { sessionExternalId: "sess-delta", deltaUsd: 0.05 },
+    ]);
+    // Second interval's own cost is 0.03 — a cumulative-style diff against
+    // 0.05 would wrongly go negative / treat this as a reset; delta
+    // temporality means 0.03 is simply this interval's fresh cost.
+    expect(extractSessionCostDeltas(deltaMetric(0.03), cumulative)).toEqual([
+      { sessionExternalId: "sess-delta", deltaUsd: 0.03 },
+    ]);
+  });
 });
 
 describe("OtelReceiver HTTP", () => {

@@ -20,6 +20,17 @@
  *
  * Entirely additive: if nothing ever POSTs here, the collector's JSONL-only
  * behavior is unchanged.
+ *
+ * Known assumption, not independently verified against a live OTel export
+ * (BSH-348's spike confirmed the shapes of each signal individually, not a
+ * cross-reference between them): per-activity correlation in collector.ts
+ * assumes the JSONL record's top-level `requestId` is identical to the
+ * `request_id` attribute OTel attaches to `claude_code.api_request`. If that
+ * assumption is wrong, correlation just never matches — activities are
+ * emitted without costUsd exactly as before this feature shipped, and the
+ * session-level total (sourced independently from the `cost.usage` metric,
+ * see extractSessionCostDeltas) is unaffected either way. Verify against a
+ * real `claude` + OTel session before relying on per-activity cost data.
  */
 
 import http from "http";
@@ -87,9 +98,16 @@ interface OtlpNumberDataPoint {
   asInt?: string | number;
 }
 
+/** OTLP AggregationTemporality enum values (proto: opentelemetry.proto.metrics.v1). */
+const AGGREGATION_TEMPORALITY_DELTA = 1;
+
 interface OtlpMetric {
   name: string;
-  sum?: { dataPoints?: OtlpNumberDataPoint[] };
+  sum?: {
+    dataPoints?: OtlpNumberDataPoint[];
+    /** 1 = delta, 2 = cumulative. Absent/unknown is treated as cumulative — the OTel SDK default for sum metrics. */
+    aggregationTemporality?: number;
+  };
   gauge?: { dataPoints?: OtlpNumberDataPoint[] };
 }
 
@@ -209,6 +227,8 @@ export function extractSessionCostDeltas(
     for (const scopeMetrics of resourceMetrics.scopeMetrics ?? []) {
       for (const metric of scopeMetrics.metrics ?? []) {
         if (metric.name !== "claude_code.cost.usage") continue;
+        const isDelta =
+          metric.sum?.aggregationTemporality === AGGREGATION_TEMPORALITY_DELTA;
         for (const dp of metric.sum?.dataPoints ?? []) {
           const attrs = {
             ...resourceAttrs,
@@ -221,15 +241,24 @@ export function extractSessionCostDeltas(
             (dp.asInt !== undefined ? Number(dp.asInt) : undefined);
           if (value === undefined || !Number.isFinite(value)) continue;
 
-          const seriesKey = `${sessionExternalId}:${str(attrs["model"]) ?? ""}`;
-          const prev = cumulativeBySeriesKey.get(seriesKey) ?? 0;
-          // Cumulative temporality is the OTel SDK default: each export
-          // carries the running total, not just this interval's slice.
-          // A value lower than what we've already seen means the exporter
-          // restarted its counter (e.g. process restart) — treat the new
-          // value as the delta rather than going negative.
-          const delta = value >= prev ? value - prev : value;
-          cumulativeBySeriesKey.set(seriesKey, value);
+          let delta: number;
+          if (isDelta) {
+            // Delta temporality: each export's value already IS this
+            // interval's fresh cost — diffing it against the previous
+            // export (as the cumulative branch below does) would compare
+            // two unrelated intervals and silently undercount.
+            delta = value;
+          } else {
+            const seriesKey = `${sessionExternalId}:${str(attrs["model"]) ?? ""}`;
+            const prev = cumulativeBySeriesKey.get(seriesKey) ?? 0;
+            // Cumulative temporality is the OTel SDK default: each export
+            // carries the running total, not just this interval's slice.
+            // A value lower than what we've already seen means the exporter
+            // restarted its counter (e.g. process restart) — treat the new
+            // value as the delta rather than going negative.
+            delta = value >= prev ? value - prev : value;
+            cumulativeBySeriesKey.set(seriesKey, value);
+          }
           if (delta > 0) {
             deltas.set(
               sessionExternalId,
@@ -366,6 +395,10 @@ export class OtelReceiver implements OtelReceiverLike {
     req.on("data", (c) => chunks.push(c));
     req.on("end", () => {
       try {
+        // Pruned on every export (not just /v1/logs) so a metrics-only
+        // exporter configuration still bounds stale pending entries by age,
+        // not just by the hard entry cap.
+        this.prunePending(Date.now());
         const parsed = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
         if (isLogs) {
           this.ingestLogs(parsed as OtlpExportLogsServiceRequest);
@@ -383,7 +416,6 @@ export class OtelReceiver implements OtelReceiverLike {
 
   private ingestLogs(body: OtlpExportLogsServiceRequest): void {
     const now = Date.now();
-    this.prunePending(now);
     for (const entry of extractApiRequestCosts(body)) {
       this.pendingByRequestId.set(entry.requestId, {
         ...entry,
