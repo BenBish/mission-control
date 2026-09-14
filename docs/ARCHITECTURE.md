@@ -74,7 +74,7 @@ There is **no** `src/api/` tree. Older docs that referenced a single
 
 | Collector | Kind | Where it runs | Input |
 | --- | --- | --- | --- |
-| Claude Code | agentic | Desktop (`collector`) | Session JSONL under `~/.claude` |
+| Claude Code | agentic | Desktop (`collector`) | Session JSONL under `~/.claude` (+ opt-in OTel, see below) |
 | Codex | agentic | Desktop | Codex session JSONL + quota signals |
 | Grok | agentic | Desktop | `~/.grok/sessions/.../updates.jsonl` |
 | OpenCode | agentic | Desktop | OpenCode SQLite (`opencode.db`) |
@@ -87,6 +87,43 @@ Shared collector core: `src/collectors/core/` (`scheduler`, `sinks`,
 
 Desktop config: `~/.config/mission-control/collector.toml`  
 (see `deploy/collector.toml.example`).
+
+### Claude Code OTel cost ingestion (opt-in)
+
+The Claude Code collector's JSONL tailing (above) never carries real dollar
+figures — session logs have tokens/model, not `costUsd`. `src/collectors/
+claude-code/otel-receiver.ts` adds an opt-in OTLP/HTTP (JSON-only) receiver
+that the collector process binds locally (loopback, default port `4318`,
+matching the OTel SDK's own default OTLP/HTTP endpoint) to ingest Claude
+Code's native OpenTelemetry export (see BSH-348 in
+`docs/provider-capacity-research.md` for the spike this implements).
+
+- **Enable it** by setting, persistently (e.g. shell profile), before
+  launching `claude`:
+  ```bash
+  export CLAUDE_CODE_ENABLE_TELEMETRY=1
+  export OTEL_METRICS_EXPORTER=otlp
+  export OTEL_LOGS_EXPORTER=otlp
+  export OTEL_EXPORTER_OTLP_PROTOCOL=http/json
+  export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+  ```
+- **Session-level** `costUsd` is sourced from the cumulative
+  `claude_code.cost.usage` metric — authoritative once opted in, independent
+  of any single request's timing.
+- **Activity-level** `costUsd` is best-effort, correlated by `request_id`
+  against the `claude_code.api_request` log event; it can be absent for an
+  individual activity if that event arrives after the JSONL line was already
+  scanned, without affecting the session total above.
+- **Additive only**: without opting in, collector behavior (JSONL tailing +
+  OAuth quota poller) is unchanged. If the receiver's port is already taken,
+  it logs a warning and disables OTel ingestion for that run rather than
+  failing the collector.
+- No prompt or tool content is ever read — only numeric cost/token
+  attributes and correlation ids (`request_id`, `session.id`). Redaction
+  defaults (`OTEL_LOG_USER_PROMPTS`, `OTEL_LOG_TOOL_DETAILS`) are never
+  requested.
+- The OAuth `/api/oauth/usage` poller (`usage-poller.ts`) is unaffected —
+  it remains the only source for plan-window quota %.
 
 ---
 
@@ -162,7 +199,7 @@ added together in the UI or APIs.
 | **2. Usage (agent/session)** | How much did *agents* consume (tokens, requests)? | `activities` / `sessions` / `inference_requests` token fields | Collectors from session logs / local servers |
 | **3. Quota (plan windows)** | How much of a *subscription rate limit* is used? | `quota_snapshots` (+ credit rows with unit `percent`/`requests`, surface `plan_usage`) | Session/tool telemetry: Codex windows + Claude Code OAuth usage + Grok CLI billing (`/v1/billing?format=credits`) via desktop collector; not USD. Subscriptions always present the same canonical slots (**5-hour** + **weekly**); missing windows are `unavailable`, never invented %. Provider extras (Claude Opus weekly, Grok month/product bars) stay labeled separately. Contract: `src/lib/plan-windows.ts`. |
 | **4. Wallet (credits / balance)** | What prepaid capacity remains? | `provider_credit_snapshots` | Provider balance APIs or session-quota derived; **never** summed into spend |
-| **5. Estimate (priced tokens)** | What would usage *cost* if priced from a table? | Session/activity `cost_usd` when log-supplied, else `src/types/pricing.ts` fallbacks | Session-log exact cost preferred; static/OpenRouter table is estimate-only |
+| **5. Estimate (priced tokens)** | What would usage *cost* if priced from a table? | Session/activity `cost_usd` when log-supplied, else `src/types/pricing.ts` fallbacks | Session-log exact cost preferred (Claude Code: opt-in OTel `claude_code.cost.usage`/`claude_code.api_request`, see [Claude Code OTel cost ingestion](#claude-code-otel-cost-ingestion-opt-in)); static/OpenRouter table is estimate-only |
 
 ### Non-double-counting contract
 

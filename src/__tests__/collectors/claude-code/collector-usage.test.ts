@@ -5,6 +5,7 @@ import path from "path";
 import { ClaudeCodeCollector } from "../../../collectors/claude-code/collector.js";
 import type { FileCursor } from "../../../collectors/core/jsonl-scanner.js";
 import type { IngestBatch, Sink, Heartbeat } from "../../../types/ingest.js";
+import { NoopOtelReceiver } from "./noop-otel-receiver.js";
 
 class MemoryState {
   cursors = new Map<string, FileCursor>();
@@ -80,6 +81,7 @@ describe("ClaudeCodeCollector usage poll", () => {
       state as never,
       path.join(emptySessions, "**/*.jsonl"),
       credPath,
+      new NoopOtelReceiver(),
     );
 
     const result = await collector.tick(sink);

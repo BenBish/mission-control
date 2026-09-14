@@ -315,6 +315,14 @@ Mission Control needs:
    vars, redaction-safe defaults) — worth its own follow-up task rather than folding into this
    spike.
 
+**Status: implemented in [BSH-370](https://linear.app/bshp/issue/BSH-370).**
+`src/collectors/claude-code/otel-receiver.ts` adds the opt-in OTLP/HTTP (JSON) receiver
+recommended above — see [Claude Code OTel cost ingestion](ARCHITECTURE.md#claude-code-otel-cost-ingestion-opt-in)
+in `docs/ARCHITECTURE.md` for the shipped shape: session-level `costUsd` from the cumulative
+`claude_code.cost.usage` metric (authoritative), activity-level `costUsd` best-effort
+correlated by `request_id` from `claude_code.api_request` events, OAuth quota poller
+unchanged, and JSONL-only behavior preserved when a user never opts in.
+
 - [Claude Code monitoring and usage (OpenTelemetry reference)](https://code.claude.com/docs/en/monitoring-usage)
 
 ---

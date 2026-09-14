@@ -8,6 +8,19 @@
 #
 # OpenCode agent activity (source id `opencode`) is separate from the Hermes
 # runtime backend label also named `opencode` (llama-toolbox-qwen-opencode).
+#
+# Claude Code cost data (opt-in): the Claude Code collector binds a local
+# OTLP/HTTP receiver on 127.0.0.1:4318 to pick up real per-request $ that
+# JSONL session logs never carry. Nothing here is required to enable it —
+# set these in the shell profile that launches `claude` instead:
+#   export CLAUDE_CODE_ENABLE_TELEMETRY=1
+#   export OTEL_METRICS_EXPORTER=otlp
+#   export OTEL_LOGS_EXPORTER=otlp
+#   export OTEL_EXPORTER_OTLP_PROTOCOL=http/json
+#   export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+# See docs/ARCHITECTURE.md ("Claude Code OTel cost ingestion") for details.
+# Without these, collector behavior is unchanged (JSONL tailing + OAuth
+# quota poller only).
 
 # Server's ingest endpoint. The server binds 127.0.0.1:3001 on the server
 # machine and is exposed via `tailscale serve` (TLS termination + tailnet
