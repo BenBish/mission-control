@@ -113,14 +113,22 @@ function emptyState(): CursorCollectorState {
 function normalizeState(raw: unknown): CursorCollectorState {
   if (!raw || typeof raw !== "object") return emptyState();
   const r = raw as Partial<CursorCollectorState>;
+  // Deep-copy the nested aggregates: a failed send must not leave mutated
+  // counts in the store's in-memory objects (rows get re-scanned and
+  // double-counted when kvRowid/rowid stayed behind).
+  const copy = <T extends object>(rec: unknown): Record<string, T> =>
+    rec && typeof rec === "object"
+      ? Object.fromEntries(
+          Object.entries(rec as Record<string, T>).map(([k, v]) => [
+            k,
+            { ...v },
+          ]),
+        )
+      : {};
   return {
     kvRowid: typeof r.kvRowid === "number" ? r.kvRowid : 0,
-    composers:
-      r.composers && typeof r.composers === "object" ? { ...r.composers } : {},
-    chatStores:
-      r.chatStores && typeof r.chatStores === "object"
-        ? { ...r.chatStores }
-        : {},
+    composers: copy<ComposerAggregate>(r.composers),
+    chatStores: copy<ChatStoreAggregate>(r.chatStores),
   };
 }
 
@@ -298,6 +306,7 @@ export class CursorCollector implements Collector {
         .query(
           `SELECT key, value FROM cursorDiskKV
            WHERE key GLOB 'composerData:*'
+           ORDER BY key ASC
            LIMIT ?`,
         )
         .all(MAX_COMPOSERS_PER_TICK) as Array<{
@@ -386,11 +395,13 @@ export class CursorCollector implements Collector {
             )
             .all(agg.rowid, MAX_BLOBS_PER_TICK) as CursorBlobRow[];
 
+          let parsedBlobs = 0;
           for (const blob of blobs) {
             agg.rowid = Math.max(agg.rowid, blob.rowid);
             const event = parseStoreBlob(sessionId, blob);
             if (!event) continue;
             events.push(event);
+            parsedBlobs++;
             const p = event.payload as {
               actionType?: string;
               status?: string;
@@ -415,7 +426,13 @@ export class CursorCollector implements Collector {
             agg.updatedAtMs = updated;
           }
 
-          sawSessions = true;
+          // Only count the store as a real session when it carries a meta
+          // record, produced a parseable blob, or already emitted a session
+          // on an earlier tick — a bare blobs table with nothing readable
+          // shouldn't flip the source to "ok" forever.
+          if (meta || parsedBlobs > 0 || agg.updatedAtMs > 0) {
+            sawSessions = true;
+          }
         } finally {
           db.close();
         }

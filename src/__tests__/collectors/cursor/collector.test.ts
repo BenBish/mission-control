@@ -306,6 +306,64 @@ describe("CursorCollector", () => {
     }
   });
 
+  test("a failed send does not inflate counts on the next tick", async () => {
+    const { dir, dbPath } = createGlobalFixture();
+    try {
+      const state = new MemoryState();
+      const collector = new CursorCollector(state, {
+        globalDbPath: dbPath,
+        chatsDir: path.join(dir, "no-chats"),
+        workspaceStorageDir: path.join(dir, "no-ws"),
+      });
+
+      // Tick 1 succeeds so the aggregate exists in the store.
+      await collector.tick(new CapturingSink());
+
+      // New activity lands; the composer header bumps lastUpdatedAt.
+      insertKv(dbPath, "bubbleId:comp-1:b-5", {
+        type: 1,
+        text: "second turn",
+        createdAt: T0 + 9_000,
+      });
+      const db = new Database(dbPath);
+      db.query(
+        `UPDATE cursorDiskKV SET value = ? WHERE key = 'composerData:comp-1'`,
+      ).run(
+        JSON.stringify({
+          composerId: "comp-1",
+          createdAt: T0,
+          lastUpdatedAt: T0 + 10_000,
+          status: "completed",
+        }),
+      );
+      db.close();
+
+      const failingSink: Sink = {
+        async send() {
+          throw new Error("sink down");
+        },
+        async heartbeat() {},
+      };
+      await expect(collector.tick(failingSink)).rejects.toThrow("sink down");
+
+      // Next tick re-scans the same rows — counts must not double.
+      const sink = new CapturingSink();
+      const result = await collector.tick(sink);
+      expect(result.sourceStatus).toBe("ok");
+      const session = sink.batches
+        .flatMap((b) => b.events)
+        .find((e) => e.kind === "session");
+      expect(session!.payload).toMatchObject({
+        externalId: "comp-1",
+        turnCount: 2,
+        toolCallCount: 2,
+        failureCount: 1,
+      });
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test("a restarted collector does not re-emit or duplicate events", async () => {
     const { dir, dbPath } = createGlobalFixture();
     try {

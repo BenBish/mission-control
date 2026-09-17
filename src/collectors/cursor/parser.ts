@@ -369,7 +369,8 @@ export function parseToolFormerData(
   const activity: ActivityPayload = {
     sessionExternalId: composerId,
     externalId: callId,
-    timestamp: new Date().toISOString(),
+    timestamp:
+      toIso(num(d.timestamp, d.createdAt, d.time)) ?? new Date().toISOString(),
     actorType: "agent",
     actorId: "cursor",
     actionType: "tool_call",
