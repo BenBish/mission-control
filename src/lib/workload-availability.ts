@@ -50,6 +50,7 @@ const JOBS_SOURCE_IDS = [
   "hermes",
   "claude-code",
   "codex",
+  "devin",
   "grok",
   "opencode",
   "lemonade",

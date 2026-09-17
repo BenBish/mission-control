@@ -227,6 +227,49 @@ export function xaiCreditsLimited(
   };
 }
 
+/**
+ * Devin: no prepaid wallet API for self-serve plans. Session quota /
+ * ACU plan windows are bridged from the desktop collector's
+ * quota_snapshots (GetUserStatus poll), not this connector's fetch.
+ */
+export function devinCreditsUnavailable(
+  asOf: string = new Date().toISOString(),
+): CreditFetchResult {
+  const walletMessage =
+    "Devin prepaid/on-demand credit balance is not exposed via the CLI credential or a public API.";
+  const planMessage =
+    "Devin plan windows (ACU quota, daily/weekly) come from the desktop collector's GetUserStatus poll of the Devin CLI endpoint — no separate API key exists for self-serve plans.";
+  return {
+    snapshots: [
+      {
+        provider: "devin",
+        asOf,
+        remaining: null,
+        total: null,
+        unit: "usd",
+        label: "prepaid_balance",
+        source: "unavailable",
+        status: "unavailable",
+        surface: "wallet",
+        details: { note: walletMessage },
+      },
+      {
+        provider: "devin",
+        asOf,
+        remaining: null,
+        total: null,
+        unit: "percent",
+        label: "plan_usage_unavailable",
+        source: "unavailable",
+        status: "unavailable",
+        surface: "plan_usage",
+        details: { note: planMessage },
+      },
+    ],
+    limitation: walletMessage,
+  };
+}
+
 function sessionQuotaProductLanguage(provider: ProviderId): string {
   if (provider === "anthropic") {
     return "Claude Code plan-usage window (subscription rate limit), not prepaid USD credits.";
@@ -236,6 +279,9 @@ function sessionQuotaProductLanguage(provider: ProviderId): string {
   }
   if (provider === "xai") {
     return "Grok SuperGrok / Grok Build plan-usage window (subscription rate limit), not prepaid USD credits.";
+  }
+  if (provider === "devin") {
+    return "Devin plan-usage window (ACU quota / rate limit), not prepaid USD credits.";
   }
   return "Session quota / plan-usage window (rate-limit), not prepaid USD credits.";
 }

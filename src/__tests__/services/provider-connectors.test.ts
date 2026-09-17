@@ -710,11 +710,11 @@ describe("syncProvider idempotency", () => {
     );
   });
 
-  test("all four connectors registered", () => {
+  test("all five connectors registered", () => {
     const ids = getConnectors()
       .map((c) => c.id)
       .sort();
-    expect(ids).toEqual(["anthropic", "openai", "openrouter", "xai"]);
+    expect(ids).toEqual(["anthropic", "devin", "openai", "openrouter", "xai"]);
   });
 
   test("re-sync prunes models removed from a day", async () => {

@@ -15,6 +15,7 @@ import {
 } from "../../db/queries/provider-usage.js";
 import { latestQuotaSnapshots } from "../../db/queries/telemetry.js";
 import { anthropicConnector } from "./connectors/anthropic.js";
+import { devinConnector } from "./connectors/devin.js";
 import { openaiConnector } from "./connectors/openai.js";
 import { openrouterConnector } from "./connectors/openrouter.js";
 import { xaiConnector } from "./connectors/xai.js";
@@ -38,6 +39,7 @@ const ALL_CONNECTORS: ProviderConnector[] = [
   anthropicConnector,
   openaiConnector,
   xaiConnector,
+  devinConnector,
 ];
 
 /**
@@ -51,6 +53,7 @@ export const SESSION_QUOTA_SOURCE_BY_PROVIDER: Partial<
   openai: "codex",
   anthropic: "claude-code",
   xai: "grok",
+  devin: "devin",
 };
 
 /** Prevent overlapping scheduled/manual syncs from stacking. */
