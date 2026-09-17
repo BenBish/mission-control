@@ -80,6 +80,14 @@ unavailable wallet even when the provider UI shows credits. Do not provide
 browser cookies/session credentials or scrape the billing UI; check it directly
 until Anthropic offers a supported balance source.
 
+**Cloud Handoff token usage:** the `cloud-handoff` collector reads
+`~/.config/cloud-handoff/config` (written by `handoff setup`; env vars
+`CLOUD_HANDOFF_URL` / `CLOUD_HANDOFF_TOKEN` take precedence) and polls the
+control plane's `GET /v1/sessions` + `GET /v1/sessions/:id/events` for
+`agent.usage` records. Input/cached/output tokens land under the **usage**
+data class and any worker-reported `costUsd` under session/activity cost —
+never mixed into provider billing. With no config the source reports `off`.
+
 ### 5. Tests
 
 ```bash
