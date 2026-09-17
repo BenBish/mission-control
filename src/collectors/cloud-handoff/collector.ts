@@ -114,7 +114,7 @@ function usageActivity(
       actorType: "agent",
       actorId: session.agentExecutionSnapshot?.harness ?? SOURCE_ID,
       actionType: "event",
-      description: "Token usage",
+      description: "Cloud Handoff token usage",
       status: "success",
       model: session.agentExecutionSnapshot?.model,
       inputTokens: tokens.input,
@@ -185,11 +185,13 @@ export class CloudHandoffCollector implements Collector {
       }
 
       let sawUsage = false;
+      let consumed = 0;
       for (const ev of sessionEvents) {
         // The server filters on `after`, but guard anyway so a replayed stream
         // can never double-count.
         if (ev.id <= agg.lastEventId) continue;
         agg.lastEventId = ev.id;
+        consumed++;
         if (ev.type !== "agent.usage") continue;
         const p = ev.payload ?? {};
         const input = num(p.inputTokens) ?? 0;
@@ -213,12 +215,18 @@ export class CloudHandoffCollector implements Collector {
       }
 
       const becameDone = TERMINAL_STATUSES.has(session.status);
+      let emittedSession = false;
       if (!agg.emitted || sawUsage || becameDone) {
         events.push(sessionPayload(session, agg));
         agg.emitted = true;
+        emittedSession = true;
       }
       if (becameDone) agg.done = true;
-      pendingAggs.set(aggKey, agg);
+      // Only persist aggs that actually changed — a running session with no new
+      // events leaves its record untouched and shouldn't rewrite the state file.
+      if (consumed > 0 || emittedSession || becameDone) {
+        pendingAggs.set(aggKey, agg);
+      }
     }
 
     if (events.length > 0) {
@@ -233,7 +241,7 @@ export class CloudHandoffCollector implements Collector {
     for (const [key, agg] of pendingAggs) {
       this.state.setAggregate(key, agg);
     }
-    this.state.persist();
+    if (pendingAggs.size > 0) this.state.persist();
 
     if (fetchFailures > 0) {
       return {
