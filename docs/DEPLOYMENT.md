@@ -67,7 +67,9 @@ canonical **5-hour** and **weekly** slots; SuperGrok usually only exposes
 weekly, so 5-hour is an explicit unavailable slot (not a fabricated %).
 Override the proxy base with `GROK_CLI_CHAT_PROXY_BASE_URL` if needed.
 OpenCode session DBs were investigated and have no equivalent quota
-telemetry.
+telemetry. Cursor likewise exposes no local token/cost/quota data — its
+collector reports sessions and activity only, and token/cost fields stay
+explicitly unavailable rather than estimated.
 
 **Codex plan usage:** the collector reads `rate_limits` records already in
 local rollout JSONL and emits utilization, `window_minutes`, and reset time. A

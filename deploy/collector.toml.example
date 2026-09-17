@@ -5,6 +5,7 @@
 #   - Codex CLI    (session JSONL)
 #   - Grok         (~/.grok/sessions/.../updates.jsonl)
 #   - OpenCode     (~/.local/share/opencode/opencode.db SQLite)
+#   - Cursor       (~/.config/Cursor/.../state.vscdb + ~/.cursor/chats SQLite)
 #
 # OpenCode agent activity (source id `opencode`) is separate from the Hermes
 # runtime backend label also named `opencode` (llama-toolbox-qwen-opencode).

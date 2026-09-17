@@ -1,8 +1,8 @@
 /**
  * Desktop collector entrypoint. Reads ~/.config/mission-control/collector.toml
- * and runs the Claude Code + Codex + Grok + OpenCode collectors against the
- * server over HTTP (Tailscale). See deploy/mc-collector.service for the
- * systemd unit and deploy/collector.toml.example for the config shape.
+ * and runs the Claude Code + Codex + Grok + OpenCode + Cursor collectors
+ * against the server over HTTP (Tailscale). See deploy/mc-collector.service
+ * for the systemd unit and deploy/collector.toml.example for the config shape.
  */
 
 import fs from "fs";
@@ -17,6 +17,7 @@ import { CodexCollector } from "./collectors/codex/collector.js";
 import { DevinCollector } from "./collectors/devin/collector.js";
 import { GrokCollector } from "./collectors/grok/collector.js";
 import { OpenCodeCollector } from "./collectors/opencode/collector.js";
+import { CursorCollector } from "./collectors/cursor/collector.js";
 
 const CONFIG_PATH = path.join(
   os.homedir(),
@@ -91,6 +92,7 @@ async function main() {
     new DevinCollector(state),
     new GrokCollector(state),
     new OpenCodeCollector(state),
+    new CursorCollector(state),
   ];
   const scheduler = new Scheduler(collectors, sink);
 

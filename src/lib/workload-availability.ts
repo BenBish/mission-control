@@ -53,6 +53,7 @@ const JOBS_SOURCE_IDS = [
   "devin",
   "grok",
   "opencode",
+  "cursor",
   "lemonade",
 ] as const;
 
