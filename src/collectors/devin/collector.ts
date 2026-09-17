@@ -20,7 +20,6 @@ import { CollectorStateStore } from "../core/state-store.js";
 import { sendBatched } from "../core/scheduler.js";
 import {
   advanceSessionCursor,
-  emptyCursor,
   normalizeCursor,
   parseMessageNode,
   sessionMetadataToIngestEvent,
@@ -131,6 +130,19 @@ export class DevinCollector implements Collector {
           nextCursor.messageRowId = message.row_id;
         }
       }
+      // When the scan did not hit the row cap, nothing unscanned remains —
+      // advance past rows the role filter excluded (e.g. `system` nodes) so
+      // they are not re-queried on every tick.
+      if (messages.length < MAX_MESSAGES_PER_TICK) {
+        const maxRowId = (
+          db.query(`SELECT MAX(row_id) AS m FROM message_nodes`).get() as {
+            m: number | null;
+          }
+        ).m;
+        if (maxRowId != null && maxRowId > nextCursor.messageRowId) {
+          nextCursor.messageRowId = maxRowId;
+        }
+      }
 
       // Compound watermark: (last_activity_at, id) so LIMIT batches never
       // skip rows that share the boundary timestamp.
@@ -161,16 +173,27 @@ export class DevinCollector implements Collector {
         ...sessions.map((s) => s.id),
       ]);
 
+      // Batch-fetch session rows not already returned by the window query
+      // (messages may touch sessions whose watermark did not advance).
+      const sessionRows = new Map<string, DevinSessionRow>(
+        sessions.map((s) => [s.id, s]),
+      );
+      const missingIds = [...touchedSessionIds].filter(
+        (id) => !sessionRows.has(id),
+      );
+      if (missingIds.length > 0) {
+        const rows = db
+          .query(
+            `SELECT id, working_directory, backend_type, model, agent_mode,
+                    created_at, last_activity_at, title, hidden, metadata
+             FROM sessions WHERE id IN (${missingIds.map(() => "?").join(",")})`,
+          )
+          .all(...missingIds) as DevinSessionRow[];
+        for (const row of rows) sessionRows.set(row.id, row);
+      }
+
       for (const sessionId of touchedSessionIds) {
-        const row =
-          sessions.find((s) => s.id === sessionId) ??
-          (db
-            .query(
-              `SELECT id, working_directory, backend_type, model, agent_mode,
-                      created_at, last_activity_at, title, hidden, metadata
-               FROM sessions WHERE id = ?`,
-            )
-            .get(sessionId) as DevinSessionRow | null);
+        const row = sessionRows.get(sessionId);
         if (!row || row.hidden) continue;
 
         const counts = this.loadCounts(db, sessionId);

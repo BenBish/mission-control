@@ -195,9 +195,7 @@ export function mapDevinPlanToQuotaEvents(
         limitId: "devin:acu",
         usedPercent: clampPercent((acuConsumed / acuLimit) * 100),
         windowMinutes: PLAN_WINDOW_MONTH_MINUTES,
-        resetsAt: normalizeUnixReset(
-          pick(plan, "planEnd", "plan_end", "planStart", "plan_start"),
-        ),
+        resetsAt: normalizeUnixReset(pick(plan, "planEnd", "plan_end")),
       },
     });
   }
