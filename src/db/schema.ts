@@ -460,8 +460,10 @@ CREATE INDEX IF NOT EXISTS idx_spend_alert_events_fingerprint
   ON spend_alert_events(fingerprint, month_key);
 CREATE INDEX IF NOT EXISTS idx_spend_alert_events_delivery
   ON spend_alert_events(delivery_state, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_spend_alert_events_data_class
-  ON spend_alert_events(data_class, created_at DESC);
+-- idx_spend_alert_events_data_class is created by migration 003, not here:
+-- data_class is added by that migration on older databases, and base-schema
+-- statements run before migrations, so creating it here would crash startup
+-- on any DB whose spend_alert_events predates the column.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_spend_alert_events_fingerprint_unique
   ON spend_alert_events(fingerprint, month_key);
 
