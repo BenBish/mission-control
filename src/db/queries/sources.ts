@@ -56,6 +56,12 @@ const SEED_SOURCES: Array<{
     kind: "agentic",
     defaultUnit: "quota",
   },
+  {
+    id: "cloud-handoff",
+    name: "Cloud Handoff",
+    kind: "agentic",
+    defaultUnit: "usd",
+  },
   { id: "hermes", name: "Hermes", kind: "inference", defaultUnit: "compute" },
   {
     id: "lemonade",
@@ -121,6 +127,14 @@ const SEED_INSTANCES: Array<{
     // Reads ~/.local/share/opencode/opencode.db (SQLite). Schema CHECK on
     // source_instances.collector_kind only allows jsonl-push | http-poll;
     // jsonl-push here means desktop push collector, not the file format.
+    collectorKind: "jsonl-push",
+    status: "unknown",
+  },
+  {
+    id: "cloud-handoff@arch-desktop",
+    sourceId: "cloud-handoff",
+    machine: "arch-desktop",
+    endpoint: null,
     collectorKind: "jsonl-push",
     status: "unknown",
   },

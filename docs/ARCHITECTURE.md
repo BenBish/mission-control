@@ -12,7 +12,8 @@ dashboard with source-scoped filters and real-time SSE updates.
 ┌──────────────────────────┐     HTTP ingest      ┌─────────────────────────────┐
 │ Desktop collectors       │ ───────────────────▶ │ Mission Control server      │
 │ (Claude Code, Codex,     │   /api/ingest/*      │  Express · SQLite · auth    │
-│  Grok, OpenCode)         │                      │  provider connectors        │
+│  Grok, OpenCode,         │                      │  provider connectors        │
+│  Cloud Handoff)          │                      │                             │
 └──────────────────────────┘                      │  on-box pollers (optional)  │
                                                   │    Hermes / ComfyUI /       │
 ┌──────────────────────────┐   local poll         │    Lemonade                 │
@@ -78,6 +79,7 @@ There is **no** `src/api/` tree. Older docs that referenced a single
 | Codex | agentic | Desktop | Codex session JSONL + quota signals |
 | Grok | agentic | Desktop | `~/.grok/sessions/.../updates.jsonl` |
 | OpenCode | agentic | Desktop | OpenCode SQLite (`opencode.db`) |
+| Cloud Handoff | agentic | Desktop | Control plane API (`GET /v1/sessions` + `GET /v1/sessions/:id/events`) |
 | Devin | agentic | Desktop | Devin CLI SQLite (`~/.local/share/devin/cli/sessions.db`) + CLI `GetUserStatus` plan-status poll |
 | Hermes | inference | Server (when `MC_HERMES_POLLING_ENABLED`) | llama-swap / llama-server / journal |
 | Lemonade | inference | Server (when configured) | Local inference HTTP |
