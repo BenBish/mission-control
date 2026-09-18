@@ -83,7 +83,8 @@ const sessionPayloadSchema = z.object({
 
 const activityPayloadSchema = z.object({
   sessionExternalId: z.string().min(1),
-  externalId: z.string().optional(),
+  externalId: z.string().min(1).optional(),
+  updateOnDuplicate: z.literal(true).optional(),
   parentExternalId: z.string().optional(),
   timestamp: z.string().min(1),
   completedAt: z.string().optional(),
@@ -274,16 +275,16 @@ async function processOneEvent(
     event.kind,
     event.naturalKey,
   );
-  // Activities with an external ID are upserts. A stable natural key can
-  // therefore carry a later observation of the same activity (for example,
-  // Codex's cumulative token total for one turn), and must still reach
-  // insertActivity so the existing row can be updated. Keep reporting the
-  // event as a duplicate; this only changes the write path for the existing
-  // entity and does not create another row.
+  // Only an explicitly update-capable activity may reuse a natural key to
+  // apply a newer observation (for example, Codex's cumulative token total
+  // for one turn). Generic activity retries must remain fully idempotent.
+  const activityPayload =
+    event.kind === "activity" ? (parsed.data as ActivityPayload) : undefined;
   const canReapplyActivity =
     isDuplicate &&
-    event.kind === "activity" &&
-    typeof (parsed.data as ActivityPayload).externalId === "string";
+    activityPayload?.updateOnDuplicate === true &&
+    typeof activityPayload.externalId === "string" &&
+    activityPayload.externalId.length > 0;
   if (isDuplicate && !canReapplyActivity) return "duplicate";
 
   const privacy = resolvePrivacyPolicy();

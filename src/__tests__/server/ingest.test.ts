@@ -9,7 +9,10 @@ import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import express from "express";
 import { Database } from "../../db/database.js";
 import { setupRoutes } from "../../server/routes/index.js";
-import { processIngestBatch } from "../../server/services/ingest-service.js";
+import {
+  activityEvents,
+  processIngestBatch,
+} from "../../server/services/ingest-service.js";
 import { getDailyConsumption } from "../../db/queries/consumption.js";
 import { parseCodexLine } from "../../collectors/codex/parser.js";
 import * as fs from "fs";
@@ -139,13 +142,66 @@ describe("POST /api/ingest/batch", () => {
       ],
     };
 
-    const first = await postBatch(batch);
-    expect(first.body.accepted).toBe(1);
-    expect(first.body.duplicates).toBe(0);
+    let broadcasts = 0;
+    const onActivityCreated = () => {
+      broadcasts++;
+    };
+    activityEvents.on("activity:created", onActivityCreated);
+    try {
+      const first = await postBatch(batch);
+      expect(first.body.accepted).toBe(1);
+      expect(first.body.duplicates).toBe(0);
 
+      const replay = await postBatch(batch);
+      expect(replay.body.accepted).toBe(0);
+      expect(replay.body.duplicates).toBe(1);
+      expect(broadcasts).toBe(1);
+    } finally {
+      activityEvents.off("activity:created", onActivityCreated);
+    }
+  });
+
+  test("rejects empty activity external IDs so replay cannot create duplicate rows", async () => {
+    const batch = {
+      sourceId: "codex",
+      instanceId: "codex@arch-desktop",
+      collectorVersion: "test",
+      sentAt: "2026-09-18T12:10:00.000Z",
+      events: [
+        {
+          kind: "activity",
+          naturalKey: "codex:empty-external-id",
+          payload: {
+            sessionExternalId: "sess-empty-external-id",
+            externalId: "",
+            timestamp: "2026-09-18T12:10:00.000Z",
+            actorType: "agent",
+            actorId: "codex",
+            actionType: "event",
+            description: "Invalid empty external ID",
+            status: "success",
+            inputTokens: 100,
+            outputTokens: 10,
+          },
+        },
+      ],
+    } as IngestBatch;
+
+    const first = await postBatch(batch);
     const replay = await postBatch(batch);
+    expect(first.status).toBe(200);
+    expect(first.body.accepted).toBe(0);
+    expect(first.body.duplicates).toBe(0);
+    expect(first.body.rejected).toHaveLength(1);
+    expect(replay.status).toBe(200);
     expect(replay.body.accepted).toBe(0);
-    expect(replay.body.duplicates).toBe(1);
+    expect(replay.body.duplicates).toBe(0);
+    expect(replay.body.rejected).toHaveLength(1);
+
+    const count = await db.raw().get<{
+      count: number;
+    }>(`SELECT COUNT(*) AS count FROM activities WHERE session_id = ?`, "codex:sess-empty-external-id");
+    expect(count?.count).toBe(0);
   });
 
   test("re-applies a repeated Codex turn usage record to daily consumption", async () => {

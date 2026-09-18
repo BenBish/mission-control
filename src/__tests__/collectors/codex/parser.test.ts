@@ -352,6 +352,7 @@ describe("Codex parser — new CLI schema (BSH-372)", () => {
     expect(activity).toMatchObject({
       externalId: `${FILE_PATH}:turn-1:token_usage`,
       actionType: "event",
+      updateOnDuplicate: true,
       inputTokens: 100,
       outputTokens: 10,
       cacheReadTokens: 0,

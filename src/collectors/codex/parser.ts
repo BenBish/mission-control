@@ -530,6 +530,7 @@ export function parseCodexLine(
         actionType: "event",
         description: "Codex turn token usage",
         status: "success",
+        updateOnDuplicate: true,
         inputTokens: turnUsage.input_tokens ?? 0,
         outputTokens: turnUsage.output_tokens ?? 0,
         cacheReadTokens: turnUsage.cached_input_tokens ?? 0,
