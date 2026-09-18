@@ -10,7 +10,22 @@
 
 import type { CloudHandoffConfig } from "./config.js";
 
-export const CLOUD_HANDOFF_FETCH_TIMEOUT_MS = 15_000;
+export const DEFAULT_CLOUD_HANDOFF_FETCH_TIMEOUT_MS = 60_000;
+
+/**
+ * Per-request timeout. 15s proved too short for the events replay of large
+ * sessions (a 1.4 MB stream took ~13s on a good path); 60s covers the initial
+ * backlog fetch while `?after=` keeps steady-state fetches tiny.
+ * CLOUD_HANDOFF_FETCH_TIMEOUT_MS overrides.
+ */
+export function cloudHandoffFetchTimeoutMs(
+  env: Record<string, string | undefined> = process.env,
+): number {
+  const v = Number(env.CLOUD_HANDOFF_FETCH_TIMEOUT_MS);
+  return Number.isFinite(v) && v > 0
+    ? v
+    : DEFAULT_CLOUD_HANDOFF_FETCH_TIMEOUT_MS;
+}
 
 /** Subset of the control plane's CloudSession the collector reads. */
 export interface CloudHandoffSession {
@@ -54,7 +69,7 @@ async function apiGet(
       Accept: "application/json",
       "User-Agent": "mission-control-cloud-handoff-collector",
     },
-    signal: AbortSignal.timeout(CLOUD_HANDOFF_FETCH_TIMEOUT_MS),
+    signal: AbortSignal.timeout(cloudHandoffFetchTimeoutMs()),
   });
   if (!res.ok) {
     const err = new Error(
