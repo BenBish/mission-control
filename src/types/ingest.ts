@@ -58,7 +58,13 @@ export interface SessionPayload {
 export interface ActivityPayload {
   /** external_id of the owning session (resolved server-side to sessions.id) */
   sessionExternalId: string;
+  /** Stable activity identity; when present it must be non-empty. */
   externalId?: string;
+  /**
+   * Allows a duplicate natural key to apply a newer observation to the
+   * existing activity row. Only update-capable event producers should set it.
+   */
+  updateOnDuplicate?: true;
   /** parentUuid-style linkage — subagent/sidechain lanes */
   parentExternalId?: string;
   timestamp: string;

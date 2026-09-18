@@ -25,7 +25,9 @@ import type {
 } from "../../types/ingest.js";
 import {
   checkAndRecordDedupe,
+  getDedupeEntityId,
   releaseDedupe,
+  setDedupeEntityId,
 } from "../../db/queries/dedupe.js";
 import {
   upsertSession,
@@ -83,7 +85,8 @@ const sessionPayloadSchema = z.object({
 
 const activityPayloadSchema = z.object({
   sessionExternalId: z.string().min(1),
-  externalId: z.string().optional(),
+  externalId: z.string().min(1).optional(),
+  updateOnDuplicate: z.literal(true).optional(),
   parentExternalId: z.string().optional(),
   timestamp: z.string().min(1),
   completedAt: z.string().optional(),
@@ -274,7 +277,53 @@ async function processOneEvent(
     event.kind,
     event.naturalKey,
   );
-  if (isDuplicate) return "duplicate";
+  // Only an explicitly update-capable activity may reuse a natural key to
+  // apply a newer observation (for example, Codex's cumulative token total
+  // for one turn). Generic activity retries must remain fully idempotent.
+  const activityPayload =
+    event.kind === "activity" ? (parsed.data as ActivityPayload) : undefined;
+  const canAttemptActivityReapply =
+    isDuplicate &&
+    activityPayload?.updateOnDuplicate === true &&
+    typeof activityPayload.externalId === "string" &&
+    activityPayload.externalId.length > 0;
+  let canReapplyActivity = false;
+  if (canAttemptActivityReapply) {
+    const dedupeEntityId = await getDedupeEntityId(
+      db,
+      sourceId,
+      instanceId,
+      event.kind,
+      event.naturalKey,
+    );
+    const sessionRowId = computeSessionId(
+      sourceId,
+      activityPayload.sessionExternalId,
+    );
+    const activity = dedupeEntityId
+      ? await db.get<{ id: string }>(
+          `SELECT id
+           FROM activities
+           WHERE id = ?
+             AND source_id = ?
+             AND instance_id = ?
+             AND session_id = ?
+             AND external_id = ?`,
+          dedupeEntityId,
+          sourceId,
+          instanceId,
+          sessionRowId,
+          activityPayload.externalId,
+        )
+      : undefined;
+    if (!activity) {
+      throw new Error(
+        `Duplicate activity ${event.naturalKey} does not match its original activity row`,
+      );
+    }
+    canReapplyActivity = true;
+  }
+  if (isDuplicate && !canReapplyActivity) return "duplicate";
 
   const privacy = resolvePrivacyPolicy();
 
@@ -311,6 +360,16 @@ async function processOneEvent(
           existingSessionId,
           payload,
         );
+        if (!isDuplicate) {
+          await setDedupeEntityId(
+            db,
+            sourceId,
+            instanceId,
+            event.kind,
+            event.naturalKey,
+            row.id,
+          );
+        }
         // Counters come from upsertSession's MAX-merge across session-event
         // re-observations, not from here — see touchSessionActivity's doc comment.
         await touchSessionActivity(db, existingSessionId, payload.timestamp);
@@ -380,11 +439,19 @@ async function processOneEvent(
   } catch (err) {
     // Do not leave a burned natural key when the write failed — otherwise a
     // later successful path (or retry after a bugfix) can never apply.
-    await releaseDedupe(db, sourceId, instanceId, event.kind, event.naturalKey);
+    if (!isDuplicate) {
+      await releaseDedupe(
+        db,
+        sourceId,
+        instanceId,
+        event.kind,
+        event.naturalKey,
+      );
+    }
     throw err;
   }
 
-  return "accepted";
+  return isDuplicate ? "duplicate" : "accepted";
 }
 
 export async function processHeartbeat(
