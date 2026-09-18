@@ -138,14 +138,14 @@ afterAll(async () => {
 });
 
 describe("GET /api/providers/status", () => {
-  test("returns four providers without secrets", async () => {
+  test("returns five providers without secrets", async () => {
     const res = await fetch(`${baseUrl}/api/providers/status`);
     const body = await res.json();
     expect(res.status).toBe(200);
     expect(body.success).toBe(true);
-    expect(body.providers).toHaveLength(4);
+    expect(body.providers).toHaveLength(5);
     const ids = body.providers.map((p: { id: string }) => p.id).sort();
-    expect(ids).toEqual(["anthropic", "openai", "openrouter", "xai"]);
+    expect(ids).toEqual(["anthropic", "devin", "openai", "openrouter", "xai"]);
     for (const p of body.providers) {
       expect(p).not.toHaveProperty("apiKey");
       // No live secret material in the payload (notes may mention key prefixes)
@@ -415,11 +415,17 @@ describe("POST /api/providers/sync", () => {
       ANTHROPIC_ADMIN_KEY: process.env.ANTHROPIC_ADMIN_KEY,
       OPENAI_ADMIN_KEY: process.env.OPENAI_ADMIN_KEY,
       XAI_API_KEY: process.env.XAI_API_KEY,
+      MC_DEVIN_API_KEY: process.env.MC_DEVIN_API_KEY,
+      MC_DEVIN_CREDENTIALS_PATH: process.env.MC_DEVIN_CREDENTIALS_PATH,
     };
     delete process.env.OPENROUTER_API_KEY;
     delete process.env.ANTHROPIC_ADMIN_KEY;
     delete process.env.OPENAI_ADMIN_KEY;
     delete process.env.XAI_API_KEY;
+    delete process.env.MC_DEVIN_API_KEY;
+    // Devin also reads the CLI credential file — point it at a path that
+    // does not exist so the connector reports not_configured.
+    process.env.MC_DEVIN_CREDENTIALS_PATH = "/nonexistent/credentials.toml";
 
     try {
       const res = await fetch(`${baseUrl}/api/providers/sync`, {
@@ -430,7 +436,7 @@ describe("POST /api/providers/sync", () => {
       const body = await res.json();
       expect(res.status).toBe(200);
       expect(body.success).toBe(true);
-      expect(body.results).toHaveLength(4);
+      expect(body.results).toHaveLength(5);
       for (const r of body.results) {
         expect(r.status).toBe("not_configured");
       }

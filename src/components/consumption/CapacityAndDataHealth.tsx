@@ -73,11 +73,11 @@ export function CapacityAndDataHealth({
               <Loading />
             ) : planUsageCredits.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No plan-usage windows yet. Codex, Claude Code, and Grok quotas
-                appear after the desktop collector runs; Admin APIs do not
-                expose subscription plan bars. Each subscription lists 5-hour
-                and weekly slots (unavailable when the provider does not expose
-                that window).
+                No plan-usage windows yet. Codex, Claude Code, Grok, and Devin
+                quotas appear after the desktop collector runs; Admin APIs do
+                not expose subscription plan bars. Each subscription lists
+                5-hour and weekly slots (unavailable when the provider does not
+                expose that window).
               </p>
             ) : (
               <div className="space-y-3">

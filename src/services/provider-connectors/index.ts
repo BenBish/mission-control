@@ -1,4 +1,5 @@
 import { anthropicConnector } from "./connectors/anthropic.js";
+import { devinConnector } from "./connectors/devin.js";
 import { openaiConnector } from "./connectors/openai.js";
 import { openrouterConnector } from "./connectors/openrouter.js";
 import { xaiConnector } from "./connectors/xai.js";
@@ -29,6 +30,7 @@ export {
   capacitySurfaceOf,
   normalizeOpenRouterCredits,
   anthropicCreditsUnavailable,
+  devinCreditsUnavailable,
   openaiWalletUnavailable,
   xaiCreditsLimited,
   normalizeSessionQuotaToCredits,
@@ -46,6 +48,7 @@ export {
   anthropicConnector,
   openaiConnector,
   xaiConnector,
+  devinConnector,
 };
 
 const CONNECTORS: ProviderConnector[] = [
@@ -53,6 +56,7 @@ const CONNECTORS: ProviderConnector[] = [
   anthropicConnector,
   openaiConnector,
   xaiConnector,
+  devinConnector,
 ];
 
 export function getConnectors(): ProviderConnector[] {

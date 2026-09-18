@@ -117,6 +117,7 @@ function providerDisplay(provider: string): string {
   if (provider === "openai") return "OpenAI";
   if (provider === "openrouter") return "OpenRouter";
   if (provider === "xai") return "xAI";
+  if (provider === "devin") return "Devin";
   return provider;
 }
 

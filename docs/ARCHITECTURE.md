@@ -49,7 +49,7 @@ dashboard with source-scoped filters and real-time SSE updates.
 | Database | `src/db/` | Schema, migrations, query modules |
 | Collectors | `src/collectors/` | Per-source ingestion logic |
 | Desktop entry | `src/collector-main.ts` | Runs JSONL/SQLite collectors → HTTP sink |
-| Provider connectors | `src/services/provider-connectors/` | OpenRouter / Anthropic / OpenAI / xAI billing |
+| Provider connectors | `src/services/provider-connectors/` | OpenRouter / Anthropic / OpenAI / xAI / Devin billing + capacity |
 | Frontend | `src/app/`, `src/pages/`, `src/components/` | React 19 + Router 7 + Tailwind v4 |
 
 There is **no** `src/api/` tree. Older docs that referenced a single
@@ -80,6 +80,7 @@ There is **no** `src/api/` tree. Older docs that referenced a single
 | Grok | agentic | Desktop | `~/.grok/sessions/.../updates.jsonl` |
 | OpenCode | agentic | Desktop | OpenCode SQLite (`opencode.db`) |
 | Cloud Handoff | agentic | Desktop | Control plane API (`GET /v1/sessions` + `GET /v1/sessions/:id/events`) |
+| Devin | agentic | Desktop | Devin CLI SQLite (`~/.local/share/devin/cli/sessions.db`) + CLI `GetUserStatus` plan-status poll |
 | Hermes | inference | Server (when `MC_HERMES_POLLING_ENABLED`) | llama-swap / llama-server / journal |
 | Lemonade | inference | Server (when configured) | Local inference HTTP |
 | ComfyUI | generation | Server (when configured) | ComfyUI queue/history API |
@@ -89,6 +90,18 @@ Shared collector core: `src/collectors/core/` (`scheduler`, `sinks`,
 
 Desktop config: `~/.config/mission-control/collector.toml`  
 (see `deploy/collector.toml.example`).
+
+### Devin collector notes
+
+The Devin collector reads `sessions.db` read-only and tracks compound cursors
+(message `row_id` + session `(last_activity_at, id)`), the same pattern as
+OpenCode. Devin CLI does **not** record per-message token counts — usage is
+metered in ACUs, surfaced on sessions via `metadata.total_acu_cost` and on the
+plan via `GetUserStatus` (`acu_consumed`/`acu_limit`, daily/weekly quota %).
+Devin session events therefore carry counts and timing only; ACU totals persist
+as `event` activities under `details`, never as `costUsd` or token fields. A
+prepaid wallet is not exposed for self-serve plans — the Devin connector
+records an explicit `unavailable` wallet snapshot rather than inventing one.
 
 ### Claude Code OTel cost ingestion (opt-in)
 
@@ -199,7 +212,7 @@ added together in the UI or APIs.
 | --- | --- | --- | --- |
 | **1. Cost (actual billing)** | How much did the *provider account* charge? | `provider_usage_daily.cost_usd` | Provider Admin/usage APIs via connectors |
 | **2. Usage (agent/session)** | How much did *agents* consume (tokens, requests)? | `activities` / `sessions` / `inference_requests` token fields | Collectors from session logs / local servers |
-| **3. Quota (plan windows)** | How much of a *subscription rate limit* is used? | `quota_snapshots` (+ credit rows with unit `percent`/`requests`, surface `plan_usage`) | Session/tool telemetry: Codex windows + Claude Code OAuth usage + Grok CLI billing (`/v1/billing?format=credits`) via desktop collector; not USD. Subscriptions always present the same canonical slots (**5-hour** + **weekly**); missing windows are `unavailable`, never invented %. Provider extras (Claude Opus weekly, Grok month/product bars) stay labeled separately. Contract: `src/lib/plan-windows.ts`. |
+| **3. Quota (plan windows)** | How much of a *subscription rate limit* is used? | `quota_snapshots` (+ credit rows with unit `percent`/`requests`, surface `plan_usage`) | Session/tool telemetry: Codex windows + Claude Code OAuth usage + Grok CLI billing (`/v1/billing?format=credits`) + Devin CLI `SeatManagementService/GetUserStatus` (daily/weekly % + ACU consumed/limit) via desktop collector; not USD. Subscriptions always present the same canonical slots (**5-hour** + **weekly**); missing windows are `unavailable`, never invented %. Provider extras (Claude Opus weekly, Grok month/product bars, Devin daily/ACU windows) stay labeled separately. Contract: `src/lib/plan-windows.ts`. |
 | **4. Wallet (credits / balance)** | What prepaid capacity remains? | `provider_credit_snapshots` | Provider balance APIs or session-quota derived; **never** summed into spend |
 | **5. Estimate (priced tokens)** | What would usage *cost* if priced from a table? | Session/activity `cost_usd` when log-supplied, else `src/types/pricing.ts` fallbacks | Session-log exact cost preferred (Claude Code: opt-in OTel `claude_code.cost.usage`/`claude_code.api_request`, see [Claude Code OTel cost ingestion](#claude-code-otel-cost-ingestion-opt-in)); static/OpenRouter table is estimate-only |
 

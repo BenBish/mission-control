@@ -127,6 +127,110 @@ export async function addSpendAlertFingerprintUnique(
   `);
 }
 
+/**
+ * BSH-422: Allow 'devin' in the provider CHECK constraints so Devin plan-
+ * usage snapshots (bridged from collector quota_snapshots) can persist.
+ * SQLite cannot alter CHECK constraints — rebuild the three provider tables
+ * when their definition still lacks 'devin'.
+ */
+export async function addDevinProviderId(db: SqliteDatabase): Promise<void> {
+  const tableSql = async (name: string): Promise<string> => {
+    const row = await db.get<{ sql: string }>(
+      `SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?`,
+      name,
+    );
+    return row?.sql ?? "";
+  };
+
+  const rebuilds: Array<{
+    table: string;
+    create: string;
+    columns: string;
+    indexes: string[];
+  }> = [
+    {
+      table: "provider_usage_daily",
+      create: `CREATE TABLE provider_usage_daily_new (
+  provider TEXT NOT NULL CHECK (provider IN ('openrouter', 'anthropic', 'openai', 'xai', 'devin')),
+  day TEXT NOT NULL,
+  model TEXT NOT NULL,
+  input_tokens INTEGER NOT NULL DEFAULT 0,
+  output_tokens INTEGER NOT NULL DEFAULT 0,
+  cost_usd REAL,
+  request_count INTEGER NOT NULL DEFAULT 0,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (provider, day, model)
+)`,
+      columns:
+        "provider, day, model, input_tokens, output_tokens, cost_usd, request_count, updated_at",
+      indexes: [
+        "CREATE INDEX IF NOT EXISTS idx_provider_usage_day ON provider_usage_daily(day DESC)",
+        "CREATE INDEX IF NOT EXISTS idx_provider_usage_provider ON provider_usage_daily(provider, day DESC)",
+      ],
+    },
+    {
+      table: "provider_sync_status",
+      create: `CREATE TABLE provider_sync_status_new (
+  provider TEXT PRIMARY KEY CHECK (provider IN ('openrouter', 'anthropic', 'openai', 'xai', 'devin')),
+  status TEXT NOT NULL DEFAULT 'not_configured'
+    CHECK (status IN ('not_configured', 'ok', 'limited', 'error', 'syncing')),
+  last_sync_at DATETIME,
+  last_success_at DATETIME,
+  last_error TEXT,
+  cursor_day TEXT,
+  meta_json TEXT,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+)`,
+      columns:
+        "provider, status, last_sync_at, last_success_at, last_error, cursor_day, meta_json, updated_at",
+      indexes: [],
+    },
+    {
+      table: "provider_credit_snapshots",
+      create: `CREATE TABLE provider_credit_snapshots_new (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  provider TEXT NOT NULL CHECK (provider IN ('openrouter', 'anthropic', 'openai', 'xai', 'devin')),
+  as_of DATETIME NOT NULL,
+  remaining REAL,
+  total REAL,
+  unit TEXT NOT NULL CHECK (unit IN ('usd', 'credits', 'requests', 'tokens', 'percent')),
+  label TEXT NOT NULL,
+  source TEXT NOT NULL CHECK (source IN ('provider_api', 'session_quota', 'unavailable')),
+  status TEXT NOT NULL CHECK (status IN ('ok', 'limited', 'unavailable', 'error')),
+  details_json TEXT,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (provider, label, as_of)
+)`,
+      columns:
+        "id, provider, as_of, remaining, total, unit, label, source, status, details_json, updated_at",
+      indexes: [
+        "CREATE INDEX IF NOT EXISTS idx_provider_credit_provider ON provider_credit_snapshots(provider, as_of DESC)",
+        "CREATE INDEX IF NOT EXISTS idx_provider_credit_label ON provider_credit_snapshots(provider, label, as_of DESC)",
+      ],
+    },
+  ];
+
+  for (const r of rebuilds) {
+    const sql = await tableSql(r.table);
+    if (!sql) continue; // table absent — base schema will create it fresh
+    if (sql.includes("'devin'")) continue; // already allows devin
+    await db.exec("BEGIN");
+    try {
+      await db.exec(r.create);
+      await db.exec(
+        `INSERT INTO ${r.table}_new (${r.columns}) SELECT ${r.columns} FROM ${r.table}`,
+      );
+      await db.exec(`DROP TABLE ${r.table}`);
+      await db.exec(`ALTER TABLE ${r.table}_new RENAME TO ${r.table}`);
+      for (const idx of r.indexes) await db.exec(idx);
+      await db.exec("COMMIT");
+    } catch (err) {
+      await db.exec("ROLLBACK");
+      throw err;
+    }
+  }
+}
+
 const MIGRATIONS: Migration[] = [
   {
     version: "001",
@@ -147,6 +251,11 @@ const MIGRATIONS: Migration[] = [
     version: "004",
     name: "spend-alert-fingerprint-unique",
     up: addSpendAlertFingerprintUnique,
+  },
+  {
+    version: "005",
+    name: "add-devin-provider-id",
+    up: addDevinProviderId,
   },
 ];
 

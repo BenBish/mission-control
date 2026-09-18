@@ -14,6 +14,7 @@ import { CollectorStateStore } from "./collectors/core/state-store.js";
 import { ClaudeCodeCollector } from "./collectors/claude-code/collector.js";
 import { CloudHandoffCollector } from "./collectors/cloud-handoff/collector.js";
 import { CodexCollector } from "./collectors/codex/collector.js";
+import { DevinCollector } from "./collectors/devin/collector.js";
 import { GrokCollector } from "./collectors/grok/collector.js";
 import { OpenCodeCollector } from "./collectors/opencode/collector.js";
 
@@ -87,6 +88,7 @@ async function main() {
     new ClaudeCodeCollector(state),
     new CloudHandoffCollector(state),
     new CodexCollector(state),
+    new DevinCollector(state),
     new GrokCollector(state),
     new OpenCodeCollector(state),
   ];

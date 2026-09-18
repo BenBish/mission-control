@@ -3,6 +3,9 @@
  * Never log return values — keys must not appear in status or logs.
  */
 
+import fs from "fs";
+import os from "os";
+import path from "path";
 import type { ProviderId } from "./types.js";
 
 export interface ProviderCredentials {
@@ -41,6 +44,62 @@ export function resolveXaiKey(): string | null {
   return key;
 }
 
+export const DEFAULT_DEVIN_CREDENTIALS_PATH = path.join(
+  os.homedir(),
+  ".local",
+  "share",
+  "devin",
+  "credentials.toml",
+);
+export const DEFAULT_DEVIN_API_SERVER = "https://server.codeium.com";
+
+export interface DevinCredentials {
+  apiKey: string;
+  apiServerUrl: string;
+}
+
+/**
+ * Devin CLI credentials live in ~/.local/share/devin/credentials.toml
+ * (windsurf_api_key + api_server_url), not env vars. MC_DEVIN_API_KEY /
+ * MC_DEVIN_API_SERVER_URL override for non-CLI installs and tests.
+ * Returns null on missing file / parse error / missing key. Never logs
+ * the key.
+ */
+export function resolveDevinCredentials(
+  credentialsPath: string = process.env.MC_DEVIN_CREDENTIALS_PATH?.trim() ||
+    DEFAULT_DEVIN_CREDENTIALS_PATH,
+): DevinCredentials | null {
+  const envKey = process.env.MC_DEVIN_API_KEY?.trim();
+  if (envKey) {
+    return {
+      apiKey: envKey,
+      apiServerUrl: (
+        process.env.MC_DEVIN_API_SERVER_URL?.trim() || DEFAULT_DEVIN_API_SERVER
+      ).replace(/\/$/, ""),
+    };
+  }
+  try {
+    if (!fs.existsSync(credentialsPath)) return null;
+    const raw = fs.readFileSync(credentialsPath, "utf8");
+    const fields: Record<string, string> = {};
+    for (const line of raw.split("\n")) {
+      const m = line.match(/^\s*([a-zA-Z_]+)\s*=\s*"([^"]*)"/);
+      if (m) fields[m[1]] = m[2];
+    }
+    const apiKey = fields.windsurf_api_key;
+    if (!apiKey) return null;
+    return {
+      apiKey,
+      apiServerUrl: (fields.api_server_url || DEFAULT_DEVIN_API_SERVER).replace(
+        /\/$/,
+        "",
+      ),
+    };
+  } catch {
+    return null;
+  }
+}
+
 /** Optional override base URLs (tests / proxies). */
 export function providerBaseUrl(
   provider: ProviderId,
@@ -51,6 +110,7 @@ export function providerBaseUrl(
     anthropic: process.env.ANTHROPIC_BASE_URL,
     openai: process.env.OPENAI_BASE_URL,
     xai: process.env.XAI_BASE_URL,
+    devin: process.env.MC_DEVIN_API_SERVER_URL,
   };
   return (envMap[provider]?.trim() || fallback).replace(/\/$/, "");
 }
@@ -85,6 +145,13 @@ export function credentialMeta(provider: ProviderId): ProviderCredentials {
         envVars: ["XAI_API_KEY"],
         notes:
           "xAI has no public historical usage API; connector verifies the key and accepts optional MC_XAI_USAGE_ENDPOINT JSON export.",
+      };
+    case "devin":
+      return {
+        configured: !!resolveDevinCredentials(),
+        envVars: ["MC_DEVIN_API_KEY"],
+        notes:
+          "Reads the Devin CLI credential file (~/.local/share/devin/credentials.toml) — no env key needed when the CLI is logged in. Session/ACU usage comes from the desktop collector; plan windows from the CLI GetUserStatus endpoint.",
       };
   }
 }

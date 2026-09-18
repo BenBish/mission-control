@@ -50,6 +50,7 @@ const PROVIDER_DISPLAY: Record<string, string> = {
   openai: "OpenAI",
   openrouter: "OpenRouter",
   xai: "xAI",
+  devin: "Devin",
 };
 
 const PROVIDER_ORDER = ["anthropic", "openai", "xai"];

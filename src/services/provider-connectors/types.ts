@@ -8,6 +8,7 @@ export const PROVIDER_IDS = [
   "anthropic",
   "openai",
   "xai",
+  "devin",
 ] as const;
 
 export type ProviderId = (typeof PROVIDER_IDS)[number];

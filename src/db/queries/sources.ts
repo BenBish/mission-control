@@ -48,6 +48,7 @@ const SEED_SOURCES: Array<{
     defaultUnit: "quota",
   },
   { id: "codex", name: "Codex CLI", kind: "agentic", defaultUnit: "quota" },
+  { id: "devin", name: "Devin", kind: "agentic", defaultUnit: "quota" },
   { id: "grok", name: "Grok", kind: "agentic", defaultUnit: "quota" },
   {
     id: "opencode",
@@ -97,6 +98,16 @@ const SEED_INSTANCES: Array<{
     sourceId: "codex",
     machine: "arch-desktop",
     endpoint: null,
+    collectorKind: "jsonl-push",
+    status: "unknown",
+  },
+  {
+    id: "devin@arch-desktop",
+    sourceId: "devin",
+    machine: "arch-desktop",
+    endpoint: null,
+    // Reads ~/.local/share/devin/cli/sessions.db (SQLite). Same
+    // "jsonl-push = desktop push collector" convention as OpenCode.
     collectorKind: "jsonl-push",
     status: "unknown",
   },

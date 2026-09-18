@@ -126,6 +126,7 @@ Authoritative examples: `deploy/server.env.example` and
 | `MC_PROVIDER_SYNC_ENABLED` | scheduled billing sync |
 | `MC_PROVIDER_SYNC_INTERVAL_MS` | default 3600000 (1h) |
 | `MC_XAI_USAGE_ENDPOINT` | optional custom xAI usage JSON export |
+| `MC_DEVIN_API_KEY`, `MC_DEVIN_CREDENTIALS_PATH`, `MC_DEVIN_API_SERVER_URL` | optional Devin overrides — defaults to the Devin CLI credential file (`~/.local/share/devin/credentials.toml`) |
 
 Generate a password hash:
 
