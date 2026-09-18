@@ -274,7 +274,17 @@ async function processOneEvent(
     event.kind,
     event.naturalKey,
   );
-  if (isDuplicate) return "duplicate";
+  // Activities with an external ID are upserts. A stable natural key can
+  // therefore carry a later observation of the same activity (for example,
+  // Codex's cumulative token total for one turn), and must still reach
+  // insertActivity so the existing row can be updated. Keep reporting the
+  // event as a duplicate; this only changes the write path for the existing
+  // entity and does not create another row.
+  const canReapplyActivity =
+    isDuplicate &&
+    event.kind === "activity" &&
+    typeof (parsed.data as ActivityPayload).externalId === "string";
+  if (isDuplicate && !canReapplyActivity) return "duplicate";
 
   const privacy = resolvePrivacyPolicy();
 
@@ -380,11 +390,19 @@ async function processOneEvent(
   } catch (err) {
     // Do not leave a burned natural key when the write failed — otherwise a
     // later successful path (or retry after a bugfix) can never apply.
-    await releaseDedupe(db, sourceId, instanceId, event.kind, event.naturalKey);
+    if (!isDuplicate) {
+      await releaseDedupe(
+        db,
+        sourceId,
+        instanceId,
+        event.kind,
+        event.naturalKey,
+      );
+    }
     throw err;
   }
 
-  return "accepted";
+  return isDuplicate ? "duplicate" : "accepted";
 }
 
 export async function processHeartbeat(

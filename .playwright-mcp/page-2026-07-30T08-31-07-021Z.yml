@@ -1,5 +1,0 @@
-- generic [ref=f2e4]:
-  - banner [ref=f2e5]:
-    - button "Toggle menu" [ref=f2e6]
-    - button "Toggle theme" [ref=f2e9]
-  - main [ref=f2e11]

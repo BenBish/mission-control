@@ -9,6 +9,9 @@ import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import express from "express";
 import { Database } from "../../db/database.js";
 import { setupRoutes } from "../../server/routes/index.js";
+import { processIngestBatch } from "../../server/services/ingest-service.js";
+import { getDailyConsumption } from "../../db/queries/consumption.js";
+import { parseCodexLine } from "../../collectors/codex/parser.js";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
@@ -143,6 +146,64 @@ describe("POST /api/ingest/batch", () => {
     const replay = await postBatch(batch);
     expect(replay.body.accepted).toBe(0);
     expect(replay.body.duplicates).toBe(1);
+  });
+
+  test("re-applies a repeated Codex turn usage record to daily consumption", async () => {
+    const filePath =
+      "/tmp/rollout-2026-09-18T12-00-00-01a09322-9d50-72d2-bb3c-dc77b28f3f85.jsonl";
+    const parsed = (
+      inputTokens: number,
+      outputTokens: number,
+      ordinal: number,
+    ) =>
+      parseCodexLine(
+        JSON.stringify({
+          type: "token_usage_record",
+          ordinal,
+          timestamp: "2026-09-18T12:00:00.000Z",
+          payload: {
+            turn_id: "turn-repeated",
+            turn_token_usage: {
+              input_tokens: inputTokens,
+              output_tokens: outputTokens,
+            },
+          },
+        }),
+        filePath,
+      );
+    const first = parsed(100, 10, 1)?.activity;
+    const later = parsed(125, 12, 2)?.activity;
+    expect(first).toBeDefined();
+    expect(later).toBeDefined();
+    expect(later?.naturalKey).toBe(first?.naturalKey);
+
+    const batch = (event: NonNullable<typeof first>): IngestBatch => ({
+      sourceId: "codex",
+      instanceId: "codex@arch-desktop",
+      collectorVersion: "test",
+      sentAt: "2026-09-18T12:00:01.000Z",
+      events: [event],
+    });
+
+    const initial = await processIngestBatch(db.raw(), batch(first!));
+    const update = await processIngestBatch(db.raw(), batch(later!));
+    expect(initial).toMatchObject({ accepted: 1, duplicates: 0, rejected: [] });
+    expect(update).toMatchObject({ accepted: 0, duplicates: 1, rejected: [] });
+
+    const rows = await getDailyConsumption(db.raw(), {
+      since: "2026-09-18T00:00:00.000Z",
+      sourceId: "codex",
+    });
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          day: "2026-09-18",
+          source_id: "codex",
+          input_tokens: 125,
+          output_tokens: 12,
+        }),
+      ]),
+    );
   });
 
   test("re-observing a session merges counters instead of double-counting them", async () => {
