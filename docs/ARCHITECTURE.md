@@ -81,6 +81,7 @@ There is **no** `src/api/` tree. Older docs that referenced a single
 | OpenCode | agentic | Desktop | OpenCode SQLite (`opencode.db`) |
 | Cloud Handoff | agentic | Desktop | Control plane API (`GET /v1/sessions` + `GET /v1/sessions/:id/events`) |
 | Devin | agentic | Desktop | Devin CLI SQLite (`~/.local/share/devin/cli/sessions.db`) + CLI `GetUserStatus` plan-status poll |
+| Cursor | agentic | Desktop | Cursor `state.vscdb` (`cursorDiskKV`) + `~/.cursor/chats` `store.db` |
 | Hermes | inference | Server (when `MC_HERMES_POLLING_ENABLED`) | llama-swap / llama-server / journal |
 | Lemonade | inference | Server (when configured) | Local inference HTTP |
 | ComfyUI | generation | Server (when configured) | ComfyUI queue/history API |
@@ -102,6 +103,30 @@ Devin session events therefore carry counts and timing only; ACU totals persist
 as `event` activities under `details`, never as `costUsd` or token fields. A
 prepaid wallet is not exposed for self-serve plans — the Devin connector
 records an explicit `unavailable` wallet snapshot rather than inventing one.
+
+### Cursor local data sources
+
+The Cursor collector (`src/collectors/cursor/`) reads two undocumented,
+closed-source persistence stacks — all access is defensive (readonly SQLite,
+malformed rows skipped):
+
+- **IDE chats / composer sessions**:
+  `~/.config/Cursor/User/globalStorage/state.vscdb` (Linux; honors
+  `XDG_CONFIG_HOME`) and `~/Library/Application Support/Cursor/User/
+  globalStorage/state.vscdb` (macOS). The `cursorDiskKV` table holds
+  `composerData:<id>` session headers, `bubbleId:<composer>:<bubble>`
+  message bubbles, and `toolFormerData:*` tool-call rows. Other prefixes
+  (`checkpointId:*`, `agentKv:*`, `codeBlockDiff:*`, …) are ignored.
+- **cursor-agent CLI sessions**: `~/.cursor/chats/<md5(workspace path)>/
+  <session uuid>/store.db` (`blobs(id,data)` — JSON message blobs parsed,
+  protobuf blobs skipped) plus sibling `meta.json`; `CURSOR_CONFIG_DIR`
+  overrides `~/.cursor`.
+
+Cursor does not persist token counts or dollar costs locally, so those
+fields are left unset (never estimated). Incremental cursors: `cursorDiskKV`
+rowid watermark for bubbles/tool rows plus a per-composer `lastUpdatedAt`
+map (composer rows update in place); per-`store.db` blobs rowid watermark
+plus emitted `meta.updatedAtMs`.
 
 ### Claude Code OTel cost ingestion (opt-in)
 

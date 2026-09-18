@@ -62,6 +62,12 @@ const SEED_SOURCES: Array<{
     kind: "agentic",
     defaultUnit: "usd",
   },
+  {
+    id: "cursor",
+    name: "Cursor",
+    kind: "agentic",
+    defaultUnit: "quota",
+  },
   { id: "hermes", name: "Hermes", kind: "inference", defaultUnit: "compute" },
   {
     id: "lemonade",
@@ -135,6 +141,16 @@ const SEED_INSTANCES: Array<{
     sourceId: "cloud-handoff",
     machine: "arch-desktop",
     endpoint: null,
+    collectorKind: "jsonl-push",
+    status: "unknown",
+  },
+  {
+    id: "cursor@arch-desktop",
+    sourceId: "cursor",
+    machine: "arch-desktop",
+    endpoint: null,
+    // Reads Cursor state.vscdb + ~/.cursor/chats store.db (SQLite);
+    // collector_kind "jsonl-push" means desktop push collector, not format.
     collectorKind: "jsonl-push",
     status: "unknown",
   },

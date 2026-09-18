@@ -1077,8 +1077,8 @@ export default function SettingsPage() {
                 </div>
                 <p className="text-sm text-muted-foreground">
                   A unified dashboard for AI usage across Claude Code, Codex
-                  CLI, and local inference infrastructure (Hermes, Lemonade,
-                  ComfyUI).
+                  CLI, Grok, OpenCode, Cursor, and local inference
+                  infrastructure (Hermes, Lemonade, ComfyUI).
                 </p>
               </div>
               <div>
