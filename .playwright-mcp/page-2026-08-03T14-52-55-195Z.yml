@@ -1,0 +1,194 @@
+- generic:
+  - generic:
+    - generic:
+      - complementary:
+        - generic:
+          - generic:
+            - generic:
+              - img
+            - generic:
+              - generic: Mission Control
+              - generic: Unified AI usage dashboard
+          - navigation:
+            - link:
+              - /url: /
+              - generic:
+                - img
+              - text: Dashboard
+            - link:
+              - /url: /activities
+              - generic:
+                - img
+              - text: Activities
+            - link:
+              - /url: /sessions
+              - generic:
+                - img
+              - text: Sessions
+            - link:
+              - /url: /runtime
+              - generic:
+                - img
+              - text: Runtime
+            - link:
+              - /url: /failures
+              - generic:
+                - img
+              - text: Failures
+            - link:
+              - /url: /consumption
+              - generic:
+                - img
+              - text: Consumption
+            - link:
+              - /url: /jobs
+              - generic:
+                - img
+              - text: Jobs
+            - link:
+              - /url: /generations
+              - generic:
+                - img
+              - text: Generations
+            - link:
+              - /url: /settings
+              - generic:
+                - img
+              - text: Settings
+          - generic:
+            - generic:
+              - generic: System Error
+      - generic:
+        - banner:
+          - generic:
+            - combobox [expanded]:
+              - generic:
+                - generic:
+                  - generic: Claude Code
+              - img
+          - button:
+            - img
+            - generic: Toggle theme
+        - main:
+          - generic:
+            - generic:
+              - generic:
+                - heading [level=1]: Failure Analysis
+                - paragraph: Grouped failures for Claude Code
+            - generic:
+              - generic:
+                - generic:
+                  - heading [level=3]: Total Failures
+                  - generic:
+                    - img
+                - generic:
+                  - generic: "2"
+                  - paragraph: All time · activity failure · inference non-success · runtime non-info
+              - generic:
+                - generic:
+                  - heading [level=3]: Last 24 Hours
+                  - generic:
+                    - img
+                - generic:
+                  - generic: "0"
+                  - paragraph: Last 24 hours · activity failure · inference non-success · runtime non-info
+              - generic:
+                - generic:
+                  - heading [level=3]: Unique Groups
+                - generic:
+                  - generic: "2"
+                  - paragraph: After kind / resolution filters
+            - generic:
+              - generic:
+                - generic:
+                  - text: Kind
+                  - combobox:
+                    - generic: All kinds
+                    - img
+                - generic:
+                  - text: Resolution
+                  - combobox:
+                    - generic: All
+                    - img
+                - paragraph: Source filter is global (header). Groups share a fingerprint of kind, source, structured fields, and normalized message.
+            - generic:
+              - generic:
+                - generic:
+                  - table:
+                    - rowgroup:
+                      - row:
+                        - columnheader: Last / First
+                        - columnheader: Source
+                        - columnheader: Kind
+                        - columnheader: Count
+                        - columnheader: Status
+                        - columnheader: Summary
+                    - rowgroup:
+                      - row:
+                        - cell:
+                          - generic: 3d ago
+                          - generic: first 3d ago
+                        - cell:
+                          - generic: claude-code
+                        - cell: Activity
+                        - cell: "1"
+                        - cell:
+                          - generic: open (1)
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: BSH-75 failure no tokens
+                      - row:
+                        - cell:
+                          - generic: 4d ago
+                          - generic: first 4d ago
+                        - cell:
+                          - generic: claude-code
+                        - cell: Activity
+                        - cell: "1"
+                        - cell:
+                          - generic: open (1)
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: Claude Code failed tool call
+                - generic:
+                  - paragraph: Groups 1–2 of 2 · 2 events total (2 activity · 0 inference · 0 runtime)
+                  - generic:
+                    - button [disabled]:
+                      - img
+                      - text: Prev
+                    - generic: 1 / 1
+                    - button [disabled]:
+                      - text: Next
+                      - img
+  - listbox [ref=e108]:
+    - option "All sources" [ref=e109]:
+      - generic [ref=e111]: All sources
+    - 'option "claude-code@arch-desktop: ok Claude Code" [active] [selected] [ref=e112]':
+      - img [ref=e115]
+      - generic [ref=e118]:
+        - 'generic "claude-code@arch-desktop: ok" [ref=e119]'
+        - generic [ref=e120]: Claude Code
+    - 'option "codex@arch-desktop: error Codex CLI" [ref=e121]':
+      - generic [ref=e124]:
+        - 'generic "codex@arch-desktop: error" [ref=e125]'
+        - generic [ref=e126]: Codex CLI
+    - 'option "comfyui@strix-halo: off ComfyUI" [ref=e127]':
+      - generic [ref=e130]:
+        - 'generic "comfyui@strix-halo: off" [ref=e131]'
+        - generic [ref=e132]: ComfyUI
+    - 'option "grok@arch-desktop: ok Grok" [ref=e133]':
+      - generic [ref=e136]:
+        - 'generic "grok@arch-desktop: ok" [ref=e137]'
+        - generic [ref=e138]: Grok
+    - 'option "hermes@strix-halo: ok Hermes" [ref=e139]':
+      - generic [ref=e142]:
+        - 'generic "hermes@strix-halo: ok" [ref=e143]'
+        - generic [ref=e144]: Hermes
+    - 'option "lemonade@strix-halo: off Lemonade" [ref=e145]':
+      - generic [ref=e148]:
+        - 'generic "lemonade@strix-halo: off" [ref=e149]'
+        - generic [ref=e150]: Lemonade

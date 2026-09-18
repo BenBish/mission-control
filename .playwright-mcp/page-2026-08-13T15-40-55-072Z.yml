@@ -1,0 +1,214 @@
+- generic [ref=e1]:
+  - generic [ref=e6]:
+    - complementary [ref=e7]:
+      - generic [ref=e8]:
+        - generic [ref=e9]:
+          - img [ref=e11]
+          - generic [ref=e13]:
+            - generic [ref=e14]: Mission Control
+            - generic [ref=e15]: Unified AI usage dashboard
+        - navigation "Main" [ref=e16]:
+          - link "Dashboard" [active] [ref=e17] [cursor=pointer]:
+            - /url: /
+            - img [ref=e19]
+            - generic [ref=e24]: Dashboard
+          - link "Activities" [ref=e25] [cursor=pointer]:
+            - /url: /activities
+            - img [ref=e27]
+            - generic [ref=e28]: Activities
+          - link "Sessions" [ref=e29] [cursor=pointer]:
+            - /url: /sessions
+            - img [ref=e31]
+            - generic [ref=e35]: Sessions
+          - link "Runtime" [ref=e36] [cursor=pointer]:
+            - /url: /runtime
+            - img [ref=e38]
+            - generic [ref=e41]: Runtime
+          - link "Failures" [ref=e42] [cursor=pointer]:
+            - /url: /failures
+            - img [ref=e44]
+            - generic [ref=e46]: Failures
+          - link "Consumption" [ref=e47] [cursor=pointer]:
+            - /url: /consumption
+            - img [ref=e49]
+            - generic [ref=e51]: Consumption
+          - generic [ref=e53]:
+            - paragraph [ref=e54]: Workloads
+            - generic [ref=e55]:
+              - link "Jobs" [ref=e56] [cursor=pointer]:
+                - /url: /jobs
+                - img [ref=e58]
+                - generic [ref=e61]: Jobs
+              - link "Generations Off" [ref=e62] [cursor=pointer]:
+                - /url: /generations
+                - img [ref=e64]
+                - generic [ref=e68]: Generations
+                - generic [ref=e69]: "Off"
+          - link "Settings" [ref=e71] [cursor=pointer]:
+            - /url: /settings
+            - img [ref=e73]
+            - generic [ref=e76]: Settings
+        - generic [ref=e80]: System Error
+    - generic [ref=e81]:
+      - alert [ref=e82]:
+        - generic [ref=e83]:
+          - img [ref=e84]
+          - generic [ref=e86]:
+            - paragraph [ref=e87]: Security notice
+            - paragraph [ref=e88]: App authentication is off. Anyone who can reach this host can read activity data.
+      - banner [ref=e89]:
+        - combobox "Filter by source" [ref=e91]:
+          - generic:
+            - generic:
+              - 'generic "opencode@arch-desktop: Offline — Heartbeat expired (raw: ok)"'
+              - generic: OpenCode
+          - img [ref=e92]
+        - button "Toggle theme" [ref=e95]:
+          - img
+          - generic [ref=e96]: Toggle theme
+      - main [ref=e97]:
+        - generic [ref=e882]:
+          - generic [ref=e884]:
+            - heading "Dashboard" [level=1] [ref=e885]
+            - paragraph [ref=e886]: Overview of AI usage for OpenCode
+          - generic [ref=e887]:
+            - generic [ref=e888]:
+              - generic [ref=e889]:
+                - heading "Tokens Today" [level=3] [ref=e890]
+                - img [ref=e892]
+              - generic [ref=e894]:
+                - generic [ref=e895]: "0"
+                - paragraph [ref=e896]: input + output, for OpenCode
+            - link "Direct API Spend today — account-wide provider billing" [ref=e897] [cursor=pointer]:
+              - /url: /consumption?view=direct-api&range=today
+              - generic [ref=e898]:
+                - generic [ref=e899]:
+                  - heading "Direct API Spend" [level=3] [ref=e900]
+                  - img [ref=e902]
+                - generic [ref=e904]:
+                  - generic [ref=e905]: No synced spend
+                  - paragraph [ref=e906]:
+                    - generic [ref=e907]: 30d —
+                    - text: · Not synced
+                  - paragraph [ref=e908]: Account-wide · independent of source filter
+            - link "Plan usage — subscription rate-limit windows remaining" [ref=e909] [cursor=pointer]:
+              - /url: /consumption?view=direct-api#capacity
+              - generic [ref=e910]:
+                - generic [ref=e911]:
+                  - heading "Plan Usage" [level=3] [ref=e912]
+                  - img [ref=e914]
+                - generic [ref=e918]:
+                  - generic [ref=e919]: —
+                  - paragraph [ref=e920]: No fresh plan windows
+                  - paragraph [ref=e921]: Subscription windows · not dollars
+            - generic [ref=e922]:
+              - generic [ref=e923]:
+                - heading "Failures (24h)" [level=3] [ref=e924]
+                - img [ref=e926]
+              - generic [ref=e928]:
+                - generic [ref=e929]: "0"
+                - paragraph [ref=e930]: Last 24 hours · activity failure · inference non-success · runtime non-info
+                - paragraph [ref=e931]:
+                  - button "View failures" [ref=e932]
+            - generic [ref=e933]:
+              - generic [ref=e934]:
+                - heading "Source Health" [level=3] [ref=e935]
+                - paragraph [ref=e936]: All sources (fleet-wide)
+              - generic [ref=e938]:
+                - generic [ref=e939]: Claude Code
+                - generic [ref=e941]: Codex CLI
+                - generic [ref=e943]: ComfyUI
+                - generic [ref=e945]: Grok
+                - generic [ref=e947]: Hermes
+                - generic [ref=e949]: Lemonade
+                - generic [ref=e951]: OpenCode
+          - generic [ref=e953]:
+            - generic [ref=e954]:
+              - generic [ref=e956]:
+                - generic [ref=e957]:
+                  - img [ref=e959]
+                  - generic [ref=e960]:
+                    - heading "Recent Activity" [level=3] [ref=e961]
+                    - paragraph [ref=e962]: Your most recent actions
+                - button "View All" [ref=e963]:
+                  - text: View All
+                  - img
+              - generic [ref=e965]:
+                - generic [ref=e966] [cursor=pointer]:
+                  - generic [ref=e967]:
+                    - img [ref=e969]
+                    - generic [ref=e972]:
+                      - paragraph [ref=e973]: Assistant turn (llamaswap/Qwen3.6-35B-A3B-Opencode-128K)
+                      - paragraph [ref=e974]:
+                        - img [ref=e975]
+                        - generic [ref=e978]: opencode
+                        - generic [ref=e979]: ·
+                        - generic [ref=e980]: Agent
+                  - generic [ref=e981]: 8/4/2026
+                - generic [ref=e982] [cursor=pointer]:
+                  - generic [ref=e983]:
+                    - img [ref=e985]
+                    - generic [ref=e988]:
+                      - paragraph [ref=e989]: "Same target-selection rules as `/grok:review` (uncommitted changes by default, `--base <ref>` for a branch diff, `--wait`/`--background`, same scope-estimation-and-recommend behavior, same \"nothing to review\" check). This command is also read-only. Additionally parse `--focus <text>` from `review the package for issues. Focus on securtity` — free text the user wants the reviewer to pay particular attention to (e.g. \"concurrency\" or \"what happens if the upstream API times out\"). Everything after"
+                      - paragraph [ref=e990]:
+                        - img [ref=e991]
+                        - generic [ref=e994]: user
+                        - generic [ref=e995]: ·
+                        - generic [ref=e996]: User
+                  - generic [ref=e997]: 8/4/2026
+                - generic [ref=e998] [cursor=pointer]:
+                  - generic [ref=e999]:
+                    - img [ref=e1001]
+                    - generic [ref=e1004]:
+                      - paragraph [ref=e1005]: "{}"
+                      - paragraph [ref=e1006]:
+                        - img [ref=e1007]
+                        - generic [ref=e1010]: opencode
+                        - generic [ref=e1011]: ·
+                        - generic [ref=e1012]: Agent
+                  - generic [ref=e1013]: 8/4/2026
+                - generic [ref=e1014] [cursor=pointer]:
+                  - generic [ref=e1015]:
+                    - img [ref=e1017]
+                    - generic [ref=e1020]:
+                      - paragraph [ref=e1021]: Assistant turn (llamaswap/Qwen3.6-35B-A3B-Opencode-128K)
+                      - paragraph [ref=e1022]:
+                        - img [ref=e1023]
+                        - generic [ref=e1026]: opencode
+                        - generic [ref=e1027]: ·
+                        - generic [ref=e1028]: Agent
+                  - generic [ref=e1029]: 8/4/2026
+                - generic [ref=e1030] [cursor=pointer]:
+                  - generic [ref=e1031]:
+                    - img [ref=e1033]
+                    - generic [ref=e1036]:
+                      - paragraph [ref=e1037]: Invalid Tool
+                      - paragraph [ref=e1038]:
+                        - img [ref=e1039]
+                        - generic [ref=e1042]: opencode
+                        - generic [ref=e1043]: ·
+                        - generic [ref=e1044]: Agent
+                  - generic [ref=e1045]: 8/4/2026
+            - generic [ref=e1047]:
+              - generic [ref=e1048]:
+                - heading "Token Usage" [level=3] [ref=e1049]
+                - paragraph [ref=e1050]: Daily total for OpenCode
+              - application [ref=e1055]:
+                - generic [ref=e1074]:
+                  - generic [ref=e1075]:
+                    - generic [ref=e1077]: 6/9
+                    - generic [ref=e1079]: 6/13
+                    - generic [ref=e1081]: 6/29
+                    - generic [ref=e1083]: 7/2
+                    - generic [ref=e1085]: 7/6
+                    - generic [ref=e1087]: 7/11
+                    - generic [ref=e1089]: 7/22
+                    - generic [ref=e1091]: 7/29
+                    - generic [ref=e1093]: 8/4
+                  - generic [ref=e1094]:
+                    - generic [ref=e1096]: "0"
+                    - generic [ref=e1098]: "450000"
+                    - generic [ref=e1100]: "900000"
+                    - generic [ref=e1102]: "1350000"
+                    - generic [ref=e1104]: "1800000"
+  - generic [ref=e543]: "0"

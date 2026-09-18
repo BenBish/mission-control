@@ -1,0 +1,227 @@
+- generic [ref=f1e7]:
+  - banner [ref=f1e8]:
+    - button "Toggle menu" [ref=f1e9]:
+      - img
+      - generic [ref=f1e10]: Toggle menu
+    - generic "Agent usage and attribution respect the source filter; provider API costs are account-wide" [ref=f1e11]:
+      - combobox "Filter by source" [ref=f1e12]:
+        - generic:
+          - generic:
+            - generic: All sources
+        - img [ref=f1e13]
+    - button "Toggle theme" [ref=f1e15]:
+      - img
+      - generic [ref=f1e16]: Toggle theme
+  - main [ref=f1e17]:
+    - generic [ref=f1e18]:
+      - generic [ref=f1e20]:
+        - heading "Consumption" [level=1] [ref=f1e21]
+        - paragraph [ref=f1e22]: Agent session usage for all sources; Direct API Spend is account-wide; Attribution links them with confidence — never summed blindly
+      - generic [ref=f1e23]:
+        - generic [ref=f1e24]:
+          - tablist [ref=f1e26]:
+            - tab "Agent Usage" [selected] [ref=f1e27]:
+              - img [ref=f1e28]
+              - text: Agent Usage
+            - tab "Direct API Spend" [ref=f1e31]:
+              - img [ref=f1e32]
+              - text: Direct API Spend
+            - tab "Attribution" [ref=f1e34]:
+              - img [ref=f1e35]
+              - text: Attribution
+          - generic [ref=f1e38]:
+            - button "Today" [ref=f1e39]
+            - button "Last 7 days" [ref=f1e40]
+            - button "Last 30 days" [ref=f1e41]
+            - button "All time" [ref=f1e42]
+        - paragraph [ref=f1e43]:
+          - img [ref=f1e44]
+          - text: "Showing: Last 30 days"
+        - tabpanel "Agent Usage" [ref=f1e46]:
+          - generic [ref=f1e47]:
+            - paragraph [ref=f1e48]: Session-derived usage from agent sources (Claude Code, Codex, Grok, Hermes, etc.) for all sources. Honors the global source filter. Not the same as account-level provider billing.
+            - generic [ref=f1e49]:
+              - button "Tokens" [ref=f1e50]
+              - button "Compute time" [ref=f1e51]
+              - button "USD" [ref=f1e52]
+          - generic [ref=f1e53]:
+            - generic [ref=f1e54]:
+              - generic [ref=f1e55]:
+                - heading "Total Tokens" [level=3] [ref=f1e56]
+                - img [ref=f1e58]
+              - generic [ref=f1e60]:
+                - generic [ref=f1e61]: 47,865,758
+                - paragraph [ref=f1e62]: 399 sessions · 46,135 requests
+            - generic [ref=f1e63]:
+              - generic [ref=f1e64]:
+                - heading "Unattributed" [level=3] [ref=f1e65]
+                - img [ref=f1e67]
+              - generic [ref=f1e69]:
+                - generic [ref=f1e70]: 21.6%
+                - paragraph [ref=f1e71]: 10,347,784 tokens unknown/synthetic
+            - generic [ref=f1e72]:
+              - heading "Cache read" [level=3] [ref=f1e74]
+              - generic [ref=f1e75]:
+                - generic [ref=f1e76]: 5,184,966,340
+                - paragraph [ref=f1e77]: write 86,505,176
+          - generic [ref=f1e79]:
+            - generic [ref=f1e80]:
+              - text: "Material ranked:"
+              - strong [ref=f1e81]: 47,865,758
+              - text: tokens
+            - generic [ref=f1e82]: "Unknown model: 10,347,784"
+            - generic [ref=f1e83]: "Synthetic: 0"
+            - generic [ref=f1e84]: "Zero-token rows excluded: 750"
+            - generic [ref=f1e85]: "Missing project: 11,100,602 tokens"
+          - generic [ref=f1e86]:
+            - generic [ref=f1e87]:
+              - generic [ref=f1e88]:
+                - generic [ref=f1e89]:
+                  - heading "Ranked drivers" [level=3] [ref=f1e90]
+                  - paragraph [ref=f1e91]: Canonical model identities with raw aliases for diagnostics. Zero-token and synthetic rows are excluded by default.
+                - generic [ref=f1e92] [cursor=pointer]:
+                  - checkbox "Show zero / synthetic" [ref=f1e93]
+                  - text: Show zero / synthetic
+              - generic [ref=f1e94]:
+                - button "Model" [ref=f1e95]
+                - button "Project" [ref=f1e96]
+                - button "Actor" [ref=f1e97]
+                - button "Source" [ref=f1e98]
+                - button "Session" [ref=f1e99]
+            - table [ref=f1e102]:
+              - rowgroup [ref=f1e103]:
+                - row "Source Model Input Output Cache Sessions" [ref=f1e104]:
+                  - columnheader "Source" [ref=f1e105]
+                  - columnheader "Model" [ref=f1e106]
+                  - columnheader "Input" [ref=f1e107]
+                  - columnheader "Output" [ref=f1e108]
+                  - columnheader "Cache" [ref=f1e109]
+                  - columnheader "Sessions" [ref=f1e110]
+              - rowgroup [ref=f1e111]:
+                - 'row "grok grok-4.5-build raw: grok-4.5-build grok-plugin-cc 12,551,610 1,509,429 296,891,136 62" [ref=f1e112] [cursor=pointer]':
+                  - cell "grok" [ref=f1e113]
+                  - 'cell "grok-4.5-build raw: grok-4.5-build grok-plugin-cc" [ref=f1e114]':
+                    - generic [ref=f1e115]: grok-4.5-build
+                    - generic [ref=f1e116]: "raw: grok-4.5-build"
+                    - generic [ref=f1e117]: grok-plugin-cc
+                  - cell "12,551,610" [ref=f1e118]
+                  - cell "1,509,429" [ref=f1e119]
+                  - cell "296,891,136" [ref=f1e120]
+                  - cell "62" [ref=f1e121]
+                - 'row "claude-code claude-sonnet-5 raw: claude-sonnet-5 benbishop-site 322,321 9,838,332 4,676,314,371 43" [ref=f1e122] [cursor=pointer]':
+                  - cell "claude-code" [ref=f1e123]
+                  - 'cell "claude-sonnet-5 raw: claude-sonnet-5 benbishop-site" [ref=f1e124]':
+                    - generic [ref=f1e125]: claude-sonnet-5
+                    - generic [ref=f1e126]: "raw: claude-sonnet-5"
+                    - generic [ref=f1e127]: benbishop-site
+                  - cell "322,321" [ref=f1e128]
+                  - cell "9,838,332" [ref=f1e129]
+                  - cell "4,676,314,371" [ref=f1e130]
+                  - cell "43" [ref=f1e131]
+                - 'row "opencode llamaswap/qwen3.6-35b-a3b-opencode-128k raw: llamaswap/Qwen3.6-35B-A3B-Opencode-128K opportunity-scout 5,001,634 364,979 125,070,845 54" [ref=f1e132] [cursor=pointer]':
+                  - cell "opencode" [ref=f1e133]
+                  - 'cell "llamaswap/qwen3.6-35b-a3b-opencode-128k raw: llamaswap/Qwen3.6-35B-A3B-Opencode-128K opportunity-scout" [ref=f1e134]':
+                    - generic [ref=f1e135]: llamaswap/qwen3.6-35b-a3b-opencode-128k
+                    - generic [ref=f1e136]: "raw: llamaswap/Qwen3.6-35B-A3B-Opencode-128K"
+                    - generic [ref=f1e137]: opportunity-scout
+                  - cell "5,001,634" [ref=f1e138]
+                  - cell "364,979" [ref=f1e139]
+                  - cell "125,070,845" [ref=f1e140]
+                  - cell "54" [ref=f1e141]
+                - 'row "grok grok-4.5 raw: grok-4.5 benbishop-site 3,994,227 589,523 92,483,584 39" [ref=f1e142] [cursor=pointer]':
+                  - cell "grok" [ref=f1e143]
+                  - 'cell "grok-4.5 raw: grok-4.5 benbishop-site" [ref=f1e144]':
+                    - generic [ref=f1e145]: grok-4.5
+                    - generic [ref=f1e146]: "raw: grok-4.5"
+                    - generic [ref=f1e147]: benbishop-site
+                  - cell "3,994,227" [ref=f1e148]
+                  - cell "589,523" [ref=f1e149]
+                  - cell "92,483,584" [ref=f1e150]
+                  - cell "39" [ref=f1e151]
+                - 'row "opencode llamaswap/qwen3.6-27b-opencode-128k raw: llamaswap/Qwen3.6-27B-Opencode-128K benbishop-site 1,476,971 78,015 20,480,478 10" [ref=f1e152] [cursor=pointer]':
+                  - cell "opencode" [ref=f1e153]
+                  - 'cell "llamaswap/qwen3.6-27b-opencode-128k raw: llamaswap/Qwen3.6-27B-Opencode-128K benbishop-site" [ref=f1e154]':
+                    - generic [ref=f1e155]: llamaswap/qwen3.6-27b-opencode-128k
+                    - generic [ref=f1e156]: "raw: llamaswap/Qwen3.6-27B-Opencode-128K"
+                    - generic [ref=f1e157]: benbishop-site
+                  - cell "1,476,971" [ref=f1e158]
+                  - cell "78,015" [ref=f1e159]
+                  - cell "20,480,478" [ref=f1e160]
+                  - cell "10" [ref=f1e161]
+                - 'row "claude-code claude-fable-5 raw: claude-fable-5 benbishop-context 82,417 699,443 46,567,311 12" [ref=f1e162] [cursor=pointer]':
+                  - cell "claude-code" [ref=f1e163]
+                  - 'cell "claude-fable-5 raw: claude-fable-5 benbishop-context" [ref=f1e164]':
+                    - generic [ref=f1e165]: claude-fable-5
+                    - generic [ref=f1e166]: "raw: claude-fable-5"
+                    - generic [ref=f1e167]: benbishop-context
+                  - cell "82,417" [ref=f1e168]
+                  - cell "699,443" [ref=f1e169]
+                  - cell "46,567,311" [ref=f1e170]
+                  - cell "12" [ref=f1e171]
+                - 'row "hermes qwen3.6-35b-a3b-opencode-128k raw: Qwen3.6-35B-A3B-Opencode-128K 475,108 55,518 0 1" [ref=f1e172] [cursor=pointer]':
+                  - cell "hermes" [ref=f1e173]
+                  - 'cell "qwen3.6-35b-a3b-opencode-128k raw: Qwen3.6-35B-A3B-Opencode-128K" [ref=f1e174]':
+                    - generic [ref=f1e175]: qwen3.6-35b-a3b-opencode-128k
+                    - generic [ref=f1e176]: "raw: Qwen3.6-35B-A3B-Opencode-128K"
+                  - cell "475,108" [ref=f1e177]
+                  - cell "55,518" [ref=f1e178]
+                  - cell "0" [ref=f1e179]
+                  - cell "1" [ref=f1e180]
+                - 'row "claude-code claude-opus-4-8 raw: claude-opus-4-8 model-prompt-tests 126,131 62,744 11,614,716 4" [ref=f1e181] [cursor=pointer]':
+                  - cell "claude-code" [ref=f1e182]
+                  - 'cell "claude-opus-4-8 raw: claude-opus-4-8 model-prompt-tests" [ref=f1e183]':
+                    - generic [ref=f1e184]: claude-opus-4-8
+                    - generic [ref=f1e185]: "raw: claude-opus-4-8"
+                    - generic [ref=f1e186]: model-prompt-tests
+                  - cell "126,131" [ref=f1e187]
+                  - cell "62,744" [ref=f1e188]
+                  - cell "11,614,716" [ref=f1e189]
+                  - cell "4" [ref=f1e190]
+                - 'row "hermes qwen3.6-27b-ud-q4-k-xl.gguf raw: Qwen3.6-27B-UD-Q4_K_XL.gguf 157,685 28,750 0 1" [ref=f1e191] [cursor=pointer]':
+                  - cell "hermes" [ref=f1e192]
+                  - 'cell "qwen3.6-27b-ud-q4-k-xl.gguf raw: Qwen3.6-27B-UD-Q4_K_XL.gguf" [ref=f1e193]':
+                    - generic [ref=f1e194]: qwen3.6-27b-ud-q4-k-xl.gguf
+                    - generic [ref=f1e195]: "raw: Qwen3.6-27B-UD-Q4_K_XL.gguf"
+                  - cell "157,685" [ref=f1e196]
+                  - cell "28,750" [ref=f1e197]
+                  - cell "0" [ref=f1e198]
+                  - cell "1" [ref=f1e199]
+                - 'row "opencode localllama/qwen3-coder raw: localllama/qwen3-coder bshp 36,175 246 120,564 1" [ref=f1e200] [cursor=pointer]':
+                  - cell "opencode" [ref=f1e201]
+                  - 'cell "localllama/qwen3-coder raw: localllama/qwen3-coder bshp" [ref=f1e202]':
+                    - generic [ref=f1e203]: localllama/qwen3-coder
+                    - generic [ref=f1e204]: "raw: localllama/qwen3-coder"
+                    - generic [ref=f1e205]: bshp
+                  - cell "36,175" [ref=f1e206]
+                  - cell "246" [ref=f1e207]
+                  - cell "120,564" [ref=f1e208]
+                  - cell "1" [ref=f1e209]
+                - 'row "hermes gemma-4-26b-a4b-it-ud-q4-k-xl.gguf raw: gemma-4-26B-A4B-it-UD-Q4_K_XL.gguf 25,864 9,893 0 1" [ref=f1e210] [cursor=pointer]':
+                  - cell "hermes" [ref=f1e211]
+                  - 'cell "gemma-4-26b-a4b-it-ud-q4-k-xl.gguf raw: gemma-4-26B-A4B-it-UD-Q4_K_XL.gguf" [ref=f1e212]':
+                    - generic [ref=f1e213]: gemma-4-26b-a4b-it-ud-q4-k-xl.gguf
+                    - generic [ref=f1e214]: "raw: gemma-4-26B-A4B-it-UD-Q4_K_XL.gguf"
+                  - cell "25,864" [ref=f1e215]
+                  - cell "9,893" [ref=f1e216]
+                  - cell "0" [ref=f1e217]
+                  - cell "1" [ref=f1e218]
+                - 'row "claude-code claude-haiku-4-5 raw: claude-haiku-4-5-20251001 swe-tasks-fixture-smoke--claude-code--haiku--r0 784 18,534 1,928,511 9" [ref=f1e219] [cursor=pointer]':
+                  - cell "claude-code" [ref=f1e220]
+                  - 'cell "claude-haiku-4-5 raw: claude-haiku-4-5-20251001 swe-tasks-fixture-smoke--claude-code--haiku--r0" [ref=f1e221]':
+                    - generic [ref=f1e222]: claude-haiku-4-5
+                    - generic [ref=f1e223]: "raw: claude-haiku-4-5-20251001"
+                    - generic [ref=f1e224]: swe-tasks-fixture-smoke--claude-code--haiku--r0
+                  - cell "784" [ref=f1e225]
+                  - cell "18,534" [ref=f1e226]
+                  - cell "1,928,511" [ref=f1e227]
+                  - cell "9" [ref=f1e228]
+                - 'row "opencode localllama/gpt-oss-20b raw: localllama/gpt-oss-20b tmp 11,561 80 0 2" [ref=f1e229] [cursor=pointer]':
+                  - cell "opencode" [ref=f1e230]
+                  - 'cell "localllama/gpt-oss-20b raw: localllama/gpt-oss-20b tmp" [ref=f1e231]':
+                    - generic [ref=f1e232]: localllama/gpt-oss-20b
+                    - generic [ref=f1e233]: "raw: localllama/gpt-oss-20b"
+                    - generic [ref=f1e234]: tmp
+                  - cell "11,561" [ref=f1e235]
+                  - cell "80" [ref=f1e236]
+                  - cell "0" [ref=f1e237]
+                  - cell "2" [ref=f1e238]

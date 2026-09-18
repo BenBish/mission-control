@@ -1,0 +1,325 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e14]:
+      - generic [ref=e15]:
+        - generic [ref=e16]:
+          - img [ref=e18]
+          - generic [ref=e20]:
+            - generic [ref=e21]: Mission Control
+            - generic [ref=e22]: Unified AI usage dashboard
+        - navigation "Main" [ref=e23]:
+          - link "Dashboard" [ref=e24] [cursor=pointer]:
+            - /url: /
+            - img [ref=e26]
+            - generic [ref=e31]: Dashboard
+          - link "Activities" [ref=e32] [cursor=pointer]:
+            - /url: /activities
+            - img [ref=e34]
+            - generic [ref=e35]: Activities
+          - link "Sessions" [ref=e36] [cursor=pointer]:
+            - /url: /sessions
+            - img [ref=e38]
+            - generic [ref=e42]: Sessions
+          - link "Runtime" [ref=e43] [cursor=pointer]:
+            - /url: /runtime
+            - img [ref=e45]
+            - generic [ref=e48]: Runtime
+          - link "Failures" [ref=e49] [cursor=pointer]:
+            - /url: /failures
+            - img [ref=e51]
+            - generic [ref=e53]: Failures
+          - link "Consumption" [ref=e54] [cursor=pointer]:
+            - /url: /consumption
+            - img [ref=e56]
+            - generic [ref=e58]: Consumption
+          - generic [ref=e60]:
+            - paragraph [ref=e61]: Workloads
+            - generic [ref=e62]:
+              - link "Jobs" [ref=e63] [cursor=pointer]:
+                - /url: /jobs
+                - img [ref=e65]
+                - generic [ref=e68]: Jobs
+              - link "Generations Off" [ref=e69] [cursor=pointer]:
+                - /url: /generations
+                - img [ref=e71]
+                - generic [ref=e75]: Generations
+                - generic [ref=e76]: "Off"
+          - link "Settings" [ref=e78] [cursor=pointer]:
+            - /url: /settings
+            - img [ref=e80]
+            - generic [ref=e83]: Settings
+        - generic [ref=e87]: System Offline
+    - generic [ref=e4]:
+      - alert [ref=e88]:
+        - generic [ref=e89]:
+          - img [ref=e90]
+          - generic [ref=e92]:
+            - paragraph [ref=e93]: Security notice
+            - paragraph [ref=e94]: App authentication is off. Anyone who can reach this host can read activity data.
+      - banner [ref=e5]:
+        - generic "Agent usage and attribution respect the source filter; provider API costs are account-wide" [ref=e95]:
+          - combobox "Filter by source" [ref=e96]:
+            - generic:
+              - generic:
+                - generic: All sources
+            - img [ref=e97]
+        - button "Toggle theme" [ref=e9]:
+          - img
+          - generic [ref=e10]: Toggle theme
+      - main [ref=e11]:
+        - generic [ref=e99]:
+          - generic [ref=e101]:
+            - heading "Consumption" [level=1] [ref=e102]
+            - paragraph [ref=e103]: Agent session usage for all sources; Direct API Spend is account-wide; Attribution links them with confidence — never summed blindly
+          - generic [ref=e104]:
+            - generic [ref=e105]:
+              - tablist [ref=e107]:
+                - tab "Agent Usage" [ref=e108]:
+                  - img [ref=e109]
+                  - text: Agent Usage
+                - tab "Direct API Spend" [active] [selected] [ref=e112]:
+                  - img [ref=e113]
+                  - text: Direct API Spend
+                - tab "Attribution" [ref=e115]:
+                  - img [ref=e116]
+                  - text: Attribution
+              - generic [ref=e119]:
+                - button "Today" [ref=e120]
+                - button "Last 7 days" [ref=e121]
+                - button "Last 30 days" [ref=e122]
+                - button "All time" [ref=e123]
+            - paragraph [ref=e124]:
+              - img [ref=e125]
+              - text: "Showing: Last 30 days"
+            - tabpanel "Direct API Spend" [ref=e209]:
+              - generic [ref=e210]:
+                - generic [ref=e212]:
+                  - generic [ref=e213]:
+                    - generic [ref=e214]:
+                      - heading "Direct API Spend" [level=3] [ref=e215]:
+                        - img [ref=e216]
+                        - text: Direct API Spend
+                      - generic [ref=e218]: Account-wide
+                    - paragraph [ref=e219]:
+                      - strong [ref=e220]: API org spend
+                      - text: "from provider Admin billing APIs — not agent session logs, plan usage windows, or wallet balances. Budget/forecast: calendar month (UTC)."
+                  - generic [ref=e221]:
+                    - link "Configure budget" [ref=e222] [cursor=pointer]:
+                      - /url: /settings?tab=budgets
+                    - button "Sync now" [ref=e223]:
+                      - img
+                      - text: Sync now
+                - generic [ref=e224]:
+                  - region "Overview" [ref=e225]:
+                    - generic [ref=e226]:
+                      - heading "Overview" [level=2] [ref=e227]
+                      - generic [ref=e228]: Month-to-date spend & budget risk
+                    - generic [ref=e230]:
+                      - img [ref=e231]
+                      - generic [ref=e233]:
+                        - paragraph [ref=e234]: No usable provider sync history
+                        - paragraph [ref=e235]: Forecast is unreliable until a provider sync succeeds. See Capacity & data health for connector status.
+                    - generic [ref=e236]:
+                      - generic [ref=e237]:
+                        - generic [ref=e238]:
+                          - heading "MTD spent" [level=3] [ref=e239]
+                          - img [ref=e240]
+                        - generic [ref=e242]:
+                          - generic [ref=e243]: $0.01
+                          - paragraph [ref=e244]: 2026-08-01 → 2026-08-13 (UTC)
+                      - generic [ref=e245]:
+                        - generic [ref=e246]:
+                          - heading "Budget remaining" [level=3] [ref=e247]
+                          - img [ref=e248]
+                        - generic [ref=e252]:
+                          - generic [ref=e253]: —
+                          - paragraph [ref=e254]:
+                            - link "Set a monthly budget" [ref=e255] [cursor=pointer]:
+                              - /url: /settings?tab=budgets
+                      - generic [ref=e256]:
+                        - generic [ref=e257]:
+                          - heading "Burn rate" [level=3] [ref=e258]
+                          - img [ref=e259]
+                        - generic [ref=e262]:
+                          - generic [ref=e263]: —
+                          - paragraph [ref=e264]: Insufficient data
+                      - generic [ref=e265]:
+                        - generic [ref=e266]:
+                          - heading "Forecast month-end" [level=3] [ref=e267]
+                          - generic [ref=e268]: unreliable
+                        - generic [ref=e269]:
+                          - generic [ref=e270]: —
+                          - paragraph [ref=e271]: No sync history — do not trust this figure
+                          - paragraph [ref=e272]: "Incomplete days excluded from burn: 2026-08-11, 2026-08-12, 2026-08-13"
+                    - generic [ref=e273]:
+                      - generic [ref=e274]:
+                        - heading "Cost classes (kept separate)" [level=3] [ref=e275]
+                        - paragraph [ref=e276]: Actual provider billing, agent-attributed session cost, and estimates are never summed together
+                      - generic [ref=e278]:
+                        - generic [ref=e279]:
+                          - paragraph [ref=e280]: Actual provider spend
+                          - paragraph [ref=e281]: $0.01
+                        - generic [ref=e282]:
+                          - paragraph [ref=e283]: Agent-attributed
+                          - paragraph [ref=e284]: —
+                        - generic [ref=e285]:
+                          - paragraph [ref=e286]: Est. cache savings
+                          - paragraph [ref=e287]: —
+                          - paragraph [ref=e288]: Estimated — not a credit
+                        - generic [ref=e289]:
+                          - paragraph [ref=e290]: Failure waste
+                          - paragraph [ref=e291]: —
+                          - paragraph [ref=e292]: Agent-attributed
+                  - region "Drivers" [ref=e293]:
+                    - generic [ref=e294]:
+                      - heading "Drivers" [level=2] [ref=e295]
+                      - generic [ref=e296]: Trend, anomalies, top movers
+                    - generic [ref=e297]:
+                      - generic [ref=e298]:
+                        - heading "Daily spend (MTD)" [level=3] [ref=e299]
+                        - paragraph [ref=e300]: Current month vs same day-of-month in the prior month
+                      - generic [ref=e303]:
+                        - list [ref=e305]:
+                          - listitem [ref=e306]:
+                            - img "Prior month legend icon" [ref=e307]
+                            - text: Prior month
+                          - listitem [ref=e309]:
+                            - img "This month legend icon" [ref=e310]
+                            - text: This month
+                        - application [ref=e312]:
+                          - generic [ref=e331]:
+                            - generic [ref=e332]:
+                              - generic [ref=e334]: 8/1
+                              - generic [ref=e336]: 8/2
+                              - generic [ref=e338]: 8/3
+                              - generic [ref=e340]: 8/4
+                              - generic [ref=e342]: 8/5
+                              - generic [ref=e344]: 8/6
+                              - generic [ref=e346]: 8/7
+                              - generic [ref=e348]: 8/8
+                              - generic [ref=e350]: 8/9
+                              - generic [ref=e352]: 8/10
+                              - generic [ref=e354]: 8/11
+                              - generic [ref=e356]: 8/12
+                              - generic [ref=e358]: 8/13
+                            - generic [ref=e359]:
+                              - generic [ref=e361]: $0
+                              - generic [ref=e363]: $0
+                              - generic [ref=e365]: $0
+                              - generic [ref=e367]: $0
+                              - generic [ref=e369]: $0
+                    - generic [ref=e370]:
+                      - generic [ref=e371]:
+                        - heading "Top provider / model (MTD)" [level=3] [ref=e372]
+                        - paragraph [ref=e373]: vs same day-of-month range last month
+                      - table [ref=e376]:
+                        - rowgroup [ref=e377]:
+                          - row "Provider Model Cost Prior Δ" [ref=e378]:
+                            - columnheader "Provider" [ref=e379]
+                            - columnheader "Model" [ref=e380]
+                            - columnheader "Cost" [ref=e381]
+                            - columnheader "Prior" [ref=e382]
+                            - columnheader "Δ" [ref=e383]
+                        - rowgroup [ref=e384]:
+                          - row "openrouter test/model $0.0123 $0.0000 +0.0123" [ref=e385]:
+                            - cell "openrouter" [ref=e386]
+                            - cell "test/model" [ref=e387]
+                            - cell "$0.0123" [ref=e388]
+                            - cell "$0.0000" [ref=e389]
+                            - cell "+0.0123" [ref=e390]
+                  - region "Efficiency & actions" [ref=e391]:
+                    - generic [ref=e392]:
+                      - heading "Efficiency & actions" [level=2] [ref=e393]
+                      - generic [ref=e394]: Unit economics · optimization signals
+                    - generic [ref=e395]:
+                      - generic [ref=e396]:
+                        - heading "Provider / model unit costs" [level=3] [ref=e397]
+                        - paragraph [ref=e398]: Actual API billing — cost/request and $/1M output tokens
+                      - table [ref=e401]:
+                        - rowgroup [ref=e402]:
+                          - row "Key Cost $/req $/1M out" [ref=e403]:
+                            - columnheader "Key" [ref=e404]
+                            - columnheader "Cost" [ref=e405]
+                            - columnheader "$/req" [ref=e406]
+                            - columnheader "$/1M out" [ref=e407]
+                        - rowgroup [ref=e408]:
+                          - row "openrouter/test/model $0.0123 $0.0062 $615.00" [ref=e409]:
+                            - cell "openrouter/test/model" [ref=e410]
+                            - cell "$0.0123" [ref=e411]
+                            - cell "$0.0062" [ref=e412]
+                            - cell "$615.00" [ref=e413]
+                    - generic [ref=e414]:
+                      - generic [ref=e415]:
+                        - heading "Project efficiency (agent-attributed)" [level=3] [ref=e416]
+                        - paragraph [ref=e417]: Separate from actual provider billing — cost/session when attribution exists
+                      - table [ref=e420]:
+                        - rowgroup [ref=e421]:
+                          - row "Project Cost $/session Cache $" [ref=e422]:
+                            - columnheader "Project" [ref=e423]
+                            - columnheader "Cost" [ref=e424]
+                            - columnheader "$/session" [ref=e425]
+                            - columnheader "Cache $" [ref=e426]
+                        - rowgroup [ref=e427]:
+                          - row "mission-control — — —" [ref=e428]:
+                            - cell "mission-control" [ref=e429]
+                            - cell "—" [ref=e430]
+                            - cell "—" [ref=e431]
+                            - cell "—" [ref=e432]
+                  - region "Provider breakdown" [ref=e433]:
+                    - generic [ref=e434]:
+                      - generic [ref=e435]:
+                        - heading "Provider breakdown" [level=2] [ref=e436]
+                        - generic [ref=e437]: Billing rows in selected range (Last 30 days) — not agent matched
+                      - button "Export daily usage as CSV or JSON" [ref=e439]:
+                        - img
+                        - text: Export daily usage
+                    - generic [ref=e440]:
+                      - generic [ref=e441]:
+                        - text: "Tokens:"
+                        - strong [ref=e442]: "120"
+                      - generic [ref=e443]:
+                        - text: "Cost:"
+                        - strong [ref=e444]: $0.0123
+                    - table [ref=e446]:
+                      - rowgroup [ref=e447]:
+                        - row "Provider Model Input Output Cost" [ref=e448]:
+                          - columnheader "Provider" [ref=e449]
+                          - columnheader "Model" [ref=e450]
+                          - columnheader "Input" [ref=e451]
+                          - columnheader "Output" [ref=e452]
+                          - columnheader "Cost" [ref=e453]
+                      - rowgroup [ref=e454]:
+                        - row "openrouter test/model 100 20 $0.0123" [ref=e455]:
+                          - cell "openrouter" [ref=e456]
+                          - cell "test/model" [ref=e457]
+                          - cell "100" [ref=e458]
+                          - cell "20" [ref=e459]
+                          - cell "$0.0123" [ref=e460]
+                  - generic [ref=e461]:
+                    - generic [ref=e462]:
+                      - heading "Plan usage & wallet" [level=3] [ref=e463]
+                      - paragraph [ref=e464]:
+                        - text: Plan usage and wallet balances are
+                        - strong [ref=e465]: not
+                        - text: API org spend and are never mixed into Direct API Spend totals.
+                    - generic [ref=e466]:
+                      - generic [ref=e467]:
+                        - heading "Plan usage" [level=3] [ref=e468]:
+                          - img [ref=e469]
+                          - text: Plan usage
+                        - paragraph [ref=e473]: Subscription / rate-limit windows (percent remaining). Not wallet balance and not Direct API Spend. Expired windows are never green.
+                      - paragraph [ref=e475]: No plan-usage windows yet. Codex and Claude Code quotas appear after the desktop collector runs; Admin APIs do not expose subscription plan bars.
+                    - generic [ref=e476]:
+                      - generic [ref=e477]:
+                        - heading "Usage credits (wallet)" [level=3] [ref=e478]:
+                          - img [ref=e479]
+                          - text: Usage credits (wallet)
+                        - paragraph [ref=e481]: Prepaid credit balance when providers expose it. Never mixed into Direct API Spend or session costs.
+                      - paragraph [ref=e483]: No wallet snapshots yet. Configure provider keys and click Sync now.
+                  - group [ref=e484]:
+                    - generic "Connectors & data health Connector status · caveats · env vars" [ref=e485] [cursor=pointer]:
+                      - generic [ref=e486]:
+                        - img [ref=e487]
+                        - generic [ref=e489]: Connectors & data health
+                      - generic [ref=e490]: Connector status · caveats · env vars
+  - generic [ref=e491]: $0

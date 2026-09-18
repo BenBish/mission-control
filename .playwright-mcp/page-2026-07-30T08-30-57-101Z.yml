@@ -1,0 +1,78 @@
+- generic [ref=e1]:
+  - generic [ref=e7]:
+    - banner [ref=e8]:
+      - button "Toggle menu" [ref=e9]
+      - combobox "Filter by source" [active] [ref=e12]:
+        - generic: Grok
+      - button "Toggle theme" [ref=e15]
+    - main [ref=e17]:
+      - generic [ref=e18]:
+        - generic [ref=e20]:
+          - heading "Dashboard" [level=1] [ref=e21]
+          - paragraph [ref=e22]: Overview of AI usage for Grok
+        - generic [ref=e23]:
+          - generic [ref=e24]:
+            - heading "Tokens Today" [level=3] [ref=e26]
+            - generic [ref=e30]:
+              - generic [ref=e31]: "165"
+              - paragraph [ref=e32]: input + output, for Grok
+          - generic [ref=e33]:
+            - heading "Recent Failures" [level=3] [ref=e35]
+            - generic [ref=e39]:
+              - generic [ref=e40]: "1"
+              - paragraph [ref=e41]:
+                - button "View failures" [ref=e42]
+          - generic [ref=e43]:
+            - generic [ref=e44]:
+              - heading "Source Health" [level=3] [ref=e45]
+              - paragraph [ref=e46]: All sources (fleet-wide)
+            - generic [ref=e48]:
+              - generic [ref=e49]: Claude Code
+              - generic [ref=e51]: Codex CLI
+              - generic [ref=e53]: ComfyUI
+              - generic [ref=e55]: Grok
+              - generic [ref=e57]: Hermes
+              - generic [ref=e59]: Lemonade
+        - generic [ref=e61]:
+          - generic [ref=e62]:
+            - generic [ref=e64]:
+              - generic [ref=e68]:
+                - heading "Recent Activity" [level=3] [ref=e69]
+                - paragraph [ref=e70]: Your most recent actions
+              - button "View All" [ref=e71]
+            - generic [ref=e73]:
+              - generic [ref=e246] [cursor=pointer]:
+                - generic [ref=e253]:
+                  - paragraph [ref=e254]: Grok failed tool call
+                  - paragraph [ref=e255]:
+                    - text: assistant
+                    - generic [ref=e259]: ·
+                    - text: Agent
+                - generic [ref=e260]: Just now
+              - generic [ref=e261] [cursor=pointer]:
+                - generic [ref=e267]:
+                  - paragraph [ref=e268]: grok success activity
+                  - paragraph [ref=e269]:
+                    - text: assistant
+                    - generic [ref=e273]: ·
+                    - text: Agent
+                - generic [ref=e274]: 1h ago
+          - generic [ref=e149]:
+            - generic [ref=e150]:
+              - heading "Token Usage" [level=3] [ref=e151]
+              - paragraph [ref=e152]: Daily total for Grok
+            - application [ref=e277]:
+              - generic [ref=e290]:
+                - generic [ref=e291]: 7/30
+                - generic [ref=e294]:
+                  - generic [ref=e295]: "0"
+                  - generic [ref=e297]: "45"
+                  - generic [ref=e299]: "90"
+                  - generic [ref=e301]: "135"
+                  - generic [ref=e303]: "180"
+        - generic [ref=e305]:
+          - heading "Recent Failures" [level=3] [ref=e307]
+          - generic [ref=e311]:
+            - generic [ref=e312]: Grok failed tool call
+            - generic [ref=e313]: Just now
+  - generic [ref=e202]: "45"

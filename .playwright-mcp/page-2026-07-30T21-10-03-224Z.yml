@@ -1,0 +1,100 @@
+- generic:
+  - generic:
+    - generic:
+      - generic:
+        - banner:
+          - button:
+            - generic: Toggle menu
+          - generic:
+            - combobox [expanded]:
+              - generic: All sources
+          - button:
+            - generic: Toggle theme
+        - main:
+          - generic:
+            - generic:
+              - generic:
+                - heading [level=1]: Dashboard
+                - paragraph: Overview of AI usage across all sources
+            - generic:
+              - generic:
+                - generic:
+                  - heading [level=3]: Tokens Today
+                - generic:
+                  - generic: "0"
+                  - paragraph: input + output, across all sources
+              - link:
+                - /url: /consumption?view=direct-api&range=today
+                - generic:
+                  - generic:
+                    - heading [level=3]: Direct API Spend
+                  - generic:
+                    - generic: No synced spend
+                    - paragraph:
+                      - generic: 30d —
+                      - text: · Not synced
+                    - paragraph: Account-wide · independent of source filter
+              - generic:
+                - generic:
+                  - heading [level=3]: Failures (24h)
+                - generic:
+                  - generic: "0"
+                  - paragraph: Last 24 hours · activity failure · inference non-success · runtime non-info
+                  - paragraph:
+                    - button: View failures
+              - generic:
+                - generic:
+                  - heading [level=3]: Source Health
+                  - paragraph: All sources (fleet-wide)
+                - generic:
+                  - generic:
+                    - generic: Claude Code
+                    - generic: Codex CLI
+                    - generic: ComfyUI
+                    - generic: Grok
+                    - generic: Hermes
+                    - generic: Lemonade
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: Recent Activity
+                        - paragraph: Your most recent actions
+                    - button: View All
+                - generic:
+                  - generic:
+                    - paragraph: No recent activity found.
+              - generic:
+                - generic:
+                  - generic:
+                    - heading [level=3]: Token Usage
+                    - paragraph: Daily total across all sources
+                  - generic: No token usage yet
+  - listbox [ref=f1e97]:
+    - option "All sources" [active] [selected] [ref=f1e98]
+    - 'option "claude-code@arch-desktop: unknown Claude Code" [ref=f1e104]':
+      - generic [ref=f1e107]:
+        - 'generic "claude-code@arch-desktop: unknown" [ref=f1e108]'
+        - generic [ref=f1e109]: Claude Code
+    - 'option "codex@arch-desktop: unknown Codex CLI" [ref=f1e110]':
+      - generic [ref=f1e113]:
+        - 'generic "codex@arch-desktop: unknown" [ref=f1e114]'
+        - generic [ref=f1e115]: Codex CLI
+    - 'option "comfyui@strix-halo: off ComfyUI" [ref=f1e116]':
+      - generic [ref=f1e119]:
+        - 'generic "comfyui@strix-halo: off" [ref=f1e120]'
+        - generic [ref=f1e121]: ComfyUI
+    - 'option "grok@arch-desktop: unknown Grok" [ref=f1e122]':
+      - generic [ref=f1e125]:
+        - 'generic "grok@arch-desktop: unknown" [ref=f1e126]'
+        - generic [ref=f1e127]: Grok
+    - 'option "hermes@strix-halo: unknown Hermes" [ref=f1e128]':
+      - generic [ref=f1e131]:
+        - 'generic "hermes@strix-halo: unknown" [ref=f1e132]'
+        - generic [ref=f1e133]: Hermes
+    - 'option "lemonade@strix-halo: off Lemonade" [ref=f1e134]':
+      - generic [ref=f1e137]:
+        - 'generic "lemonade@strix-halo: off" [ref=f1e138]'
+        - generic [ref=f1e139]: Lemonade

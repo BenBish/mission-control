@@ -1,0 +1,155 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e14]:
+      - generic [ref=e15]:
+        - generic [ref=e16]:
+          - img [ref=e18]
+          - generic [ref=e20]:
+            - generic [ref=e21]: Mission Control
+            - generic [ref=e22]: Unified AI usage dashboard
+        - navigation "Main" [ref=e23]:
+          - link "Dashboard" [ref=e24] [cursor=pointer]:
+            - /url: /
+            - img [ref=e26]
+            - generic [ref=e31]: Dashboard
+          - link "Activities" [ref=e32] [cursor=pointer]:
+            - /url: /activities
+            - img [ref=e34]
+            - generic [ref=e35]: Activities
+          - link "Sessions" [ref=e36] [cursor=pointer]:
+            - /url: /sessions
+            - img [ref=e38]
+            - generic [ref=e42]: Sessions
+          - link "Runtime" [ref=e43] [cursor=pointer]:
+            - /url: /runtime
+            - img [ref=e45]
+            - generic [ref=e48]: Runtime
+          - link "Failures" [ref=e49] [cursor=pointer]:
+            - /url: /failures
+            - img [ref=e51]
+            - generic [ref=e53]: Failures
+          - link "Consumption" [ref=e54] [cursor=pointer]:
+            - /url: /consumption
+            - img [ref=e56]
+            - generic [ref=e58]: Consumption
+          - generic [ref=e60]:
+            - paragraph [ref=e61]: Workloads
+            - generic [ref=e62]:
+              - link "Jobs" [ref=e63] [cursor=pointer]:
+                - /url: /jobs
+                - img [ref=e65]
+                - generic [ref=e68]: Jobs
+              - link "Generations Off" [ref=e69] [cursor=pointer]:
+                - /url: /generations
+                - img [ref=e71]
+                - generic [ref=e75]: Generations
+                - generic [ref=e76]: "Off"
+          - link "Settings" [ref=e78] [cursor=pointer]:
+            - /url: /settings
+            - img [ref=e80]
+            - generic [ref=e83]: Settings
+        - generic [ref=e87]: System Offline
+    - generic [ref=e4]:
+      - alert [ref=e88]:
+        - generic [ref=e89]:
+          - img [ref=e90]
+          - generic [ref=e92]:
+            - paragraph [ref=e93]: Security notice
+            - paragraph [ref=e94]: App authentication is off. Anyone who can reach this host can read activity data.
+      - banner [ref=e5]:
+        - generic "Agent usage and attribution respect the source filter; provider API costs are account-wide" [ref=e95]:
+          - combobox "Filter by source" [ref=e96]:
+            - generic:
+              - generic:
+                - generic: All sources
+            - img [ref=e97]
+        - button "Toggle theme" [ref=e9]:
+          - img
+          - generic [ref=e10]: Toggle theme
+      - main [ref=e11]:
+        - generic [ref=e99]:
+          - generic [ref=e101]:
+            - heading "Consumption" [level=1] [ref=e102]
+            - paragraph [ref=e103]: Agent session usage for all sources; Direct API Spend is account-wide; Attribution links them with confidence — never summed blindly
+          - generic [ref=e104]:
+            - generic [ref=e105]:
+              - tablist [ref=e107]:
+                - tab "Agent Usage" [selected] [ref=e108]:
+                  - img [ref=e109]
+                  - text: Agent Usage
+                - tab "Direct API Spend" [ref=e112]:
+                  - img [ref=e113]
+                  - text: Direct API Spend
+                - tab "Attribution" [ref=e115]:
+                  - img [ref=e116]
+                  - text: Attribution
+              - generic [ref=e119]:
+                - button "Today" [ref=e120]
+                - button "Last 7 days" [ref=e121]
+                - button "Last 30 days" [ref=e122]
+                - button "All time" [ref=e123]
+            - paragraph [ref=e124]:
+              - img [ref=e125]
+              - text: "Showing: Last 30 days"
+            - tabpanel "Agent Usage" [ref=e127]:
+              - generic [ref=e498]:
+                - paragraph [ref=e499]: Session-derived usage from agent sources (Claude Code, Codex, Grok, Hermes, etc.) for all sources. Honors the global source filter. Not the same as account-level provider billing.
+                - generic [ref=e500]:
+                  - button "Tokens" [ref=e501]
+                  - button "Compute time" [ref=e502]
+                  - button "USD" [active] [ref=e503]
+              - generic [ref=e578]:
+                - img [ref=e579]
+                - paragraph [ref=e581]:
+                  - text: No billable agent usage in this range. Sources here are subscription or local, or no
+                  - code [ref=e582]: cost_usd
+                  - text: was recorded in session logs.
+                - paragraph [ref=e583]:
+                  - text: Provider account billing is under the
+                  - button "Direct API Spend" [ref=e584]
+                  - text: view — it is a separate dataset.
+              - generic [ref=e530]:
+                - generic [ref=e531]:
+                  - text: "Material ranked:"
+                  - strong [ref=e532]: 1,200
+                  - text: tokens
+                - generic [ref=e533]: "Unknown model: 0"
+                - generic [ref=e534]: "Synthetic: 0"
+                - generic [ref=e535]: "Zero-token rows excluded: 0"
+                - generic [ref=e536]: "Missing project: 0 tokens"
+              - generic [ref=e537]:
+                - generic [ref=e538]:
+                  - generic [ref=e539]:
+                    - generic [ref=e540]:
+                      - heading "Ranked drivers" [level=3] [ref=e541]
+                      - paragraph [ref=e542]: Canonical model identities with raw aliases for diagnostics. Zero-token and synthetic rows are excluded by default.
+                    - generic [ref=e543]:
+                      - generic [ref=e544] [cursor=pointer]:
+                        - checkbox "Show zero / synthetic" [ref=e545]
+                        - text: Show zero / synthetic
+                      - button "Export as CSV or JSON" [ref=e547]:
+                        - img
+                        - text: Export
+                  - generic [ref=e548]:
+                    - button "Model" [ref=e549]
+                    - button "Project" [ref=e550]
+                    - button "Actor" [ref=e551]
+                    - button "Source" [ref=e552]
+                    - button "Session" [ref=e553]
+                - table [ref=e556]:
+                  - rowgroup [ref=e557]:
+                    - row "Source Model Cost Sessions" [ref=e585]:
+                      - columnheader "Source" [ref=e559]
+                      - columnheader "Model" [ref=e560]
+                      - columnheader "Cost" [ref=e586]
+                      - columnheader "Sessions" [ref=e564]
+                  - rowgroup [ref=e565]:
+                    - 'row "claude-code claude-3.5-sonnet raw: claude-3-5-sonnet-20241022 mission-control — 1" [ref=e587] [cursor=pointer]':
+                      - cell "claude-code" [ref=e567]
+                      - 'cell "claude-3.5-sonnet raw: claude-3-5-sonnet-20241022 mission-control" [ref=e568]':
+                        - generic [ref=e569]: claude-3.5-sonnet
+                        - generic [ref=e570]: "raw: claude-3-5-sonnet-20241022"
+                        - generic [ref=e571]: mission-control
+                      - cell "—" [ref=e588]
+                      - cell "1" [ref=e575]
+  - generic [ref=e491]: $0

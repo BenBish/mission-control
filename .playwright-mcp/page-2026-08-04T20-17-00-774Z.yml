@@ -1,0 +1,78 @@
+- generic [ref=e1]:
+  - generic [ref=e6]:
+    - complementary [ref=e7]:
+      - generic [ref=e8]:
+        - generic [ref=e9]:
+          - img [ref=e11]
+          - generic [ref=e13]:
+            - generic [ref=e14]: Mission Control
+            - generic [ref=e15]: Unified AI usage dashboard
+        - navigation "Main" [ref=e16]:
+          - link "Dashboard" [ref=e17] [cursor=pointer]:
+            - /url: /
+            - img [ref=e19]
+            - generic [ref=e24]: Dashboard
+          - link "Activities" [ref=e26] [cursor=pointer]:
+            - /url: /activities
+            - img [ref=e28]
+            - generic [ref=e29]: Activities
+          - link "Sessions" [ref=e30] [cursor=pointer]:
+            - /url: /sessions
+            - img [ref=e32]
+            - generic [ref=e36]: Sessions
+          - link "Runtime" [ref=e37] [cursor=pointer]:
+            - /url: /runtime
+            - img [ref=e39]
+            - generic [ref=e42]: Runtime
+          - link "Failures" [ref=e43] [cursor=pointer]:
+            - /url: /failures
+            - img [ref=e45]
+            - generic [ref=e47]: Failures
+          - link "Consumption" [ref=e48] [cursor=pointer]:
+            - /url: /consumption
+            - img [ref=e50]
+            - generic [ref=e52]: Consumption
+          - generic [ref=e53]:
+            - paragraph [ref=e54]: Workloads
+            - generic [ref=e55]:
+              - link "Jobs" [active] [ref=e56] [cursor=pointer]:
+                - /url: /jobs
+                - img [ref=e58]
+                - generic [ref=e61]: Jobs
+              - link "Generations Off" [ref=e355] [cursor=pointer]:
+                - /url: /generations
+                - img [ref=e64]
+                - generic [ref=e68]: Generations
+                - generic [ref=e356]: "Off"
+          - link "Settings" [ref=e71] [cursor=pointer]:
+            - /url: /settings
+            - img [ref=e73]
+            - generic [ref=e76]: Settings
+        - generic [ref=e80]: System Error
+    - generic [ref=e81]:
+      - banner [ref=e82]:
+        - combobox "Filter by source" [ref=e84]:
+          - generic:
+            - generic:
+              - generic: OpenCode
+          - img [ref=e85]
+        - button "Toggle theme" [ref=e87]:
+          - img
+          - generic [ref=e88]: Toggle theme
+      - main [ref=e89]:
+        - generic [ref=e357]:
+          - generic [ref=e359]:
+            - heading "Jobs" [level=1] [ref=e360]
+            - paragraph [ref=e361]: Background work for OpenCode — Hermes jobs and collector self-observation
+          - generic [ref=e363]:
+            - img [ref=e364]
+            - paragraph [ref=e367]: No background jobs observed yet.
+            - paragraph [ref=e368]: Jobs appear here once a collector or Hermes background task runs.
+          - generic [ref=e369]:
+            - generic [ref=e370]:
+              - heading "Contention Incidents" [level=3] [ref=e371]:
+                - img [ref=e372]
+                - text: Contention Incidents
+              - paragraph [ref=e374]: Background work (best-effort classified) that held a slot while a foreground turn waited
+            - paragraph [ref=e376]: No contention detected. Workload classification only tags a request as background when it correlates with a known background job signature — this list stays empty unless that heuristic finds a real, timing-overlapping match.
+  - generic [ref=e334]: 6/13

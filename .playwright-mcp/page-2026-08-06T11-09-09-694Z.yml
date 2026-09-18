@@ -1,0 +1,259 @@
+- generic:
+  - generic:
+    - generic:
+      - generic:
+        - alert:
+          - generic:
+            - img
+            - generic:
+              - paragraph: Security notice
+              - paragraph: App authentication is off. Anyone who can reach this host can read activity data.
+        - banner:
+          - button [expanded]:
+            - img
+            - generic: Toggle menu
+          - generic:
+            - combobox:
+              - generic:
+                - generic:
+                  - generic: OpenCode
+              - img
+          - button:
+            - img
+            - generic: Toggle theme
+        - main:
+          - generic:
+            - generic:
+              - generic:
+                - heading [level=1]: Dashboard
+                - paragraph: Overview of AI usage for OpenCode
+            - generic:
+              - generic:
+                - generic:
+                  - heading [level=3]: Tokens Today
+                  - generic:
+                    - img
+                - generic:
+                  - generic: "0"
+                  - paragraph: input + output, for OpenCode
+              - link:
+                - /url: /consumption?view=direct-api&range=today
+                - generic:
+                  - generic:
+                    - heading [level=3]: Direct API Spend
+                    - generic:
+                      - img
+                  - generic:
+                    - generic: No synced spend
+                    - paragraph:
+                      - generic: 30d $15.7500
+                      - text: · Not synced
+                    - paragraph: Account-wide · independent of source filter
+              - generic:
+                - generic:
+                  - heading [level=3]: Failures (24h)
+                  - generic:
+                    - img
+                - generic:
+                  - generic: "0"
+                  - paragraph: Last 24 hours · activity failure · inference non-success · runtime non-info
+                  - paragraph:
+                    - button: View failures
+              - generic:
+                - generic:
+                  - heading [level=3]: Source Health
+                  - paragraph: All sources (fleet-wide)
+                - generic:
+                  - generic:
+                    - generic: Claude Code
+                    - generic: Codex CLI
+                    - generic: ComfyUI
+                    - generic: Grok
+                    - generic: Hermes
+                    - generic: Lemonade
+                    - generic: OpenCode
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - img
+                      - generic:
+                        - heading [level=3]: Recent Activity
+                        - paragraph: Your most recent actions
+                    - button:
+                      - text: View All
+                      - img
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                        - generic:
+                          - paragraph: Assistant turn (llamaswap/Qwen3.6-35B-A3B-Opencode-128K)
+                          - paragraph:
+                            - img
+                            - generic: opencode
+                            - generic: ·
+                            - generic: Agent
+                      - generic: 1d ago
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                        - generic:
+                          - paragraph: "Same target-selection rules as `/grok:review` (uncommitted changes by default, `--base <ref>` for a branch diff, `--wait`/`--background`, same scope-estimation-and-recommend behavior, same \"nothing to review\" check). This command is also read-only. Additionally parse `--focus <text>` from `review the package for issues. Focus on securtity` — free text the user wants the reviewer to pay particular attention to (e.g. \"concurrency\" or \"what happens if the upstream API times out\"). Everything after"
+                          - paragraph:
+                            - img
+                            - generic: user
+                            - generic: ·
+                            - generic: User
+                      - generic: 1d ago
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                        - generic:
+                          - paragraph: "{}"
+                          - paragraph:
+                            - img
+                            - generic: opencode
+                            - generic: ·
+                            - generic: Agent
+                      - generic: 1d ago
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                        - generic:
+                          - paragraph: Assistant turn (llamaswap/Qwen3.6-35B-A3B-Opencode-128K)
+                          - paragraph:
+                            - img
+                            - generic: opencode
+                            - generic: ·
+                            - generic: Agent
+                      - generic: 1d ago
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                        - generic:
+                          - paragraph: Invalid Tool
+                          - paragraph:
+                            - img
+                            - generic: opencode
+                            - generic: ·
+                            - generic: Agent
+                      - generic: 1d ago
+              - generic:
+                - generic:
+                  - generic:
+                    - heading [level=3]: Token Usage
+                    - paragraph: Daily total for OpenCode
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - application:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - generic: 5/9
+                                - generic:
+                                  - generic: 6/9
+                                - generic:
+                                  - generic: 6/11
+                                - generic:
+                                  - generic: 6/14
+                                - generic:
+                                  - generic: 6/28
+                                - generic:
+                                  - generic: 6/30
+                                - generic:
+                                  - generic: 7/2
+                                - generic:
+                                  - generic: 7/5
+                                - generic:
+                                  - generic: 7/9
+                                - generic:
+                                  - generic: 7/11
+                                - generic:
+                                  - generic: 7/13
+                                - generic:
+                                  - generic: 7/22
+                                - generic:
+                                  - generic: 7/27
+                                - generic:
+                                  - generic: 7/29
+                                - generic:
+                                  - generic: 7/31
+                                - generic:
+                                  - generic: 8/4
+                              - generic:
+                                - generic:
+                                  - generic: "0"
+                                - generic:
+                                  - generic: "450000"
+                                - generic:
+                                  - generic: "900000"
+                                - generic:
+                                  - generic: "1350000"
+                                - generic:
+                                  - generic: "1800000"
+  - generic: "0"
+  - dialog "Navigation" [ref=f1e249]:
+    - heading "Navigation" [level=2] [ref=f1e250]
+    - paragraph [ref=f1e251]: Primary application navigation
+    - generic [ref=f1e252]:
+      - generic [ref=f1e253]:
+        - img [ref=f1e255]
+        - generic [ref=f1e257]:
+          - generic [ref=f1e258]: Mission Control
+          - generic [ref=f1e259]: Unified AI usage dashboard
+      - navigation "Main" [ref=f1e260]:
+        - link "Dashboard" [ref=f1e261] [cursor=pointer]:
+          - /url: /
+          - img [ref=f1e263]
+          - generic [ref=f1e268]: Dashboard
+        - link "Activities" [ref=f1e270] [cursor=pointer]:
+          - /url: /activities
+          - img [ref=f1e272]
+          - generic [ref=f1e273]: Activities
+        - link "Sessions" [ref=f1e274] [cursor=pointer]:
+          - /url: /sessions
+          - img [ref=f1e276]
+          - generic [ref=f1e280]: Sessions
+        - link "Runtime" [ref=f1e281] [cursor=pointer]:
+          - /url: /runtime
+          - img [ref=f1e283]
+          - generic [ref=f1e286]: Runtime
+        - link "Failures" [ref=f1e287] [cursor=pointer]:
+          - /url: /failures
+          - img [ref=f1e289]
+          - generic [ref=f1e291]: Failures
+        - link "Consumption" [ref=f1e292] [cursor=pointer]:
+          - /url: /consumption
+          - img [ref=f1e294]
+          - generic [ref=f1e296]: Consumption
+        - generic [ref=f1e297]:
+          - paragraph [ref=f1e298]: Workloads
+          - generic [ref=f1e299]:
+            - link "Jobs" [ref=f1e300] [cursor=pointer]:
+              - /url: /jobs
+              - img [ref=f1e302]
+              - generic [ref=f1e305]: Jobs
+            - link "Generations Off" [ref=f1e306] [cursor=pointer]:
+              - /url: /generations
+              - img [ref=f1e308]
+              - generic [ref=f1e312]: Generations
+              - generic [ref=f1e313]: "Off"
+        - link "Settings" [ref=f1e315] [cursor=pointer]:
+          - /url: /settings
+          - img [ref=f1e317]
+          - generic [ref=f1e320]: Settings
+      - generic [ref=f1e324]: System Error
+    - button "Close" [active] [ref=f1e325]:
+      - img [ref=f1e326]
+      - generic [ref=f1e329]: Close

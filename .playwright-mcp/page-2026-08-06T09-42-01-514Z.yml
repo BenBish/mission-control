@@ -1,0 +1,229 @@
+- generic [ref=e1]:
+  - generic [ref=e81]:
+    - banner [ref=e82]:
+      - button "Toggle menu" [ref=e2622]:
+        - img
+        - generic [ref=e2623]: Toggle menu
+      - generic "Agent usage and attribution respect the source filter; provider API costs are account-wide" [ref=e83]:
+        - combobox "Filter by source" [ref=e84]:
+          - generic:
+            - generic:
+              - generic: All sources
+          - img [ref=e85]
+      - button "Toggle theme" [ref=e87]:
+        - img
+        - generic [ref=e88]: Toggle theme
+    - main [ref=e89]:
+      - generic [ref=e90]:
+        - generic [ref=e92]:
+          - heading "Consumption" [level=1] [ref=e93]
+          - paragraph [ref=e94]: Agent session usage for all sources; Direct API Spend is account-wide; Attribution links them with confidence — never summed blindly
+        - generic [ref=e95]:
+          - generic [ref=e96]:
+            - tablist [ref=e98]:
+              - tab "Agent Usage" [active] [selected] [ref=e99]:
+                - img [ref=e100]
+                - text: Agent Usage
+              - tab "Direct API Spend" [ref=e103]:
+                - img [ref=e104]
+                - text: Direct API Spend
+              - tab "Attribution" [ref=e106]:
+                - img [ref=e107]
+                - text: Attribution
+            - generic [ref=e110]:
+              - button "Today" [ref=e111]
+              - button "Last 7 days" [ref=e112]
+              - button "Last 30 days" [ref=e113]
+              - button "All time" [ref=e114]
+          - paragraph [ref=e115]:
+            - img [ref=e116]
+            - text: "Showing: Last 30 days"
+          - tabpanel "Agent Usage" [ref=e118]:
+            - generic [ref=e2624]:
+              - paragraph [ref=e2625]: Session-derived usage from agent sources (Claude Code, Codex, Grok, Hermes, etc.) for all sources. Honors the global source filter. Not the same as account-level provider billing.
+              - generic [ref=e2626]:
+                - button "Tokens" [ref=e2627]
+                - button "Compute time" [ref=e2628]
+                - button "USD" [ref=e2629]
+            - generic [ref=e2630]:
+              - generic [ref=e2631]:
+                - generic [ref=e2632]:
+                  - heading "Total Tokens" [level=3] [ref=e2633]
+                  - img [ref=e2635]
+                - generic [ref=e2637]:
+                  - generic [ref=e2638]: 47,865,758
+                  - paragraph [ref=e2639]: 399 sessions · 46,113 requests
+              - generic [ref=e2640]:
+                - generic [ref=e2641]:
+                  - heading "Unattributed" [level=3] [ref=e2642]
+                  - img [ref=e2644]
+                - generic [ref=e2646]:
+                  - generic [ref=e2647]: 21.6%
+                  - paragraph [ref=e2648]: 10,347,784 tokens unknown/synthetic
+              - generic [ref=e2649]:
+                - heading "Cache read" [level=3] [ref=e2651]
+                - generic [ref=e2652]:
+                  - generic [ref=e2653]: 5,184,966,340
+                  - paragraph [ref=e2654]: write 86,505,176
+            - generic [ref=e2656]:
+              - generic [ref=e2657]:
+                - text: "Material ranked:"
+                - strong [ref=e2658]: 47,865,758
+                - text: tokens
+              - generic [ref=e2659]: "Unknown model: 10,347,784"
+              - generic [ref=e2660]: "Synthetic: 0"
+              - generic [ref=e2661]: "Zero-token rows excluded: 750"
+              - generic [ref=e2662]: "Missing project: 11,100,602 tokens"
+            - generic [ref=e2663]:
+              - generic [ref=e2664]:
+                - generic [ref=e2665]:
+                  - generic [ref=e2666]:
+                    - heading "Ranked drivers" [level=3] [ref=e2667]
+                    - paragraph [ref=e2668]: Canonical model identities with raw aliases for diagnostics. Zero-token and synthetic rows are excluded by default.
+                  - generic [ref=e2669] [cursor=pointer]:
+                    - checkbox "Show zero / synthetic" [ref=e2670]
+                    - text: Show zero / synthetic
+                - generic [ref=e2671]:
+                  - button "Model" [ref=e2672]
+                  - button "Project" [ref=e2673]
+                  - button "Actor" [ref=e2674]
+                  - button "Source" [ref=e2675]
+                  - button "Session" [ref=e2676]
+              - table [ref=e2679]:
+                - rowgroup [ref=e2680]:
+                  - row "Source Model Input Output Cache Sessions" [ref=e2681]:
+                    - columnheader "Source" [ref=e2682]
+                    - columnheader "Model" [ref=e2683]
+                    - columnheader "Input" [ref=e2684]
+                    - columnheader "Output" [ref=e2685]
+                    - columnheader "Cache" [ref=e2686]
+                    - columnheader "Sessions" [ref=e2687]
+                - rowgroup [ref=e2688]:
+                  - 'row "grok grok-4.5-build raw: grok-4.5-build grok-plugin-cc 12,551,610 1,509,429 296,891,136 62" [ref=e2689] [cursor=pointer]':
+                    - cell "grok" [ref=e2690]
+                    - 'cell "grok-4.5-build raw: grok-4.5-build grok-plugin-cc" [ref=e2691]':
+                      - generic [ref=e2692]: grok-4.5-build
+                      - generic [ref=e2693]: "raw: grok-4.5-build"
+                      - generic [ref=e2694]: grok-plugin-cc
+                    - cell "12,551,610" [ref=e2695]
+                    - cell "1,509,429" [ref=e2696]
+                    - cell "296,891,136" [ref=e2697]
+                    - cell "62" [ref=e2698]
+                  - 'row "claude-code claude-sonnet-5 raw: claude-sonnet-5 benbishop-site 322,321 9,838,332 4,676,314,371 43" [ref=e2699] [cursor=pointer]':
+                    - cell "claude-code" [ref=e2700]
+                    - 'cell "claude-sonnet-5 raw: claude-sonnet-5 benbishop-site" [ref=e2701]':
+                      - generic [ref=e2702]: claude-sonnet-5
+                      - generic [ref=e2703]: "raw: claude-sonnet-5"
+                      - generic [ref=e2704]: benbishop-site
+                    - cell "322,321" [ref=e2705]
+                    - cell "9,838,332" [ref=e2706]
+                    - cell "4,676,314,371" [ref=e2707]
+                    - cell "43" [ref=e2708]
+                  - 'row "opencode llamaswap/qwen3.6-35b-a3b-opencode-128k raw: llamaswap/Qwen3.6-35B-A3B-Opencode-128K opportunity-scout 5,001,634 364,979 125,070,845 54" [ref=e2709] [cursor=pointer]':
+                    - cell "opencode" [ref=e2710]
+                    - 'cell "llamaswap/qwen3.6-35b-a3b-opencode-128k raw: llamaswap/Qwen3.6-35B-A3B-Opencode-128K opportunity-scout" [ref=e2711]':
+                      - generic [ref=e2712]: llamaswap/qwen3.6-35b-a3b-opencode-128k
+                      - generic [ref=e2713]: "raw: llamaswap/Qwen3.6-35B-A3B-Opencode-128K"
+                      - generic [ref=e2714]: opportunity-scout
+                    - cell "5,001,634" [ref=e2715]
+                    - cell "364,979" [ref=e2716]
+                    - cell "125,070,845" [ref=e2717]
+                    - cell "54" [ref=e2718]
+                  - 'row "grok grok-4.5 raw: grok-4.5 benbishop-site 3,994,227 589,523 92,483,584 39" [ref=e2719] [cursor=pointer]':
+                    - cell "grok" [ref=e2720]
+                    - 'cell "grok-4.5 raw: grok-4.5 benbishop-site" [ref=e2721]':
+                      - generic [ref=e2722]: grok-4.5
+                      - generic [ref=e2723]: "raw: grok-4.5"
+                      - generic [ref=e2724]: benbishop-site
+                    - cell "3,994,227" [ref=e2725]
+                    - cell "589,523" [ref=e2726]
+                    - cell "92,483,584" [ref=e2727]
+                    - cell "39" [ref=e2728]
+                  - 'row "opencode llamaswap/qwen3.6-27b-opencode-128k raw: llamaswap/Qwen3.6-27B-Opencode-128K benbishop-site 1,476,971 78,015 20,480,478 10" [ref=e2729] [cursor=pointer]':
+                    - cell "opencode" [ref=e2730]
+                    - 'cell "llamaswap/qwen3.6-27b-opencode-128k raw: llamaswap/Qwen3.6-27B-Opencode-128K benbishop-site" [ref=e2731]':
+                      - generic [ref=e2732]: llamaswap/qwen3.6-27b-opencode-128k
+                      - generic [ref=e2733]: "raw: llamaswap/Qwen3.6-27B-Opencode-128K"
+                      - generic [ref=e2734]: benbishop-site
+                    - cell "1,476,971" [ref=e2735]
+                    - cell "78,015" [ref=e2736]
+                    - cell "20,480,478" [ref=e2737]
+                    - cell "10" [ref=e2738]
+                  - 'row "claude-code claude-fable-5 raw: claude-fable-5 benbishop-context 82,417 699,443 46,567,311 12" [ref=e2739] [cursor=pointer]':
+                    - cell "claude-code" [ref=e2740]
+                    - 'cell "claude-fable-5 raw: claude-fable-5 benbishop-context" [ref=e2741]':
+                      - generic [ref=e2742]: claude-fable-5
+                      - generic [ref=e2743]: "raw: claude-fable-5"
+                      - generic [ref=e2744]: benbishop-context
+                    - cell "82,417" [ref=e2745]
+                    - cell "699,443" [ref=e2746]
+                    - cell "46,567,311" [ref=e2747]
+                    - cell "12" [ref=e2748]
+                  - 'row "hermes qwen3.6-35b-a3b-opencode-128k raw: Qwen3.6-35B-A3B-Opencode-128K 475,108 55,518 0 1" [ref=e2749] [cursor=pointer]':
+                    - cell "hermes" [ref=e2750]
+                    - 'cell "qwen3.6-35b-a3b-opencode-128k raw: Qwen3.6-35B-A3B-Opencode-128K" [ref=e2751]':
+                      - generic [ref=e2752]: qwen3.6-35b-a3b-opencode-128k
+                      - generic [ref=e2753]: "raw: Qwen3.6-35B-A3B-Opencode-128K"
+                    - cell "475,108" [ref=e2754]
+                    - cell "55,518" [ref=e2755]
+                    - cell "0" [ref=e2756]
+                    - cell "1" [ref=e2757]
+                  - 'row "claude-code claude-opus-4-8 raw: claude-opus-4-8 model-prompt-tests 126,131 62,744 11,614,716 4" [ref=e2758] [cursor=pointer]':
+                    - cell "claude-code" [ref=e2759]
+                    - 'cell "claude-opus-4-8 raw: claude-opus-4-8 model-prompt-tests" [ref=e2760]':
+                      - generic [ref=e2761]: claude-opus-4-8
+                      - generic [ref=e2762]: "raw: claude-opus-4-8"
+                      - generic [ref=e2763]: model-prompt-tests
+                    - cell "126,131" [ref=e2764]
+                    - cell "62,744" [ref=e2765]
+                    - cell "11,614,716" [ref=e2766]
+                    - cell "4" [ref=e2767]
+                  - 'row "hermes qwen3.6-27b-ud-q4-k-xl.gguf raw: Qwen3.6-27B-UD-Q4_K_XL.gguf 157,685 28,750 0 1" [ref=e2768] [cursor=pointer]':
+                    - cell "hermes" [ref=e2769]
+                    - 'cell "qwen3.6-27b-ud-q4-k-xl.gguf raw: Qwen3.6-27B-UD-Q4_K_XL.gguf" [ref=e2770]':
+                      - generic [ref=e2771]: qwen3.6-27b-ud-q4-k-xl.gguf
+                      - generic [ref=e2772]: "raw: Qwen3.6-27B-UD-Q4_K_XL.gguf"
+                    - cell "157,685" [ref=e2773]
+                    - cell "28,750" [ref=e2774]
+                    - cell "0" [ref=e2775]
+                    - cell "1" [ref=e2776]
+                  - 'row "opencode localllama/qwen3-coder raw: localllama/qwen3-coder bshp 36,175 246 120,564 1" [ref=e2777] [cursor=pointer]':
+                    - cell "opencode" [ref=e2778]
+                    - 'cell "localllama/qwen3-coder raw: localllama/qwen3-coder bshp" [ref=e2779]':
+                      - generic [ref=e2780]: localllama/qwen3-coder
+                      - generic [ref=e2781]: "raw: localllama/qwen3-coder"
+                      - generic [ref=e2782]: bshp
+                    - cell "36,175" [ref=e2783]
+                    - cell "246" [ref=e2784]
+                    - cell "120,564" [ref=e2785]
+                    - cell "1" [ref=e2786]
+                  - 'row "hermes gemma-4-26b-a4b-it-ud-q4-k-xl.gguf raw: gemma-4-26B-A4B-it-UD-Q4_K_XL.gguf 25,864 9,893 0 1" [ref=e2787] [cursor=pointer]':
+                    - cell "hermes" [ref=e2788]
+                    - 'cell "gemma-4-26b-a4b-it-ud-q4-k-xl.gguf raw: gemma-4-26B-A4B-it-UD-Q4_K_XL.gguf" [ref=e2789]':
+                      - generic [ref=e2790]: gemma-4-26b-a4b-it-ud-q4-k-xl.gguf
+                      - generic [ref=e2791]: "raw: gemma-4-26B-A4B-it-UD-Q4_K_XL.gguf"
+                    - cell "25,864" [ref=e2792]
+                    - cell "9,893" [ref=e2793]
+                    - cell "0" [ref=e2794]
+                    - cell "1" [ref=e2795]
+                  - 'row "claude-code claude-haiku-4-5 raw: claude-haiku-4-5-20251001 swe-tasks-fixture-smoke--claude-code--haiku--r0 784 18,534 1,928,511 9" [ref=e2796] [cursor=pointer]':
+                    - cell "claude-code" [ref=e2797]
+                    - 'cell "claude-haiku-4-5 raw: claude-haiku-4-5-20251001 swe-tasks-fixture-smoke--claude-code--haiku--r0" [ref=e2798]':
+                      - generic [ref=e2799]: claude-haiku-4-5
+                      - generic [ref=e2800]: "raw: claude-haiku-4-5-20251001"
+                      - generic [ref=e2801]: swe-tasks-fixture-smoke--claude-code--haiku--r0
+                    - cell "784" [ref=e2802]
+                    - cell "18,534" [ref=e2803]
+                    - cell "1,928,511" [ref=e2804]
+                    - cell "9" [ref=e2805]
+                  - 'row "opencode localllama/gpt-oss-20b raw: localllama/gpt-oss-20b tmp 11,561 80 0 2" [ref=e2806] [cursor=pointer]':
+                    - cell "opencode" [ref=e2807]
+                    - 'cell "localllama/gpt-oss-20b raw: localllama/gpt-oss-20b tmp" [ref=e2808]':
+                      - generic [ref=e2809]: localllama/gpt-oss-20b
+                      - generic [ref=e2810]: "raw: localllama/gpt-oss-20b"
+                      - generic [ref=e2811]: tmp
+                    - cell "11,561" [ref=e2812]
+                    - cell "80" [ref=e2813]
+                    - cell "0" [ref=e2814]
+                    - cell "2" [ref=e2815]
+  - generic [ref=e645]: $0

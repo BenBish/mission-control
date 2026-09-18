@@ -1,0 +1,62 @@
+- generic [active] [ref=f5e1]:
+  - generic [ref=f5e6]:
+    - complementary [ref=f5e7]:
+      - generic [ref=f5e8]:
+        - generic [ref=f5e13]:
+          - generic [ref=f5e14]: Mission Control
+          - generic [ref=f5e15]: Unified AI usage dashboard
+        - navigation [ref=f5e16]:
+          - link [ref=f5e17] [cursor=pointer]:
+            - /url: /
+          - link [ref=f5e24] [cursor=pointer]:
+            - /url: /activities
+          - link [ref=f5e27] [cursor=pointer]:
+            - /url: /sessions
+          - link [ref=f5e33] [cursor=pointer]:
+            - /url: /runtime
+          - link [ref=f5e38] [cursor=pointer]:
+            - /url: /failures
+          - link [ref=f5e42] [cursor=pointer]:
+            - /url: /consumption
+          - link [ref=f5e47] [cursor=pointer]:
+            - /url: /jobs
+          - link [ref=f5e52] [cursor=pointer]:
+            - /url: /generations
+          - link [ref=f5e58] [cursor=pointer]:
+            - /url: /settings
+        - generic [ref=f5e63]: System Online
+    - generic [ref=f5e67]:
+      - banner [ref=f5e68]:
+        - generic "Settings are not source-scoped" [ref=f5e391]:
+          - combobox "Filter by source" [disabled] [ref=f5e70]:
+            - generic: All sources
+          - generic [ref=f5e392]: Not filtered
+        - button "Toggle theme" [ref=f5e73]
+      - main [ref=f5e75]:
+        - generic [ref=f5e393]:
+          - generic [ref=f5e395]:
+            - heading "Settings" [level=1] [ref=f5e396]
+            - paragraph [ref=f5e397]: Source registry, provider budget, and application info
+          - generic [ref=f5e398]:
+            - tablist [ref=f5e399]:
+              - tab "Sources & Instances" [ref=f5e400]
+              - tab "Budgets" [selected] [ref=f5e404]
+              - tab "About" [ref=f5e407]
+            - tabpanel "Budgets" [ref=f5e410]:
+              - generic [ref=f5e411]:
+                - generic [ref=f5e412]:
+                  - heading "Provider spend budget" [level=3] [ref=f5e413]
+                  - paragraph [ref=f5e414]: Monthly budget for account-wide Direct API Spend (provider billing APIs only). Does not include Agent Usage from session logs and is never double-counted with those totals.
+                - generic [ref=f5e415]:
+                  - generic [ref=f5e416]:
+                    - generic [ref=f5e417]:
+                      - text: Monthly budget (USD)
+                      - spinbutton "Monthly budget (USD)" [ref=f5e418]: "50"
+                      - paragraph [ref=f5e419]: Leave empty to disable budget tracking.
+                    - generic [ref=f5e420]:
+                      - text: Month timezone
+                      - combobox "Month timezone" [ref=f5e421]:
+                        - generic: America/Los_Angeles
+                      - paragraph [ref=f5e424]: Calendar month boundaries for MTD and forecast use this IANA timezone (default UTC).
+                  - button "Save budget" [ref=f5e426]
+  - generic [ref=f5e389]: $0

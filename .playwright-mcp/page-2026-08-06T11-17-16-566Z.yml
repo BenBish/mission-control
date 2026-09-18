@@ -1,0 +1,600 @@
+- generic:
+  - generic:
+    - generic:
+      - generic:
+        - alert:
+          - generic:
+            - img
+            - generic:
+              - paragraph: Security notice
+              - paragraph: App authentication is off. Anyone who can reach this host can read activity data.
+        - banner:
+          - button:
+            - img
+            - generic: Toggle menu
+          - generic:
+            - combobox [expanded]:
+              - generic:
+                - generic:
+                  - generic: All sources
+              - img
+          - button:
+            - img
+            - generic: Toggle theme
+        - main:
+          - generic:
+            - generic:
+              - generic:
+                - heading [level=1]: Failure Analysis
+                - paragraph: Grouped failures across all sources
+            - generic:
+              - generic:
+                - generic:
+                  - heading [level=3]: Total Failures
+                  - generic:
+                    - img
+                - generic:
+                  - generic: "251"
+                  - paragraph: All time · activity failure · inference non-success · runtime non-info
+              - generic:
+                - generic:
+                  - heading [level=3]: Last 24 Hours
+                  - generic:
+                    - img
+                - generic:
+                  - generic: "2"
+                  - paragraph: Last 24 hours · activity failure · inference non-success · runtime non-info
+              - generic:
+                - generic:
+                  - heading [level=3]: Open Runtime
+                  - generic:
+                    - img
+                - generic:
+                  - generic: "25"
+                  - paragraph: Unresolved · severity ≠ info, no end time
+              - generic:
+                - generic:
+                  - heading [level=3]: Unique Groups
+                - generic:
+                  - generic: "204"
+                  - paragraph: Kind/source scope (not signal/triage filters) · 1.23 events/group
+              - generic:
+                - generic:
+                  - heading [level=3]: Recurring
+                - generic:
+                  - generic: "17"
+                  - paragraph: 2+ occurrences · kind/source scope
+              - generic:
+                - generic:
+                  - heading [level=3]: Untriaged actionable
+                - generic:
+                  - generic: "191"
+                  - paragraph: Actionable + open triage · kind/source scope
+            - generic:
+              - generic:
+                - generic:
+                  - text: Kind
+                  - combobox:
+                    - generic: All kinds
+                    - img
+                - generic:
+                  - text: Signal
+                  - combobox:
+                    - generic: All signals
+                    - img
+                - generic:
+                  - text: Triage
+                  - combobox:
+                    - generic: All triage
+                    - img
+                - generic:
+                  - text: Events
+                  - combobox:
+                    - generic: All events
+                    - img
+                - paragraph: Source filter is global (header). Groups share a fingerprint of kind, source, structured fields, and normalized message. Triage state is stored separately from raw events.
+            - generic:
+              - generic:
+                - generic:
+                  - table:
+                    - rowgroup:
+                      - row:
+                        - columnheader: Last / First
+                        - columnheader: Source
+                        - columnheader: Kind
+                        - columnheader: Count
+                        - columnheader: Signal / Triage
+                        - columnheader: Summary
+                    - rowgroup:
+                      - row:
+                        - cell:
+                          - generic: 5d ago
+                          - generic: first 5d ago
+                        - cell:
+                          - generic: opencode
+                        - cell: Activity
+                        - cell: "4"
+                        - cell:
+                          - generic:
+                            - generic: Actionable
+                            - generic: Open
+                          - generic: 4 open events
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: "{\"url\":\"http://localhost:4321/llms.txt\"}"
+                      - row:
+                        - cell:
+                          - generic: 8d ago
+                          - generic: first 38d ago
+                        - cell:
+                          - generic: opencode
+                        - cell: Activity
+                        - cell: "9"
+                        - cell:
+                          - generic:
+                            - generic: Actionable
+                            - generic: Open
+                          - generic: 9 open events
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: "{\"url\":\"http://localhost:4321\"}"
+                      - row:
+                        - cell:
+                          - generic: 14d ago
+                          - generic: first 14d ago
+                        - cell:
+                          - generic: opencode
+                        - cell: Activity
+                        - cell: "3"
+                        - cell:
+                          - generic:
+                            - generic: Actionable
+                            - generic: Open
+                          - generic: 3 open events
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: "{\"url\":\"http://localhost:4323/\"}"
+                      - row:
+                        - cell:
+                          - generic: 14d ago
+                          - generic: first 14d ago
+                        - cell:
+                          - generic: opencode
+                        - cell: Activity
+                        - cell: "10"
+                        - cell:
+                          - generic:
+                            - generic: Actionable
+                            - generic: Open
+                          - generic: 10 open events
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: "{\"target\":\"a[aria-label=\\\"Read grok-plugin-cc\\\"]\"}"
+                      - row:
+                        - cell:
+                          - generic: 15d ago
+                          - generic: first 15d ago
+                        - cell:
+                          - generic: opencode
+                        - cell: Activity
+                        - cell: "2"
+                        - cell:
+                          - generic:
+                            - generic: Actionable
+                            - generic: Open
+                          - generic: 2 open events
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: "{\"target\":\"link \\\"View grok-plugin-cc project\\\"\"}"
+                      - row:
+                        - cell:
+                          - generic: 28d ago
+                          - generic: first 28d ago
+                        - cell:
+                          - generic: opencode
+                        - cell: Activity
+                        - cell: "3"
+                        - cell:
+                          - generic:
+                            - generic: Actionable
+                            - generic: Open
+                          - generic: 3 open events
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: bbish007@gmail.com
+                      - row:
+                        - cell:
+                          - generic: 32d ago
+                          - generic: first 32d ago
+                        - cell:
+                          - generic: opencode
+                        - cell: Activity
+                        - cell: "3"
+                        - cell:
+                          - generic:
+                            - generic: Actionable
+                            - generic: Open
+                          - generic: 3 open events
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: "{\"filePath\":\"/home/ben/Dev/ben-site\"}"
+                      - row:
+                        - cell:
+                          - generic: 35d ago
+                          - generic: first 37d ago
+                        - cell:
+                          - generic: opencode
+                        - cell: Activity
+                        - cell: "5"
+                        - cell:
+                          - generic:
+                            - generic: Actionable
+                            - generic: Open
+                          - generic: 5 open events
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: dev-password-change-me
+                      - row:
+                        - cell:
+                          - generic: 35d ago
+                          - generic: first 36d ago
+                        - cell:
+                          - generic: opencode
+                        - cell: Activity
+                        - cell: "2"
+                        - cell:
+                          - generic:
+                            - generic: Actionable
+                            - generic: Open
+                          - generic: 2 open events
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: review changes [commit|branch|pr], defaults to uncommitted
+                      - row:
+                        - cell:
+                          - generic: 37d ago
+                          - generic: first 38d ago
+                        - cell:
+                          - generic: opencode
+                        - cell: Activity
+                        - cell: "2"
+                        - cell:
+                          - generic:
+                            - generic: Actionable
+                            - generic: Open
+                          - generic: 2 open events
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: "{\"target\":\"textbox \\\"Password\\\"\"}"
+                      - row:
+                        - cell:
+                          - generic: 37d ago
+                          - generic: first 37d ago
+                        - cell:
+                          - generic: opencode
+                        - cell: Activity
+                        - cell: "2"
+                        - cell:
+                          - generic:
+                            - generic: Actionable
+                            - generic: Open
+                          - generic: 2 open events
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: "{\"type\":\"png\",\"scale\":\"css\",\"filename\":\"screenshots/login.png\"}"
+                      - row:
+                        - cell:
+                          - generic: 37d ago
+                          - generic: first 37d ago
+                        - cell:
+                          - generic: opencode
+                        - cell: Activity
+                        - cell: "2"
+                        - cell:
+                          - generic:
+                            - generic: Actionable
+                            - generic: Open
+                          - generic: 2 open events
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: "{\"url\":\"http://localhost:5174/login\"}"
+                      - row:
+                        - cell:
+                          - generic: 38d ago
+                          - generic: first 38d ago
+                        - cell:
+                          - generic: opencode
+                        - cell: Activity
+                        - cell: "3"
+                        - cell:
+                          - generic:
+                            - generic: Actionable
+                            - generic: Open
+                          - generic: 3 open events
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: "{\"target\":\"a:text(\\\"Agents\\\")\"}"
+                      - row:
+                        - cell:
+                          - generic: 38d ago
+                          - generic: first 89d ago
+                        - cell:
+                          - generic: opencode
+                        - cell: Activity
+                        - cell: "3"
+                        - cell:
+                          - generic:
+                            - generic: Actionable
+                            - generic: Open
+                          - generic: 3 open events
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: "{}"
+                      - row:
+                        - cell:
+                          - generic: 1d ago
+                          - generic: first 1d ago
+                        - cell:
+                          - generic: opencode
+                        - cell: Activity
+                        - cell: "1"
+                        - cell:
+                          - generic:
+                            - generic: Actionable
+                            - generic: Open
+                          - generic: 1 open events
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: "{\"filePath\":\"/home/ben/Dev/opportunity-scout/AGENTS.md\"}"
+                      - row:
+                        - cell:
+                          - generic: 1d ago
+                          - generic: first 1d ago
+                        - cell:
+                          - generic: opencode
+                        - cell: Activity
+                        - cell: "1"
+                        - cell:
+                          - generic:
+                            - generic: Actionable
+                            - generic: Open
+                          - generic: 1 open events
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: "{\"id\":\"BSH-87\"}"
+                      - row:
+                        - cell:
+                          - generic: 1d ago
+                          - generic: first 1d ago
+                        - cell:
+                          - generic: opencode
+                        - cell: Activity
+                        - cell: "1"
+                        - cell:
+                          - generic:
+                            - generic: Actionable
+                            - generic: Open
+                          - generic: 1 open events
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: "{\"query\":\"b88f4ebf-c1a3-4315-b9f4-03b3263027d2\"}"
+                      - row:
+                        - cell:
+                          - generic: 1d ago
+                          - generic: first 1d ago
+                        - cell:
+                          - generic: opencode
+                        - cell: Activity
+                        - cell: "1"
+                        - cell:
+                          - generic:
+                            - generic: Actionable
+                            - generic: Open
+                          - generic: 1 open events
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: "{\"filePath\":\"/home/ben/Dev/opportunity-scout/src/lib/local-llm.test.ts\"}"
+                      - row:
+                        - cell:
+                          - generic: 2d ago
+                          - generic: first 2d ago
+                        - cell:
+                          - generic: hermes
+                        - cell: Runtime
+                        - cell: "1"
+                        - cell:
+                          - generic:
+                            - generic: Actionable
+                            - generic: Open
+                          - generic: 1 open events
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: seed event 1
+                      - row:
+                        - cell:
+                          - generic: 2d ago
+                          - generic: first 2d ago
+                        - cell:
+                          - generic: hermes
+                        - cell: Runtime
+                        - cell: "1"
+                        - cell:
+                          - generic:
+                            - generic: Actionable
+                            - generic: Open
+                          - generic: 1 open events
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: seed event 2
+                      - row:
+                        - cell:
+                          - generic: 2d ago
+                          - generic: first 2d ago
+                        - cell:
+                          - generic: hermes
+                        - cell: Runtime
+                        - cell: "1"
+                        - cell:
+                          - generic:
+                            - generic: Actionable
+                            - generic: Open
+                          - generic: 1 open events
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: seed event 4
+                      - row:
+                        - cell:
+                          - generic: 2d ago
+                          - generic: first 2d ago
+                        - cell:
+                          - generic: hermes
+                        - cell: Runtime
+                        - cell: "1"
+                        - cell:
+                          - generic:
+                            - generic: Actionable
+                            - generic: Open
+                          - generic: 1 open events
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: seed event 5
+                      - row:
+                        - cell:
+                          - generic: 2d ago
+                          - generic: first 2d ago
+                        - cell:
+                          - generic: hermes
+                        - cell: Runtime
+                        - cell: "1"
+                        - cell:
+                          - generic:
+                            - generic: Actionable
+                            - generic: Open
+                          - generic: 1 open events
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: seed event 7
+                      - row:
+                        - cell:
+                          - generic: 2d ago
+                          - generic: first 2d ago
+                        - cell:
+                          - generic: hermes
+                        - cell: Runtime
+                        - cell: "1"
+                        - cell:
+                          - generic:
+                            - generic: Actionable
+                            - generic: Open
+                          - generic: 1 open events
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: seed event 8
+                      - row:
+                        - cell:
+                          - generic: 2d ago
+                          - generic: first 2d ago
+                        - cell:
+                          - generic: hermes
+                        - cell: Runtime
+                        - cell: "1"
+                        - cell:
+                          - generic:
+                            - generic: Actionable
+                            - generic: Open
+                          - generic: 1 open events
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: seed event 10
+                - generic:
+                  - paragraph: Groups 1–25 of 204 · 251 events total (216 activity · 10 inference · 25 runtime)
+                  - generic:
+                    - button [disabled]:
+                      - img
+                      - text: Prev
+                    - generic: 1 / 9
+                    - button:
+                      - text: Next
+                      - img
+  - listbox [ref=e588]:
+    - option "All sources" [active] [selected] [ref=e589]:
+      - img [ref=e592]
+      - generic [ref=e594]: All sources
+    - 'option "claude-code@arch-desktop: Offline Claude Code" [ref=e595]':
+      - generic [ref=e598]:
+        - 'generic "claude-code@arch-desktop: Offline" [ref=e599]'
+        - generic [ref=e600]: Claude Code
+    - 'option "codex@arch-desktop: Error Codex CLI" [ref=e601]':
+      - generic [ref=e604]:
+        - 'generic "codex@arch-desktop: Error" [ref=e605]'
+        - generic [ref=e606]: Codex CLI
+    - 'option "comfyui@strix-halo: Offline ComfyUI" [ref=e607]':
+      - generic [ref=e610]:
+        - 'generic "comfyui@strix-halo: Offline" [ref=e611]'
+        - generic [ref=e612]: ComfyUI
+    - 'option "grok@arch-desktop: Offline Grok" [ref=e613]':
+      - generic [ref=e616]:
+        - 'generic "grok@arch-desktop: Offline" [ref=e617]'
+        - generic [ref=e618]: Grok
+    - 'option "hermes@strix-halo: Offline Hermes" [ref=e619]':
+      - generic [ref=e622]:
+        - 'generic "hermes@strix-halo: Offline" [ref=e623]'
+        - generic [ref=e624]: Hermes
+    - 'option "lemonade@strix-halo: Offline Lemonade" [ref=e625]':
+      - generic [ref=e628]:
+        - 'generic "lemonade@strix-halo: Offline" [ref=e629]'
+        - generic [ref=e630]: Lemonade
+    - 'option "opencode@arch-desktop: Offline OpenCode" [ref=e631]':
+      - generic [ref=e634]:
+        - 'generic "opencode@arch-desktop: Offline" [ref=e635]'
+        - generic [ref=e636]: OpenCode

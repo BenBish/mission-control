@@ -1,0 +1,359 @@
+- generic [ref=e1]:
+  - generic [ref=e81]:
+    - alert [ref=e82]:
+      - generic [ref=e83]:
+        - img [ref=e84]
+        - generic [ref=e86]:
+          - paragraph [ref=e87]: Security notice
+          - paragraph [ref=e88]: App authentication is off. Anyone who can reach this host can read activity data.
+    - banner [ref=e89]:
+      - button "Toggle menu" [ref=e547]:
+        - img
+        - generic [ref=e548]: Toggle menu
+      - generic "Agent usage and attribution respect the source filter; provider API costs are account-wide" [ref=e90]:
+        - combobox "Filter by source" [ref=e91]:
+          - generic:
+            - generic:
+              - 'generic "opencode@arch-desktop: Offline — Heartbeat expired (raw: ok)"'
+              - generic: OpenCode
+          - img [ref=e92]
+        - generic [ref=e94]: Partial scope
+      - button "Toggle theme" [ref=e95]:
+        - img
+        - generic [ref=e96]: Toggle theme
+    - main [ref=e97]:
+      - generic [ref=e98]:
+        - generic [ref=e100]:
+          - heading "Consumption" [level=1] [ref=e101]
+          - paragraph [ref=e102]: Agent session usage for OpenCode; Direct API Spend is account-wide; Attribution links them with confidence — never summed blindly
+        - generic [ref=e103]:
+          - generic [ref=e104]:
+            - tablist [ref=e106]:
+              - tab "Agent Usage" [ref=e107]:
+                - img [ref=e108]
+                - text: Agent Usage
+              - tab "Direct API Spend" [ref=e111]:
+                - img [ref=e112]
+                - text: Direct API Spend
+              - tab "Attribution" [active] [selected] [ref=e114]:
+                - img [ref=e115]
+                - text: Attribution
+            - generic [ref=e118]:
+              - button "Today" [ref=e119]
+              - button "Last 7 days" [ref=e120]
+              - button "Last 30 days" [ref=e121]
+              - button "All time" [ref=e122]
+          - paragraph [ref=e123]:
+            - img [ref=e124]
+            - text: "Showing: Last 30 days"
+          - tabpanel "Attribution" [ref=e564]:
+            - paragraph [ref=e565]:
+              - text: Links provider billing (account-wide) to agent session usage for OpenCode. Matched spend is rule-based with confidence — raw agent and provider totals are never summed. See
+              - code [ref=e566]: docs/spend-reconciliation.md
+              - text: .
+            - generic [ref=e567]:
+              - generic [ref=e568]:
+                - generic [ref=e569]: Providers
+                - button "All" [ref=e570]
+                - button "openrouter" [ref=e571]
+                - button "anthropic" [ref=e572]
+                - button "openai" [ref=e573]
+                - button "xai" [ref=e574]
+              - generic [ref=e575]:
+                - generic [ref=e576]: BYOK
+                - button "Flag BYOK overlap" [ref=e577]
+                - button "Exclude OpenRouter" [ref=e578]
+                - button "Prefer direct providers" [ref=e579]
+            - generic [ref=e580]:
+              - generic [ref=e581]:
+                - heading "Matched spend" [level=3] [ref=e583]
+                - generic [ref=e584]:
+                  - generic [ref=e585]: $0.0000
+                  - paragraph [ref=e586]: Exact + likely only
+              - generic [ref=e587]:
+                - heading "Unmatched spend" [level=3] [ref=e589]
+                - generic [ref=e590]:
+                  - generic [ref=e591]: $0.0000
+                  - paragraph [ref=e592]: Provider cost without agent use
+              - generic [ref=e593]:
+                - heading "Usage without cost" [level=3] [ref=e595]
+                - generic [ref=e596]:
+                  - generic [ref=e597]: 4,639,133
+                  - paragraph [ref=e598]: Agent tokens, no billing match
+              - generic [ref=e599]:
+                - heading "Duplicate risk" [level=3] [ref=e601]
+                - generic [ref=e602]:
+                  - generic [ref=e603]: $0.0000
+                  - paragraph [ref=e604]: OpenRouter ∩ direct overlap
+              - generic [ref=e605]:
+                - heading "Coverage" [level=3] [ref=e607]
+                - generic [ref=e608]:
+                  - generic [ref=e609]: —
+                  - paragraph [ref=e610]: Matched / provider spend
+            - generic [ref=e611]:
+              - generic [ref=e612]:
+                - heading "Reconciliation notes" [level=3] [ref=e613]:
+                  - img [ref=e614]
+                  - text: Reconciliation notes
+                - paragraph [ref=e616]: Data lag, BYOK risk, and separation guarantees
+              - list [ref=e618]:
+                - listitem [ref=e619]: Provider anthropic last success is stale (>36h) — billing data may lag.
+                - listitem [ref=e620]: Provider openrouter last success is stale (>36h) — billing data may lag.
+                - listitem [ref=e621]: Provider spend and agent usage are separate datasets — matched spend is attributed by rule, never a raw sum of both.
+            - generic [ref=e622]:
+              - generic [ref=e623]:
+                - heading "Match evidence (22)" [level=3] [ref=e624]
+                - paragraph [ref=e625]: Expand a row for provider contributions, agent sources, and the rule that fired
+              - table [ref=e628]:
+                - rowgroup [ref=e629]:
+                  - row "Day Model Class Provider $ Agent tokens Confidence" [ref=e630]:
+                    - columnheader "Day" [ref=e631]
+                    - columnheader "Model" [ref=e632]
+                    - columnheader "Class" [ref=e633]
+                    - columnheader "Provider $" [ref=e634]
+                    - columnheader "Agent tokens" [ref=e635]
+                    - columnheader "Confidence" [ref=e636]
+                - rowgroup [ref=e637]:
+                  - row "2026-08-04 llamaswap/qwen3.6-35b-a3b-opencode-128k Usage without cost $0.0000 385,839 0%" [ref=e638] [cursor=pointer]:
+                    - cell "2026-08-04" [ref=e639]:
+                      - generic [ref=e640]:
+                        - img [ref=e641]
+                        - text: 2026-08-04
+                    - cell "llamaswap/qwen3.6-35b-a3b-opencode-128k" [ref=e643]
+                    - cell "Usage without cost" [ref=e644]:
+                      - generic [ref=e645]: Usage without cost
+                    - cell "$0.0000" [ref=e646]
+                    - cell "385,839" [ref=e647]
+                    - cell "0%" [ref=e648]
+                  - row "2026-08-04 unknown Usage without cost $0.0000 0 0%" [ref=e649] [cursor=pointer]:
+                    - cell "2026-08-04" [ref=e650]:
+                      - generic [ref=e651]:
+                        - img [ref=e652]
+                        - text: 2026-08-04
+                    - cell "unknown" [ref=e654]
+                    - cell "Usage without cost" [ref=e655]:
+                      - generic [ref=e656]: Usage without cost
+                    - cell "$0.0000" [ref=e657]
+                    - cell "0" [ref=e658]
+                    - cell "0%" [ref=e659]
+                  - row "2026-08-03 llamaswap/qwen3.6-35b-a3b-opencode-128k Usage without cost $0.0000 159,702 0%" [ref=e660] [cursor=pointer]:
+                    - cell "2026-08-03" [ref=e661]:
+                      - generic [ref=e662]:
+                        - img [ref=e663]
+                        - text: 2026-08-03
+                    - cell "llamaswap/qwen3.6-35b-a3b-opencode-128k" [ref=e665]
+                    - cell "Usage without cost" [ref=e666]:
+                      - generic [ref=e667]: Usage without cost
+                    - cell "$0.0000" [ref=e668]
+                    - cell "159,702" [ref=e669]
+                    - cell "0%" [ref=e670]
+                  - row "2026-08-03 unknown Usage without cost $0.0000 0 0%" [ref=e671] [cursor=pointer]:
+                    - cell "2026-08-03" [ref=e672]:
+                      - generic [ref=e673]:
+                        - img [ref=e674]
+                        - text: 2026-08-03
+                    - cell "unknown" [ref=e676]
+                    - cell "Usage without cost" [ref=e677]:
+                      - generic [ref=e678]: Usage without cost
+                    - cell "$0.0000" [ref=e679]
+                    - cell "0" [ref=e680]
+                    - cell "0%" [ref=e681]
+                  - row "2026-07-31 llamaswap/qwen3.6-35b-a3b-opencode-128k Usage without cost $0.0000 339,711 0%" [ref=e682] [cursor=pointer]:
+                    - cell "2026-07-31" [ref=e683]:
+                      - generic [ref=e684]:
+                        - img [ref=e685]
+                        - text: 2026-07-31
+                    - cell "llamaswap/qwen3.6-35b-a3b-opencode-128k" [ref=e687]
+                    - cell "Usage without cost" [ref=e688]:
+                      - generic [ref=e689]: Usage without cost
+                    - cell "$0.0000" [ref=e690]
+                    - cell "339,711" [ref=e691]
+                    - cell "0%" [ref=e692]
+                  - row "2026-07-31 unknown Usage without cost $0.0000 0 0%" [ref=e693] [cursor=pointer]:
+                    - cell "2026-07-31" [ref=e694]:
+                      - generic [ref=e695]:
+                        - img [ref=e696]
+                        - text: 2026-07-31
+                    - cell "unknown" [ref=e698]
+                    - cell "Usage without cost" [ref=e699]:
+                      - generic [ref=e700]: Usage without cost
+                    - cell "$0.0000" [ref=e701]
+                    - cell "0" [ref=e702]
+                    - cell "0%" [ref=e703]
+                  - row "2026-07-30 llamaswap/qwen3.6-35b-a3b-opencode-128k Usage without cost $0.0000 109,180 0%" [ref=e704] [cursor=pointer]:
+                    - cell "2026-07-30" [ref=e705]:
+                      - generic [ref=e706]:
+                        - img [ref=e707]
+                        - text: 2026-07-30
+                    - cell "llamaswap/qwen3.6-35b-a3b-opencode-128k" [ref=e709]
+                    - cell "Usage without cost" [ref=e710]:
+                      - generic [ref=e711]: Usage without cost
+                    - cell "$0.0000" [ref=e712]
+                    - cell "109,180" [ref=e713]
+                    - cell "0%" [ref=e714]
+                  - row "2026-07-30 unknown Usage without cost $0.0000 0 0%" [ref=e715] [cursor=pointer]:
+                    - cell "2026-07-30" [ref=e716]:
+                      - generic [ref=e717]:
+                        - img [ref=e718]
+                        - text: 2026-07-30
+                    - cell "unknown" [ref=e720]
+                    - cell "Usage without cost" [ref=e721]:
+                      - generic [ref=e722]: Usage without cost
+                    - cell "$0.0000" [ref=e723]
+                    - cell "0" [ref=e724]
+                    - cell "0%" [ref=e725]
+                  - row "2026-07-29 llamaswap/qwen3.6-35b-a3b-opencode-128k Usage without cost $0.0000 1,053,668 0%" [ref=e726] [cursor=pointer]:
+                    - cell "2026-07-29" [ref=e727]:
+                      - generic [ref=e728]:
+                        - img [ref=e729]
+                        - text: 2026-07-29
+                    - cell "llamaswap/qwen3.6-35b-a3b-opencode-128k" [ref=e731]
+                    - cell "Usage without cost" [ref=e732]:
+                      - generic [ref=e733]: Usage without cost
+                    - cell "$0.0000" [ref=e734]
+                    - cell "1,053,668" [ref=e735]
+                    - cell "0%" [ref=e736]
+                  - row "2026-07-29 unknown Usage without cost $0.0000 0 0%" [ref=e737] [cursor=pointer]:
+                    - cell "2026-07-29" [ref=e738]:
+                      - generic [ref=e739]:
+                        - img [ref=e740]
+                        - text: 2026-07-29
+                    - cell "unknown" [ref=e742]
+                    - cell "Usage without cost" [ref=e743]:
+                      - generic [ref=e744]: Usage without cost
+                    - cell "$0.0000" [ref=e745]
+                    - cell "0" [ref=e746]
+                    - cell "0%" [ref=e747]
+                  - row "2026-07-28 llamaswap/qwen3.6-35b-a3b-opencode-128k Usage without cost $0.0000 949,922 0%" [ref=e748] [cursor=pointer]:
+                    - cell "2026-07-28" [ref=e749]:
+                      - generic [ref=e750]:
+                        - img [ref=e751]
+                        - text: 2026-07-28
+                    - cell "llamaswap/qwen3.6-35b-a3b-opencode-128k" [ref=e753]
+                    - cell "Usage without cost" [ref=e754]:
+                      - generic [ref=e755]: Usage without cost
+                    - cell "$0.0000" [ref=e756]
+                    - cell "949,922" [ref=e757]
+                    - cell "0%" [ref=e758]
+                  - row "2026-07-28 unknown Usage without cost $0.0000 0 0%" [ref=e759] [cursor=pointer]:
+                    - cell "2026-07-28" [ref=e760]:
+                      - generic [ref=e761]:
+                        - img [ref=e762]
+                        - text: 2026-07-28
+                    - cell "unknown" [ref=e764]
+                    - cell "Usage without cost" [ref=e765]:
+                      - generic [ref=e766]: Usage without cost
+                    - cell "$0.0000" [ref=e767]
+                    - cell "0" [ref=e768]
+                    - cell "0%" [ref=e769]
+                  - row "2026-07-27 llamaswap/qwen3.6-35b-a3b-opencode-128k Usage without cost $0.0000 95,517 0%" [ref=e770] [cursor=pointer]:
+                    - cell "2026-07-27" [ref=e771]:
+                      - generic [ref=e772]:
+                        - img [ref=e773]
+                        - text: 2026-07-27
+                    - cell "llamaswap/qwen3.6-35b-a3b-opencode-128k" [ref=e775]
+                    - cell "Usage without cost" [ref=e776]:
+                      - generic [ref=e777]: Usage without cost
+                    - cell "$0.0000" [ref=e778]
+                    - cell "95,517" [ref=e779]
+                    - cell "0%" [ref=e780]
+                  - row "2026-07-27 unknown Usage without cost $0.0000 0 0%" [ref=e781] [cursor=pointer]:
+                    - cell "2026-07-27" [ref=e782]:
+                      - generic [ref=e783]:
+                        - img [ref=e784]
+                        - text: 2026-07-27
+                    - cell "unknown" [ref=e786]
+                    - cell "Usage without cost" [ref=e787]:
+                      - generic [ref=e788]: Usage without cost
+                    - cell "$0.0000" [ref=e789]
+                    - cell "0" [ref=e790]
+                    - cell "0%" [ref=e791]
+                  - row "2026-07-23 llamaswap/qwen3.6-35b-a3b-opencode-128k Usage without cost $0.0000 165,775 0%" [ref=e792] [cursor=pointer]:
+                    - cell "2026-07-23" [ref=e793]:
+                      - generic [ref=e794]:
+                        - img [ref=e795]
+                        - text: 2026-07-23
+                    - cell "llamaswap/qwen3.6-35b-a3b-opencode-128k" [ref=e797]
+                    - cell "Usage without cost" [ref=e798]:
+                      - generic [ref=e799]: Usage without cost
+                    - cell "$0.0000" [ref=e800]
+                    - cell "165,775" [ref=e801]
+                    - cell "0%" [ref=e802]
+                  - row "2026-07-23 unknown Usage without cost $0.0000 0 0%" [ref=e803] [cursor=pointer]:
+                    - cell "2026-07-23" [ref=e804]:
+                      - generic [ref=e805]:
+                        - img [ref=e806]
+                        - text: 2026-07-23
+                    - cell "unknown" [ref=e808]
+                    - cell "Usage without cost" [ref=e809]:
+                      - generic [ref=e810]: Usage without cost
+                    - cell "$0.0000" [ref=e811]
+                    - cell "0" [ref=e812]
+                    - cell "0%" [ref=e813]
+                  - row "2026-07-22 llamaswap/qwen3.6-35b-a3b-opencode-128k Usage without cost $0.0000 1,158,439 0%" [ref=e814] [cursor=pointer]:
+                    - cell "2026-07-22" [ref=e815]:
+                      - generic [ref=e816]:
+                        - img [ref=e817]
+                        - text: 2026-07-22
+                    - cell "llamaswap/qwen3.6-35b-a3b-opencode-128k" [ref=e819]
+                    - cell "Usage without cost" [ref=e820]:
+                      - generic [ref=e821]: Usage without cost
+                    - cell "$0.0000" [ref=e822]
+                    - cell "1,158,439" [ref=e823]
+                    - cell "0%" [ref=e824]
+                  - row "2026-07-22 localllama/gpt-oss-20b Usage without cost $0.0000 11,641 0%" [ref=e825] [cursor=pointer]:
+                    - cell "2026-07-22" [ref=e826]:
+                      - generic [ref=e827]:
+                        - img [ref=e828]
+                        - text: 2026-07-22
+                    - cell "localllama/gpt-oss-20b" [ref=e830]
+                    - cell "Usage without cost" [ref=e831]:
+                      - generic [ref=e832]: Usage without cost
+                    - cell "$0.0000" [ref=e833]
+                    - cell "11,641" [ref=e834]
+                    - cell "0%" [ref=e835]
+                  - row "2026-07-22 unknown Usage without cost $0.0000 0 0%" [ref=e836] [cursor=pointer]:
+                    - cell "2026-07-22" [ref=e837]:
+                      - generic [ref=e838]:
+                        - img [ref=e839]
+                        - text: 2026-07-22
+                    - cell "unknown" [ref=e841]
+                    - cell "Usage without cost" [ref=e842]:
+                      - generic [ref=e843]: Usage without cost
+                    - cell "$0.0000" [ref=e844]
+                    - cell "0" [ref=e845]
+                    - cell "0%" [ref=e846]
+                  - row "2026-07-21 llamaswap/qwen3.6-35b-a3b-opencode-128k Usage without cost $0.0000 173,318 0%" [ref=e847] [cursor=pointer]:
+                    - cell "2026-07-21" [ref=e848]:
+                      - generic [ref=e849]:
+                        - img [ref=e850]
+                        - text: 2026-07-21
+                    - cell "llamaswap/qwen3.6-35b-a3b-opencode-128k" [ref=e852]
+                    - cell "Usage without cost" [ref=e853]:
+                      - generic [ref=e854]: Usage without cost
+                    - cell "$0.0000" [ref=e855]
+                    - cell "173,318" [ref=e856]
+                    - cell "0%" [ref=e857]
+                  - row "2026-07-21 localllama/qwen3-coder Usage without cost $0.0000 36,421 0%" [ref=e858] [cursor=pointer]:
+                    - cell "2026-07-21" [ref=e859]:
+                      - generic [ref=e860]:
+                        - img [ref=e861]
+                        - text: 2026-07-21
+                    - cell "localllama/qwen3-coder" [ref=e863]
+                    - cell "Usage without cost" [ref=e864]:
+                      - generic [ref=e865]: Usage without cost
+                    - cell "$0.0000" [ref=e866]
+                    - cell "36,421" [ref=e867]
+                    - cell "0%" [ref=e868]
+                  - row "2026-07-21 unknown Usage without cost $0.0000 0 0%" [ref=e869] [cursor=pointer]:
+                    - cell "2026-07-21" [ref=e870]:
+                      - generic [ref=e871]:
+                        - img [ref=e872]
+                        - text: 2026-07-21
+                    - cell "unknown" [ref=e874]
+                    - cell "Usage without cost" [ref=e875]:
+                      - generic [ref=e876]: Usage without cost
+                    - cell "$0.0000" [ref=e877]
+                    - cell "0" [ref=e878]
+                    - cell "0%" [ref=e879]
+  - generic [ref=e543]: $0

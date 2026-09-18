@@ -1,0 +1,185 @@
+- generic:
+  - generic:
+    - generic:
+      - complementary:
+        - generic:
+          - generic:
+            - generic:
+              - img
+            - generic:
+              - generic: Mission Control
+              - generic: Unified AI usage dashboard
+          - navigation:
+            - link:
+              - /url: /
+              - generic:
+                - img
+              - generic: Dashboard
+            - link:
+              - /url: /activities
+              - generic:
+                - img
+              - generic: Activities
+            - link:
+              - /url: /sessions
+              - generic:
+                - img
+              - generic: Sessions
+            - link:
+              - /url: /runtime
+              - generic:
+                - img
+              - generic: Runtime
+            - link:
+              - /url: /failures
+              - generic:
+                - img
+              - generic: Failures
+            - link:
+              - /url: /consumption
+              - generic:
+                - img
+              - generic: Consumption
+            - generic:
+              - paragraph: Workloads
+              - generic:
+                - link:
+                  - /url: /jobs
+                  - generic:
+                    - img
+                  - generic: Jobs
+                - link:
+                  - /url: /generations
+                  - generic:
+                    - img
+                  - generic: Generations
+                  - generic: "Off"
+            - generic:
+              - link:
+                - /url: /settings
+                - generic:
+                  - img
+                - generic: Settings
+          - generic:
+            - generic:
+              - generic: System Offline
+      - generic:
+        - alert:
+          - generic:
+            - img
+            - generic:
+              - paragraph: Security notice
+              - paragraph: App authentication is off. Anyone who can reach this host can read activity data.
+        - banner:
+          - generic:
+            - combobox [expanded]:
+              - generic:
+                - generic:
+                  - generic: Codex CLI
+              - img
+            - generic: Partial scope
+          - button:
+            - img
+            - generic: Toggle theme
+        - main:
+          - generic:
+            - generic:
+              - generic:
+                - heading [level=1]: Consumption
+                - paragraph: Agent session usage for Codex CLI; Direct API Spend is account-wide; Attribution links them with confidence — never summed blindly
+            - generic:
+              - generic:
+                - generic:
+                  - tablist:
+                    - tab [selected]:
+                      - img
+                      - text: Agent Usage
+                    - tab:
+                      - img
+                      - text: Direct API Spend
+                    - tab:
+                      - img
+                      - text: Attribution
+                - generic:
+                  - button: Today
+                  - button: Last 7 days
+                  - button: Last 30 days
+                  - button: All time
+              - paragraph:
+                - img
+                - text: "Showing: Last 30 days"
+              - tabpanel:
+                - generic:
+                  - paragraph: Session-derived usage from agent sources (Claude Code, Codex, Grok, Hermes, etc.) for Codex CLI. Honors the global source filter. Not the same as account-level provider billing.
+                  - generic:
+                    - button: Tokens
+                    - button: Compute time
+                    - button: USD
+                - generic:
+                  - generic:
+                    - generic:
+                      - img
+                      - paragraph:
+                        - text: No billable agent usage in this range for Codex CLI. Sources here are subscription or local, or no
+                        - code: cost_usd
+                        - text: was recorded in session logs.
+                      - paragraph:
+                        - text: Provider account billing is under the
+                        - button: Direct API Spend
+                        - text: view — it is a separate dataset.
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading [level=3]: Ranked drivers
+                        - paragraph: Canonical model identities with raw aliases for diagnostics · filtered to Codex CLI. Zero-token and synthetic rows are excluded by default.
+                      - generic:
+                        - generic:
+                          - checkbox
+                          - text: Show zero / synthetic
+                        - generic:
+                          - button:
+                            - img
+                            - text: Export
+                    - generic:
+                      - button: Model
+                      - button: Project
+                      - button: Actor
+                      - button: Source
+                      - button: Session
+                  - generic:
+                    - paragraph: No material drivers for this grouping (try Show zero / synthetic).
+  - generic: $0
+  - listbox [ref=e639]:
+    - option "All sources" [ref=e640]:
+      - generic [ref=e642]: All sources
+    - 'option "claude-code@arch-desktop: Unknown claude-code@test: Unknown Claude Code" [ref=e643]':
+      - generic [ref=e646]:
+        - 'generic "claude-code@arch-desktop: Unknown" [ref=e647]'
+        - 'generic "claude-code@test: Unknown" [ref=e648]'
+        - generic [ref=e649]: Claude Code
+    - 'option "codex@arch-desktop: Unknown Codex CLI" [active] [selected] [ref=e650]':
+      - img [ref=e653]
+      - generic [ref=e656]:
+        - 'generic "codex@arch-desktop: Unknown" [ref=e657]'
+        - generic [ref=e658]: Codex CLI
+    - 'option "comfyui@strix-halo: Offline ComfyUI" [ref=e659]':
+      - generic [ref=e662]:
+        - 'generic "comfyui@strix-halo: Offline" [ref=e663]'
+        - generic [ref=e664]: ComfyUI
+    - 'option "grok@arch-desktop: Unknown Grok" [ref=e665]':
+      - generic [ref=e668]:
+        - 'generic "grok@arch-desktop: Unknown" [ref=e669]'
+        - generic [ref=e670]: Grok
+    - 'option "hermes@strix-halo: Unknown Hermes" [ref=e671]':
+      - generic [ref=e674]:
+        - 'generic "hermes@strix-halo: Unknown" [ref=e675]'
+        - generic [ref=e676]: Hermes
+    - 'option "lemonade@strix-halo: Offline Lemonade" [ref=e677]':
+      - generic [ref=e680]:
+        - 'generic "lemonade@strix-halo: Offline" [ref=e681]'
+        - generic [ref=e682]: Lemonade
+    - 'option "opencode@arch-desktop: Unknown OpenCode" [ref=e683]':
+      - generic [ref=e686]:
+        - 'generic "opencode@arch-desktop: Unknown" [ref=e687]'
+        - generic [ref=e688]: OpenCode

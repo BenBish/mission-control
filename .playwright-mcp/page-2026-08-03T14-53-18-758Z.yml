@@ -1,0 +1,564 @@
+- generic:
+  - generic:
+    - generic:
+      - complementary:
+        - generic:
+          - generic:
+            - generic:
+              - img
+            - generic:
+              - generic: Mission Control
+              - generic: Unified AI usage dashboard
+          - navigation:
+            - link:
+              - /url: /
+              - generic:
+                - img
+              - text: Dashboard
+            - link:
+              - /url: /activities
+              - generic:
+                - img
+              - text: Activities
+            - link:
+              - /url: /sessions
+              - generic:
+                - img
+              - text: Sessions
+            - link:
+              - /url: /runtime
+              - generic:
+                - img
+              - text: Runtime
+            - link:
+              - /url: /failures
+              - generic:
+                - img
+              - text: Failures
+            - link:
+              - /url: /consumption
+              - generic:
+                - img
+              - text: Consumption
+            - link:
+              - /url: /jobs
+              - generic:
+                - img
+              - text: Jobs
+            - link:
+              - /url: /generations
+              - generic:
+                - img
+              - text: Generations
+            - link:
+              - /url: /settings
+              - generic:
+                - img
+              - text: Settings
+          - generic:
+            - generic:
+              - generic: System Error
+      - generic:
+        - banner:
+          - generic:
+            - combobox:
+              - generic:
+                - generic:
+                  - generic: All sources
+              - img
+          - button:
+            - img
+            - generic: Toggle theme
+        - main:
+          - generic:
+            - generic:
+              - generic:
+                - heading [level=1]: Failure Analysis
+                - paragraph: Grouped failures across all sources
+            - generic:
+              - generic:
+                - generic:
+                  - heading [level=3]: Total Failures
+                  - generic:
+                    - img
+                - generic:
+                  - generic: "39"
+                  - paragraph: All time · activity failure · inference non-success · runtime non-info
+              - generic:
+                - generic:
+                  - heading [level=3]: Last 24 Hours
+                  - generic:
+                    - img
+                - generic:
+                  - generic: "34"
+                  - paragraph: Last 24 hours · activity failure · inference non-success · runtime non-info
+              - generic:
+                - generic:
+                  - heading [level=3]: Open Runtime
+                  - generic:
+                    - img
+                - generic:
+                  - generic: "25"
+                  - paragraph: Unresolved · severity ≠ info, no end time
+              - generic:
+                - generic:
+                  - heading [level=3]: Unique Groups
+                - generic:
+                  - generic: "32"
+                  - paragraph: After kind / resolution filters
+            - generic:
+              - generic:
+                - generic:
+                  - text: Kind
+                  - combobox [expanded]:
+                    - generic: All kinds
+                    - img
+                - generic:
+                  - text: Resolution
+                  - combobox:
+                    - generic: All
+                    - img
+                - paragraph: Source filter is global (header). Groups share a fingerprint of kind, source, structured fields, and normalized message.
+            - generic:
+              - generic:
+                - generic:
+                  - table:
+                    - rowgroup:
+                      - row:
+                        - columnheader: Last / First
+                        - columnheader: Source
+                        - columnheader: Kind
+                        - columnheader: Count
+                        - columnheader: Status
+                        - columnheader: Summary
+                    - rowgroup:
+                      - row:
+                        - cell:
+                          - generic: 8m ago
+                          - generic: first 48m ago
+                        - cell:
+                          - generic: hermes
+                        - cell: Inference
+                        - cell: "5"
+                        - cell:
+                          - generic: open (5)
+                        - cell:
+                          - button [expanded]:
+                            - img
+                            - generic:
+                              - generic: cancelled on qwen (openclaw)
+                          - generic:
+                            - generic:
+                              - generic:
+                                - paragraph: Occurrences 1–5 of 5
+                              - list:
+                                - listitem:
+                                  - generic:
+                                    - generic: 8m ago
+                                    - generic: open
+                                    - generic: seed-req-0
+                                  - paragraph: cancelled on qwen (openclaw)
+                                - listitem:
+                                  - generic:
+                                    - generic: 18m ago
+                                    - generic: open
+                                    - generic: seed-req-10
+                                  - paragraph: cancelled on qwen (openclaw)
+                                - listitem:
+                                  - generic:
+                                    - generic: 28m ago
+                                    - generic: open
+                                    - generic: seed-req-20
+                                  - paragraph: cancelled on qwen (openclaw)
+                                - listitem:
+                                  - generic:
+                                    - generic: 38m ago
+                                    - generic: open
+                                    - generic: seed-req-30
+                                  - paragraph: cancelled on qwen (openclaw)
+                                - listitem:
+                                  - generic:
+                                    - generic: 48m ago
+                                    - generic: open
+                                    - generic: seed-req-40
+                                  - paragraph: cancelled on qwen (openclaw)
+                      - row:
+                        - cell:
+                          - generic: 8m ago
+                          - generic: first 8m ago
+                        - cell:
+                          - generic: hermes
+                        - cell: Runtime
+                        - cell: "1"
+                        - cell:
+                          - generic: open (1)
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: seed event 0
+                      - row:
+                        - cell:
+                          - generic: 10m ago
+                          - generic: first 10m ago
+                        - cell:
+                          - generic: hermes
+                        - cell: Runtime
+                        - cell: "1"
+                        - cell:
+                          - generic: open (1)
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: seed event 1
+                      - row:
+                        - cell:
+                          - generic: 12m ago
+                          - generic: first 12m ago
+                        - cell:
+                          - generic: hermes
+                        - cell: Runtime
+                        - cell: "1"
+                        - cell:
+                          - generic: open (1)
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: seed event 2
+                      - row:
+                        - cell:
+                          - generic: 13m ago
+                          - generic: first 43m ago
+                        - cell:
+                          - generic: hermes
+                        - cell: Inference
+                        - cell: "4"
+                        - cell:
+                          - generic: open (4)
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: cancelled on qwen (cron)
+                      - row:
+                        - cell:
+                          - generic: 14m ago
+                          - generic: first 14m ago
+                        - cell:
+                          - generic: hermes
+                        - cell: Runtime
+                        - cell: "1"
+                        - cell:
+                          - generic: open (1)
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: seed event 3
+                      - row:
+                        - cell:
+                          - generic: 16m ago
+                          - generic: first 16m ago
+                        - cell:
+                          - generic: hermes
+                        - cell: Runtime
+                        - cell: "1"
+                        - cell:
+                          - generic: open (1)
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: seed event 4
+                      - row:
+                        - cell:
+                          - generic: 18m ago
+                          - generic: first 18m ago
+                        - cell:
+                          - generic: hermes
+                        - cell: Runtime
+                        - cell: "1"
+                        - cell:
+                          - generic: open (1)
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: seed event 5
+                      - row:
+                        - cell:
+                          - generic: 20m ago
+                          - generic: first 20m ago
+                        - cell:
+                          - generic: hermes
+                        - cell: Runtime
+                        - cell: "1"
+                        - cell:
+                          - generic: open (1)
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: seed event 6
+                      - row:
+                        - cell:
+                          - generic: 22m ago
+                          - generic: first 22m ago
+                        - cell:
+                          - generic: hermes
+                        - cell: Runtime
+                        - cell: "1"
+                        - cell:
+                          - generic: open (1)
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: seed event 7
+                      - row:
+                        - cell:
+                          - generic: 24m ago
+                          - generic: first 24m ago
+                        - cell:
+                          - generic: hermes
+                        - cell: Runtime
+                        - cell: "1"
+                        - cell:
+                          - generic: open (1)
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: seed event 8
+                      - row:
+                        - cell:
+                          - generic: 26m ago
+                          - generic: first 26m ago
+                        - cell:
+                          - generic: hermes
+                        - cell: Runtime
+                        - cell: "1"
+                        - cell:
+                          - generic: open (1)
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: seed event 9
+                      - row:
+                        - cell:
+                          - generic: 28m ago
+                          - generic: first 28m ago
+                        - cell:
+                          - generic: hermes
+                        - cell: Runtime
+                        - cell: "1"
+                        - cell:
+                          - generic: open (1)
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: seed event 10
+                      - row:
+                        - cell:
+                          - generic: 30m ago
+                          - generic: first 30m ago
+                        - cell:
+                          - generic: hermes
+                        - cell: Runtime
+                        - cell: "1"
+                        - cell:
+                          - generic: open (1)
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: seed event 11
+                      - row:
+                        - cell:
+                          - generic: 32m ago
+                          - generic: first 32m ago
+                        - cell:
+                          - generic: hermes
+                        - cell: Runtime
+                        - cell: "1"
+                        - cell:
+                          - generic: open (1)
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: seed event 12
+                      - row:
+                        - cell:
+                          - generic: 34m ago
+                          - generic: first 34m ago
+                        - cell:
+                          - generic: hermes
+                        - cell: Runtime
+                        - cell: "1"
+                        - cell:
+                          - generic: open (1)
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: seed event 13
+                      - row:
+                        - cell:
+                          - generic: 36m ago
+                          - generic: first 36m ago
+                        - cell:
+                          - generic: hermes
+                        - cell: Runtime
+                        - cell: "1"
+                        - cell:
+                          - generic: open (1)
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: seed event 14
+                      - row:
+                        - cell:
+                          - generic: 38m ago
+                          - generic: first 38m ago
+                        - cell:
+                          - generic: hermes
+                        - cell: Runtime
+                        - cell: "1"
+                        - cell:
+                          - generic: open (1)
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: seed event 15
+                      - row:
+                        - cell:
+                          - generic: 40m ago
+                          - generic: first 40m ago
+                        - cell:
+                          - generic: hermes
+                        - cell: Runtime
+                        - cell: "1"
+                        - cell:
+                          - generic: open (1)
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: seed event 16
+                      - row:
+                        - cell:
+                          - generic: 42m ago
+                          - generic: first 42m ago
+                        - cell:
+                          - generic: hermes
+                        - cell: Runtime
+                        - cell: "1"
+                        - cell:
+                          - generic: open (1)
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: seed event 17
+                      - row:
+                        - cell:
+                          - generic: 44m ago
+                          - generic: first 44m ago
+                        - cell:
+                          - generic: hermes
+                        - cell: Runtime
+                        - cell: "1"
+                        - cell:
+                          - generic: open (1)
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: seed event 18
+                      - row:
+                        - cell:
+                          - generic: 46m ago
+                          - generic: first 46m ago
+                        - cell:
+                          - generic: hermes
+                        - cell: Runtime
+                        - cell: "1"
+                        - cell:
+                          - generic: open (1)
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: seed event 19
+                      - row:
+                        - cell:
+                          - generic: 48m ago
+                          - generic: first 48m ago
+                        - cell:
+                          - generic: hermes
+                        - cell: Runtime
+                        - cell: "1"
+                        - cell:
+                          - generic: open (1)
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: seed event 20
+                      - row:
+                        - cell:
+                          - generic: 50m ago
+                          - generic: first 50m ago
+                        - cell:
+                          - generic: hermes
+                        - cell: Runtime
+                        - cell: "1"
+                        - cell:
+                          - generic: open (1)
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: seed event 21
+                      - row:
+                        - cell:
+                          - generic: 52m ago
+                          - generic: first 52m ago
+                        - cell:
+                          - generic: hermes
+                        - cell: Runtime
+                        - cell: "1"
+                        - cell:
+                          - generic: open (1)
+                        - cell:
+                          - button:
+                            - img
+                            - generic:
+                              - generic: seed event 22
+                - generic:
+                  - paragraph: Groups 1–25 of 32 · 39 events total (5 activity · 9 inference · 25 runtime)
+                  - generic:
+                    - button [disabled]:
+                      - img
+                      - text: Prev
+                    - generic: 1 / 2
+                    - button:
+                      - text: Next
+                      - img
+  - listbox [ref=e713]:
+    - option "All kinds" [active] [selected] [ref=e714]:
+      - img [ref=e717]
+      - generic [ref=e719]: All kinds
+    - option "Activity" [ref=e720]:
+      - generic [ref=e722]: Activity
+    - option "Inference" [ref=e723]:
+      - generic [ref=e725]: Inference
+    - option "Runtime" [ref=e726]:
+      - generic [ref=e728]: Runtime

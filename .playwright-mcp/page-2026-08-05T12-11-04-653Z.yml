@@ -1,0 +1,69 @@
+- generic [ref=f3e6]:
+  - complementary [ref=f3e7]:
+    - generic [ref=f3e8]:
+      - generic [ref=f3e13]:
+        - generic [ref=f3e14]: Mission Control
+        - generic [ref=f3e15]: Unified AI usage dashboard
+      - navigation "Main" [ref=f3e16]:
+        - link "Dashboard" [ref=f3e17] [cursor=pointer]:
+          - /url: /
+        - link "Activities" [ref=f3e25] [cursor=pointer]:
+          - /url: /activities
+        - link "Sessions" [ref=f3e29] [cursor=pointer]:
+          - /url: /sessions
+        - link "Runtime" [ref=f3e36] [cursor=pointer]:
+          - /url: /runtime
+        - link "Failures" [ref=f3e42] [cursor=pointer]:
+          - /url: /failures
+        - link "Consumption" [ref=f3e47] [cursor=pointer]:
+          - /url: /consumption
+        - generic [ref=f3e53]:
+          - paragraph [ref=f3e54]: Workloads
+          - generic [ref=f3e55]:
+            - link "Jobs" [ref=f3e56] [cursor=pointer]:
+              - /url: /jobs
+            - link "Generations Off" [ref=f3e62] [cursor=pointer]:
+              - /url: /generations
+              - generic [ref=f3e68]: Generations
+              - generic [ref=f3e69]: "Off"
+        - link "Settings" [ref=f3e71] [cursor=pointer]:
+          - /url: /settings
+      - generic [ref=f3e77]: System Online
+  - generic [ref=f3e81]:
+    - banner [ref=f3e82]:
+      - generic "Agent usage respects the source filter; provider API costs are account-wide" [ref=f3e83]:
+        - combobox "Filter by source" [ref=f3e84]:
+          - generic: All sources
+      - button "Toggle theme" [ref=f3e87]
+    - main [ref=f3e89]:
+      - generic [ref=f3e90]:
+        - generic [ref=f3e92]:
+          - heading "Consumption" [level=1] [ref=f3e93]
+          - paragraph [ref=f3e94]: Agent session usage for all sources; Direct API Spend is account-wide — separate datasets, not summed together
+        - generic [ref=f3e95]:
+          - generic [ref=f3e96]:
+            - tablist [ref=f3e97]:
+              - tab "Agent Usage" [selected] [ref=f3e98]
+              - tab "Direct API Spend" [ref=f3e102]
+            - generic [ref=f3e105]:
+              - button "Today" [ref=f3e106]
+              - button "Last 7 days" [ref=f3e107]
+              - button "Last 30 days" [ref=f3e108]
+              - button "All time" [ref=f3e109]
+          - paragraph [ref=f3e110]: "Showing: Last 30 days"
+          - tabpanel "Agent Usage" [ref=f3e113]:
+            - generic [ref=f3e114]:
+              - paragraph [ref=f3e115]: Session-derived usage from agent sources (Claude Code, Codex, Grok, Hermes, etc.) for all sources. Honors the global source filter. Not the same as account-level provider billing.
+              - generic [ref=f3e116]:
+                - button "Tokens" [ref=f3e117]
+                - button "Compute time" [ref=f3e118]
+                - button "USD" [ref=f3e119]
+            - generic [ref=f3e122]:
+              - paragraph [ref=f3e125]:
+                - text: No billable agent usage in this range. Sources here are subscription or local, or no
+                - code [ref=f3e126]: cost_usd
+                - text: was recorded in session logs.
+              - paragraph [ref=f3e127]:
+                - text: Provider account billing is under the
+                - button "Direct API Spend" [ref=f3e128]
+                - text: view — it is a separate dataset.

@@ -1,0 +1,42 @@
+- generic [ref=f4e6]:
+  - complementary [ref=f4e7]:
+    - generic [ref=f4e8]:
+      - generic [ref=f4e13]:
+        - generic [ref=f4e14]: Mission Control
+        - generic [ref=f4e15]: Unified AI usage dashboard
+      - navigation "Main" [ref=f4e16]:
+        - link "Dashboard" [ref=f4e17] [cursor=pointer]:
+          - /url: /
+        - link "Activities" [ref=f4e25] [cursor=pointer]:
+          - /url: /activities
+        - link "Sessions" [ref=f4e29] [cursor=pointer]:
+          - /url: /sessions
+        - link "Runtime" [ref=f4e36] [cursor=pointer]:
+          - /url: /runtime
+        - link "Failures" [ref=f4e43] [cursor=pointer]:
+          - /url: /failures
+        - link "Consumption" [ref=f4e48] [cursor=pointer]:
+          - /url: /consumption
+        - generic [ref=f4e53]:
+          - paragraph [ref=f4e54]: Workloads
+          - generic [ref=f4e55]:
+            - link "Jobs" [ref=f4e56] [cursor=pointer]:
+              - /url: /jobs
+            - link "Generations Off" [ref=f4e62] [cursor=pointer]:
+              - /url: /generations
+              - generic [ref=f4e68]: Generations
+              - generic [ref=f4e69]: "Off"
+        - link "Settings" [ref=f4e71] [cursor=pointer]:
+          - /url: /settings
+      - generic [ref=f4e77]: System Online
+  - generic [ref=f4e81]:
+    - banner [ref=f4e82]:
+      - generic "Runtime shows fleet-wide inference telemetry" [ref=f4e83]:
+        - combobox "Filter by source" [disabled] [ref=f4e84]:
+          - generic: All sources
+        - generic [ref=f4e87]: Not filtered
+      - button "Toggle theme" [ref=f4e88]
+    - main [ref=f4e90]:
+      - generic [ref=f4e93]:
+        - heading "Runtime" [level=1] [ref=f4e94]
+        - paragraph [ref=f4e95]: Fleet-wide inference telemetry (not filtered by source)

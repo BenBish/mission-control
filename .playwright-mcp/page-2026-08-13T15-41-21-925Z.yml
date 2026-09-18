@@ -1,0 +1,187 @@
+- generic [ref=e1]:
+  - generic [ref=e6]:
+    - complementary [ref=e7]:
+      - generic [ref=e8]:
+        - generic [ref=e9]:
+          - img [ref=e11]
+          - generic [ref=e13]:
+            - generic [ref=e14]: Mission Control
+            - generic [ref=e15]: Unified AI usage dashboard
+        - navigation "Main" [ref=e16]:
+          - link "Dashboard" [ref=e17] [cursor=pointer]:
+            - /url: /
+            - img [ref=e19]
+            - generic [ref=e24]: Dashboard
+          - link "Activities" [ref=e25] [cursor=pointer]:
+            - /url: /activities
+            - img [ref=e27]
+            - generic [ref=e28]: Activities
+          - link "Sessions" [ref=e29] [cursor=pointer]:
+            - /url: /sessions
+            - img [ref=e31]
+            - generic [ref=e35]: Sessions
+          - link "Runtime" [ref=e36] [cursor=pointer]:
+            - /url: /runtime
+            - img [ref=e38]
+            - generic [ref=e41]: Runtime
+          - link "Failures" [ref=e42] [cursor=pointer]:
+            - /url: /failures
+            - img [ref=e44]
+            - generic [ref=e46]: Failures
+          - link "Consumption" [active] [ref=e47] [cursor=pointer]:
+            - /url: /consumption
+            - img [ref=e49]
+            - generic [ref=e51]: Consumption
+          - generic [ref=e53]:
+            - paragraph [ref=e54]: Workloads
+            - generic [ref=e55]:
+              - link "Jobs" [ref=e56] [cursor=pointer]:
+                - /url: /jobs
+                - img [ref=e58]
+                - generic [ref=e61]: Jobs
+              - link "Generations Off" [ref=e62] [cursor=pointer]:
+                - /url: /generations
+                - img [ref=e64]
+                - generic [ref=e68]: Generations
+                - generic [ref=e69]: "Off"
+          - link "Settings" [ref=e71] [cursor=pointer]:
+            - /url: /settings
+            - img [ref=e73]
+            - generic [ref=e76]: Settings
+        - generic [ref=e80]: System Error
+    - generic [ref=e81]:
+      - alert [ref=e82]:
+        - generic [ref=e83]:
+          - img [ref=e84]
+          - generic [ref=e86]:
+            - paragraph [ref=e87]: Security notice
+            - paragraph [ref=e88]: App authentication is off. Anyone who can reach this host can read activity data.
+      - banner [ref=e89]:
+        - generic "Agent usage and attribution respect the source filter; provider API costs are account-wide" [ref=e1109]:
+          - combobox "Filter by source" [ref=e91]:
+            - generic:
+              - generic:
+                - 'generic "opencode@arch-desktop: Offline — Heartbeat expired (raw: ok)"'
+                - generic: OpenCode
+            - img [ref=e92]
+          - generic [ref=e1110]: Partial scope
+        - button "Toggle theme" [ref=e95]:
+          - img
+          - generic [ref=e96]: Toggle theme
+      - main [ref=e97]:
+        - generic [ref=e1111]:
+          - generic [ref=e1113]:
+            - heading "Consumption" [level=1] [ref=e1114]
+            - paragraph [ref=e1115]: Agent session usage for OpenCode; Direct API Spend is account-wide; Attribution links them with confidence — never summed blindly
+          - generic [ref=e1116]:
+            - generic [ref=e1117]:
+              - tablist [ref=e1119]:
+                - tab "Agent Usage" [selected] [ref=e1120]:
+                  - img [ref=e1121]
+                  - text: Agent Usage
+                - tab "Direct API Spend" [ref=e1124]:
+                  - img [ref=e1125]
+                  - text: Direct API Spend
+                - tab "Attribution" [ref=e1127]:
+                  - img [ref=e1128]
+                  - text: Attribution
+              - generic [ref=e1131]:
+                - button "Today" [ref=e1132]
+                - button "Last 7 days" [ref=e1133]
+                - button "Last 30 days" [ref=e1134]
+                - button "All time" [ref=e1135]
+            - paragraph [ref=e1136]:
+              - img [ref=e1137]
+              - text: "Showing: Last 30 days"
+            - tabpanel "Agent Usage" [ref=e1139]:
+              - generic [ref=e1140]:
+                - paragraph [ref=e1141]: Session-derived usage from agent sources (Claude Code, Codex, Grok, Hermes, etc.) for OpenCode. Honors the global source filter. Not the same as account-level provider billing.
+                - generic [ref=e1142]:
+                  - button "Tokens" [ref=e1143]
+                  - button "Compute time" [ref=e1144]
+                  - button "USD" [ref=e1145]
+              - generic [ref=e1146]:
+                - generic [ref=e1147]:
+                  - generic [ref=e1148]:
+                    - heading "Total Tokens" [level=3] [ref=e1149]
+                    - img [ref=e1151]
+                  - generic [ref=e1153]:
+                    - generic [ref=e1154]: 4,639,133
+                    - paragraph [ref=e1155]: 58 sessions · 4,027 requests
+                - generic [ref=e1156]:
+                  - generic [ref=e1157]:
+                    - heading "Unattributed" [level=3] [ref=e1158]
+                    - img [ref=e1160]
+                  - generic [ref=e1162]:
+                    - generic [ref=e1163]: 0%
+                    - paragraph [ref=e1164]: 0 tokens unknown/synthetic
+                - generic [ref=e1165]:
+                  - heading "Cache read" [level=3] [ref=e1167]
+                  - generic [ref=e1168]:
+                    - generic [ref=e1169]: 116,730,444
+                    - paragraph [ref=e1170]: write 0
+              - generic [ref=e1172]:
+                - generic [ref=e1173]:
+                  - text: "Material ranked:"
+                  - strong [ref=e1174]: 4,639,133
+                  - text: tokens
+                - generic [ref=e1175]: "Unknown model: 0"
+                - generic [ref=e1176]: "Synthetic: 0"
+                - generic [ref=e1177]: "Zero-token rows excluded: 114"
+                - generic [ref=e1178]: "Missing project: 0 tokens"
+              - generic [ref=e1179]:
+                - generic [ref=e1180]:
+                  - generic [ref=e1181]:
+                    - generic [ref=e1182]:
+                      - heading "Ranked drivers" [level=3] [ref=e1183]
+                      - paragraph [ref=e1184]: Canonical model identities with raw aliases for diagnostics · filtered to OpenCode. Zero-token and synthetic rows are excluded by default.
+                    - generic [ref=e1185] [cursor=pointer]:
+                      - checkbox "Show zero / synthetic" [ref=e1186]
+                      - text: Show zero / synthetic
+                  - generic [ref=e1187]:
+                    - button "Model" [ref=e1188]
+                    - button "Project" [ref=e1189]
+                    - button "Actor" [ref=e1190]
+                    - button "Source" [ref=e1191]
+                    - button "Session" [ref=e1192]
+                - table [ref=e1195]:
+                  - rowgroup [ref=e1196]:
+                    - row "Source Model Input Output Cache Sessions" [ref=e1197]:
+                      - columnheader "Source" [ref=e1198]
+                      - columnheader "Model" [ref=e1199]
+                      - columnheader "Input" [ref=e1200]
+                      - columnheader "Output" [ref=e1201]
+                      - columnheader "Cache" [ref=e1202]
+                      - columnheader "Sessions" [ref=e1203]
+                  - rowgroup [ref=e1204]:
+                    - 'row "opencode llamaswap/qwen3.6-35b-a3b-opencode-128k raw: llamaswap/Qwen3.6-35B-A3B-Opencode-128K opportunity-scout 4,249,041 342,030 116,609,880 52" [ref=e1205] [cursor=pointer]':
+                      - cell "opencode" [ref=e1206]
+                      - 'cell "llamaswap/qwen3.6-35b-a3b-opencode-128k raw: llamaswap/Qwen3.6-35B-A3B-Opencode-128K opportunity-scout" [ref=e1207]':
+                        - generic [ref=e1208]: llamaswap/qwen3.6-35b-a3b-opencode-128k
+                        - generic [ref=e1209]: "raw: llamaswap/Qwen3.6-35B-A3B-Opencode-128K"
+                        - generic [ref=e1210]: opportunity-scout
+                      - cell "4,249,041" [ref=e1211]
+                      - cell "342,030" [ref=e1212]
+                      - cell "116,609,880" [ref=e1213]
+                      - cell "52" [ref=e1214]
+                    - 'row "opencode localllama/qwen3-coder raw: localllama/qwen3-coder bshp 36,175 246 120,564 1" [ref=e1215] [cursor=pointer]':
+                      - cell "opencode" [ref=e1216]
+                      - 'cell "localllama/qwen3-coder raw: localllama/qwen3-coder bshp" [ref=e1217]':
+                        - generic [ref=e1218]: localllama/qwen3-coder
+                        - generic [ref=e1219]: "raw: localllama/qwen3-coder"
+                        - generic [ref=e1220]: bshp
+                      - cell "36,175" [ref=e1221]
+                      - cell "246" [ref=e1222]
+                      - cell "120,564" [ref=e1223]
+                      - cell "1" [ref=e1224]
+                    - 'row "opencode localllama/gpt-oss-20b raw: localllama/gpt-oss-20b tmp 11,561 80 0 2" [ref=e1225] [cursor=pointer]':
+                      - cell "opencode" [ref=e1226]
+                      - 'cell "localllama/gpt-oss-20b raw: localllama/gpt-oss-20b tmp" [ref=e1227]':
+                        - generic [ref=e1228]: localllama/gpt-oss-20b
+                        - generic [ref=e1229]: "raw: localllama/gpt-oss-20b"
+                        - generic [ref=e1230]: tmp
+                      - cell "11,561" [ref=e1231]
+                      - cell "80" [ref=e1232]
+                      - cell "0" [ref=e1233]
+                      - cell "2" [ref=e1234]
+  - generic [ref=e543]: "0"

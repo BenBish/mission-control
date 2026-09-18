@@ -1,0 +1,338 @@
+- generic [ref=e1]:
+  - generic [ref=e81]:
+    - banner [ref=e82]:
+      - button "Toggle menu" [ref=e2622]:
+        - img
+        - generic [ref=e2623]: Toggle menu
+      - generic "Agent usage and attribution respect the source filter; provider API costs are account-wide" [ref=e83]:
+        - combobox "Filter by source" [ref=e84]:
+          - generic:
+            - generic:
+              - generic: All sources
+          - img [ref=e85]
+      - button "Toggle theme" [ref=e87]:
+        - img
+        - generic [ref=e88]: Toggle theme
+    - main [ref=e89]:
+      - generic [ref=e90]:
+        - generic [ref=e92]:
+          - heading "Consumption" [level=1] [ref=e93]
+          - paragraph [ref=e94]: Agent session usage for all sources; Direct API Spend is account-wide; Attribution links them with confidence — never summed blindly
+        - generic [ref=e95]:
+          - generic [ref=e96]:
+            - tablist [ref=e98]:
+              - tab "Agent Usage" [ref=e99]:
+                - img [ref=e100]
+                - text: Agent Usage
+              - tab "Direct API Spend" [active] [selected] [ref=e103]:
+                - img [ref=e104]
+                - text: Direct API Spend
+              - tab "Attribution" [ref=e106]:
+                - img [ref=e107]
+                - text: Attribution
+            - generic [ref=e110]:
+              - button "Today" [ref=e111]
+              - button "Last 7 days" [ref=e112]
+              - button "Last 30 days" [ref=e113]
+              - button "All time" [ref=e114]
+          - paragraph [ref=e115]:
+            - img [ref=e116]
+            - text: "Showing: Last 30 days"
+          - tabpanel "Direct API Spend" [ref=e311]:
+            - generic [ref=e2816]:
+              - generic [ref=e2818]:
+                - generic [ref=e2819]:
+                  - generic [ref=e2820]:
+                    - heading "Direct API Spend" [level=3] [ref=e2821]:
+                      - img [ref=e2822]
+                      - text: Direct API Spend
+                    - generic [ref=e2824]: Account-wide
+                  - paragraph [ref=e2825]:
+                    - strong [ref=e2826]: API org spend
+                    - text: "from provider Admin billing APIs — not agent session logs, plan usage windows, or wallet balances. Budget/forecast: calendar month (America/Los_Angeles)."
+                - generic [ref=e2827]:
+                  - link "Configure budget" [ref=e2828] [cursor=pointer]:
+                    - /url: /settings?tab=budgets
+                  - button "Sync now" [ref=e2829]:
+                    - img
+                    - text: Sync now
+              - generic [ref=e2830]:
+                - region "Overview" [ref=e2831]:
+                  - generic [ref=e2832]:
+                    - heading "Overview" [level=2] [ref=e2833]
+                    - generic [ref=e2834]: Month-to-date spend & budget risk
+                  - generic [ref=e2835]:
+                    - generic [ref=e2836]:
+                      - generic [ref=e2837]:
+                        - heading "MTD spent" [level=3] [ref=e2838]
+                        - img [ref=e2839]
+                      - generic [ref=e2841]:
+                        - generic [ref=e2842]: $0.26
+                        - paragraph [ref=e2843]: 2026-08-01 → 2026-08-06 (America/Los_Angeles)
+                    - generic [ref=e2844]:
+                      - generic [ref=e2845]:
+                        - heading "Budget remaining" [level=3] [ref=e2846]
+                        - img [ref=e2847]
+                      - generic [ref=e2851]:
+                        - generic [ref=e2852]: $49.74
+                        - paragraph [ref=e2855]: 0.5% of $50.00
+                    - generic [ref=e2856]:
+                      - generic [ref=e2857]:
+                        - heading "Burn rate" [level=3] [ref=e2858]
+                        - img [ref=e2859]
+                      - generic [ref=e2862]:
+                        - generic [ref=e2863]: $0.00/day
+                        - paragraph [ref=e2864]: Day 6 of 31
+                    - generic [ref=e2865]:
+                      - generic [ref=e2866]:
+                        - heading "Forecast month-end" [level=3] [ref=e2867]
+                        - generic [ref=e2868]: unreliable
+                      - generic [ref=e2869]:
+                        - generic [ref=e2870]: $0.00
+                        - paragraph [ref=e2871]: Range $0.00–$0.00 · 29% conf
+                        - paragraph [ref=e2872]: Stale/failed sync — do not trust this figure
+                        - paragraph [ref=e2873]: "Incomplete days excluded from burn: 2026-08-04, 2026-08-05, 2026-08-06"
+                  - generic [ref=e2874]:
+                    - generic [ref=e2875]:
+                      - heading "Cost classes (kept separate)" [level=3] [ref=e2876]
+                      - paragraph [ref=e2877]: Actual provider billing, agent-attributed session cost, and estimates are never summed together
+                    - generic [ref=e2879]:
+                      - generic [ref=e2880]:
+                        - paragraph [ref=e2881]: Actual provider spend
+                        - paragraph [ref=e2882]: $0.26
+                      - generic [ref=e2883]:
+                        - paragraph [ref=e2884]: Agent-attributed
+                        - paragraph [ref=e2885]: —
+                      - generic [ref=e2886]:
+                        - paragraph [ref=e2887]: Est. cache savings
+                        - paragraph [ref=e2888]: —
+                        - paragraph [ref=e2889]: Estimated — not a credit
+                      - generic [ref=e2890]:
+                        - paragraph [ref=e2891]: Failure waste
+                        - paragraph [ref=e2892]: —
+                        - paragraph [ref=e2893]: Agent-attributed
+                - region "Drivers" [ref=e2894]:
+                  - generic [ref=e2895]:
+                    - heading "Drivers" [level=2] [ref=e2896]
+                    - generic [ref=e2897]: Trend, anomalies, top movers
+                  - generic [ref=e2898]:
+                    - generic [ref=e2899]:
+                      - heading "Daily spend (MTD)" [level=3] [ref=e2900]
+                      - paragraph [ref=e2901]: Current month vs same day-of-month in the prior month
+                    - generic [ref=e2904]:
+                      - list [ref=e2906]:
+                        - listitem [ref=e2907]:
+                          - img "Prior month legend icon" [ref=e2908]
+                          - text: Prior month
+                        - listitem [ref=e2910]:
+                          - img "This month legend icon" [ref=e2911]
+                          - text: This month
+                      - application [ref=e2913]:
+                        - generic [ref=e2925]:
+                          - generic [ref=e2926]:
+                            - generic [ref=e2928]: 8/1
+                            - generic [ref=e2930]: 8/2
+                            - generic [ref=e2932]: 8/3
+                            - generic [ref=e2934]: 8/4
+                            - generic [ref=e2936]: 8/5
+                            - generic [ref=e2938]: 8/6
+                          - generic [ref=e2939]:
+                            - generic [ref=e2941]: $0
+                            - generic [ref=e2943]: $1
+                            - generic [ref=e2945]: $2
+                            - generic [ref=e2947]: $3
+                            - generic [ref=e2949]: $4
+                  - generic [ref=e2950]:
+                    - generic [ref=e2951]:
+                      - heading "Top provider / model (MTD)" [level=3] [ref=e2952]
+                      - paragraph [ref=e2953]: vs same day-of-month range last month
+                    - table [ref=e2956]:
+                      - rowgroup [ref=e2957]:
+                        - row "Provider Model Cost Prior Δ" [ref=e2958]:
+                          - columnheader "Provider" [ref=e2959]
+                          - columnheader "Model" [ref=e2960]
+                          - columnheader "Cost" [ref=e2961]
+                          - columnheader "Prior" [ref=e2962]
+                          - columnheader "Δ" [ref=e2963]
+                      - rowgroup [ref=e2964]:
+                        - row "openrouter moonshotai/kimi-k2.6 $0.1395 $0.0000 +0.1395" [ref=e2965]:
+                          - cell "openrouter" [ref=e2966]
+                          - cell "moonshotai/kimi-k2.6" [ref=e2967]
+                          - cell "$0.1395" [ref=e2968]
+                          - cell "$0.0000" [ref=e2969]
+                          - cell "+0.1395" [ref=e2970]
+                        - row "openrouter deepseek/deepseek-v4-pro $0.1207 $0.0000 +0.1207" [ref=e2971]:
+                          - cell "openrouter" [ref=e2972]
+                          - cell "deepseek/deepseek-v4-pro" [ref=e2973]
+                          - cell "$0.1207" [ref=e2974]
+                          - cell "$0.0000" [ref=e2975]
+                          - cell "+0.1207" [ref=e2976]
+                - region "Efficiency & actions" [ref=e2977]:
+                  - generic [ref=e2978]:
+                    - heading "Efficiency & actions" [level=2] [ref=e2979]
+                    - generic [ref=e2980]: Unit economics · optimization signals
+                  - generic [ref=e2981]:
+                    - generic [ref=e2982]:
+                      - heading "Provider / model unit costs" [level=3] [ref=e2983]
+                      - paragraph [ref=e2984]: Actual API billing — cost/request and $/1M output tokens
+                    - table [ref=e2987]:
+                      - rowgroup [ref=e2988]:
+                        - row "Key Cost $/req $/1M out" [ref=e2989]:
+                          - columnheader "Key" [ref=e2990]
+                          - columnheader "Cost" [ref=e2991]
+                          - columnheader "$/req" [ref=e2992]
+                          - columnheader "$/1M out" [ref=e2993]
+                      - rowgroup [ref=e2994]:
+                        - row "openrouter/moonshotai/kimi-k2.6 $0.1395 $0.0033 $3.90" [ref=e2995]:
+                          - cell "openrouter/moonshotai/kimi-k2.6" [ref=e2996]
+                          - cell "$0.1395" [ref=e2997]
+                          - cell "$0.0033" [ref=e2998]
+                          - cell "$3.90" [ref=e2999]
+                        - row "openrouter/deepseek/deepseek-v4-pro $0.1207 $0.0026 $4.91" [ref=e3000]:
+                          - cell "openrouter/deepseek/deepseek-v4-pro" [ref=e3001]
+                          - cell "$0.1207" [ref=e3002]
+                          - cell "$0.0026" [ref=e3003]
+                          - cell "$4.91" [ref=e3004]
+                  - generic [ref=e3005]:
+                    - generic [ref=e3006]:
+                      - heading "Project efficiency (agent-attributed)" [level=3] [ref=e3007]
+                      - paragraph [ref=e3008]: Separate from actual provider billing — cost/session when attribution exists
+                    - table [ref=e3011]:
+                      - rowgroup [ref=e3012]:
+                        - row "Project Cost $/session Cache $" [ref=e3013]:
+                          - columnheader "Project" [ref=e3014]
+                          - columnheader "Cost" [ref=e3015]
+                          - columnheader "$/session" [ref=e3016]
+                          - columnheader "Cache $" [ref=e3017]
+                      - rowgroup [ref=e3018]:
+                        - row "benbishop-context-bsh-83 — — —" [ref=e3019]:
+                          - cell "benbishop-context-bsh-83" [ref=e3020]
+                          - cell "—" [ref=e3021]
+                          - cell "—" [ref=e3022]
+                          - cell "—" [ref=e3023]
+                        - row "agent-skills-plugin — — —" [ref=e3024]:
+                          - cell "agent-skills-plugin" [ref=e3025]
+                          - cell "—" [ref=e3026]
+                          - cell "—" [ref=e3027]
+                          - cell "—" [ref=e3028]
+                        - row "opportunity-scout — — —" [ref=e3029]:
+                          - cell "opportunity-scout" [ref=e3030]
+                          - cell "—" [ref=e3031]
+                          - cell "—" [ref=e3032]
+                          - cell "—" [ref=e3033]
+                        - row "Dev — — —" [ref=e3034]:
+                          - cell "Dev" [ref=e3035]
+                          - cell "—" [ref=e3036]
+                          - cell "—" [ref=e3037]
+                          - cell "—" [ref=e3038]
+                        - row "astro-llms — — —" [ref=e3039]:
+                          - cell "astro-llms" [ref=e3040]
+                          - cell "—" [ref=e3041]
+                          - cell "—" [ref=e3042]
+                          - cell "—" [ref=e3043]
+                        - row "mission-control — — —" [ref=e3044]:
+                          - cell "mission-control" [ref=e3045]
+                          - cell "—" [ref=e3046]
+                          - cell "—" [ref=e3047]
+                          - cell "—" [ref=e3048]
+                        - row "grok-plugin-cc — — —" [ref=e3049]:
+                          - cell "grok-plugin-cc" [ref=e3050]
+                          - cell "—" [ref=e3051]
+                          - cell "—" [ref=e3052]
+                          - cell "—" [ref=e3053]
+                        - row "benbishop-context — — —" [ref=e3054]:
+                          - cell "benbishop-context" [ref=e3055]
+                          - cell "—" [ref=e3056]
+                          - cell "—" [ref=e3057]
+                          - cell "—" [ref=e3058]
+                        - row "bshp — — —" [ref=e3059]:
+                          - cell "bshp" [ref=e3060]
+                          - cell "—" [ref=e3061]
+                          - cell "—" [ref=e3062]
+                          - cell "—" [ref=e3063]
+                        - row "unassigned — — —" [ref=e3064]:
+                          - cell "unassigned" [ref=e3065]
+                          - cell "—" [ref=e3066]
+                          - cell "—" [ref=e3067]
+                          - cell "—" [ref=e3068]
+                - region "Provider breakdown" [ref=e3069]:
+                  - generic [ref=e3070]:
+                    - heading "Provider breakdown" [level=2] [ref=e3071]
+                    - generic [ref=e3072]: Billing rows in selected range (Last 30 days) — not agent matched
+                  - generic [ref=e3073]:
+                    - generic [ref=e3074]:
+                      - text: "Tokens:"
+                      - strong [ref=e3075]: 4,907,123
+                    - generic [ref=e3076]:
+                      - text: "Cost:"
+                      - strong [ref=e3077]: $14.7154
+                  - table [ref=e3079]:
+                    - rowgroup [ref=e3080]:
+                      - row "Provider Model Input Output Cost" [ref=e3081]:
+                        - columnheader "Provider" [ref=e3082]
+                        - columnheader "Model" [ref=e3083]
+                        - columnheader "Input" [ref=e3084]
+                        - columnheader "Output" [ref=e3085]
+                        - columnheader "Cost" [ref=e3086]
+                    - rowgroup [ref=e3087]:
+                      - row "anthropic claude-sonnet-5 3,742,280 160,589 $9.0905" [ref=e3088]:
+                        - cell "anthropic" [ref=e3089]
+                        - cell "claude-sonnet-5" [ref=e3090]
+                        - cell "3,742,280" [ref=e3091]
+                        - cell "160,589" [ref=e3092]
+                        - cell "$9.0905" [ref=e3093]
+                      - row "anthropic Web Search Usage 0 0 $1.8100" [ref=e3094]:
+                        - cell "anthropic" [ref=e3095]
+                        - cell "Web Search Usage" [ref=e3096]
+                        - cell "0" [ref=e3097]
+                        - cell "0" [ref=e3098]
+                        - cell "$1.8100" [ref=e3099]
+                      - row "openrouter openai/gpt-5.5 100,483 34,201 $1.5284" [ref=e3100]:
+                        - cell "openrouter" [ref=e3101]
+                        - cell "openai/gpt-5.5" [ref=e3102]
+                        - cell "100,483" [ref=e3103]
+                        - cell "34,201" [ref=e3104]
+                        - cell "$1.5284" [ref=e3105]
+                      - row "anthropic claude-opus-4-8 140,664 7,729 $0.8965" [ref=e3106]:
+                        - cell "anthropic" [ref=e3107]
+                        - cell "claude-opus-4-8" [ref=e3108]
+                        - cell "140,664" [ref=e3109]
+                        - cell "7,729" [ref=e3110]
+                        - cell "$0.8965" [ref=e3111]
+                      - row "openrouter anthropic/claude-sonnet-5 183,915 27,940 $0.6472" [ref=e3112]:
+                        - cell "openrouter" [ref=e3113]
+                        - cell "anthropic/claude-sonnet-5" [ref=e3114]
+                        - cell "183,915" [ref=e3115]
+                        - cell "27,940" [ref=e3116]
+                        - cell "$0.6472" [ref=e3117]
+                      - row "openrouter x-ai/grok-4.5 96,668 49,978 $0.4825" [ref=e3118]:
+                        - cell "openrouter" [ref=e3119]
+                        - cell "x-ai/grok-4.5" [ref=e3120]
+                        - cell "96,668" [ref=e3121]
+                        - cell "49,978" [ref=e3122]
+                        - cell "$0.4825" [ref=e3123]
+                      - row "openrouter moonshotai/kimi-k2.6 133,602 35,786 $0.1395" [ref=e3124]:
+                        - cell "openrouter" [ref=e3125]
+                        - cell "moonshotai/kimi-k2.6" [ref=e3126]
+                        - cell "133,602" [ref=e3127]
+                        - cell "35,786" [ref=e3128]
+                        - cell "$0.1395" [ref=e3129]
+                      - row "openrouter deepseek/deepseek-v4-pro 168,311 24,602 $0.1207" [ref=e3130]:
+                        - cell "openrouter" [ref=e3131]
+                        - cell "deepseek/deepseek-v4-pro" [ref=e3132]
+                        - cell "168,311" [ref=e3133]
+                        - cell "24,602" [ref=e3134]
+                        - cell "$0.1207" [ref=e3135]
+                      - row "openrouter meta-llama/llama-3.3-70b-instruct 320 55 $0.0001" [ref=e3136]:
+                        - cell "openrouter" [ref=e3137]
+                        - cell "meta-llama/llama-3.3-70b-instruct" [ref=e3138]
+                        - cell "320" [ref=e3139]
+                        - cell "55" [ref=e3140]
+                        - cell "$0.0001" [ref=e3141]
+                - group [ref=e3142]:
+                  - generic "Capacity & data health Plan usage · wallet · connectors · caveats" [ref=e3143] [cursor=pointer]:
+                    - generic [ref=e3144]:
+                      - img [ref=e3145]
+                      - generic [ref=e3147]: Capacity & data health
+                    - generic [ref=e3148]: Plan usage · wallet · connectors · caveats
+  - generic [ref=e645]: $0

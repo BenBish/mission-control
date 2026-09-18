@@ -1,0 +1,385 @@
+- generic [ref=f3e3]:
+  - complementary [ref=f3e4]:
+    - generic [ref=f3e5]:
+      - generic [ref=f3e10]:
+        - generic [ref=f3e11]: Mission Control
+        - generic [ref=f3e12]: Unified AI usage dashboard
+      - navigation [ref=f3e13]:
+        - link [ref=f3e14] [cursor=pointer]:
+          - /url: /
+        - link [ref=f3e21] [cursor=pointer]:
+          - /url: /activities
+        - link [ref=f3e24] [cursor=pointer]:
+          - /url: /sessions
+        - link [ref=f3e31] [cursor=pointer]:
+          - /url: /runtime
+        - link [ref=f3e36] [cursor=pointer]:
+          - /url: /failures
+        - link [ref=f3e40] [cursor=pointer]:
+          - /url: /consumption
+        - link [ref=f3e44] [cursor=pointer]:
+          - /url: /jobs
+        - link [ref=f3e49] [cursor=pointer]:
+          - /url: /generations
+        - link [ref=f3e55] [cursor=pointer]:
+          - /url: /settings
+      - generic [ref=f3e60]: System Online
+  - generic [ref=f3e64]:
+    - banner [ref=f3e65]:
+      - combobox [ref=f3e72]:
+        - generic: Grok
+      - button "Toggle theme" [ref=f3e67]
+    - main [ref=f3e69]:
+      - generic [ref=f3e75]:
+        - generic [ref=f3e77]:
+          - heading "Sessions" [level=1] [ref=f3e78]
+          - paragraph [ref=f3e79]: View all agentic sessions
+        - generic [ref=f3e80]:
+          - generic [ref=f3e82]:
+            - heading [level=3] [ref=f3e83]
+            - generic [ref=f3e89]: 41 sessions
+          - generic [ref=f3e90]:
+            - table [ref=f3e92]:
+              - rowgroup [ref=f3e93]:
+                - row [ref=f3e94]:
+                  - columnheader "Started" [ref=f3e95]
+                  - columnheader "Source" [ref=f3e96]
+                  - columnheader "Duration" [ref=f3e97]
+                  - columnheader "cwd" [ref=f3e98]
+                  - columnheader "Turns" [ref=f3e99]
+                  - columnheader "Success Rate" [ref=f3e100]
+                  - columnheader "Tokens" [ref=f3e101]
+              - rowgroup [ref=f3e102]:
+                - row [ref=f3e103] [cursor=pointer]:
+                  - cell "1h ago" [ref=f3e104]
+                  - cell "grok" [ref=f3e105]
+                  - cell "33m 10s" [ref=f3e107]
+                  - cell /home/ben/Dev/benbishop-site/ [ref=f3e108]
+                  - cell "17" [ref=f3e109]
+                  - cell "99%" [ref=f3e110]
+                  - cell "2,247,950" [ref=f3e112]
+                - row [ref=f3e113] [cursor=pointer]:
+                  - cell "2h ago" [ref=f3e114]
+                  - cell "grok" [ref=f3e115]
+                  - cell "51m 37s" [ref=f3e117]
+                  - cell /home/ben/Dev/benbishop-site/ [ref=f3e118]
+                  - cell "7" [ref=f3e119]
+                  - cell "100%" [ref=f3e120]
+                  - cell "725,781" [ref=f3e122]
+                - row [ref=f3e123] [cursor=pointer]:
+                  - cell "2h ago" [ref=f3e124]
+                  - cell "grok" [ref=f3e125]
+                  - cell "33m 46s" [ref=f3e127]
+                  - cell /home/ben/Dev/benbishop-site/ [ref=f3e128]
+                  - cell "2" [ref=f3e129]
+                  - cell "97%" [ref=f3e130]
+                  - cell "288,615" [ref=f3e132]
+                - row [ref=f3e133] [cursor=pointer]:
+                  - cell "3h ago" [ref=f3e134]
+                  - cell "grok" [ref=f3e135]
+                  - cell "29m 12s" [ref=f3e137]
+                  - cell /home/ben/Dev/benbishop-site/ [ref=f3e138]
+                  - cell "7" [ref=f3e139]
+                  - cell "100%" [ref=f3e140]
+                  - cell "749,185" [ref=f3e142]
+                - row [ref=f3e143] [cursor=pointer]:
+                  - cell "3h ago" [ref=f3e144]
+                  - cell "grok" [ref=f3e145]
+                  - cell "25m 4s" [ref=f3e147]
+                  - cell /home/ben/Dev/benbishop-site/ [ref=f3e148]
+                  - cell "8" [ref=f3e149]
+                  - cell "100%" [ref=f3e150]
+                  - cell "708,465" [ref=f3e152]
+                - row [ref=f3e153] [cursor=pointer]:
+                  - cell "3h ago" [ref=f3e154]
+                  - cell "grok" [ref=f3e155]
+                  - cell "30m 46s" [ref=f3e157]
+                  - cell /home/ben/Dev/mission-control/ [ref=f3e158]
+                  - cell "9" [ref=f3e159]
+                  - cell "96%" [ref=f3e160]
+                  - cell "315,760" [ref=f3e162]
+                - row [ref=f3e163] [cursor=pointer]:
+                  - cell "3h ago" [ref=f3e164]
+                  - cell "grok" [ref=f3e165]
+                  - cell "1m 27s" [ref=f3e167]
+                  - cell /home/ben/Dev/benbishop-site-bsh-22/ [ref=f3e168]
+                  - cell "6" [ref=f3e169]
+                  - cell "100%" [ref=f3e170]
+                  - cell "166,988" [ref=f3e172]
+                - row [ref=f3e173] [cursor=pointer]:
+                  - cell "3h ago" [ref=f3e174]
+                  - cell "grok" [ref=f3e175]
+                  - cell "0s" [ref=f3e177]
+                  - cell /home/ben/Dev/grok-plugin-cc/ [ref=f3e178]
+                  - cell "1" [ref=f3e179]
+                  - cell "—" [ref=f3e180]
+                  - cell "17,778" [ref=f3e181]
+                - row [ref=f3e182] [cursor=pointer]:
+                  - cell "3h ago" [ref=f3e183]
+                  - cell "grok" [ref=f3e184]
+                  - cell "21m 39s" [ref=f3e186]
+                  - cell /home/ben/Dev/benbishop-site/ [ref=f3e187]
+                  - cell "7" [ref=f3e188]
+                  - cell "99%" [ref=f3e189]
+                  - cell "696,094" [ref=f3e191]
+                - row [ref=f3e192] [cursor=pointer]:
+                  - cell "3h ago" [ref=f3e193]
+                  - cell "grok" [ref=f3e194]
+                  - cell "22m 32s" [ref=f3e196]
+                  - cell /home/ben/Dev/benbishop-site/ [ref=f3e197]
+                  - cell "8" [ref=f3e198]
+                  - cell "100%" [ref=f3e199]
+                  - cell "925,692" [ref=f3e201]
+                - row [ref=f3e202] [cursor=pointer]:
+                  - cell "4h ago" [ref=f3e203]
+                  - cell "grok" [ref=f3e204]
+                  - cell "5s" [ref=f3e206]
+                  - cell /home/ben/Dev/grok-plugin-cc/ [ref=f3e207]
+                  - cell "1" [ref=f3e208]
+                  - cell "50%" [ref=f3e209]
+                  - cell "0" [ref=f3e211]
+                - row [ref=f3e212] [cursor=pointer]:
+                  - cell "1d ago" [ref=f3e213]
+                  - cell "grok" [ref=f3e214]
+                  - cell "3s" [ref=f3e216]
+                  - cell /home/ben/Dev/grok-plugin-cc/ [ref=f3e217]
+                  - cell "2" [ref=f3e218]
+                  - cell "100%" [ref=f3e219]
+                  - cell "36,855" [ref=f3e221]
+                - row [ref=f3e222] [cursor=pointer]:
+                  - cell "1d ago" [ref=f3e223]
+                  - cell "grok" [ref=f3e224]
+                  - cell "23s" [ref=f3e226]
+                  - cell /home/ben/Dev/grok-plugin-cc/ [ref=f3e227]
+                  - cell "6" [ref=f3e228]
+                  - cell "83%" [ref=f3e229]
+                  - cell "138,356" [ref=f3e231]
+                - row [ref=f3e232] [cursor=pointer]:
+                  - cell "1d ago" [ref=f3e233]
+                  - cell "grok" [ref=f3e234]
+                  - cell "32s" [ref=f3e236]
+                  - cell /home/ben/Dev/grok-plugin-cc/ [ref=f3e237]
+                  - cell "1" [ref=f3e238]
+                  - cell "95%" [ref=f3e239]
+                  - cell "0" [ref=f3e241]
+                - row [ref=f3e242] [cursor=pointer]:
+                  - cell "1d ago" [ref=f3e243]
+                  - cell "grok" [ref=f3e244]
+                  - cell "15m 59s" [ref=f3e246]
+                  - cell /home/ben/Dev/benbishop-site/ [ref=f3e247]
+                  - cell "8" [ref=f3e248]
+                  - cell "100%" [ref=f3e249]
+                  - cell "596,671" [ref=f3e251]
+                - row [ref=f3e252] [cursor=pointer]:
+                  - cell "1d ago" [ref=f3e253]
+                  - cell "grok" [ref=f3e254]
+                  - cell "1m 13s" [ref=f3e256]
+                  - cell /home/ben/Dev/benbishop-site/ [ref=f3e257]
+                  - cell "7" [ref=f3e258]
+                  - cell "89%" [ref=f3e259]
+                  - cell "320,456" [ref=f3e261]
+                - row [ref=f3e262] [cursor=pointer]:
+                  - cell "1d ago" [ref=f3e263]
+                  - cell "grok" [ref=f3e264]
+                  - cell "1m 31s" [ref=f3e266]
+                  - cell /home/ben/Dev/benbishop-site/ [ref=f3e267]
+                  - cell "11" [ref=f3e268]
+                  - cell "95%" [ref=f3e269]
+                  - cell "464,609" [ref=f3e271]
+                - row [ref=f3e272] [cursor=pointer]:
+                  - cell "1d ago" [ref=f3e273]
+                  - cell "grok" [ref=f3e274]
+                  - cell "0s" [ref=f3e276]
+                  - cell /home/ben/Dev/grok-plugin-cc/ [ref=f3e277]
+                  - cell "1" [ref=f3e278]
+                  - cell "—" [ref=f3e279]
+                  - cell "15,788" [ref=f3e280]
+                - row [ref=f3e281] [cursor=pointer]:
+                  - cell "1d ago" [ref=f3e282]
+                  - cell "grok" [ref=f3e283]
+                  - cell "1h 23m" [ref=f3e285]
+                  - cell /home/ben/Dev/benbishop-site/ [ref=f3e286]
+                  - cell "2" [ref=f3e287]
+                  - cell "98%" [ref=f3e288]
+                  - cell "228,790" [ref=f3e290]
+                - row [ref=f3e291] [cursor=pointer]:
+                  - cell "1d ago" [ref=f3e292]
+                  - cell "grok" [ref=f3e293]
+                  - cell "5s" [ref=f3e295]
+                  - cell /tmp/grok-disallowed-spike-2kMqOs/ [ref=f3e296]
+                  - cell "3" [ref=f3e297]
+                  - cell "100%" [ref=f3e298]
+                  - cell "41,177" [ref=f3e300]
+                - row [ref=f3e301] [cursor=pointer]:
+                  - cell "1d ago" [ref=f3e302]
+                  - cell "grok" [ref=f3e303]
+                  - cell "3s" [ref=f3e305]
+                  - cell /tmp/grok-deny-spike-yLeOji/ [ref=f3e306]
+                  - cell "2" [ref=f3e307]
+                  - cell "—" [ref=f3e308]
+                  - cell "27,308" [ref=f3e309]
+                - row [ref=f3e310] [cursor=pointer]:
+                  - cell "1d ago" [ref=f3e311]
+                  - cell "grok" [ref=f3e312]
+                  - cell "4s" [ref=f3e314]
+                  - cell /tmp/grok-readonly-spike-5DRCa1/ [ref=f3e315]
+                  - cell "3" [ref=f3e316]
+                  - cell "100%" [ref=f3e317]
+                  - cell "41,071" [ref=f3e319]
+                - row [ref=f3e320] [cursor=pointer]:
+                  - cell "1d ago" [ref=f3e321]
+                  - cell "grok" [ref=f3e322]
+                  - cell "5s" [ref=f3e324]
+                  - cell /tmp/grok-readonly-spike-EusCly/ [ref=f3e325]
+                  - cell "3" [ref=f3e326]
+                  - cell "100%" [ref=f3e327]
+                  - cell "41,128" [ref=f3e329]
+                - row [ref=f3e330] [cursor=pointer]:
+                  - cell "1d ago" [ref=f3e331]
+                  - cell "grok" [ref=f3e332]
+                  - cell "1s" [ref=f3e334]
+                  - cell /tmp/grok-rescue-spike-6ff6px/ [ref=f3e335]
+                  - cell "2" [ref=f3e336]
+                  - cell "100%" [ref=f3e337]
+                  - cell "27,179" [ref=f3e339]
+                - row [ref=f3e340] [cursor=pointer]:
+                  - cell "1d ago" [ref=f3e341]
+                  - cell "grok" [ref=f3e342]
+                  - cell "14s" [ref=f3e344]
+                  - cell /home/ben/Dev/grok-plugin-cc/ [ref=f3e345]
+                  - cell "2" [ref=f3e346]
+                  - cell "100%" [ref=f3e347]
+                  - cell "35,265" [ref=f3e349]
+                - row [ref=f3e350] [cursor=pointer]:
+                  - cell "1d ago" [ref=f3e351]
+                  - cell "grok" [ref=f3e352]
+                  - cell "2s" [ref=f3e354]
+                  - cell /home/ben/Dev/grok-plugin-cc/ [ref=f3e355]
+                  - cell "2" [ref=f3e356]
+                  - cell "100%" [ref=f3e357]
+                  - cell "31,941" [ref=f3e359]
+                - row [ref=f3e360] [cursor=pointer]:
+                  - cell "1d ago" [ref=f3e361]
+                  - cell "grok" [ref=f3e362]
+                  - cell "2s" [ref=f3e364]
+                  - cell /home/ben/Dev/grok-plugin-cc/ [ref=f3e365]
+                  - cell "2" [ref=f3e366]
+                  - cell "100%" [ref=f3e367]
+                  - cell "31,725" [ref=f3e369]
+                - row [ref=f3e370] [cursor=pointer]:
+                  - cell "1d ago" [ref=f3e371]
+                  - cell "grok" [ref=f3e372]
+                  - cell "2s" [ref=f3e374]
+                  - cell /home/ben/Dev/grok-plugin-cc/ [ref=f3e375]
+                  - cell "2" [ref=f3e376]
+                  - cell "100%" [ref=f3e377]
+                  - cell "31,694" [ref=f3e379]
+                - row [ref=f3e380] [cursor=pointer]:
+                  - cell "1d ago" [ref=f3e381]
+                  - cell "grok" [ref=f3e382]
+                  - cell "0s" [ref=f3e384]
+                  - cell /home/ben/Dev/grok-plugin-cc/ [ref=f3e385]
+                  - cell "1" [ref=f3e386]
+                  - cell "—" [ref=f3e387]
+                  - cell "15,790" [ref=f3e388]
+                - row [ref=f3e389] [cursor=pointer]:
+                  - cell "1d ago" [ref=f3e390]
+                  - cell "grok" [ref=f3e391]
+                  - cell "3s" [ref=f3e393]
+                  - cell /home/ben/Dev/grok-plugin-cc/ [ref=f3e394]
+                  - cell "2" [ref=f3e395]
+                  - cell "100%" [ref=f3e396]
+                  - cell "31,747" [ref=f3e398]
+                - row [ref=f3e399] [cursor=pointer]:
+                  - cell "1d ago" [ref=f3e400]
+                  - cell "grok" [ref=f3e401]
+                  - cell "4m 16s" [ref=f3e403]
+                  - cell /home/ben/Dev/benbishop-site/ [ref=f3e404]
+                  - cell "12" [ref=f3e405]
+                  - cell "100%" [ref=f3e406]
+                  - cell "468,575" [ref=f3e408]
+                - row [ref=f3e409] [cursor=pointer]:
+                  - cell "1d ago" [ref=f3e410]
+                  - cell "grok" [ref=f3e411]
+                  - cell "5h 17m" [ref=f3e413]
+                  - cell /home/ben/Dev/benbishop-site/ [ref=f3e414]
+                  - cell "9" [ref=f3e415]
+                  - cell "99%" [ref=f3e416]
+                  - cell "2,040,172" [ref=f3e418]
+                - row [ref=f3e419] [cursor=pointer]:
+                  - cell "2d ago" [ref=f3e420]
+                  - cell "grok" [ref=f3e421]
+                  - cell "22h 47m" [ref=f3e423]
+                  - cell /home/ben/Dev/benbishop-site/ [ref=f3e424]
+                  - cell "13" [ref=f3e425]
+                  - cell "95%" [ref=f3e426]
+                  - cell "1,674,013" [ref=f3e428]
+                - row [ref=f3e429] [cursor=pointer]:
+                  - cell "2d ago" [ref=f3e430]
+                  - cell "grok" [ref=f3e431]
+                  - cell "7m 8s" [ref=f3e433]
+                  - cell /home/ben/Dev/benbishop-site/ [ref=f3e434]
+                  - cell "8" [ref=f3e435]
+                  - cell "100%" [ref=f3e436]
+                  - cell "763,222" [ref=f3e438]
+                - row [ref=f3e439] [cursor=pointer]:
+                  - cell "2d ago" [ref=f3e440]
+                  - cell "grok" [ref=f3e441]
+                  - cell "22h 56m" [ref=f3e443]
+                  - cell /home/ben/Dev/benbishop-site/ [ref=f3e444]
+                  - cell "5" [ref=f3e445]
+                  - cell "100%" [ref=f3e446]
+                  - cell "387,115" [ref=f3e448]
+                - row [ref=f3e449] [cursor=pointer]:
+                  - cell "2d ago" [ref=f3e450]
+                  - cell "grok" [ref=f3e451]
+                  - cell "1h 18m" [ref=f3e453]
+                  - cell /home/ben/Dev/benbishop-site/ [ref=f3e454]
+                  - cell "1" [ref=f3e455]
+                  - cell "100%" [ref=f3e456]
+                  - cell "145,168" [ref=f3e458]
+                - row [ref=f3e459] [cursor=pointer]:
+                  - cell "2d ago" [ref=f3e460]
+                  - cell "grok" [ref=f3e461]
+                  - cell "2h 36m" [ref=f3e463]
+                  - cell /home/ben/Dev/benbishop-site/ [ref=f3e464]
+                  - cell "3" [ref=f3e465]
+                  - cell "96%" [ref=f3e466]
+                  - cell "471,552" [ref=f3e468]
+                - row [ref=f3e469] [cursor=pointer]:
+                  - cell "2d ago" [ref=f3e470]
+                  - cell "grok" [ref=f3e471]
+                  - cell "2h 53m" [ref=f3e473]
+                  - cell /home/ben/Dev/benbishop-site/ [ref=f3e474]
+                  - cell "1" [ref=f3e475]
+                  - cell "99%" [ref=f3e476]
+                  - cell "299,477" [ref=f3e478]
+                - row [ref=f3e479] [cursor=pointer]:
+                  - cell "2d ago" [ref=f3e480]
+                  - cell "grok" [ref=f3e481]
+                  - cell "12s" [ref=f3e483]
+                  - cell /home/ben/Dev/benbishop-site/ [ref=f3e484]
+                  - cell "2" [ref=f3e485]
+                  - cell "50%" [ref=f3e486]
+                  - cell "34,870" [ref=f3e488]
+                - row [ref=f3e489] [cursor=pointer]:
+                  - cell "3d ago" [ref=f3e490]
+                  - cell "grok" [ref=f3e491]
+                  - cell "1h 33m" [ref=f3e493]
+                  - cell /home/ben/Dev/benbishop-site/ [ref=f3e494]
+                  - cell "3" [ref=f3e495]
+                  - cell "99%" [ref=f3e496]
+                  - cell "320,347" [ref=f3e498]
+                - row [ref=f3e499] [cursor=pointer]:
+                  - cell "3d ago" [ref=f3e500]
+                  - cell "grok" [ref=f3e501]
+                  - cell "1h 29m" [ref=f3e503]
+                  - cell /home/ben/Dev/benbishop-site/ [ref=f3e504]
+                  - cell "3" [ref=f3e505]
+                  - cell "97%" [ref=f3e506]
+                  - cell "281,958" [ref=f3e508]
+            - generic [ref=f3e509]:
+              - generic [ref=f3e510]: Showing 1–41
+              - generic [ref=f3e511]:
+                - button "Previous" [disabled]
+                - button "Next" [disabled]

@@ -1,0 +1,138 @@
+- generic [ref=e1]:
+  - generic [ref=e6]:
+    - complementary [ref=e210]:
+      - generic [ref=e211]:
+        - generic [ref=e216]:
+          - generic [ref=e217]: Mission Control
+          - generic [ref=e218]: Unified AI usage dashboard
+        - navigation [ref=e219]:
+          - link [ref=e220] [cursor=pointer]:
+            - /url: /
+          - link [ref=e228] [cursor=pointer]:
+            - /url: /activities
+          - link [ref=e231] [cursor=pointer]:
+            - /url: /sessions
+          - link [ref=e237] [cursor=pointer]:
+            - /url: /runtime
+          - link [ref=e242] [cursor=pointer]:
+            - /url: /failures
+          - link [ref=e246] [cursor=pointer]:
+            - /url: /consumption
+          - link [ref=e250] [cursor=pointer]:
+            - /url: /jobs
+          - link [ref=e255] [cursor=pointer]:
+            - /url: /generations
+          - link [ref=e261] [cursor=pointer]:
+            - /url: /settings
+        - generic [ref=e266]: System Online
+    - generic [ref=e7]:
+      - banner [ref=e8]:
+        - generic "Agent usage respects the source filter; provider API costs are account-wide" [ref=e1830]:
+          - combobox "Filter by source" [active] [ref=e12]:
+            - generic: Hermes
+          - generic [ref=e2077]: Partial scope
+        - button "Toggle theme" [ref=e15]
+      - main [ref=e17]:
+        - generic [ref=e1831]:
+          - generic [ref=e1833]:
+            - heading "Consumption" [level=1] [ref=e1834]
+            - paragraph [ref=e1835]: Agent session usage for Hermes; Direct API Spend is account-wide — separate datasets, not summed together
+          - generic [ref=e1836]:
+            - generic [ref=e1837]:
+              - tablist [ref=e1838]:
+                - tab "Agent Usage" [ref=e1839]
+                - tab "Direct API Spend" [selected] [ref=e1843]
+              - generic [ref=e1846]:
+                - button "Today" [ref=e1847]
+                - button "Last 7 days" [ref=e1848]
+                - button "Last 30 days" [ref=e1849]
+                - button "All time" [ref=e1850]
+            - paragraph [ref=e1851]: "Showing: Last 30 days"
+            - tabpanel "Direct API Spend" [ref=e1944]:
+              - generic [ref=e1945]:
+                - generic [ref=e1947]:
+                  - generic [ref=e1948]:
+                    - generic [ref=e1949]:
+                      - heading "Direct API Spend" [level=3] [ref=e1950]
+                      - generic [ref=e1953]: Account-wide
+                    - paragraph [ref=e1954]: Account-level usage from OpenRouter, Anthropic, OpenAI, and xAI billing APIs — separate from agent session logs. Not double-counted with Agent Usage totals.
+                    - paragraph [ref=e2078]: Source filter “Hermes” does not apply here — provider billing is account-wide and cannot be scoped to a single agent source.
+                    - paragraph [ref=e1955]: If OpenRouter BYOK and a direct provider (e.g. Anthropic) are both configured, the same spend can appear under both connectors.
+                  - button "Sync now" [ref=e1958]
+                - generic [ref=e1959]:
+                  - generic [ref=e1960]:
+                    - generic "Management key recommended for /activity (provider returns ~last 30 UTC days; filtered to sync window client-side)." [ref=e1961]:
+                      - generic [ref=e1962]: OpenRouter
+                      - generic [ref=e1963]: ok
+                      - generic [ref=e1964]: synced 7/30/2026, 6:44:19 PM
+                    - generic "Admin API key (prefix sk-ant-admin…), not a standard Claude key." [ref=e1965]:
+                      - generic [ref=e1966]: Anthropic
+                      - generic [ref=e1967]: ok
+                      - generic [ref=e1968]: synced 7/30/2026, 6:44:19 PM
+                    - generic "Organization Admin key required for /organization/costs and usage." [ref=e1969]:
+                      - generic [ref=e1970]: OpenAI
+                      - generic [ref=e1971]: ok
+                      - generic [ref=e1972]: synced 7/30/2026, 6:44:27 PM
+                    - generic "xAI has no public historical usage/cost API; key verified via /models. Set MC_XAI_USAGE_ENDPOINT to a JSON usage export URL when available." [ref=e1973]:
+                      - generic [ref=e1974]: xAI
+                      - generic [ref=e1975]: limited
+                      - generic [ref=e1976]: synced 7/30/2026, 6:44:35 PM
+                  - generic [ref=e1977]:
+                    - generic [ref=e1978]:
+                      - text: "Tokens:"
+                      - strong [ref=e1979]: 4,544,822
+                    - generic [ref=e1980]:
+                      - text: "Cost:"
+                      - strong [ref=e1981]: $14.4552
+                  - table [ref=e1983]:
+                    - rowgroup [ref=e1984]:
+                      - row [ref=e1985]:
+                        - columnheader "Provider" [ref=e1986]
+                        - columnheader "Model" [ref=e1987]
+                        - columnheader "Input" [ref=e1988]
+                        - columnheader "Output" [ref=e1989]
+                        - columnheader "Cost" [ref=e1990]
+                    - rowgroup [ref=e1991]:
+                      - row [ref=e1992]:
+                        - cell "anthropic" [ref=e1993]
+                        - cell "claude-sonnet-5" [ref=e1994]
+                        - cell "3,742,280" [ref=e1995]
+                        - cell "160,589" [ref=e1996]
+                        - cell "$9.0905" [ref=e1997]
+                      - row [ref=e1998]:
+                        - cell "anthropic" [ref=e1999]
+                        - cell "Web Search Usage" [ref=e2000]
+                        - cell "0" [ref=e2001]
+                        - cell "0" [ref=e2002]
+                        - cell "$1.8100" [ref=e2003]
+                      - row [ref=e2004]:
+                        - cell "openrouter" [ref=e2005]
+                        - cell "openai/gpt-5.5" [ref=e2006]
+                        - cell "100,483" [ref=e2007]
+                        - cell "34,201" [ref=e2008]
+                        - cell "$1.5284" [ref=e2009]
+                      - row [ref=e2010]:
+                        - cell "anthropic" [ref=e2011]
+                        - cell "claude-opus-4-8" [ref=e2012]
+                        - cell "140,664" [ref=e2013]
+                        - cell "7,729" [ref=e2014]
+                        - cell "$0.8965" [ref=e2015]
+                      - row [ref=e2016]:
+                        - cell "openrouter" [ref=e2017]
+                        - cell "anthropic/claude-sonnet-5" [ref=e2018]
+                        - cell "183,915" [ref=e2019]
+                        - cell "27,940" [ref=e2020]
+                        - cell "$0.6472" [ref=e2021]
+                      - row [ref=e2022]:
+                        - cell "openrouter" [ref=e2023]
+                        - cell "x-ai/grok-4.5" [ref=e2024]
+                        - cell "96,668" [ref=e2025]
+                        - cell "49,978" [ref=e2026]
+                        - cell "$0.4825" [ref=e2027]
+                      - row [ref=e2028]:
+                        - cell "openrouter" [ref=e2029]
+                        - cell "meta-llama/llama-3.3-70b-instruct" [ref=e2030]
+                        - cell "320" [ref=e2031]
+                        - cell "55" [ref=e2032]
+                        - cell "$0.0001" [ref=e2033]
+  - generic [ref=e209]: "0"

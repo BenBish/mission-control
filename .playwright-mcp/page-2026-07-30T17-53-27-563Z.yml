@@ -1,0 +1,119 @@
+- generic [ref=e1]:
+  - generic [ref=e6]:
+    - complementary [ref=e210]:
+      - generic [ref=e211]:
+        - generic [ref=e216]:
+          - generic [ref=e217]: Mission Control
+          - generic [ref=e218]: Unified AI usage dashboard
+        - navigation [ref=e219]:
+          - link [ref=e220] [cursor=pointer]:
+            - /url: /
+          - link [ref=e228] [cursor=pointer]:
+            - /url: /activities
+          - link [ref=e231] [cursor=pointer]:
+            - /url: /sessions
+          - link [ref=e237] [cursor=pointer]:
+            - /url: /runtime
+          - link [ref=e242] [cursor=pointer]:
+            - /url: /failures
+          - link [ref=e246] [cursor=pointer]:
+            - /url: /consumption
+          - link [ref=e250] [cursor=pointer]:
+            - /url: /jobs
+          - link [ref=e255] [cursor=pointer]:
+            - /url: /generations
+          - link [active] [ref=e261] [cursor=pointer]:
+            - /url: /settings
+        - generic [ref=e266]: System Online
+    - generic [ref=e7]:
+      - banner [ref=e8]:
+        - generic "Settings are not source-scoped" [ref=e2479]:
+          - combobox "Filter by source" [disabled] [ref=e12]:
+            - generic: Hermes
+          - generic [ref=e2480]: Not filtered
+        - button "Toggle theme" [ref=e15]
+      - main [ref=e17]:
+        - generic [ref=e2481]:
+          - generic [ref=e2483]:
+            - heading "Settings" [level=1] [ref=e2484]
+            - paragraph [ref=e2485]: Source registry and application info
+          - generic [ref=e2486]:
+            - tablist [ref=e2487]:
+              - tab "Sources & Instances" [selected] [ref=e2488]
+              - tab "About" [ref=e2492]
+            - tabpanel "Sources & Instances" [ref=e2495]:
+              - generic [ref=e2496]:
+                - generic [ref=e2497]:
+                  - heading "Sources" [level=3] [ref=e2498]
+                  - paragraph [ref=e2499]: Every source and its collector instances, seeded once at server startup. Effective status uses heartbeat age so stale collectors cannot stay green indefinitely.
+                - table [ref=e2502]:
+                  - rowgroup [ref=e2503]:
+                    - row [ref=e2504]:
+                      - columnheader "Source" [ref=e2505]
+                      - columnheader "Instance" [ref=e2506]
+                      - columnheader "Machine" [ref=e2507]
+                      - columnheader "Collector" [ref=e2508]
+                      - columnheader "Status" [ref=e2509]
+                      - columnheader "Last Seen" [ref=e2510]
+                  - rowgroup [ref=e2511]:
+                    - row [ref=e2512]:
+                      - cell "Claude Code" [ref=e2513]
+                      - cell "claude-code@arch-desktop" [ref=e2514]
+                      - cell "arch-desktop" [ref=e2515]
+                      - cell "jsonl-push" [ref=e2516]
+                      - cell "Healthy" [ref=e2518]
+                      - cell "Just now 7/30/2026, 6:53:09 PM" [ref=e2520]:
+                        - generic [ref=e2521]:
+                          - generic [ref=e2522]: Just now
+                          - generic "7/30/2026, 6:53:09 PM" [ref=e2523]
+                    - row [ref=e2524]:
+                      - cell "Codex CLI" [ref=e2525]
+                      - cell "codex@arch-desktop" [ref=e2526]
+                      - cell "arch-desktop" [ref=e2527]
+                      - cell "jsonl-push" [ref=e2528]
+                      - cell "Healthy" [ref=e2530]
+                      - cell "Just now 7/30/2026, 6:53:03 PM" [ref=e2532]:
+                        - generic [ref=e2533]:
+                          - generic [ref=e2534]: Just now
+                          - generic "7/30/2026, 6:53:03 PM" [ref=e2535]
+                    - row [ref=e2536]:
+                      - cell "ComfyUI" [ref=e2537]
+                      - cell "comfyui@strix-halo" [ref=e2538]
+                      - cell "strix-halo" [ref=e2539]
+                      - cell "http-poll" [ref=e2540]
+                      - cell "Offline" [ref=e2542]
+                      - cell "Just now 7/30/2026, 6:53:09 PM" [ref=e2544]:
+                        - generic [ref=e2545]:
+                          - generic [ref=e2546]: Just now
+                          - generic "7/30/2026, 6:53:09 PM" [ref=e2547]
+                    - row [ref=e2548]:
+                      - cell "Grok" [ref=e2549]
+                      - cell "grok@arch-desktop" [ref=e2550]
+                      - cell "arch-desktop" [ref=e2551]
+                      - cell "jsonl-push" [ref=e2552]
+                      - cell "Healthy" [ref=e2554]
+                      - cell "Just now 7/30/2026, 6:53:13 PM" [ref=e2556]:
+                        - generic [ref=e2557]:
+                          - generic [ref=e2558]: Just now
+                          - generic "7/30/2026, 6:53:13 PM" [ref=e2559]
+                    - row [ref=e2560]:
+                      - cell "Hermes" [ref=e2561]
+                      - cell "hermes@strix-halo" [ref=e2562]
+                      - cell "strix-halo" [ref=e2563]
+                      - cell "http-poll" [ref=e2564]
+                      - cell "Healthy" [ref=e2566]
+                      - cell "Just now 7/30/2026, 6:53:16 PM" [ref=e2568]:
+                        - generic [ref=e2569]:
+                          - generic [ref=e2570]: Just now
+                          - generic "7/30/2026, 6:53:16 PM" [ref=e2571]
+                    - row [ref=e2572]:
+                      - cell "Lemonade" [ref=e2573]
+                      - cell "lemonade@strix-halo" [ref=e2574]
+                      - cell "strix-halo" [ref=e2575]
+                      - cell "http-poll" [ref=e2576]
+                      - cell "Offline" [ref=e2578]
+                      - cell "Just now 7/30/2026, 6:53:05 PM" [ref=e2580]:
+                        - generic [ref=e2581]:
+                          - generic [ref=e2582]: Just now
+                          - generic "7/30/2026, 6:53:05 PM" [ref=e2583]
+  - generic [ref=e209]: "0"

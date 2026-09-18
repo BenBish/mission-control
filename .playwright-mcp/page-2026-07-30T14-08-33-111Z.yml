@@ -1,0 +1,63 @@
+- generic [ref=e1]:
+  - generic [ref=e7]:
+    - banner [ref=e8]:
+      - button "Toggle menu" [ref=e9]
+      - combobox [ref=e11]:
+        - generic: Claude Code
+      - button "Toggle theme" [ref=e14]
+    - main [ref=e16]:
+      - generic [ref=e211]:
+        - generic [ref=e213]:
+          - heading "Consumption" [level=1] [ref=e214]
+          - paragraph [ref=e215]: Agent session usage and direct provider API spend — separate datasets, not summed together
+        - generic [ref=e373]:
+          - generic [ref=e374]:
+            - tablist [ref=e375]:
+              - tab "Agent Usage" [ref=e376]
+              - tab "Direct API Spend" [active] [selected] [ref=e380]
+            - generic [ref=e383]:
+              - button "Today" [ref=e384]
+              - button "Last 7 days" [ref=e385]
+              - button "Last 30 days" [ref=e386]
+              - button "All time" [ref=e387]
+          - paragraph [ref=e388]: "Showing: Last 30 days"
+          - tabpanel "Direct API Spend" [ref=e407]:
+            - generic [ref=e408]:
+              - generic [ref=e410]:
+                - generic [ref=e411]:
+                  - generic [ref=e412]:
+                    - heading "Direct API Spend" [level=3] [ref=e413]
+                    - generic [ref=e416]: Account-wide
+                  - paragraph [ref=e417]: Account-level usage from OpenRouter, Anthropic, OpenAI, and xAI billing APIs — separate from agent session logs. Not double-counted with Agent Usage totals.
+                  - paragraph [ref=e418]: Source filter “claude-code” does not apply here — provider billing is account-wide and cannot be scoped to a single agent source.
+                  - paragraph [ref=e421]: If OpenRouter BYOK and a direct provider (e.g. Anthropic) are both configured, the same spend can appear under both connectors.
+                - button "Sync now" [ref=e424]
+              - generic [ref=e425]:
+                - generic [ref=e426]:
+                  - generic "Management key recommended for /activity (provider returns ~last 30 UTC days; filtered to sync window client-side)." [ref=e427]:
+                    - generic [ref=e428]: OpenRouter
+                    - generic [ref=e429]: not configured
+                  - generic "Admin API key (prefix sk-ant-admin…), not a standard Claude key." [ref=e430]:
+                    - generic [ref=e431]: Anthropic
+                    - generic [ref=e432]: not configured
+                  - generic "Organization Admin key required for /organization/costs and usage." [ref=e433]:
+                    - generic [ref=e434]: OpenAI
+                    - generic [ref=e435]: not configured
+                  - generic "xAI has no public historical usage API; connector verifies the key and accepts optional MC_XAI_USAGE_ENDPOINT JSON export." [ref=e436]:
+                    - generic [ref=e437]: xAI
+                    - generic [ref=e438]: not configured
+                - generic [ref=e439]:
+                  - paragraph [ref=e440]: No Direct API Spend for this range.
+                  - paragraph [ref=e441]:
+                    - text: Configure
+                    - code [ref=e442]: OPENROUTER_API_KEY
+                    - text: ","
+                    - code [ref=e443]: ANTHROPIC_ADMIN_KEY
+                    - text: ","
+                    - code [ref=e444]: OPENAI_ADMIN_KEY
+                    - text: ", and/or"
+                    - code [ref=e445]: XAI_API_KEY
+                    - text: ", then click Sync now. Agent session usage is under the"
+                    - button "Agent Usage" [ref=e446]
+                    - text: view.
+  - generic [ref=e210]: "0"

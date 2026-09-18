@@ -1,0 +1,420 @@
+- generic [ref=f1e7]:
+  - banner [ref=f1e8]:
+    - button "Toggle menu" [ref=f1e9]:
+      - img
+      - generic [ref=f1e10]: Toggle menu
+    - generic "Agent usage and attribution respect the source filter; provider API costs are account-wide" [ref=f1e11]:
+      - combobox "Filter by source" [ref=f1e12]:
+        - generic:
+          - generic:
+            - generic: All sources
+        - img [ref=f1e13]
+    - button "Toggle theme" [ref=f1e15]:
+      - img
+      - generic [ref=f1e16]: Toggle theme
+  - main [ref=f1e17]:
+    - generic [ref=f1e18]:
+      - generic [ref=f1e20]:
+        - heading "Consumption" [level=1] [ref=f1e21]
+        - paragraph [ref=f1e22]: Agent session usage for all sources; Direct API Spend is account-wide; Attribution links them with confidence — never summed blindly
+      - generic [ref=f1e239]:
+        - generic [ref=f1e240]:
+          - tablist [ref=f1e242]:
+            - tab "Agent Usage" [selected] [ref=f1e243]:
+              - img [ref=f1e244]
+              - text: Agent Usage
+            - tab "Direct API Spend" [ref=f1e247]:
+              - img [ref=f1e248]
+              - text: Direct API Spend
+            - tab "Attribution" [ref=f1e250]:
+              - img [ref=f1e251]
+              - text: Attribution
+          - generic [ref=f1e254]:
+            - button "Today" [ref=f1e255]
+            - button "Last 7 days" [ref=f1e256]
+            - button "Last 30 days" [ref=f1e257]
+            - button "All time" [ref=f1e258]
+        - paragraph [ref=f1e259]:
+          - img [ref=f1e260]
+          - text: "Showing: Last 30 days"
+        - tabpanel "Agent Usage" [ref=f1e262]:
+          - generic [ref=f1e263]:
+            - paragraph [ref=f1e264]: Session-derived usage from agent sources (Claude Code, Codex, Grok, Hermes, etc.) for all sources. Honors the global source filter. Not the same as account-level provider billing.
+            - generic [ref=f1e265]:
+              - button "Tokens" [ref=f1e266]
+              - button "Compute time" [ref=f1e267]
+              - button "USD" [ref=f1e268]
+          - generic [ref=f1e269]:
+            - generic [ref=f1e270]:
+              - generic [ref=f1e271]:
+                - heading "Total Tokens" [level=3] [ref=f1e272]
+                - img [ref=f1e274]
+              - generic [ref=f1e276]:
+                - generic [ref=f1e277]: 47,865,758
+                - paragraph [ref=f1e278]: 399 sessions · 46,135 requests
+            - generic [ref=f1e279]:
+              - generic [ref=f1e280]:
+                - heading "Unattributed" [level=3] [ref=f1e281]
+                - img [ref=f1e283]
+              - generic [ref=f1e285]:
+                - generic [ref=f1e286]: 21.6%
+                - paragraph [ref=f1e287]: 10,347,784 tokens unknown/synthetic
+            - generic [ref=f1e288]:
+              - heading "Cache read" [level=3] [ref=f1e290]
+              - generic [ref=f1e291]:
+                - generic [ref=f1e292]: 5,184,966,340
+                - paragraph [ref=f1e293]: write 86,505,176
+          - generic [ref=f1e295]:
+            - generic [ref=f1e296]:
+              - text: "Material ranked:"
+              - strong [ref=f1e297]: 47,865,758
+              - text: tokens
+            - generic [ref=f1e298]: "Unknown model: 10,347,784"
+            - generic [ref=f1e299]: "Synthetic: 0"
+            - generic [ref=f1e300]: "Zero-token rows excluded: 750"
+            - generic [ref=f1e301]: "Missing project: 11,100,602 tokens"
+          - generic [ref=f1e302]:
+            - generic [ref=f1e303]:
+              - generic [ref=f1e304]:
+                - generic [ref=f1e305]:
+                  - heading "Ranked drivers" [level=3] [ref=f1e306]
+                  - paragraph [ref=f1e307]: Canonical model identities with raw aliases for diagnostics. Zero-token and synthetic rows are excluded by default.
+                - generic [ref=f1e308] [cursor=pointer]:
+                  - checkbox "Show zero / synthetic" [ref=f1e309]
+                  - text: Show zero / synthetic
+              - generic [ref=f1e310]:
+                - button "Model" [ref=f1e311]
+                - button "Project" [ref=f1e312]
+                - button "Actor" [ref=f1e313]
+                - button "Source" [ref=f1e314]
+                - button "Session" [ref=f1e315]
+            - table [ref=f1e318]:
+              - rowgroup [ref=f1e319]:
+                - row "Source Project Input Output Cache Sessions" [ref=f1e320]:
+                  - columnheader "Source" [ref=f1e321]
+                  - columnheader "Project" [ref=f1e322]
+                  - columnheader "Input" [ref=f1e323]
+                  - columnheader "Output" [ref=f1e324]
+                  - columnheader "Cache" [ref=f1e325]
+                  - columnheader "Sessions" [ref=f1e326]
+              - rowgroup [ref=f1e327]:
+                - row "hermes unassigned 10,187,619 912,983 0 6" [ref=f1e328] [cursor=pointer]:
+                  - cell "hermes" [ref=f1e329]
+                  - cell "unassigned" [ref=f1e330]:
+                    - generic [ref=f1e331]: unassigned
+                  - cell "10,187,619" [ref=f1e332]
+                  - cell "912,983" [ref=f1e333]
+                  - cell "0" [ref=f1e334]
+                  - cell "6" [ref=f1e335]
+                - row "grok mission-control 9,147,865 1,148,863 241,328,768 40" [ref=f1e336] [cursor=pointer]:
+                  - cell "grok" [ref=f1e337]
+                  - cell "mission-control" [ref=f1e338]:
+                    - generic [ref=f1e339]: mission-control
+                  - cell "9,147,865" [ref=f1e340]
+                  - cell "1,148,863" [ref=f1e341]
+                  - cell "241,328,768" [ref=f1e342]
+                  - cell "40" [ref=f1e343]
+                - row "grok benbishop-site 3,814,826 576,670 91,628,288 22" [ref=f1e344] [cursor=pointer]:
+                  - cell "grok" [ref=f1e345]
+                  - cell "benbishop-site" [ref=f1e346]:
+                    - generic [ref=f1e347]: benbishop-site
+                  - cell "3,814,826" [ref=f1e348]
+                  - cell "576,670" [ref=f1e349]
+                  - cell "91,628,288" [ref=f1e350]
+                  - cell "22" [ref=f1e351]
+                - row "claude-code opportunity-scout 6,333 2,830,693 1,483,154,969 5" [ref=f1e352] [cursor=pointer]:
+                  - cell "claude-code" [ref=f1e353]
+                  - cell "opportunity-scout" [ref=f1e354]:
+                    - generic [ref=f1e355]: opportunity-scout
+                  - cell "6,333" [ref=f1e356]
+                  - cell "2,830,693" [ref=f1e357]
+                  - cell "1,483,154,969" [ref=f1e358]
+                  - cell "5" [ref=f1e359]
+                - row "opencode astro-llms 2,333,120 225,011 60,086,325 37" [ref=f1e360] [cursor=pointer]:
+                  - cell "opencode" [ref=f1e361]
+                  - cell "astro-llms" [ref=f1e362]:
+                    - generic [ref=f1e363]: astro-llms
+                  - cell "2,333,120" [ref=f1e364]
+                  - cell "225,011" [ref=f1e365]
+                  - cell "60,086,325" [ref=f1e366]
+                  - cell "37" [ref=f1e367]
+                - row "claude-code model-prompt-tests 4,924 1,923,281 946,512,894 3" [ref=f1e368] [cursor=pointer]:
+                  - cell "claude-code" [ref=f1e369]
+                  - cell "model-prompt-tests" [ref=f1e370]:
+                    - generic [ref=f1e371]: model-prompt-tests
+                  - cell "4,924" [ref=f1e372]
+                  - cell "1,923,281" [ref=f1e373]
+                  - cell "946,512,894" [ref=f1e374]
+                  - cell "3" [ref=f1e375]
+                - row "opencode bshp 1,821,242 86,599 53,169,866 13" [ref=f1e376] [cursor=pointer]:
+                  - cell "opencode" [ref=f1e377]
+                  - cell "bshp" [ref=f1e378]:
+                    - generic [ref=f1e379]: bshp
+                  - cell "1,821,242" [ref=f1e380]
+                  - cell "86,599" [ref=f1e381]
+                  - cell "53,169,866" [ref=f1e382]
+                  - cell "13" [ref=f1e383]
+                - row "claude-code Dev 211,831 1,561,650 1,071,032,476 7" [ref=f1e384] [cursor=pointer]:
+                  - cell "claude-code" [ref=f1e385]
+                  - cell "Dev" [ref=f1e386]:
+                    - generic [ref=f1e387]: Dev
+                  - cell "211,831" [ref=f1e388]
+                  - cell "1,561,650" [ref=f1e389]
+                  - cell "1,071,032,476" [ref=f1e390]
+                  - cell "7" [ref=f1e391]
+                - row "opencode benbishop-site 1,476,971 78,015 20,480,478 10" [ref=f1e392] [cursor=pointer]:
+                  - cell "opencode" [ref=f1e393]
+                  - cell "benbishop-site" [ref=f1e394]:
+                    - generic [ref=f1e395]: benbishop-site
+                  - cell "1,476,971" [ref=f1e396]
+                  - cell "78,015" [ref=f1e397]
+                  - cell "20,480,478" [ref=f1e398]
+                  - cell "10" [ref=f1e399]
+                - row "grok bshp 1,257,948 152,918 17,730,688 13" [ref=f1e400] [cursor=pointer]:
+                  - cell "grok" [ref=f1e401]
+                  - cell "bshp" [ref=f1e402]:
+                    - generic [ref=f1e403]: bshp
+                  - cell "1,257,948" [ref=f1e404]
+                  - cell "152,918" [ref=f1e405]
+                  - cell "17,730,688" [ref=f1e406]
+                  - cell "13" [ref=f1e407]
+                - row "claude-code local-model-plugin-cc 150,466 1,004,622 424,143,047 1" [ref=f1e408] [cursor=pointer]:
+                  - cell "claude-code" [ref=f1e409]
+                  - cell "local-model-plugin-cc" [ref=f1e410]:
+                    - generic [ref=f1e411]: local-model-plugin-cc
+                  - cell "150,466" [ref=f1e412]
+                  - cell "1,004,622" [ref=f1e413]
+                  - cell "424,143,047" [ref=f1e414]
+                  - cell "1" [ref=f1e415]
+                - row "claude-code benbishop-site 79,672 1,036,003 274,553,166 8" [ref=f1e416] [cursor=pointer]:
+                  - cell "claude-code" [ref=f1e417]
+                  - cell "benbishop-site" [ref=f1e418]:
+                    - generic [ref=f1e419]: benbishop-site
+                  - cell "79,672" [ref=f1e420]
+                  - cell "1,036,003" [ref=f1e421]
+                  - cell "274,553,166" [ref=f1e422]
+                  - cell "8" [ref=f1e423]
+                - row "opencode opportunity-scout 883,447 53,615 11,935,218 5" [ref=f1e424] [cursor=pointer]:
+                  - cell "opencode" [ref=f1e425]
+                  - cell "opportunity-scout" [ref=f1e426]:
+                    - generic [ref=f1e427]: opportunity-scout
+                  - cell "883,447" [ref=f1e428]
+                  - cell "53,615" [ref=f1e429]
+                  - cell "11,935,218" [ref=f1e430]
+                  - cell "5" [ref=f1e431]
+                - row "grok grok-plugin-cc 815,974 25,737 9,163,520 11" [ref=f1e432] [cursor=pointer]:
+                  - cell "grok" [ref=f1e433]
+                  - cell "grok-plugin-cc" [ref=f1e434]:
+                    - generic [ref=f1e435]: grok-plugin-cc
+                  - cell "815,974" [ref=f1e436]
+                  - cell "25,737" [ref=f1e437]
+                  - cell "9,163,520" [ref=f1e438]
+                  - cell "11" [ref=f1e439]
+                - row "grok Dev 749,611 86,229 18,512,000 1" [ref=f1e440] [cursor=pointer]:
+                  - cell "grok" [ref=f1e441]
+                  - cell "Dev" [ref=f1e442]:
+                    - generic [ref=f1e443]: Dev
+                  - cell "749,611" [ref=f1e444]
+                  - cell "86,229" [ref=f1e445]
+                  - cell "18,512,000" [ref=f1e446]
+                  - cell "1" [ref=f1e447]
+                - row "claude-code benbishop-context 5,384 707,259 170,817,816 3" [ref=f1e448] [cursor=pointer]:
+                  - cell "claude-code" [ref=f1e449]
+                  - cell "benbishop-context" [ref=f1e450]:
+                    - generic [ref=f1e451]: benbishop-context
+                  - cell "5,384" [ref=f1e452]
+                  - cell "707,259" [ref=f1e453]
+                  - cell "170,817,816" [ref=f1e454]
+                  - cell "3" [ref=f1e455]
+                - row "grok benbishop-context 568,368 84,708 10,099,840 4" [ref=f1e456] [cursor=pointer]:
+                  - cell "grok" [ref=f1e457]
+                  - cell "benbishop-context" [ref=f1e458]:
+                    - generic [ref=f1e459]: benbishop-context
+                  - cell "568,368" [ref=f1e460]
+                  - cell "84,708" [ref=f1e461]
+                  - cell "10,099,840" [ref=f1e462]
+                  - cell "4" [ref=f1e463]
+                - row "claude-code agent-skills-plugin 10,569 468,141 116,980,171 3" [ref=f1e464] [cursor=pointer]:
+                  - cell "claude-code" [ref=f1e465]
+                  - cell "agent-skills-plugin" [ref=f1e466]:
+                    - generic [ref=f1e467]: agent-skills-plugin
+                  - cell "10,569" [ref=f1e468]
+                  - cell "468,141" [ref=f1e469]
+                  - cell "116,980,171" [ref=f1e470]
+                  - cell "3" [ref=f1e471]
+                - row "claude-code fable-orchestrator 24,509 278,083 50,774,619 1" [ref=f1e472] [cursor=pointer]:
+                  - cell "claude-code" [ref=f1e473]
+                  - cell "fable-orchestrator" [ref=f1e474]:
+                    - generic [ref=f1e475]: fable-orchestrator
+                  - cell "24,509" [ref=f1e476]
+                  - cell "278,083" [ref=f1e477]
+                  - cell "50,774,619" [ref=f1e478]
+                  - cell "1" [ref=f1e479]
+                - row "claude-code opportunity-scout-linear-idea-label 1,018 283,686 95,629,747 1" [ref=f1e480] [cursor=pointer]:
+                  - cell "claude-code" [ref=f1e481]
+                  - cell "opportunity-scout-linear-idea-label" [ref=f1e482]:
+                    - generic [ref=f1e483]: opportunity-scout-linear-idea-label
+                  - cell "1,018" [ref=f1e484]
+                  - cell "283,686" [ref=f1e485]
+                  - cell "95,629,747" [ref=f1e486]
+                  - cell "1" [ref=f1e487]
+                - row "claude-code mission-control 450 196,814 47,947,631 2" [ref=f1e488] [cursor=pointer]:
+                  - cell "claude-code" [ref=f1e489]
+                  - cell "mission-control" [ref=f1e490]:
+                    - generic [ref=f1e491]: mission-control
+                  - cell "450" [ref=f1e492]
+                  - cell "196,814" [ref=f1e493]
+                  - cell "47,947,631" [ref=f1e494]
+                  - cell "2" [ref=f1e495]
+                - row "grok astro-llms 104,075 10,402 509,056 2" [ref=f1e496] [cursor=pointer]:
+                  - cell "grok" [ref=f1e497]
+                  - cell "astro-llms" [ref=f1e498]:
+                    - generic [ref=f1e499]: astro-llms
+                  - cell "104,075" [ref=f1e500]
+                  - cell "10,402" [ref=f1e501]
+                  - cell "509,056" [ref=f1e502]
+                  - cell "2" [ref=f1e503]
+                - row "claude-code grok-plugin-cc 6,013 104,044 25,568,506 1" [ref=f1e504] [cursor=pointer]:
+                  - cell "claude-code" [ref=f1e505]
+                  - cell "grok-plugin-cc" [ref=f1e506]:
+                    - generic [ref=f1e507]: grok-plugin-cc
+                  - cell "6,013" [ref=f1e508]
+                  - cell "104,044" [ref=f1e509]
+                  - cell "25,568,506" [ref=f1e510]
+                  - cell "1" [ref=f1e511]
+                - row "claude-code benbishop-site-bsh-22 327 68,449 14,631,872 1" [ref=f1e512] [cursor=pointer]:
+                  - cell "claude-code" [ref=f1e513]
+                  - cell "benbishop-site-bsh-22" [ref=f1e514]:
+                    - generic [ref=f1e515]: benbishop-site-bsh-22
+                  - cell "327" [ref=f1e516]
+                  - cell "68,449" [ref=f1e517]
+                  - cell "14,631,872" [ref=f1e518]
+                  - cell "1" [ref=f1e519]
+                - row "claude-code astro-llms 166 60,585 3,222,804 1" [ref=f1e520] [cursor=pointer]:
+                  - cell "claude-code" [ref=f1e521]
+                  - cell "astro-llms" [ref=f1e522]:
+                    - generic [ref=f1e523]: astro-llms
+                  - cell "166" [ref=f1e524]
+                  - cell "60,585" [ref=f1e525]
+                  - cell "3,222,804" [ref=f1e526]
+                  - cell "1" [ref=f1e527]
+                - row "grok agent-skills-plugin 37,837 7,315 113,152 2" [ref=f1e528] [cursor=pointer]:
+                  - cell "grok" [ref=f1e529]
+                  - cell "agent-skills-plugin" [ref=f1e530]:
+                    - generic [ref=f1e531]: agent-skills-plugin
+                  - cell "37,837" [ref=f1e532]
+                  - cell "7,315" [ref=f1e533]
+                  - cell "113,152" [ref=f1e534]
+                  - cell "2" [ref=f1e535]
+                - row "claude-code fable-subagent-test 14,566 26,639 2,744,575 3" [ref=f1e536] [cursor=pointer]:
+                  - cell "claude-code" [ref=f1e537]
+                  - cell "fable-subagent-test" [ref=f1e538]:
+                    - generic [ref=f1e539]: fable-subagent-test
+                  - cell "14,566" [ref=f1e540]
+                  - cell "26,639" [ref=f1e541]
+                  - cell "2,744,575" [ref=f1e542]
+                  - cell "3" [ref=f1e543]
+                - row "grok benbishop-site-bsh-22 28,021 4,823 134,144 1" [ref=f1e544] [cursor=pointer]:
+                  - cell "grok" [ref=f1e545]
+                  - cell "benbishop-site-bsh-22" [ref=f1e546]:
+                    - generic [ref=f1e547]: benbishop-site-bsh-22
+                  - cell "28,021" [ref=f1e548]
+                  - cell "4,823" [ref=f1e549]
+                  - cell "134,144" [ref=f1e550]
+                  - cell "1" [ref=f1e551]
+                - row "claude-code bshp 146 24,125 4,707,945 1" [ref=f1e552] [cursor=pointer]:
+                  - cell "claude-code" [ref=f1e553]
+                  - cell "bshp" [ref=f1e554]:
+                    - generic [ref=f1e555]: bshp
+                  - cell "146" [ref=f1e556]
+                  - cell "24,125" [ref=f1e557]
+                  - cell "4,707,945" [ref=f1e558]
+                  - cell "1" [ref=f1e559]
+                - row "claude-code benbishop-site-starter-template 14,483 7,991 1,137,007 1" [ref=f1e560] [cursor=pointer]:
+                  - cell "claude-code" [ref=f1e561]
+                  - cell "benbishop-site-starter-template" [ref=f1e562]:
+                    - generic [ref=f1e563]: benbishop-site-starter-template
+                  - cell "14,483" [ref=f1e564]
+                  - cell "7,991" [ref=f1e565]
+                  - cell "1,137,007" [ref=f1e566]
+                  - cell "1" [ref=f1e567]
+                - row "claude-code stripe-email 32 18,028 715,986 1" [ref=f1e568] [cursor=pointer]:
+                  - cell "claude-code" [ref=f1e569]
+                  - cell "stripe-email" [ref=f1e570]:
+                    - generic [ref=f1e571]: stripe-email
+                  - cell "32" [ref=f1e572]
+                  - cell "18,028" [ref=f1e573]
+                  - cell "715,986" [ref=f1e574]
+                  - cell "1" [ref=f1e575]
+                - row "claude-code swe-tasks-fixture-smoke--claude-code--haiku--r0 578 14,917 1,475,391 4" [ref=f1e576] [cursor=pointer]:
+                  - cell "claude-code" [ref=f1e577]
+                  - cell "swe-tasks-fixture-smoke--claude-code--haiku--r0" [ref=f1e578]:
+                    - generic [ref=f1e579]: swe-tasks-fixture-smoke--claude-code--haiku--r0
+                  - cell "578" [ref=f1e580]
+                  - cell "14,917" [ref=f1e581]
+                  - cell "1,475,391" [ref=f1e582]
+                  - cell "4" [ref=f1e583]
+                - row "opencode tmp 11,561 80 0 2" [ref=f1e584] [cursor=pointer]:
+                  - cell "opencode" [ref=f1e585]
+                  - cell "tmp" [ref=f1e586]:
+                    - generic [ref=f1e587]: tmp
+                  - cell "11,561" [ref=f1e588]
+                  - cell "80" [ref=f1e589]
+                  - cell "0" [ref=f1e590]
+                  - cell "2" [ref=f1e591]
+                - row "grok grok-readonly-spike-EusCly 10,989 315 29,824 1" [ref=f1e592] [cursor=pointer]:
+                  - cell "grok" [ref=f1e593]
+                  - cell "grok-readonly-spike-EusCly" [ref=f1e594]:
+                    - generic [ref=f1e595]: grok-readonly-spike-EusCly
+                  - cell "10,989" [ref=f1e596]
+                  - cell "315" [ref=f1e597]
+                  - cell "29,824" [ref=f1e598]
+                  - cell "1" [ref=f1e599]
+                - row "claude-code claude-harness-check 170 2,915 403,848 4" [ref=f1e600] [cursor=pointer]:
+                  - cell "claude-code" [ref=f1e601]
+                  - cell "claude-harness-check" [ref=f1e602]:
+                    - generic [ref=f1e603]: claude-harness-check
+                  - cell "170" [ref=f1e604]
+                  - cell "2,915" [ref=f1e605]
+                  - cell "403,848" [ref=f1e606]
+                  - cell "4" [ref=f1e607]
+                - row "grok grok-disallowed-spike-2kMqOs 2,695 338 38,144 1" [ref=f1e608] [cursor=pointer]:
+                  - cell "grok" [ref=f1e609]
+                  - cell "grok-disallowed-spike-2kMqOs" [ref=f1e610]:
+                    - generic [ref=f1e611]: grok-disallowed-spike-2kMqOs
+                  - cell "2,695" [ref=f1e612]
+                  - cell "338" [ref=f1e613]
+                  - cell "38,144" [ref=f1e614]
+                  - cell "1" [ref=f1e615]
+                - row "grok grok-readonly-spike-5DRCa1 2,650 277 38,144 1" [ref=f1e616] [cursor=pointer]:
+                  - cell "grok" [ref=f1e617]
+                  - cell "grok-readonly-spike-5DRCa1" [ref=f1e618]:
+                    - generic [ref=f1e619]: grok-readonly-spike-5DRCa1
+                  - cell "2,650" [ref=f1e620]
+                  - cell "277" [ref=f1e621]
+                  - cell "38,144" [ref=f1e622]
+                  - cell "1" [ref=f1e623]
+                - row "grok grok-deny-spike-yLeOji 2,512 220 24,576 1" [ref=f1e624] [cursor=pointer]:
+                  - cell "grok" [ref=f1e625]
+                  - cell "grok-deny-spike-yLeOji" [ref=f1e626]:
+                    - generic [ref=f1e627]: grok-deny-spike-yLeOji
+                  - cell "2,512" [ref=f1e628]
+                  - cell "220" [ref=f1e629]
+                  - cell "24,576" [ref=f1e630]
+                  - cell "1" [ref=f1e631]
+                - row "grok grok-rescue-spike-6ff6px 2,466 137 24,576 1" [ref=f1e632] [cursor=pointer]:
+                  - cell "grok" [ref=f1e633]
+                  - cell "grok-rescue-spike-6ff6px" [ref=f1e634]:
+                    - generic [ref=f1e635]: grok-rescue-spike-6ff6px
+                  - cell "2,466" [ref=f1e636]
+                  - cell "137" [ref=f1e637]
+                  - cell "24,576" [ref=f1e638]
+                  - cell "1" [ref=f1e639]
+                - row "claude-code benbishop-context-bsh-83 16 1,128 270,439 2" [ref=f1e640] [cursor=pointer]:
+                  - cell "claude-code" [ref=f1e641]
+                  - cell "benbishop-context-bsh-83" [ref=f1e642]:
+                    - generic [ref=f1e643]: benbishop-context-bsh-83
+                  - cell "16" [ref=f1e644]
+                  - cell "1,128" [ref=f1e645]
+                  - cell "270,439" [ref=f1e646]
+                  - cell "2" [ref=f1e647]

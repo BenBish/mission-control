@@ -1,0 +1,207 @@
+- generic [ref=e6]:
+  - complementary [ref=e7]:
+    - generic [ref=e8]:
+      - generic [ref=e9]:
+        - img [ref=e11]
+        - generic [ref=e13]:
+          - generic [ref=e14]: Mission Control
+          - generic [ref=e15]: Unified AI usage dashboard
+      - navigation "Main" [ref=e16]:
+        - link "Dashboard" [ref=e17] [cursor=pointer]:
+          - /url: /
+          - img [ref=e19]
+          - generic [ref=e24]: Dashboard
+        - link "Activities" [ref=e25] [cursor=pointer]:
+          - /url: /activities
+          - img [ref=e27]
+          - generic [ref=e28]: Activities
+        - link "Sessions" [ref=e29] [cursor=pointer]:
+          - /url: /sessions
+          - img [ref=e31]
+          - generic [ref=e35]: Sessions
+        - link "Runtime" [ref=e36] [cursor=pointer]:
+          - /url: /runtime
+          - img [ref=e38]
+          - generic [ref=e41]: Runtime
+        - link "Failures" [ref=e43] [cursor=pointer]:
+          - /url: /failures
+          - img [ref=e45]
+          - generic [ref=e47]: Failures
+        - link "Consumption" [ref=e48] [cursor=pointer]:
+          - /url: /consumption
+          - img [ref=e50]
+          - generic [ref=e52]: Consumption
+        - generic [ref=e53]:
+          - paragraph [ref=e54]: Workloads
+          - generic [ref=e55]:
+            - link "Jobs" [ref=e56] [cursor=pointer]:
+              - /url: /jobs
+              - img [ref=e58]
+              - generic [ref=e61]: Jobs
+            - link "Generations Off" [ref=e62] [cursor=pointer]:
+              - /url: /generations
+              - img [ref=e64]
+              - generic [ref=e68]: Generations
+              - generic [ref=e69]: "Off"
+        - link "Settings" [ref=e71] [cursor=pointer]:
+          - /url: /settings
+          - img [ref=e73]
+          - generic [ref=e76]: Settings
+      - generic [ref=e80]: System Offline
+  - generic [ref=e81]:
+    - alert [ref=e82]:
+      - generic [ref=e83]:
+        - img [ref=e84]
+        - generic [ref=e86]:
+          - paragraph [ref=e87]: Security notice
+          - paragraph [ref=e88]: App authentication is off. Anyone who can reach this host can read activity data.
+    - banner [ref=e89]:
+      - combobox "Filter by source" [ref=e91]:
+        - generic:
+          - generic:
+            - 'generic "hermes@strix-halo: Unknown (raw: unknown)"'
+            - generic: Hermes
+        - img [ref=e92]
+      - button "Toggle theme" [ref=e94]:
+        - img
+        - generic [ref=e95]: Toggle theme
+    - main [ref=e96]:
+      - generic [ref=e97]:
+        - generic [ref=e99]:
+          - heading "Runtime" [level=1] [ref=e100]
+          - paragraph [ref=e101]: Local inference telemetry for Hermes
+        - generic [ref=e103]:
+          - text: Time range
+          - combobox "Time range" [active] [ref=e104]:
+            - generic: Last 1h
+            - img [ref=e105]
+        - generic [ref=e108]:
+          - generic [ref=e109]:
+            - generic [ref=e111]:
+              - generic [ref=e112]:
+                - paragraph [ref=e113]: Active slots
+                - img [ref=e114]
+              - paragraph [ref=e117]: 0/0
+              - paragraph [ref=e118]: Current occupancy
+            - generic [ref=e120]:
+              - generic [ref=e121]:
+                - paragraph [ref=e122]: Saturation
+                - img [ref=e123]
+              - paragraph [ref=e125]: —
+              - paragraph [ref=e126]: Busy / total slots
+            - generic [ref=e128]:
+              - generic [ref=e129]:
+                - paragraph [ref=e130]: Throughput
+                - img [ref=e131]
+              - paragraph [ref=e133]: 0.00/h
+              - paragraph [ref=e134]: 0 req · last 1h
+            - button "Show cancelled requests" [ref=e135] [cursor=pointer]:
+              - generic [ref=e136]:
+                - generic [ref=e137]:
+                  - paragraph [ref=e138]: Cancellation rate
+                  - img [ref=e139]
+                - paragraph [ref=e142]: —
+                - paragraph [ref=e143]: Tap to show cancelled
+            - generic [ref=e145]:
+              - generic [ref=e146]:
+                - paragraph [ref=e147]: p50 latency
+                - img [ref=e148]
+              - paragraph [ref=e151]: —
+              - paragraph [ref=e152]: last 1h
+            - generic [ref=e154]:
+              - generic [ref=e155]:
+                - paragraph [ref=e156]: p95 latency
+                - img [ref=e157]
+              - paragraph [ref=e160]: —
+              - paragraph [ref=e161]: last 1h
+          - generic [ref=e162]:
+            - button "Show error requests" [ref=e163]:
+              - img
+              - text: Errors
+            - button "Show slow requests" [disabled]:
+              - img
+              - text: Slow (≥ p95)
+            - button "Show cancelled requests" [ref=e164]:
+              - img
+              - text: Cancelled
+        - generic [ref=e165]:
+          - generic [ref=e167]:
+            - generic [ref=e168]:
+              - heading "Requests by backend" [level=3] [ref=e169]:
+                - img [ref=e170]
+                - text: Requests by backend
+              - paragraph [ref=e173]: Inference volume by client label (last 1h). These are Hermes / lemonade backends — not agentic Activity sources.
+            - paragraph [ref=e175]: No inference requests in this range.
+          - generic [ref=e177]:
+            - generic [ref=e178]:
+              - heading "Hermes" [level=3] [ref=e179]
+              - generic [ref=e180]: Unknown
+            - generic [ref=e181]:
+              - paragraph [ref=e182]: hermes@strix-halo
+              - paragraph [ref=e183]: Last seen Never
+        - generic [ref=e191]:
+          - generic [ref=e192]:
+            - heading "Slot Occupancy" [level=3] [ref=e193]:
+              - img [ref=e194]
+              - text: Slot Occupancy
+            - paragraph [ref=e197]: Sampled every 5s — a request that starts and finishes between samples can be missed
+          - paragraph [ref=e199]: No slot data yet — polling may be disabled or just starting.
+        - generic [ref=e200]:
+          - heading "Models Loaded" [level=3] [ref=e202]
+          - paragraph [ref=e204]: No model inventory yet.
+        - generic [ref=e205]:
+          - generic [ref=e206]:
+            - generic [ref=e207]:
+              - heading "Recent Requests" [level=3] [ref=e208]
+              - paragraph [ref=e209]: Workload is a best-effort heuristic — badged distinctly from verified fields, not ground truth
+            - generic [ref=e210]:
+              - generic [ref=e211]:
+                - text: Status
+                - combobox "Request status filter" [ref=e212]:
+                  - generic: All
+                  - img [ref=e213]
+              - generic [ref=e215]:
+                - text: Backend
+                - combobox "Request backend filter" [ref=e216]:
+                  - generic: All backends
+                  - img [ref=e217]
+          - generic [ref=e219]:
+            - paragraph [ref=e220]: No inference requests observed yet.
+            - generic [ref=e221]:
+              - paragraph [ref=e222]: No requests
+              - generic [ref=e223]:
+                - button "Previous requests page" [disabled]:
+                  - img
+                  - text: Prev
+                - generic [ref=e224]: 1 / 1
+                - button "Next requests page" [disabled]:
+                  - text: Next
+                  - img
+        - generic [ref=e225]:
+          - generic [ref=e226]:
+            - heading "Runtime Events" [level=3] [ref=e227]:
+              - img [ref=e228]
+              - text: Runtime Events
+            - generic [ref=e230]:
+              - text: Event type
+              - combobox "Event type filter" [ref=e231]:
+                - generic: All
+                - img [ref=e232]
+          - generic [ref=e234]:
+            - paragraph [ref=e236]: No runtime events — no saturation, outages, or overflows observed yet.
+            - generic [ref=e237]:
+              - paragraph [ref=e238]: No events
+              - generic [ref=e239]:
+                - button "Previous events page" [disabled]:
+                  - img
+                  - text: Prev
+                - generic [ref=e240]: 1 / 1
+                - button "Next events page" [disabled]:
+                  - text: Next
+                  - img
+        - generic [ref=e242]:
+          - paragraph [ref=e243]: Background work contending with foreground turns is tracked on the Jobs page.
+          - link "View contention incidents" [ref=e244] [cursor=pointer]:
+            - /url: /jobs
+            - text: View contention incidents
+            - img [ref=e245]

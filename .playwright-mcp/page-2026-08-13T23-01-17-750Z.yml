@@ -1,0 +1,9 @@
+- generic [ref=f4e4]:
+  - banner [ref=f4e5]:
+    - button "Toggle menu" [ref=f4e6]:
+      - img
+      - generic [ref=f4e7]: Toggle menu
+    - button "Toggle theme" [ref=f4e9]:
+      - img
+      - generic [ref=f4e10]: Toggle theme
+  - main [ref=f4e11]

@@ -1,0 +1,132 @@
+- generic [ref=e1]:
+  - generic [ref=e6]:
+    - complementary [ref=e210]:
+      - generic [ref=e211]:
+        - generic [ref=e216]:
+          - generic [ref=e217]: Mission Control
+          - generic [ref=e218]: Unified AI usage dashboard
+        - navigation [ref=e219]:
+          - link [ref=e220] [cursor=pointer]:
+            - /url: /
+          - link [ref=e228] [cursor=pointer]:
+            - /url: /activities
+          - link [ref=e231] [cursor=pointer]:
+            - /url: /sessions
+          - link [ref=e237] [cursor=pointer]:
+            - /url: /runtime
+          - link [ref=e242] [cursor=pointer]:
+            - /url: /failures
+          - link [active] [ref=e246] [cursor=pointer]:
+            - /url: /consumption
+          - link [ref=e250] [cursor=pointer]:
+            - /url: /jobs
+          - link [ref=e255] [cursor=pointer]:
+            - /url: /generations
+          - link [ref=e261] [cursor=pointer]:
+            - /url: /settings
+        - generic [ref=e266]: System Online
+    - generic [ref=e7]:
+      - banner [ref=e8]:
+        - generic "Agent usage respects the source filter; provider API costs are account-wide" [ref=e1830]:
+          - combobox "Filter by source" [ref=e12]:
+            - generic: All sources
+        - button "Toggle theme" [ref=e15]
+      - main [ref=e17]:
+        - generic [ref=e1831]:
+          - generic [ref=e1833]:
+            - heading "Consumption" [level=1] [ref=e1834]
+            - paragraph [ref=e1835]: Agent session usage for all sources; Direct API Spend is account-wide — separate datasets, not summed together
+          - generic [ref=e1836]:
+            - generic [ref=e1837]:
+              - tablist [ref=e1838]:
+                - tab "Agent Usage" [selected] [ref=e1839]
+                - tab "Direct API Spend" [ref=e1843]
+              - generic [ref=e1846]:
+                - button "Today" [ref=e1847]
+                - button "Last 7 days" [ref=e1848]
+                - button "Last 30 days" [ref=e1849]
+                - button "All time" [ref=e1850]
+            - paragraph [ref=e1851]: "Showing: Last 30 days"
+            - tabpanel "Agent Usage" [ref=e1854]:
+              - generic [ref=e1855]:
+                - paragraph [ref=e1856]: Session-derived usage from agent sources (Claude Code, Codex, Grok, Hermes, etc.) for all sources. Honors the global source filter. Not the same as account-level provider billing.
+                - generic [ref=e1857]:
+                  - button "Tokens" [ref=e1858]
+                  - button "Compute time" [ref=e1859]
+                  - button "USD" [ref=e1860]
+              - generic [ref=e1862]:
+                - heading "Total Tokens" [level=3] [ref=e1864]
+                - generic [ref=e1868]: 28,215,154
+              - generic [ref=e1870]:
+                - generic [ref=e1871]:
+                  - heading "By Source & Model" [level=3] [ref=e1872]
+                  - paragraph [ref=e1873]: Agent Usage over the selected date range
+                - table [ref=e1876]:
+                  - rowgroup [ref=e1877]:
+                    - row [ref=e1878]:
+                      - columnheader "Source" [ref=e1879]
+                      - columnheader "Model" [ref=e1880]
+                      - columnheader "Input" [ref=e1881]
+                      - columnheader "Output" [ref=e1882]
+                  - rowgroup [ref=e1883]:
+                    - row [ref=e1884]:
+                      - cell "claude-code" [ref=e1885]
+                      - cell "claude-sonnet-5" [ref=e1886]
+                      - cell "803,883" [ref=e1887]
+                      - cell "9,549,449" [ref=e1888]
+                    - row [ref=e1889]:
+                      - cell "hermes" [ref=e1890]
+                      - cell "unknown" [ref=e1891]
+                      - cell "7,286,970" [ref=e1892]
+                      - cell "670,692" [ref=e1893]
+                    - row [ref=e1894]:
+                      - cell "grok" [ref=e1895]
+                      - cell "grok-4.5" [ref=e1896]
+                      - cell "3,994,227" [ref=e1897]
+                      - cell "589,523" [ref=e1898]
+                    - row [ref=e1899]:
+                      - cell "grok" [ref=e1900]
+                      - cell "grok-4.5-build" [ref=e1901]
+                      - cell "3,988,383" [ref=e1902]
+                      - cell "489,385" [ref=e1903]
+                    - row [ref=e1904]:
+                      - cell "claude-code" [ref=e1905]
+                      - cell "claude-fable-5" [ref=e1906]
+                      - cell "82,192" [ref=e1907]
+                      - cell "550,975" [ref=e1908]
+                    - row [ref=e1909]:
+                      - cell "claude-code" [ref=e1910]
+                      - cell "claude-opus-4-8" [ref=e1911]
+                      - cell "126,131" [ref=e1912]
+                      - cell "62,744" [ref=e1913]
+                    - row [ref=e1914]:
+                      - cell "claude-code" [ref=e1915]
+                      - cell "claude-haiku-4-5-20251001" [ref=e1916]
+                      - cell "841" [ref=e1917]
+                      - cell "19,629" [ref=e1918]
+                    - row [ref=e1919]:
+                      - cell "claude-code" [ref=e1920]
+                      - cell "claude-sonnet-4-6" [ref=e1921]
+                      - cell "6" [ref=e1922]
+                      - cell "124" [ref=e1923]
+                    - row [ref=e1924]:
+                      - cell "claude-code" [ref=e1925]
+                      - cell "unknown" [ref=e1926]
+                      - cell "0" [ref=e1927]
+                      - cell "0" [ref=e1928]
+                    - row [ref=e1929]:
+                      - cell "grok" [ref=e1930]
+                      - cell "unknown" [ref=e1931]
+                      - cell "0" [ref=e1932]
+                      - cell "0" [ref=e1933]
+                    - row [ref=e1934]:
+                      - cell "codex" [ref=e1935]
+                      - cell "unknown" [ref=e1936]
+                      - cell "0" [ref=e1937]
+                      - cell "0" [ref=e1938]
+                    - row [ref=e1939]:
+                      - cell "claude-code" [ref=e1940]
+                      - cell "<synthetic>" [ref=e1941]
+                      - cell "0" [ref=e1942]
+                      - cell "0" [ref=e1943]
+  - generic [ref=e209]: "0"

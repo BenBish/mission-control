@@ -1,0 +1,76 @@
+- generic [ref=e1]:
+  - generic [ref=e6]:
+    - complementary [ref=e447]:
+      - generic [ref=e448]:
+        - generic [ref=e453]:
+          - generic [ref=e454]: Mission Control
+          - generic [ref=e455]: Unified AI usage dashboard
+        - navigation [ref=e456]:
+          - link [ref=e457] [cursor=pointer]:
+            - /url: /
+          - link [ref=e464] [cursor=pointer]:
+            - /url: /activities
+          - link [ref=e467] [cursor=pointer]:
+            - /url: /sessions
+          - link [ref=e473] [cursor=pointer]:
+            - /url: /runtime
+          - link [ref=e478] [cursor=pointer]:
+            - /url: /failures
+          - link [ref=e482] [cursor=pointer]:
+            - /url: /consumption
+          - link [ref=e487] [cursor=pointer]:
+            - /url: /jobs
+          - link [ref=e492] [cursor=pointer]:
+            - /url: /generations
+          - link [ref=e498] [cursor=pointer]:
+            - /url: /settings
+        - generic [ref=e503]: System Error
+    - generic [ref=e7]:
+      - banner [ref=e8]:
+        - combobox [ref=e11]:
+          - generic: Claude Code
+        - button "Toggle theme" [ref=e14]
+      - main [ref=e16]:
+        - generic [ref=e211]:
+          - generic [ref=e213]:
+            - heading "Consumption" [level=1] [ref=e214]
+            - paragraph [ref=e215]: Agent session usage and direct provider API spend — separate datasets, not summed together
+          - generic [ref=e373]:
+            - generic [ref=e374]:
+              - tablist [ref=e375]:
+                - tab "Agent Usage" [active] [selected] [ref=e376]
+                - tab "Direct API Spend" [ref=e380]
+              - generic [ref=e383]:
+                - button "Today" [ref=e384]
+                - button "Last 7 days" [ref=e385]
+                - button "Last 30 days" [ref=e386]
+                - button "All time" [ref=e387]
+            - paragraph [ref=e388]: "Showing: Last 7 days"
+            - tabpanel "Agent Usage" [ref=e391]:
+              - generic [ref=e515]:
+                - paragraph [ref=e516]: Session-derived usage from agent sources (Claude Code, Codex, Grok, Hermes, etc.). Honors the global source filter. Not the same as account-level provider billing.
+                - generic [ref=e517]:
+                  - button "Tokens" [ref=e518]
+                  - button "Compute time" [ref=e519]
+                  - button "USD" [ref=e520]
+              - generic [ref=e522]:
+                - heading "Total Tokens" [level=3] [ref=e524]
+                - generic [ref=e528]: "165"
+              - generic [ref=e530]:
+                - generic [ref=e531]:
+                  - heading "By Source & Model" [level=3] [ref=e532]
+                  - paragraph [ref=e533]: Agent Usage over the selected date range · filtered to claude-code
+                - table [ref=e536]:
+                  - rowgroup [ref=e537]:
+                    - row [ref=e538]:
+                      - columnheader "Source" [ref=e539]
+                      - columnheader "Model" [ref=e540]
+                      - columnheader "Input" [ref=e541]
+                      - columnheader "Output" [ref=e542]
+                  - rowgroup [ref=e543]:
+                    - row [ref=e544]:
+                      - cell "claude-code" [ref=e545]
+                      - cell "manual-model" [ref=e546]
+                      - cell "110" [ref=e547]
+                      - cell "55" [ref=e548]
+  - generic [ref=e210]: "0"

@@ -1,0 +1,230 @@
+- generic [ref=e1]:
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - button "Toggle menu" [ref=e6]:
+        - img
+        - generic [ref=e7]: Toggle menu
+      - generic "Agent usage respects the source filter; provider API costs are account-wide" [ref=e14]:
+        - combobox "Filter by source" [ref=e15]:
+          - generic:
+            - generic:
+              - 'generic "opencode@arch-desktop: Offline — Heartbeat expired (raw: ok)"'
+              - generic: OpenCode
+          - img [ref=e16]
+        - generic [ref=e18]: Partial scope
+      - button "Toggle theme" [ref=e9]:
+        - img
+        - generic [ref=e10]: Toggle theme
+    - main [ref=e11]:
+      - generic [ref=e19]:
+        - generic [ref=e21]:
+          - heading "Consumption" [level=1] [ref=e22]
+          - paragraph [ref=e23]: Agent session usage for OpenCode; Direct API Spend is account-wide — separate datasets, not summed together
+        - generic [ref=e24]:
+          - generic [ref=e25]:
+            - tablist [ref=e26]:
+              - tab "Agent Usage" [ref=e27]:
+                - img [ref=e28]
+                - text: Agent Usage
+              - tab "Direct API Spend" [active] [selected] [ref=e31]:
+                - img [ref=e32]
+                - text: Direct API Spend
+            - generic [ref=e34]:
+              - button "Today" [ref=e35]
+              - button "Last 7 days" [ref=e36]
+              - button "Last 30 days" [ref=e37]
+              - button "All time" [ref=e38]
+          - paragraph [ref=e39]:
+            - img [ref=e40]
+            - text: "Showing: Last 30 days"
+          - tabpanel "Direct API Spend" [ref=e117]:
+            - generic [ref=e118]:
+              - generic [ref=e120]:
+                - generic [ref=e121]:
+                  - generic [ref=e122]:
+                    - heading "Direct API Spend" [level=3] [ref=e123]:
+                      - img [ref=e124]
+                      - text: Direct API Spend
+                    - generic [ref=e126]: Account-wide
+                  - paragraph [ref=e127]:
+                    - strong [ref=e128]: API org spend
+                    - text: — daily usage/cost from provider Admin billing APIs (OpenRouter, Anthropic, OpenAI, xAI). Separate from agent session logs, from
+                    - emphasis [ref=e129]: Plan usage
+                    - text: windows, and from
+                    - emphasis [ref=e130]: Usage credits (wallet)
+                    - text: . Not double-counted with Agent Usage totals. Budget and forecast use the current calendar month (America/New_York).
+                  - paragraph [ref=e131]:
+                    - img [ref=e132]
+                    - text: Source filter “OpenCode” does not apply here — provider billing is account-wide and cannot be scoped to a single agent source.
+                  - paragraph [ref=e134]:
+                    - img [ref=e135]
+                    - text: If OpenRouter BYOK and a direct provider (e.g. Anthropic) are both configured, the same spend can appear under both connectors.
+                - generic [ref=e137]:
+                  - link "Configure budget" [ref=e138] [cursor=pointer]:
+                    - /url: /settings?tab=budgets
+                  - button "Sync now" [ref=e139]:
+                    - img
+                    - text: Sync now
+              - generic [ref=e140]:
+                - generic [ref=e141]:
+                  - generic "Management key recommended for /activity (provider returns ~last 30 UTC days; filtered to sync window client-side)." [ref=e142]:
+                    - generic [ref=e143]: OpenRouter
+                    - generic [ref=e144]: not configured
+                    - generic [ref=e145]: synced 7/30/2026, 10:16:31 PM
+                  - generic "Admin API key (prefix sk-ant-admin…), not a standard Claude key." [ref=e146]:
+                    - generic [ref=e147]: Anthropic
+                    - generic [ref=e148]: not configured
+                    - generic [ref=e149]: synced 7/28/2026, 10:16:31 PM
+                  - generic "Organization Admin key for /organization/costs and usage (API org spend). Prepaid wallet is not available via secret keys; Codex session quotas feed plan usage windows." [ref=e150]:
+                    - generic [ref=e151]: OpenAI
+                    - generic [ref=e152]: not configured
+                  - generic "xAI has no public historical usage API; connector verifies the key and accepts optional MC_XAI_USAGE_ENDPOINT JSON export." [ref=e153]:
+                    - generic [ref=e154]: xAI
+                    - generic [ref=e155]: not configured
+                - generic [ref=e156]:
+                  - generic [ref=e157]:
+                    - heading "Plan usage" [level=3] [ref=e158]:
+                      - img [ref=e159]
+                      - text: Plan usage
+                    - paragraph [ref=e163]: Subscription / rate-limit windows (percent remaining). Account-wide. Not wallet balance and not Direct API Spend. Codex session quotas appear here when collected. Windows past their reset are marked expired (never green). Claude Pro / Claude Code plan bars are not available via Anthropic Admin API.
+                  - generic [ref=e165]:
+                    - paragraph [ref=e166]: No fresh plan capacity available. Last observations are expired or unavailable — collect a new Codex session quota or wait for the next window.
+                    - generic "Quota window has elapsed since the last observation." [ref=e168]:
+                      - generic [ref=e169]:
+                        - generic [ref=e170]: openai
+                        - generic [ref=e171]: expired
+                      - paragraph [ref=e172]: Usage window · primary 300m · session quota
+                      - paragraph [ref=e173]: 80% left
+                      - paragraph [ref=e174]: Quota window has elapsed since the last observation.
+                      - paragraph [ref=e175]: as of 8/4/2026, 10:46:13 PM
+                - generic [ref=e176]:
+                  - generic [ref=e177]:
+                    - heading "Usage credits (wallet)" [level=3] [ref=e178]:
+                      - img [ref=e179]
+                      - text: Usage credits (wallet)
+                    - paragraph [ref=e181]: Prepaid credit balance when providers expose it (e.g. OpenRouter). Never fabricated as $0 when unavailable. Anthropic Admin and OpenAI secret keys do not expose wallets. Not mixed into Direct API Spend or session costs.
+                  - generic [ref=e183]:
+                    - generic "Admin API has no remaining balance endpoint" [ref=e184]:
+                      - generic [ref=e185]:
+                        - generic [ref=e186]: anthropic
+                        - generic [ref=e187]: unavailable
+                      - paragraph [ref=e188]: Wallet balance · not available
+                      - paragraph [ref=e189]: —
+                      - paragraph [ref=e190]: as of 8/4/2026, 10:46:13 PM
+                    - generic [ref=e191]:
+                      - generic [ref=e192]:
+                        - generic [ref=e193]: openai
+                        - generic [ref=e194]: ok
+                      - paragraph [ref=e195]: Wallet balance · provider API
+                      - paragraph [ref=e196]: $42.50
+                      - paragraph [ref=e197]: as of 8/4/2026, 10:46:13 PM
+                    - generic "no public balance API" [ref=e198]:
+                      - generic [ref=e199]:
+                        - generic [ref=e200]: xai
+                        - generic [ref=e201]: limited
+                      - paragraph [ref=e202]: Wallet balance · not available
+                      - paragraph [ref=e203]: —
+                      - paragraph [ref=e204]: as of 8/4/2026, 10:46:13 PM
+                - generic [ref=e205]:
+                  - generic [ref=e206]:
+                    - img [ref=e207]
+                    - generic [ref=e209]:
+                      - paragraph [ref=e210]: "anthropic: stale (not_configured)"
+                      - paragraph [ref=e211]: "Last success: 7/28/2026, 10:16:31 PM. Forecast marked unreliable until sync is fresh."
+                  - generic [ref=e212]:
+                    - img [ref=e213]
+                    - generic [ref=e215]:
+                      - paragraph [ref=e216]: "openrouter: stale (not_configured)"
+                      - paragraph [ref=e217]: "Last success: 7/30/2026, 10:16:31 PM. Forecast marked unreliable until sync is fresh."
+                - generic [ref=e218]:
+                  - generic [ref=e219]:
+                    - generic [ref=e220]:
+                      - heading "MTD spent" [level=3] [ref=e221]
+                      - img [ref=e222]
+                    - generic [ref=e224]:
+                      - generic [ref=e225]: $0.00
+                      - paragraph [ref=e226]: 2026-08-01 → 2026-08-05 (America/New_York)
+                  - generic [ref=e227]:
+                    - generic [ref=e228]:
+                      - heading "Budget remaining" [level=3] [ref=e229]
+                      - img [ref=e230]
+                    - generic [ref=e234]:
+                      - generic [ref=e235]: $250.00
+                      - paragraph [ref=e237]: 0.0% of $250.00
+                  - generic [ref=e238]:
+                    - generic [ref=e239]:
+                      - heading "Burn rate" [level=3] [ref=e240]
+                      - img [ref=e241]
+                    - generic [ref=e244]:
+                      - generic [ref=e245]: $0.00/day
+                      - paragraph [ref=e246]: Day 5 of 31
+                  - generic [ref=e247]:
+                    - generic [ref=e248]:
+                      - heading "Forecast month-end" [level=3] [ref=e249]
+                      - generic [ref=e250]: unreliable
+                    - generic [ref=e251]:
+                      - generic [ref=e252]: $0.00
+                      - paragraph [ref=e253]: Stale/failed sync — do not trust this figure
+                - generic [ref=e254]:
+                  - generic [ref=e255]:
+                    - heading "Daily spend (MTD)" [level=3] [ref=e256]
+                    - paragraph [ref=e257]: Current month vs same day-of-month in the prior month
+                  - generic [ref=e261]:
+                    - list [ref=e263]:
+                      - listitem [ref=e264]:
+                        - img "Prior month legend icon" [ref=e265]
+                        - text: Prior month
+                      - listitem [ref=e267]:
+                        - img "This month legend icon" [ref=e268]
+                        - text: This month
+                    - application [ref=e270]:
+                      - generic [ref=e283]:
+                        - generic [ref=e284]:
+                          - generic [ref=e286]: 8/1
+                          - generic [ref=e288]: 8/2
+                          - generic [ref=e290]: 8/3
+                          - generic [ref=e292]: 8/4
+                          - generic [ref=e294]: 8/5
+                        - generic [ref=e295]:
+                          - generic [ref=e297]: $0
+                          - generic [ref=e299]: $2
+                          - generic [ref=e301]: $4
+                          - generic [ref=e303]: $6
+                          - generic [ref=e305]: $8
+                - generic [ref=e306]:
+                  - generic [ref=e307]:
+                    - heading "Top provider / model (MTD)" [level=3] [ref=e308]
+                    - paragraph [ref=e309]: vs same day-of-month range last month
+                  - paragraph [ref=e311]: No MTD provider spend yet.
+                - paragraph [ref=e312]: Costs are provider-API billing only; never summed with Agent Usage / session-log costs. Partial-month forecast uses current burn. Provider billing can lag finalization.
+                - generic [ref=e313]:
+                  - heading "Usage in selected range (Last 30 days)" [level=3] [ref=e314]
+                  - generic [ref=e315]:
+                    - generic [ref=e316]:
+                      - text: "Tokens:"
+                      - strong [ref=e317]: 3,500
+                    - generic [ref=e318]:
+                      - text: "Cost:"
+                      - strong [ref=e319]: $15.7500
+                  - table [ref=e321]:
+                    - rowgroup [ref=e322]:
+                      - row "Provider Model Input Output Cost" [ref=e323]:
+                        - columnheader "Provider" [ref=e324]
+                        - columnheader "Model" [ref=e325]
+                        - columnheader "Input" [ref=e326]
+                        - columnheader "Output" [ref=e327]
+                        - columnheader "Cost" [ref=e328]
+                    - rowgroup [ref=e329]:
+                      - row "openrouter test/model 2,000 800 $12.5000" [ref=e330]:
+                        - cell "openrouter" [ref=e331]
+                        - cell "test/model" [ref=e332]
+                        - cell "2,000" [ref=e333]
+                        - cell "800" [ref=e334]
+                        - cell "$12.5000" [ref=e335]
+                      - row "anthropic claude-sonnet 500 200 $3.2500" [ref=e336]:
+                        - cell "anthropic" [ref=e337]
+                        - cell "claude-sonnet" [ref=e338]
+                        - cell "500" [ref=e339]
+                        - cell "200" [ref=e340]
+                        - cell "$3.2500" [ref=e341]
+  - generic [ref=e342]: $0

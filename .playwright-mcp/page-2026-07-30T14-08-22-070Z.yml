@@ -1,0 +1,40 @@
+- generic [ref=e1]:
+  - generic [ref=e7]:
+    - banner [ref=e8]:
+      - button "Toggle menu" [ref=e9]
+      - combobox [active] [ref=e11]:
+        - generic: Claude Code
+      - button "Toggle theme" [ref=e14]
+    - main [ref=e16]:
+      - generic [ref=e211]:
+        - generic [ref=e213]:
+          - heading "Consumption" [level=1] [ref=e214]
+          - paragraph [ref=e215]: Agent session usage and direct provider API spend — separate datasets, not summed together
+        - generic [ref=e373]:
+          - generic [ref=e374]:
+            - tablist [ref=e375]:
+              - tab "Agent Usage" [selected] [ref=e376]
+              - tab "Direct API Spend" [ref=e380]
+            - generic [ref=e383]:
+              - button "Today" [ref=e384]
+              - button "Last 7 days" [ref=e385]
+              - button "Last 30 days" [ref=e386]
+              - button "All time" [ref=e387]
+          - paragraph [ref=e388]: "Showing: Last 30 days"
+          - tabpanel "Agent Usage" [ref=e391]:
+            - generic [ref=e392]:
+              - paragraph [ref=e393]: Session-derived usage from agent sources (Claude Code, Codex, Grok, Hermes, etc.). Honors the global source filter. Not the same as account-level provider billing.
+              - generic [ref=e394]:
+                - button "Tokens" [ref=e395]
+                - button "Compute time" [ref=e396]
+                - button "USD" [ref=e397]
+            - generic [ref=e400]:
+              - paragraph [ref=e403]:
+                - text: No billable agent usage in this range for source “claude-code”. Sources here are subscription or local, or no
+                - code [ref=e404]: cost_usd
+                - text: was recorded in session logs.
+              - paragraph [ref=e405]:
+                - text: Provider account billing is under the
+                - button "Direct API Spend" [ref=e406]
+                - text: view — it is a separate dataset.
+  - generic [ref=e210]: "0"

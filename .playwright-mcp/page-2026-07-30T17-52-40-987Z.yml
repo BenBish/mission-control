@@ -1,0 +1,96 @@
+- generic:
+  - generic:
+    - generic:
+      - complementary:
+        - generic:
+          - generic:
+            - generic:
+              - generic: Mission Control
+              - generic: Unified AI usage dashboard
+          - navigation:
+            - link:
+              - /url: /
+              - text: Dashboard
+            - link:
+              - /url: /activities
+              - text: Activities
+            - link:
+              - /url: /sessions
+              - text: Sessions
+            - link:
+              - /url: /runtime
+              - text: Runtime
+            - link:
+              - /url: /failures
+              - text: Failures
+            - link:
+              - /url: /consumption
+              - text: Consumption
+            - link:
+              - /url: /jobs
+              - text: Jobs
+            - link:
+              - /url: /generations
+              - text: Generations
+            - link:
+              - /url: /settings
+              - text: Settings
+          - generic: System Online
+      - generic:
+        - banner:
+          - generic:
+            - combobox [expanded]:
+              - generic: Grok
+          - button:
+            - generic: Toggle theme
+        - main:
+          - generic:
+            - generic:
+              - generic:
+                - heading [level=1]: Failure Analysis
+                - paragraph: Recent failures for Grok
+            - generic:
+              - generic:
+                - generic:
+                  - heading [level=3]: Total Failures
+                - generic:
+                  - generic: "0"
+                  - paragraph: All time · activity failure · inference non-success · runtime non-info
+              - generic:
+                - generic:
+                  - heading [level=3]: Last 24 Hours
+                - generic:
+                  - generic: "0"
+                  - paragraph: Last 24 hours · activity failure · inference non-success · runtime non-info
+            - generic:
+              - generic:
+                - generic:
+                  - paragraph: No failures found.
+                  - paragraph: Failures will appear here when activities, inference requests, or runtime events fail.
+  - generic: "0"
+  - listbox [ref=e1396]:
+    - option "All sources" [ref=e1397]
+    - 'option "claude-code@arch-desktop: ok Claude Code" [ref=e1400]':
+      - generic [ref=e1403]:
+        - 'generic "claude-code@arch-desktop: ok" [ref=e1404]'
+        - generic [ref=e1405]: Claude Code
+    - 'option "codex@arch-desktop: ok Codex CLI" [ref=e1406]':
+      - generic [ref=e1409]:
+        - 'generic "codex@arch-desktop: ok" [ref=e1410]'
+        - generic [ref=e1411]: Codex CLI
+    - 'option "comfyui@strix-halo: off ComfyUI" [ref=e1412]':
+      - generic [ref=e1415]:
+        - 'generic "comfyui@strix-halo: off" [ref=e1416]'
+        - generic [ref=e1417]: ComfyUI
+    - 'option "grok@arch-desktop: ok Grok" [active] [selected] [ref=e1418]':
+      - generic [ref=e1424]:
+        - 'generic "grok@arch-desktop: ok" [ref=e1425]'
+        - generic [ref=e1426]: Grok
+    - 'option "hermes@strix-halo: ok Hermes" [ref=e1427]':
+      - generic [ref=e1430]:
+        - 'generic "hermes@strix-halo: ok" [ref=e1431]'
+        - generic [ref=e1432]: Hermes
+    - 'option "lemonade@strix-halo: off Lemonade" [ref=e1433]':
+      - generic [ref=e1436]:
+        - 'generic "lemonade@strix-halo: off" [ref=e1437]'
+        - generic [ref=e1438]: Lemonade

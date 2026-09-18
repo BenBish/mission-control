@@ -1,0 +1,830 @@
+- generic [ref=f2e3]:
+  - complementary [ref=f2e4]:
+    - generic [ref=f2e5]:
+      - generic [ref=f2e10]:
+        - generic [ref=f2e11]: Mission Control
+        - generic [ref=f2e12]: Unified AI usage dashboard
+      - navigation [ref=f2e13]:
+        - link [ref=f2e14] [cursor=pointer]:
+          - /url: /
+        - link [ref=f2e21] [cursor=pointer]:
+          - /url: /activities
+        - link [ref=f2e25] [cursor=pointer]:
+          - /url: /sessions
+        - link [ref=f2e31] [cursor=pointer]:
+          - /url: /runtime
+        - link [ref=f2e36] [cursor=pointer]:
+          - /url: /failures
+        - link [ref=f2e40] [cursor=pointer]:
+          - /url: /consumption
+        - link [ref=f2e44] [cursor=pointer]:
+          - /url: /jobs
+        - link [ref=f2e49] [cursor=pointer]:
+          - /url: /generations
+        - link [ref=f2e55] [cursor=pointer]:
+          - /url: /settings
+      - generic [ref=f2e60]: System Online
+  - generic [ref=f2e64]:
+    - banner [ref=f2e65]:
+      - combobox [ref=f2e72]:
+        - generic: Grok
+      - button "Toggle theme" [ref=f2e67]
+    - main [ref=f2e69]:
+      - generic [ref=f2e75]:
+        - generic [ref=f2e77]:
+          - heading "Activity Feed" [level=1] [ref=f2e78]
+          - paragraph [ref=f2e79]: View all system activities and events
+        - generic [ref=f2e82]:
+          - generic [ref=f2e83]:
+            - text: Status
+            - combobox [ref=f2e84]:
+              - generic: All
+          - generic [ref=f2e87]:
+            - text: Action Type
+            - combobox [ref=f2e88]:
+              - generic: All
+          - generic [ref=f2e91]:
+            - text: Actor
+            - textbox "Filter by actor..." [ref=f2e92]
+          - generic [ref=f2e93]:
+            - text: Tool
+            - textbox "Filter by tool..." [ref=f2e94]
+          - generic [ref=f2e95]:
+            - text: From
+            - textbox [ref=f2e96]
+          - generic [ref=f2e97]:
+            - text: To
+            - textbox [ref=f2e98]
+        - generic [ref=f2e99]:
+          - generic [ref=f2e102]:
+            - heading [level=3] [ref=f2e103]
+            - paragraph [ref=f2e106]:
+              - generic [ref=f2e107]: 50 activities
+          - generic [ref=f2e108]:
+            - table [ref=f2e110]:
+              - rowgroup [ref=f2e111]:
+                - row [ref=f2e112]:
+                  - columnheader "Time" [ref=f2e113]
+                  - columnheader "Actor" [ref=f2e114]
+                  - columnheader "Action" [ref=f2e115]
+                  - columnheader "Tool" [ref=f2e116]
+                  - columnheader "Session" [ref=f2e117]
+                  - columnheader "Status" [ref=f2e118]
+                  - columnheader "Tokens" [ref=f2e119]
+                  - columnheader [ref=f2e120]
+              - rowgroup [ref=f2e121]:
+                - row [ref=f2e122] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e123]
+                  - cell "grok agent" [ref=f2e124]:
+                    - generic [ref=f2e125]:
+                      - generic [ref=f2e126]: grok
+                      - generic [ref=f2e130]: agent
+                  - cell "message" [ref=f2e131]
+                  - cell "—" [ref=f2e133]
+                  - cell [ref=f2e134]:
+                    - link "grok:019..." [ref=f2e135]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell [ref=f2e136]
+                  - cell "—" [ref=f2e141]
+                  - cell [ref=f2e142]:
+                    - button [ref=f2e143]
+                - row [ref=f2e144] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e145]
+                  - cell "grok-usage system" [ref=f2e146]:
+                    - generic [ref=f2e147]:
+                      - generic [ref=f2e148]: grok-usage
+                      - generic [ref=f2e152]: system
+                  - cell "event" [ref=f2e153]
+                  - cell "—" [ref=f2e155]
+                  - cell [ref=f2e156]:
+                    - link "grok:019..." [ref=f2e157]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell "end_turn" [ref=f2e158]
+                  - cell "2,247,950" [ref=f2e160]
+                  - cell [ref=f2e161]:
+                    - button [ref=f2e162]
+                - row [ref=f2e163] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e164]
+                  - cell "grok agent" [ref=f2e165]:
+                    - generic [ref=f2e166]:
+                      - generic [ref=f2e167]: grok
+                      - generic [ref=f2e171]: agent
+                  - cell "message" [ref=f2e172]
+                  - cell "—" [ref=f2e174]
+                  - cell [ref=f2e175]:
+                    - link "grok:019..." [ref=f2e176]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell [ref=f2e177]
+                  - cell "—" [ref=f2e182]
+                  - cell [ref=f2e183]:
+                    - button [ref=f2e184]
+                - row [ref=f2e185] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e186]
+                  - cell "grok agent" [ref=f2e187]:
+                    - generic [ref=f2e188]:
+                      - generic [ref=f2e189]: grok
+                      - generic [ref=f2e193]: agent
+                  - cell "message" [ref=f2e194]
+                  - cell "—" [ref=f2e196]
+                  - cell [ref=f2e197]:
+                    - link "grok:019..." [ref=f2e198]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell [ref=f2e199]
+                  - cell "—" [ref=f2e204]
+                  - cell [ref=f2e205]:
+                    - button [ref=f2e206]
+                - row [ref=f2e207] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e208]
+                  - cell "grok agent" [ref=f2e209]:
+                    - generic [ref=f2e210]:
+                      - generic [ref=f2e211]: grok
+                      - generic [ref=f2e215]: agent
+                  - cell "tool_call" [ref=f2e216]
+                  - cell "use_tool" [ref=f2e218]
+                  - cell [ref=f2e219]:
+                    - link "grok:019..." [ref=f2e220]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell "running" [ref=f2e221]
+                  - cell "—" [ref=f2e223]
+                  - cell [ref=f2e224]:
+                    - button [ref=f2e225]
+                - row [ref=f2e226] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e227]
+                  - cell "grok agent" [ref=f2e228]:
+                    - generic [ref=f2e229]:
+                      - generic [ref=f2e230]: grok
+                      - generic [ref=f2e234]: agent
+                  - cell "message" [ref=f2e235]
+                  - cell "—" [ref=f2e237]
+                  - cell [ref=f2e238]:
+                    - link "grok:019..." [ref=f2e239]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell [ref=f2e240]
+                  - cell "—" [ref=f2e245]
+                  - cell [ref=f2e246]:
+                    - button [ref=f2e247]
+                - row [ref=f2e248] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e249]
+                  - cell "grok agent" [ref=f2e250]:
+                    - generic [ref=f2e251]:
+                      - generic [ref=f2e252]: grok
+                      - generic [ref=f2e256]: agent
+                  - cell "tool_call" [ref=f2e257]
+                  - cell "run_terminal_command" [ref=f2e259]
+                  - cell [ref=f2e260]:
+                    - link "grok:019..." [ref=f2e261]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell "running" [ref=f2e262]
+                  - cell "—" [ref=f2e264]
+                  - cell [ref=f2e265]:
+                    - button [ref=f2e266]
+                - row [ref=f2e267] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e268]
+                  - cell "grok agent" [ref=f2e269]:
+                    - generic [ref=f2e270]:
+                      - generic [ref=f2e271]: grok
+                      - generic [ref=f2e275]: agent
+                  - cell "message" [ref=f2e276]
+                  - cell "—" [ref=f2e278]
+                  - cell [ref=f2e279]:
+                    - link "grok:019..." [ref=f2e280]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell [ref=f2e281]
+                  - cell "—" [ref=f2e286]
+                  - cell [ref=f2e287]:
+                    - button [ref=f2e288]
+                - row [ref=f2e289] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e290]
+                  - cell "grok agent" [ref=f2e291]:
+                    - generic [ref=f2e292]:
+                      - generic [ref=f2e293]: grok
+                      - generic [ref=f2e297]: agent
+                  - cell "tool_call" [ref=f2e298]
+                  - cell "run_terminal_command" [ref=f2e300]
+                  - cell [ref=f2e301]:
+                    - link "grok:019..." [ref=f2e302]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell "running" [ref=f2e303]
+                  - cell "—" [ref=f2e305]
+                  - cell [ref=f2e306]:
+                    - button [ref=f2e307]
+                - row [ref=f2e308] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e309]
+                  - cell "grok agent" [ref=f2e310]:
+                    - generic [ref=f2e311]:
+                      - generic [ref=f2e312]: grok
+                      - generic [ref=f2e316]: agent
+                  - cell "tool_call" [ref=f2e317]
+                  - cell "search_tool" [ref=f2e319]
+                  - cell [ref=f2e320]:
+                    - link "grok:019..." [ref=f2e321]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell "running" [ref=f2e322]
+                  - cell "—" [ref=f2e324]
+                  - cell [ref=f2e325]:
+                    - button [ref=f2e326]
+                - row [ref=f2e327] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e328]
+                  - cell "grok agent" [ref=f2e329]:
+                    - generic [ref=f2e330]:
+                      - generic [ref=f2e331]: grok
+                      - generic [ref=f2e335]: agent
+                  - cell "message" [ref=f2e336]
+                  - cell "—" [ref=f2e338]
+                  - cell [ref=f2e339]:
+                    - link "grok:019..." [ref=f2e340]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell [ref=f2e341]
+                  - cell "—" [ref=f2e346]
+                  - cell [ref=f2e347]:
+                    - button [ref=f2e348]
+                - row [ref=f2e349] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e350]
+                  - cell "grok agent" [ref=f2e351]:
+                    - generic [ref=f2e352]:
+                      - generic [ref=f2e353]: grok
+                      - generic [ref=f2e357]: agent
+                  - cell "tool_call" [ref=f2e358]
+                  - cell "run_terminal_command" [ref=f2e360]
+                  - cell [ref=f2e361]:
+                    - link "grok:019..." [ref=f2e362]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell "running" [ref=f2e363]
+                  - cell "—" [ref=f2e365]
+                  - cell [ref=f2e366]:
+                    - button [ref=f2e367]
+                - row [ref=f2e368] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e369]
+                  - cell "grok agent" [ref=f2e370]:
+                    - generic [ref=f2e371]:
+                      - generic [ref=f2e372]: grok
+                      - generic [ref=f2e376]: agent
+                  - cell "message" [ref=f2e377]
+                  - cell "—" [ref=f2e379]
+                  - cell [ref=f2e380]:
+                    - link "grok:019..." [ref=f2e381]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell [ref=f2e382]
+                  - cell "—" [ref=f2e387]
+                  - cell [ref=f2e388]:
+                    - button [ref=f2e389]
+                - row [ref=f2e390] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e391]
+                  - cell "grok agent" [ref=f2e392]:
+                    - generic [ref=f2e393]:
+                      - generic [ref=f2e394]: grok
+                      - generic [ref=f2e398]: agent
+                  - cell "message" [ref=f2e399]
+                  - cell "—" [ref=f2e401]
+                  - cell [ref=f2e402]:
+                    - link "grok:019..." [ref=f2e403]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell [ref=f2e404]
+                  - cell "—" [ref=f2e409]
+                  - cell [ref=f2e410]:
+                    - button [ref=f2e411]
+                - row [ref=f2e412] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e413]
+                  - cell "grok agent" [ref=f2e414]:
+                    - generic [ref=f2e415]:
+                      - generic [ref=f2e416]: grok
+                      - generic [ref=f2e420]: agent
+                  - cell "tool_call" [ref=f2e421]
+                  - cell "run_terminal_command" [ref=f2e423]
+                  - cell [ref=f2e424]:
+                    - link "grok:019..." [ref=f2e425]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell "running" [ref=f2e426]
+                  - cell "—" [ref=f2e428]
+                  - cell [ref=f2e429]:
+                    - button [ref=f2e430]
+                - row [ref=f2e431] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e432]
+                  - cell "grok agent" [ref=f2e433]:
+                    - generic [ref=f2e434]:
+                      - generic [ref=f2e435]: grok
+                      - generic [ref=f2e439]: agent
+                  - cell "message" [ref=f2e440]
+                  - cell "—" [ref=f2e442]
+                  - cell [ref=f2e443]:
+                    - link "grok:019..." [ref=f2e444]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell [ref=f2e445]
+                  - cell "—" [ref=f2e450]
+                  - cell [ref=f2e451]:
+                    - button [ref=f2e452]
+                - row [ref=f2e453] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e454]
+                  - cell "grok agent" [ref=f2e455]:
+                    - generic [ref=f2e456]:
+                      - generic [ref=f2e457]: grok
+                      - generic [ref=f2e461]: agent
+                  - cell "tool_call" [ref=f2e462]
+                  - cell "run_terminal_command" [ref=f2e464]
+                  - cell [ref=f2e465]:
+                    - link "grok:019..." [ref=f2e466]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell "running" [ref=f2e467]
+                  - cell "—" [ref=f2e469]
+                  - cell [ref=f2e470]:
+                    - button [ref=f2e471]
+                - row [ref=f2e472] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e473]
+                  - cell "grok agent" [ref=f2e474]:
+                    - generic [ref=f2e475]:
+                      - generic [ref=f2e476]: grok
+                      - generic [ref=f2e480]: agent
+                  - cell "message" [ref=f2e481]
+                  - cell "—" [ref=f2e483]
+                  - cell [ref=f2e484]:
+                    - link "grok:019..." [ref=f2e485]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell [ref=f2e486]
+                  - cell "—" [ref=f2e491]
+                  - cell [ref=f2e492]:
+                    - button [ref=f2e493]
+                - row [ref=f2e494] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e495]
+                  - cell "grok agent" [ref=f2e496]:
+                    - generic [ref=f2e497]:
+                      - generic [ref=f2e498]: grok
+                      - generic [ref=f2e502]: agent
+                  - cell "tool_call" [ref=f2e503]
+                  - cell "search_replace" [ref=f2e505]
+                  - cell [ref=f2e506]:
+                    - link "grok:019..." [ref=f2e507]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell "running" [ref=f2e508]
+                  - cell "—" [ref=f2e510]
+                  - cell [ref=f2e511]:
+                    - button [ref=f2e512]
+                - row [ref=f2e513] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e514]
+                  - cell "grok agent" [ref=f2e515]:
+                    - generic [ref=f2e516]:
+                      - generic [ref=f2e517]: grok
+                      - generic [ref=f2e521]: agent
+                  - cell "tool_call" [ref=f2e522]
+                  - cell "run_terminal_command" [ref=f2e524]
+                  - cell [ref=f2e525]:
+                    - link "grok:019..." [ref=f2e526]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell "running" [ref=f2e527]
+                  - cell "—" [ref=f2e529]
+                  - cell [ref=f2e530]:
+                    - button [ref=f2e531]
+                - row [ref=f2e532] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e533]
+                  - cell "grok agent" [ref=f2e534]:
+                    - generic [ref=f2e535]:
+                      - generic [ref=f2e536]: grok
+                      - generic [ref=f2e540]: agent
+                  - cell "message" [ref=f2e541]
+                  - cell "—" [ref=f2e543]
+                  - cell [ref=f2e544]:
+                    - link "grok:019..." [ref=f2e545]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell [ref=f2e546]
+                  - cell "—" [ref=f2e551]
+                  - cell [ref=f2e552]:
+                    - button [ref=f2e553]
+                - row [ref=f2e554] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e555]
+                  - cell "grok agent" [ref=f2e556]:
+                    - generic [ref=f2e557]:
+                      - generic [ref=f2e558]: grok
+                      - generic [ref=f2e562]: agent
+                  - cell "tool_call" [ref=f2e563]
+                  - cell "read_file" [ref=f2e565]
+                  - cell [ref=f2e566]:
+                    - link "grok:019..." [ref=f2e567]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell "running" [ref=f2e568]
+                  - cell "—" [ref=f2e570]
+                  - cell [ref=f2e571]:
+                    - button [ref=f2e572]
+                - row [ref=f2e573] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e574]
+                  - cell "grok agent" [ref=f2e575]:
+                    - generic [ref=f2e576]:
+                      - generic [ref=f2e577]: grok
+                      - generic [ref=f2e581]: agent
+                  - cell "message" [ref=f2e582]
+                  - cell "—" [ref=f2e584]
+                  - cell [ref=f2e585]:
+                    - link "grok:019..." [ref=f2e586]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell [ref=f2e587]
+                  - cell "—" [ref=f2e592]
+                  - cell [ref=f2e593]:
+                    - button [ref=f2e594]
+                - row [ref=f2e595] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e596]
+                  - cell "grok agent" [ref=f2e597]:
+                    - generic [ref=f2e598]:
+                      - generic [ref=f2e599]: grok
+                      - generic [ref=f2e603]: agent
+                  - cell "tool_call" [ref=f2e604]
+                  - cell "search_replace" [ref=f2e606]
+                  - cell [ref=f2e607]:
+                    - link "grok:019..." [ref=f2e608]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell "running" [ref=f2e609]
+                  - cell "—" [ref=f2e611]
+                  - cell [ref=f2e612]:
+                    - button [ref=f2e613]
+                - row [ref=f2e614] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e615]
+                  - cell "grok agent" [ref=f2e616]:
+                    - generic [ref=f2e617]:
+                      - generic [ref=f2e618]: grok
+                      - generic [ref=f2e622]: agent
+                  - cell "tool_call" [ref=f2e623]
+                  - cell "search_replace" [ref=f2e625]
+                  - cell [ref=f2e626]:
+                    - link "grok:019..." [ref=f2e627]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell "running" [ref=f2e628]
+                  - cell "—" [ref=f2e630]
+                  - cell [ref=f2e631]:
+                    - button [ref=f2e632]
+                - row [ref=f2e633] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e634]
+                  - cell "grok agent" [ref=f2e635]:
+                    - generic [ref=f2e636]:
+                      - generic [ref=f2e637]: grok
+                      - generic [ref=f2e641]: agent
+                  - cell "tool_call" [ref=f2e642]
+                  - cell "run_terminal_command" [ref=f2e644]
+                  - cell [ref=f2e645]:
+                    - link "grok:019..." [ref=f2e646]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell "running" [ref=f2e647]
+                  - cell "—" [ref=f2e649]
+                  - cell [ref=f2e650]:
+                    - button [ref=f2e651]
+                - row [ref=f2e652] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e653]
+                  - cell "grok agent" [ref=f2e654]:
+                    - generic [ref=f2e655]:
+                      - generic [ref=f2e656]: grok
+                      - generic [ref=f2e660]: agent
+                  - cell "message" [ref=f2e661]
+                  - cell "—" [ref=f2e663]
+                  - cell [ref=f2e664]:
+                    - link "grok:019..." [ref=f2e665]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell [ref=f2e666]
+                  - cell "—" [ref=f2e671]
+                  - cell [ref=f2e672]:
+                    - button [ref=f2e673]
+                - row [ref=f2e674] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e675]
+                  - cell "grok agent" [ref=f2e676]:
+                    - generic [ref=f2e677]:
+                      - generic [ref=f2e678]: grok
+                      - generic [ref=f2e682]: agent
+                  - cell "tool_call" [ref=f2e683]
+                  - cell "search_replace" [ref=f2e685]
+                  - cell [ref=f2e686]:
+                    - link "grok:019..." [ref=f2e687]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell "running" [ref=f2e688]
+                  - cell "—" [ref=f2e690]
+                  - cell [ref=f2e691]:
+                    - button [ref=f2e692]
+                - row [ref=f2e693] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e694]
+                  - cell "grok agent" [ref=f2e695]:
+                    - generic [ref=f2e696]:
+                      - generic [ref=f2e697]: grok
+                      - generic [ref=f2e701]: agent
+                  - cell "tool_call" [ref=f2e702]
+                  - cell "write" [ref=f2e704]
+                  - cell [ref=f2e705]:
+                    - link "grok:019..." [ref=f2e706]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell "running" [ref=f2e707]
+                  - cell "—" [ref=f2e709]
+                  - cell [ref=f2e710]:
+                    - button [ref=f2e711]
+                - row [ref=f2e712] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e713]
+                  - cell "grok agent" [ref=f2e714]:
+                    - generic [ref=f2e715]:
+                      - generic [ref=f2e716]: grok
+                      - generic [ref=f2e720]: agent
+                  - cell "tool_call" [ref=f2e721]
+                  - cell "run_terminal_command" [ref=f2e723]
+                  - cell [ref=f2e724]:
+                    - link "grok:019..." [ref=f2e725]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell "running" [ref=f2e726]
+                  - cell "—" [ref=f2e728]
+                  - cell [ref=f2e729]:
+                    - button [ref=f2e730]
+                - row [ref=f2e731] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e732]
+                  - cell "grok agent" [ref=f2e733]:
+                    - generic [ref=f2e734]:
+                      - generic [ref=f2e735]: grok
+                      - generic [ref=f2e739]: agent
+                  - cell "tool_call" [ref=f2e740]
+                  - cell "read_file" [ref=f2e742]
+                  - cell [ref=f2e743]:
+                    - link "grok:019..." [ref=f2e744]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell "running" [ref=f2e745]
+                  - cell "—" [ref=f2e747]
+                  - cell [ref=f2e748]:
+                    - button [ref=f2e749]
+                - row [ref=f2e750] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e751]
+                  - cell "grok agent" [ref=f2e752]:
+                    - generic [ref=f2e753]:
+                      - generic [ref=f2e754]: grok
+                      - generic [ref=f2e758]: agent
+                  - cell "message" [ref=f2e759]
+                  - cell "—" [ref=f2e761]
+                  - cell [ref=f2e762]:
+                    - link "grok:019..." [ref=f2e763]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell [ref=f2e764]
+                  - cell "—" [ref=f2e769]
+                  - cell [ref=f2e770]:
+                    - button [ref=f2e771]
+                - row [ref=f2e772] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e773]
+                  - cell "grok agent" [ref=f2e774]:
+                    - generic [ref=f2e775]:
+                      - generic [ref=f2e776]: grok
+                      - generic [ref=f2e780]: agent
+                  - cell "tool_call" [ref=f2e781]
+                  - cell "read_file" [ref=f2e783]
+                  - cell [ref=f2e784]:
+                    - link "grok:019..." [ref=f2e785]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell "running" [ref=f2e786]
+                  - cell "—" [ref=f2e788]
+                  - cell [ref=f2e789]:
+                    - button [ref=f2e790]
+                - row [ref=f2e791] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e792]
+                  - cell "grok agent" [ref=f2e793]:
+                    - generic [ref=f2e794]:
+                      - generic [ref=f2e795]: grok
+                      - generic [ref=f2e799]: agent
+                  - cell "tool_call" [ref=f2e800]
+                  - cell "read_file" [ref=f2e802]
+                  - cell [ref=f2e803]:
+                    - link "grok:019..." [ref=f2e804]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell "running" [ref=f2e805]
+                  - cell "—" [ref=f2e807]
+                  - cell [ref=f2e808]:
+                    - button [ref=f2e809]
+                - row [ref=f2e810] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e811]
+                  - cell "grok agent" [ref=f2e812]:
+                    - generic [ref=f2e813]:
+                      - generic [ref=f2e814]: grok
+                      - generic [ref=f2e818]: agent
+                  - cell "tool_call" [ref=f2e819]
+                  - cell "read_file" [ref=f2e821]
+                  - cell [ref=f2e822]:
+                    - link "grok:019..." [ref=f2e823]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell "running" [ref=f2e824]
+                  - cell "—" [ref=f2e826]
+                  - cell [ref=f2e827]:
+                    - button [ref=f2e828]
+                - row [ref=f2e829] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e830]
+                  - cell "grok agent" [ref=f2e831]:
+                    - generic [ref=f2e832]:
+                      - generic [ref=f2e833]: grok
+                      - generic [ref=f2e837]: agent
+                  - cell "tool_call" [ref=f2e838]
+                  - cell "run_terminal_command" [ref=f2e840]
+                  - cell [ref=f2e841]:
+                    - link "grok:019..." [ref=f2e842]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell "running" [ref=f2e843]
+                  - cell "—" [ref=f2e845]
+                  - cell [ref=f2e846]:
+                    - button [ref=f2e847]
+                - row [ref=f2e848] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e849]
+                  - cell "grok agent" [ref=f2e850]:
+                    - generic [ref=f2e851]:
+                      - generic [ref=f2e852]: grok
+                      - generic [ref=f2e856]: agent
+                  - cell "message" [ref=f2e857]
+                  - cell "—" [ref=f2e859]
+                  - cell [ref=f2e860]:
+                    - link "grok:019..." [ref=f2e861]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell [ref=f2e862]
+                  - cell "—" [ref=f2e867]
+                  - cell [ref=f2e868]:
+                    - button [ref=f2e869]
+                - row [ref=f2e870] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e871]
+                  - cell "grok agent" [ref=f2e872]:
+                    - generic [ref=f2e873]:
+                      - generic [ref=f2e874]: grok
+                      - generic [ref=f2e878]: agent
+                  - cell "tool_call" [ref=f2e879]
+                  - cell "run_terminal_command" [ref=f2e881]
+                  - cell [ref=f2e882]:
+                    - link "grok:019..." [ref=f2e883]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell "running" [ref=f2e884]
+                  - cell "—" [ref=f2e886]
+                  - cell [ref=f2e887]:
+                    - button [ref=f2e888]
+                - row [ref=f2e889] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e890]
+                  - cell "grok agent" [ref=f2e891]:
+                    - generic [ref=f2e892]:
+                      - generic [ref=f2e893]: grok
+                      - generic [ref=f2e897]: agent
+                  - cell "message" [ref=f2e898]
+                  - cell "—" [ref=f2e900]
+                  - cell [ref=f2e901]:
+                    - link "grok:019..." [ref=f2e902]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell [ref=f2e903]
+                  - cell "—" [ref=f2e908]
+                  - cell [ref=f2e909]:
+                    - button [ref=f2e910]
+                - row [ref=f2e911] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e912]
+                  - cell "grok agent" [ref=f2e913]:
+                    - generic [ref=f2e914]:
+                      - generic [ref=f2e915]: grok
+                      - generic [ref=f2e919]: agent
+                  - cell "tool_call" [ref=f2e920]
+                  - cell "run_terminal_command" [ref=f2e922]
+                  - cell [ref=f2e923]:
+                    - link "grok:019..." [ref=f2e924]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell "running" [ref=f2e925]
+                  - cell "—" [ref=f2e927]
+                  - cell [ref=f2e928]:
+                    - button [ref=f2e929]
+                - row [ref=f2e930] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e931]
+                  - cell "grok agent" [ref=f2e932]:
+                    - generic [ref=f2e933]:
+                      - generic [ref=f2e934]: grok
+                      - generic [ref=f2e938]: agent
+                  - cell "message" [ref=f2e939]
+                  - cell "—" [ref=f2e941]
+                  - cell [ref=f2e942]:
+                    - link "grok:019..." [ref=f2e943]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell [ref=f2e944]
+                  - cell "—" [ref=f2e949]
+                  - cell [ref=f2e950]:
+                    - button [ref=f2e951]
+                - row [ref=f2e952] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e953]
+                  - cell "grok agent" [ref=f2e954]:
+                    - generic [ref=f2e955]:
+                      - generic [ref=f2e956]: grok
+                      - generic [ref=f2e960]: agent
+                  - cell "message" [ref=f2e961]
+                  - cell "—" [ref=f2e963]
+                  - cell [ref=f2e964]:
+                    - link "grok:019..." [ref=f2e965]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell [ref=f2e966]
+                  - cell "—" [ref=f2e971]
+                  - cell [ref=f2e972]:
+                    - button [ref=f2e973]
+                - row [ref=f2e974] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e975]
+                  - cell "grok agent" [ref=f2e976]:
+                    - generic [ref=f2e977]:
+                      - generic [ref=f2e978]: grok
+                      - generic [ref=f2e982]: agent
+                  - cell "tool_call" [ref=f2e983]
+                  - cell "run_terminal_command" [ref=f2e985]
+                  - cell [ref=f2e986]:
+                    - link "grok:019..." [ref=f2e987]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell "running" [ref=f2e988]
+                  - cell "—" [ref=f2e990]
+                  - cell [ref=f2e991]:
+                    - button [ref=f2e992]
+                - row [ref=f2e993] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e994]
+                  - cell "grok agent" [ref=f2e995]:
+                    - generic [ref=f2e996]:
+                      - generic [ref=f2e997]: grok
+                      - generic [ref=f2e1001]: agent
+                  - cell "message" [ref=f2e1002]
+                  - cell "—" [ref=f2e1004]
+                  - cell [ref=f2e1005]:
+                    - link "grok:019..." [ref=f2e1006]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell [ref=f2e1007]
+                  - cell "—" [ref=f2e1012]
+                  - cell [ref=f2e1013]:
+                    - button [ref=f2e1014]
+                - row [ref=f2e1015] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e1016]
+                  - cell "grok agent" [ref=f2e1017]:
+                    - generic [ref=f2e1018]:
+                      - generic [ref=f2e1019]: grok
+                      - generic [ref=f2e1023]: agent
+                  - cell "tool_call" [ref=f2e1024]
+                  - cell "run_terminal_command" [ref=f2e1026]
+                  - cell [ref=f2e1027]:
+                    - link "grok:019..." [ref=f2e1028]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell "running" [ref=f2e1029]
+                  - cell "—" [ref=f2e1031]
+                  - cell [ref=f2e1032]:
+                    - button [ref=f2e1033]
+                - row [ref=f2e1034] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e1035]
+                  - cell "grok agent" [ref=f2e1036]:
+                    - generic [ref=f2e1037]:
+                      - generic [ref=f2e1038]: grok
+                      - generic [ref=f2e1042]: agent
+                  - cell "message" [ref=f2e1043]
+                  - cell "—" [ref=f2e1045]
+                  - cell [ref=f2e1046]:
+                    - link "grok:019..." [ref=f2e1047]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell [ref=f2e1048]
+                  - cell "—" [ref=f2e1053]
+                  - cell [ref=f2e1054]:
+                    - button [ref=f2e1055]
+                - row [ref=f2e1056] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e1057]
+                  - cell "grok agent" [ref=f2e1058]:
+                    - generic [ref=f2e1059]:
+                      - generic [ref=f2e1060]: grok
+                      - generic [ref=f2e1064]: agent
+                  - cell "message" [ref=f2e1065]
+                  - cell "—" [ref=f2e1067]
+                  - cell [ref=f2e1068]:
+                    - link "grok:019..." [ref=f2e1069]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell [ref=f2e1070]
+                  - cell "—" [ref=f2e1075]
+                  - cell [ref=f2e1076]:
+                    - button [ref=f2e1077]
+                - row [ref=f2e1078] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e1079]
+                  - cell "grok agent" [ref=f2e1080]:
+                    - generic [ref=f2e1081]:
+                      - generic [ref=f2e1082]: grok
+                      - generic [ref=f2e1086]: agent
+                  - cell "tool_call" [ref=f2e1087]
+                  - cell "run_terminal_command" [ref=f2e1089]
+                  - cell [ref=f2e1090]:
+                    - link "grok:019..." [ref=f2e1091]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell "running" [ref=f2e1092]
+                  - cell "—" [ref=f2e1094]
+                  - cell [ref=f2e1095]:
+                    - button [ref=f2e1096]
+                - row [ref=f2e1097] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e1098]
+                  - cell "grok agent" [ref=f2e1099]:
+                    - generic [ref=f2e1100]:
+                      - generic [ref=f2e1101]: grok
+                      - generic [ref=f2e1105]: agent
+                  - cell "tool_call" [ref=f2e1106]
+                  - cell "use_tool" [ref=f2e1108]
+                  - cell [ref=f2e1109]:
+                    - link "grok:019..." [ref=f2e1110]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell "running" [ref=f2e1111]
+                  - cell "—" [ref=f2e1113]
+                  - cell [ref=f2e1114]:
+                    - button [ref=f2e1115]
+                - row [ref=f2e1116] [cursor=pointer]:
+                  - cell "1h ago" [ref=f2e1117]
+                  - cell "grok agent" [ref=f2e1118]:
+                    - generic [ref=f2e1119]:
+                      - generic [ref=f2e1120]: grok
+                      - generic [ref=f2e1124]: agent
+                  - cell "message" [ref=f2e1125]
+                  - cell "—" [ref=f2e1127]
+                  - cell [ref=f2e1128]:
+                    - link "grok:019..." [ref=f2e1129]:
+                      - /url: /sessions/grok:019f68e2-3568-75e1-a9f4-f469cb2f4429
+                  - cell [ref=f2e1130]
+                  - cell "—" [ref=f2e1135]
+                  - cell [ref=f2e1136]:
+                    - button [ref=f2e1137]
+            - generic [ref=f2e1138]:
+              - generic [ref=f2e1139]: Showing 1–50
+              - generic [ref=f2e1140]:
+                - button "Previous" [disabled]
+                - button "Next" [ref=f2e1141]

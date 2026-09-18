@@ -1,0 +1,97 @@
+- generic [ref=e6]:
+  - complementary [ref=e82]:
+    - generic [ref=e83]:
+      - generic [ref=e88]:
+        - generic [ref=e89]: Mission Control
+        - generic [ref=e90]: Unified AI usage dashboard
+      - navigation [ref=e91]:
+        - link [ref=e92] [cursor=pointer]:
+          - /url: /
+        - link [ref=e100] [cursor=pointer]:
+          - /url: /activities
+        - link [ref=e103] [cursor=pointer]:
+          - /url: /sessions
+        - link [ref=e109] [cursor=pointer]:
+          - /url: /runtime
+        - link [ref=e114] [cursor=pointer]:
+          - /url: /failures
+        - link [ref=e118] [cursor=pointer]:
+          - /url: /consumption
+        - link [ref=e122] [cursor=pointer]:
+          - /url: /jobs
+        - link [ref=e127] [cursor=pointer]:
+          - /url: /generations
+        - link [active] [ref=e133] [cursor=pointer]:
+          - /url: /settings
+      - generic [ref=e138]: System Offline
+  - generic [ref=e7]:
+    - banner [ref=e8]:
+      - combobox [ref=e11]:
+        - generic: All sources
+      - button "Toggle theme" [ref=e14]
+    - main [ref=e16]:
+      - generic [ref=e143]:
+        - generic [ref=e145]:
+          - heading "Settings" [level=1] [ref=e146]
+          - paragraph [ref=e147]: Source registry and application info
+        - generic [ref=e148]:
+          - tablist [ref=e149]:
+            - tab "Sources & Instances" [selected] [ref=e150]
+            - tab "About" [ref=e154]
+          - tabpanel "Sources & Instances" [ref=e157]:
+            - generic [ref=e158]:
+              - generic [ref=e159]:
+                - heading "Sources" [level=3] [ref=e160]
+                - paragraph [ref=e161]: Every source and its collector instances, seeded once at server startup. Effective status uses heartbeat age so stale collectors cannot stay green indefinitely.
+              - table [ref=e164]:
+                - rowgroup [ref=e165]:
+                  - row [ref=e166]:
+                    - columnheader "Source" [ref=e167]
+                    - columnheader "Instance" [ref=e168]
+                    - columnheader "Machine" [ref=e169]
+                    - columnheader "Collector" [ref=e170]
+                    - columnheader "Status" [ref=e171]
+                    - columnheader "Last Seen" [ref=e172]
+                - rowgroup [ref=e173]:
+                  - row [ref=e174]:
+                    - cell "Claude Code" [ref=e175]
+                    - cell "claude-code@arch-desktop" [ref=e176]
+                    - cell "arch-desktop" [ref=e177]
+                    - cell "jsonl-push" [ref=e178]
+                    - cell "Unknown" [ref=e180]
+                    - cell "Never" [ref=e182]
+                  - row [ref=e185]:
+                    - cell "Codex CLI" [ref=e186]
+                    - cell "codex@arch-desktop" [ref=e187]
+                    - cell "arch-desktop" [ref=e188]
+                    - cell "jsonl-push" [ref=e189]
+                    - cell "Unknown" [ref=e191]
+                    - cell "Never" [ref=e193]
+                  - row [ref=e196]:
+                    - cell "ComfyUI" [ref=e197]
+                    - cell "comfyui@strix-halo" [ref=e198]
+                    - cell "strix-halo" [ref=e199]
+                    - cell "http-poll" [ref=e200]
+                    - cell "Offline" [ref=e202]
+                    - cell "Never" [ref=e204]
+                  - row [ref=e207]:
+                    - cell "Grok" [ref=e208]
+                    - cell "grok@arch-desktop" [ref=e209]
+                    - cell "arch-desktop" [ref=e210]
+                    - cell "jsonl-push" [ref=e211]
+                    - cell "Unknown" [ref=e213]
+                    - cell "Never" [ref=e215]
+                  - row [ref=e218]:
+                    - cell "Hermes" [ref=e219]
+                    - cell "hermes@strix-halo" [ref=e220]
+                    - cell "strix-halo" [ref=e221]
+                    - cell "http-poll" [ref=e222]
+                    - cell "Unknown" [ref=e224]
+                    - cell "Never" [ref=e226]
+                  - row [ref=e229]:
+                    - cell "Lemonade" [ref=e230]
+                    - cell "lemonade@strix-halo" [ref=e231]
+                    - cell "strix-halo" [ref=e232]
+                    - cell "http-poll" [ref=e233]
+                    - cell "Offline" [ref=e235]
+                    - cell "Never" [ref=e237]

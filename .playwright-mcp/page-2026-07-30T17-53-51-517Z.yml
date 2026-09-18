@@ -1,0 +1,118 @@
+- generic [ref=e1]:
+  - generic [ref=e6]:
+    - complementary [ref=e210]:
+      - generic [ref=e211]:
+        - generic [ref=e216]:
+          - generic [ref=e217]: Mission Control
+          - generic [ref=e218]: Unified AI usage dashboard
+        - navigation [ref=e219]:
+          - link [active] [ref=e220] [cursor=pointer]:
+            - /url: /
+          - link [ref=e228] [cursor=pointer]:
+            - /url: /activities
+          - link [ref=e231] [cursor=pointer]:
+            - /url: /sessions
+          - link [ref=e237] [cursor=pointer]:
+            - /url: /runtime
+          - link [ref=e242] [cursor=pointer]:
+            - /url: /failures
+          - link [ref=e246] [cursor=pointer]:
+            - /url: /consumption
+          - link [ref=e250] [cursor=pointer]:
+            - /url: /jobs
+          - link [ref=e255] [cursor=pointer]:
+            - /url: /generations
+          - link [ref=e261] [cursor=pointer]:
+            - /url: /settings
+        - generic [ref=e266]: System Online
+    - generic [ref=e7]:
+      - banner [ref=e8]:
+        - combobox "Filter by source" [ref=e12]:
+          - generic: Hermes
+        - button "Toggle theme" [ref=e15]
+      - main [ref=e17]:
+        - generic [ref=e2604]:
+          - generic [ref=e2606]:
+            - heading "Dashboard" [level=1] [ref=e2607]
+            - paragraph [ref=e2608]: Overview of AI usage for Hermes
+          - generic [ref=e2609]:
+            - generic [ref=e2610]:
+              - heading "Tokens Today" [level=3] [ref=e2612]
+              - generic [ref=e2616]:
+                - generic [ref=e2617]: 209,164
+                - paragraph [ref=e2618]: input + output, for Hermes
+            - link "API Spend last 30 days — view Direct API Spend" [ref=e2619] [cursor=pointer]:
+              - /url: /consumption?view=direct-api&range=30d
+              - generic [ref=e2620]:
+                - heading "API Spend (30d)" [level=3] [ref=e2622]
+                - generic [ref=e2626]:
+                  - generic [ref=e2627]: $14.4552
+                  - paragraph [ref=e2628]: Direct provider billing · account-wide · View spend
+            - generic [ref=e2629]:
+              - heading "Failures (24h)" [level=3] [ref=e2631]
+              - generic [ref=e2635]:
+                - generic [ref=e2636]: "59"
+                - paragraph [ref=e2637]: Last 24 hours · activity failure · inference non-success · runtime non-info
+                - paragraph [ref=e2638]:
+                  - button "View failures" [ref=e2639]
+                  - generic [ref=e2640]: · 4 open runtime
+            - generic [ref=e2641]:
+              - generic [ref=e2642]:
+                - heading "Source Health" [level=3] [ref=e2643]
+                - paragraph [ref=e2644]: All sources (fleet-wide)
+              - generic [ref=e2646]:
+                - generic [ref=e2647]: Claude Code
+                - generic [ref=e2649]: Codex CLI
+                - generic [ref=e2651]: ComfyUI
+                - generic [ref=e2653]: Grok
+                - generic [ref=e2655]: Hermes
+                - generic [ref=e2657]: Lemonade
+          - generic [ref=e2659]:
+            - generic [ref=e2660]:
+              - generic [ref=e2662]:
+                - generic [ref=e2666]:
+                  - heading "Recent Activity" [level=3] [ref=e2667]
+                  - paragraph [ref=e2668]: Your most recent actions
+                - button "View All" [ref=e2669]
+              - paragraph [ref=e2674]: No recent activity found.
+            - generic [ref=e2676]:
+              - generic [ref=e2677]:
+                - heading "Token Usage" [level=3] [ref=e2678]
+                - paragraph [ref=e2679]: Daily total for Hermes
+              - application [ref=e2683]:
+                - generic [ref=e2700]:
+                  - generic [ref=e2701]:
+                    - generic [ref=e2702]: 7/14
+                    - generic [ref=e2704]: 7/16
+                    - generic [ref=e2706]: 7/18
+                    - generic [ref=e2708]: 7/20
+                    - generic [ref=e2710]: 7/22
+                    - generic [ref=e2712]: 7/24
+                    - generic [ref=e2714]: 7/26
+                    - generic [ref=e2716]: 7/28
+                    - generic [ref=e2718]: 7/30
+                  - generic [ref=e2720]:
+                    - generic [ref=e2721]: "0"
+                    - generic [ref=e2723]: "350000"
+                    - generic [ref=e2725]: "700000"
+                    - generic [ref=e2727]: "1050000"
+                    - generic [ref=e2729]: "1400000"
+          - generic [ref=e2731]:
+            - heading "Failures in last 24 hours" [level=3] [ref=e2733]
+            - generic [ref=e2736]:
+              - generic [ref=e2737]:
+                - generic [ref=e2738]: All 1 slot(s) busy on opencode (port 12347)
+                - generic [ref=e2739]: 2h ago
+              - generic [ref=e2740]:
+                - generic [ref=e2741]: All 1 slot(s) busy on opencode (port 12347)
+                - generic [ref=e2742]: 7h ago
+              - generic [ref=e2743]:
+                - generic [ref=e2744]: All 1 slot(s) busy on opencode (port 12347)
+                - generic [ref=e2745]: 7h ago
+              - generic [ref=e2746]:
+                - generic [ref=e2747]: All 1 slot(s) busy on opencode (port 12347)
+                - generic [ref=e2748]: 7h ago
+              - generic [ref=e2749]:
+                - generic [ref=e2750]: All 1 slot(s) busy on opencode (port 12347)
+                - generic [ref=e2751]: 7h ago
+  - generic [ref=e209]: "350000"

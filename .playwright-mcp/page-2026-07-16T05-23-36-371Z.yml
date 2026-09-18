@@ -1,0 +1,95 @@
+- generic:
+  - generic:
+    - generic:
+      - complementary:
+        - generic:
+          - generic:
+            - generic:
+              - generic: Mission Control
+              - generic: Unified AI usage dashboard
+          - navigation:
+            - link:
+              - /url: /
+              - text: Dashboard
+            - link:
+              - /url: /activities
+              - text: Activities
+            - link:
+              - /url: /sessions
+              - text: Sessions
+            - link:
+              - /url: /runtime
+              - text: Runtime
+            - link:
+              - /url: /failures
+              - text: Failures
+            - link:
+              - /url: /consumption
+              - text: Consumption
+            - link:
+              - /url: /jobs
+              - text: Jobs
+            - link:
+              - /url: /generations
+              - text: Generations
+            - link:
+              - /url: /settings
+              - text: Settings
+          - generic: System Online
+      - generic:
+        - banner:
+          - combobox [expanded]:
+            - generic: Grok
+          - button:
+            - generic: Toggle theme
+        - main:
+          - generic:
+            - generic:
+              - generic:
+                - heading [level=1]: Dashboard
+                - paragraph: Overview of AI usage across all sources
+            - generic:
+              - generic:
+                - generic:
+                  - heading [level=3]: Tokens Today
+                - generic:
+                  - generic: 29,262,403
+                  - paragraph: input + output, across all sources
+              - generic:
+                - generic:
+                  - heading [level=3]: Source Health
+                - generic:
+                  - generic:
+                    - generic: Claude Code
+                    - generic: Codex CLI
+                    - generic: ComfyUI
+                    - generic: Grok
+                    - generic: Hermes
+                    - generic: Lemonade
+  - generic: "0"
+  - listbox [ref=f1e108]:
+    - option "All sources" [ref=f1e109]
+    - 'option "claude-code@arch-desktop: ok Claude Code" [ref=f1e112]':
+      - generic [ref=f1e115]:
+        - 'generic "claude-code@arch-desktop: ok" [ref=f1e116]'
+        - generic [ref=f1e117]: Claude Code
+    - 'option "codex@arch-desktop: ok Codex CLI" [ref=f1e118]':
+      - generic [ref=f1e121]:
+        - 'generic "codex@arch-desktop: ok" [ref=f1e122]'
+        - generic [ref=f1e123]: Codex CLI
+    - 'option "comfyui@strix-halo: off ComfyUI" [ref=f1e124]':
+      - generic [ref=f1e127]:
+        - 'generic "comfyui@strix-halo: off" [ref=f1e128]'
+        - generic [ref=f1e129]: ComfyUI
+    - 'option "grok@arch-desktop: ok Grok" [active] [selected] [ref=f1e130]':
+      - generic [ref=f1e136]:
+        - 'generic "grok@arch-desktop: ok" [ref=f1e137]'
+        - generic [ref=f1e138]: Grok
+    - 'option "hermes@strix-halo: ok Hermes" [ref=f1e139]':
+      - generic [ref=f1e142]:
+        - 'generic "hermes@strix-halo: ok" [ref=f1e143]'
+        - generic [ref=f1e144]: Hermes
+    - 'option "lemonade@strix-halo: off Lemonade" [ref=f1e145]':
+      - generic [ref=f1e148]:
+        - 'generic "lemonade@strix-halo: off" [ref=f1e149]'
+        - generic [ref=f1e150]: Lemonade

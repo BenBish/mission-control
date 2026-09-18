@@ -1,0 +1,160 @@
+- generic [ref=f3e4]:
+  - alert [ref=f3e14]:
+    - generic [ref=f3e15]:
+      - img [ref=f3e16]
+      - generic [ref=f3e18]:
+        - paragraph [ref=f3e19]: Security notice
+        - paragraph [ref=f3e20]: App authentication is off. Anyone who can reach this host can read activity data.
+  - banner [ref=f3e5]:
+    - button "Toggle menu" [ref=f3e6]:
+      - img
+      - generic [ref=f3e7]: Toggle menu
+    - combobox "Filter by source" [ref=f3e21]:
+      - generic:
+        - generic:
+          - 'generic "lemonade@strix-halo: Offline — Not connected — no collector polling this source yet (raw: off)"'
+          - generic: Lemonade
+      - img [ref=f3e22]
+    - button "Toggle theme" [ref=f3e9]:
+      - img
+      - generic [ref=f3e10]: Toggle theme
+  - main [ref=f3e11]:
+    - generic [ref=f3e24]:
+      - generic [ref=f3e26]:
+        - heading "Runtime" [level=1] [ref=f3e27]
+        - paragraph [ref=f3e28]: Local inference telemetry for Lemonade
+      - generic [ref=f3e30]:
+        - text: Time range
+        - combobox "Time range" [ref=f3e31]:
+          - generic: Last 24h
+          - img [ref=f3e32]
+      - generic [ref=f3e34]:
+        - generic [ref=f3e35]:
+          - generic [ref=f3e37]:
+            - generic [ref=f3e38]:
+              - paragraph [ref=f3e39]: Active slots
+              - img [ref=f3e40]
+            - paragraph [ref=f3e43]: 0/0
+            - paragraph [ref=f3e44]: Current occupancy
+          - generic [ref=f3e46]:
+            - generic [ref=f3e47]:
+              - paragraph [ref=f3e48]: Saturation
+              - img [ref=f3e49]
+            - paragraph [ref=f3e51]: —
+            - paragraph [ref=f3e52]: Busy / total slots
+          - generic [ref=f3e54]:
+            - generic [ref=f3e55]:
+              - paragraph [ref=f3e56]: Throughput
+              - img [ref=f3e57]
+            - paragraph [ref=f3e59]: 0.00/h
+            - paragraph [ref=f3e60]: 0 req · last 24h
+          - button "Show cancelled requests" [ref=f3e61] [cursor=pointer]:
+            - generic [ref=f3e62]:
+              - generic [ref=f3e63]:
+                - paragraph [ref=f3e64]: Cancellation rate
+                - img [ref=f3e65]
+              - paragraph [ref=f3e68]: —
+              - paragraph [ref=f3e69]: Tap to show cancelled
+          - generic [ref=f3e71]:
+            - generic [ref=f3e72]:
+              - paragraph [ref=f3e73]: p50 latency
+              - img [ref=f3e74]
+            - paragraph [ref=f3e77]: —
+            - paragraph [ref=f3e78]: last 24h
+          - generic [ref=f3e80]:
+            - generic [ref=f3e81]:
+              - paragraph [ref=f3e82]: p95 latency
+              - img [ref=f3e83]
+            - paragraph [ref=f3e86]: —
+            - paragraph [ref=f3e87]: last 24h
+        - generic [ref=f3e88]:
+          - button "Show error requests" [ref=f3e89]:
+            - img
+            - text: Errors
+          - button "Show slow requests" [disabled]:
+            - img
+            - text: Slow (≥ p95)
+          - button "Show cancelled requests" [ref=f3e90]:
+            - img
+            - text: Cancelled
+      - generic [ref=f3e91]:
+        - generic [ref=f3e93]:
+          - generic [ref=f3e94]:
+            - heading "Requests by backend" [level=3] [ref=f3e95]:
+              - img [ref=f3e96]
+              - text: Requests by backend
+            - paragraph [ref=f3e99]: Inference volume by client label (last 24h). These are Hermes / lemonade backends — not agentic Activity sources.
+          - paragraph [ref=f3e101]: No inference requests in this range.
+        - generic [ref=f3e103]:
+          - generic [ref=f3e104]:
+            - heading "Lemonade" [level=3] [ref=f3e105]
+            - generic [ref=f3e106]: Offline
+          - generic [ref=f3e107]:
+            - paragraph [ref=f3e108]: lemonade@strix-halo
+            - paragraph [ref=f3e109]: Not connected — no collector polling this source yet
+      - generic [ref=f3e110]:
+        - generic [ref=f3e111]:
+          - heading "Slot Occupancy" [level=3] [ref=f3e112]:
+            - img [ref=f3e113]
+            - text: Slot Occupancy
+          - paragraph [ref=f3e116]: Sampled every 5s — a request that starts and finishes between samples can be missed
+        - paragraph [ref=f3e118]: No slot data yet — polling may be disabled or just starting.
+      - generic [ref=f3e119]:
+        - heading "Models Loaded" [level=3] [ref=f3e121]
+        - paragraph [ref=f3e123]: No model inventory yet.
+      - generic [ref=f3e124]:
+        - generic [ref=f3e125]:
+          - generic [ref=f3e126]:
+            - heading "Recent Requests" [level=3] [ref=f3e127]
+            - paragraph [ref=f3e128]: Workload is a best-effort heuristic — badged distinctly from verified fields, not ground truth
+          - generic [ref=f3e129]:
+            - generic [ref=f3e130]:
+              - text: Status
+              - combobox "Request status filter" [ref=f3e131]:
+                - generic: All
+                - img [ref=f3e132]
+            - generic [ref=f3e134]:
+              - text: Backend
+              - combobox "Request backend filter" [ref=f3e135]:
+                - generic: All backends
+                - img [ref=f3e136]
+        - generic [ref=f3e138]:
+          - paragraph [ref=f3e139]: No inference requests observed yet.
+          - generic [ref=f3e140]:
+            - paragraph [ref=f3e141]: No requests
+            - generic [ref=f3e142]:
+              - button "Previous requests page" [disabled]:
+                - img
+                - text: Prev
+              - generic [ref=f3e143]: 1 / 1
+              - button "Next requests page" [disabled]:
+                - text: Next
+                - img
+      - generic [ref=f3e144]:
+        - generic [ref=f3e145]:
+          - heading "Runtime Events" [level=3] [ref=f3e146]:
+            - img [ref=f3e147]
+            - text: Runtime Events
+          - generic [ref=f3e149]:
+            - text: Event type
+            - combobox "Event type filter" [ref=f3e150]:
+              - generic: All
+              - img [ref=f3e151]
+        - generic [ref=f3e153]:
+          - paragraph [ref=f3e155]: No runtime events — no saturation, outages, or overflows observed yet.
+          - generic [ref=f3e156]:
+            - paragraph [ref=f3e157]: No events
+            - generic [ref=f3e158]:
+              - button "Previous events page" [disabled]:
+                - img
+                - text: Prev
+              - generic [ref=f3e159]: 1 / 1
+              - button "Next events page" [disabled]:
+                - text: Next
+                - img
+      - generic [ref=f3e161]:
+        - paragraph [ref=f3e162]: Background work contending with foreground turns is tracked on the Jobs page.
+        - link "View contention incidents" [ref=f3e163] [cursor=pointer]:
+          - /url: /jobs
+          - text: View contention incidents
+          - img [ref=f3e164]

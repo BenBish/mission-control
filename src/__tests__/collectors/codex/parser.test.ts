@@ -324,8 +324,10 @@ describe("Codex parser — new CLI schema (BSH-372)", () => {
     const parsed = parseCodexLine(
       line({
         type: "token_usage_record",
+        ordinal: 42,
         timestamp: "2026-09-11T18:02:30.000Z",
         payload: {
+          turn_id: "turn-1",
           thread_token_usage: {
             input_tokens: 5000,
             output_tokens: 300,
@@ -346,6 +348,62 @@ describe("Codex parser — new CLI schema (BSH-372)", () => {
       cacheReadTokens: 1200,
       cacheWriteTokens: 40,
     });
+    const activity = parsed?.activity?.payload as ActivityPayload;
+    expect(activity).toMatchObject({
+      externalId: `${FILE_PATH}:turn-1:token_usage`,
+      actionType: "event",
+      inputTokens: 100,
+      outputTokens: 10,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+    });
+    expect(activity.details).toEqual({ turnId: "turn-1" });
+  });
+
+  test("attributes each turn's usage to a deduplicable activity without changing cumulative totals", () => {
+    const first = parseCodexLine(
+      line({
+        type: "token_usage_record",
+        ordinal: 10,
+        timestamp: "2026-09-11T18:02:30.000Z",
+        payload: {
+          thread_token_usage: { input_tokens: 1000, output_tokens: 100 },
+          turn_token_usage: { input_tokens: 1000, output_tokens: 100 },
+        },
+      }),
+      FILE_PATH,
+    );
+    const second = parseCodexLine(
+      line({
+        type: "token_usage_record",
+        ordinal: 20,
+        timestamp: "2026-09-11T18:03:30.000Z",
+        payload: {
+          thread_token_usage: { input_tokens: 1800, output_tokens: 160 },
+          turn_token_usage: { input_tokens: 800, output_tokens: 60 },
+        },
+      }),
+      FILE_PATH,
+    );
+
+    expect(first?.activity?.payload).toMatchObject({
+      inputTokens: 1000,
+      outputTokens: 100,
+    });
+    expect(second?.activity?.payload).toMatchObject({
+      inputTokens: 800,
+      outputTokens: 60,
+    });
+    expect(first?.activity?.naturalKey).not.toBe(second?.activity?.naturalKey);
+
+    let agg = emptyAggregate(SESSION_ID);
+    for (const parsed of [first, second]) {
+      if (parsed?.sessionUpdate) {
+        agg = mergeSessionUpdate(agg, parsed.sessionUpdate);
+      }
+    }
+    expect(agg.inputTokens).toBe(1800);
+    expect(agg.outputTokens).toBe(160);
   });
 
   test("a fully new-format session still closes out turns, tools and tokens", () => {

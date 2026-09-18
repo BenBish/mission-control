@@ -1,0 +1,30 @@
+- generic [ref=f3e3]:
+  - complementary [ref=f3e4]:
+    - generic [ref=f3e5]:
+      - generic [ref=f3e10]:
+        - generic [ref=f3e11]: Mission Control
+        - generic [ref=f3e12]: Unified AI usage dashboard
+      - navigation [ref=f3e13]:
+        - link [ref=f3e14] [cursor=pointer]:
+          - /url: /
+        - link [ref=f3e21] [cursor=pointer]:
+          - /url: /activities
+        - link [ref=f3e25] [cursor=pointer]:
+          - /url: /sessions
+        - link [ref=f3e31] [cursor=pointer]:
+          - /url: /runtime
+        - link [ref=f3e36] [cursor=pointer]:
+          - /url: /failures
+        - link [ref=f3e40] [cursor=pointer]:
+          - /url: /consumption
+        - link [ref=f3e44] [cursor=pointer]:
+          - /url: /jobs
+        - link [ref=f3e49] [cursor=pointer]:
+          - /url: /generations
+        - link [ref=f3e55] [cursor=pointer]:
+          - /url: /settings
+      - generic [ref=f3e60]: System Online
+  - generic [ref=f3e64]:
+    - banner [ref=f3e65]:
+      - button "Toggle theme" [ref=f3e67]
+    - main [ref=f3e69]

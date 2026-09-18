@@ -1,0 +1,175 @@
+- generic [ref=e1]:
+  - generic [ref=e7]:
+    - banner [ref=e8]:
+      - button "Toggle menu" [ref=e9]:
+        - img
+        - generic [ref=e10]: Toggle menu
+      - combobox "Filter by source" [active] [ref=e12]:
+        - generic:
+          - generic:
+            - generic: OpenCode
+        - img [ref=e13]
+      - button "Toggle theme" [ref=e15]:
+        - img
+        - generic [ref=e16]: Toggle theme
+    - main [ref=e17]:
+      - generic [ref=e18]:
+        - generic [ref=e20]:
+          - heading "Dashboard" [level=1] [ref=e21]
+          - paragraph [ref=e22]: Overview of AI usage for OpenCode
+        - generic [ref=e23]:
+          - generic [ref=e24]:
+            - generic [ref=e25]:
+              - heading "Tokens Today" [level=3] [ref=e26]
+              - img [ref=e28]
+            - generic [ref=e30]:
+              - generic [ref=e31]: 385,839
+              - paragraph [ref=e32]: input + output, for OpenCode
+          - link "Direct API Spend today — account-wide provider billing" [ref=e33] [cursor=pointer]:
+            - /url: /consumption?view=direct-api&range=today
+            - generic [ref=e34]:
+              - generic [ref=e35]:
+                - heading "Direct API Spend" [level=3] [ref=e36]
+                - img [ref=e38]
+              - generic [ref=e40]:
+                - generic [ref=e41]: No synced spend
+                - paragraph [ref=e42]:
+                  - generic [ref=e43]: 30d $15.7500
+                  - text: · Not synced
+                - paragraph [ref=e44]: Account-wide · independent of source filter
+          - generic [ref=e45]:
+            - generic [ref=e46]:
+              - heading "Failures (24h)" [level=3] [ref=e47]
+              - img [ref=e49]
+            - generic [ref=e51]:
+              - generic [ref=e52]: "4"
+              - paragraph [ref=e53]: Last 24 hours · activity failure · inference non-success · runtime non-info
+              - paragraph [ref=e54]:
+                - button "View failures" [ref=e55]
+          - generic [ref=e57]:
+            - generic [ref=e58]:
+              - heading "Source Health" [level=3] [ref=e59]
+              - paragraph [ref=e60]: All sources (fleet-wide)
+            - generic [ref=e62]:
+              - generic [ref=e63]: Claude Code
+              - generic [ref=e65]: Codex CLI
+              - generic [ref=e67]: ComfyUI
+              - generic [ref=e69]: Grok
+              - generic [ref=e71]: Hermes
+              - generic [ref=e73]: Lemonade
+              - generic [ref=e75]: OpenCode
+        - generic [ref=e77]:
+          - generic [ref=e78]:
+            - generic [ref=e80]:
+              - generic [ref=e81]:
+                - img [ref=e83]
+                - generic [ref=e84]:
+                  - heading "Recent Activity" [level=3] [ref=e85]
+                  - paragraph [ref=e86]: Your most recent actions
+              - button "View All" [ref=e87]:
+                - text: View All
+                - img
+            - generic [ref=e89]:
+              - generic [ref=e314] [cursor=pointer]:
+                - generic [ref=e315]:
+                  - img [ref=e317]
+                  - generic [ref=e320]:
+                    - paragraph [ref=e321]: Assistant turn (llamaswap/Qwen3.6-35B-A3B-Opencode-128K)
+                    - paragraph [ref=e322]:
+                      - img [ref=e323]
+                      - generic [ref=e326]: opencode
+                      - generic [ref=e327]: ·
+                      - generic [ref=e328]: Agent
+                - generic [ref=e329]: 3m ago
+              - generic [ref=e330] [cursor=pointer]:
+                - generic [ref=e331]:
+                  - img [ref=e333]
+                  - generic [ref=e336]:
+                    - paragraph [ref=e337]: "Same target-selection rules as `/grok:review` (uncommitted changes by default, `--base <ref>` for a branch diff, `--wait`/`--background`, same scope-estimation-and-recommend behavior, same \"nothing to review\" check). This command is also read-only. Additionally parse `--focus <text>` from `review the package for issues. Focus on securtity` — free text the user wants the reviewer to pay particular attention to (e.g. \"concurrency\" or \"what happens if the upstream API times out\"). Everything after"
+                    - paragraph [ref=e338]:
+                      - img [ref=e339]
+                      - generic [ref=e342]: user
+                      - generic [ref=e343]: ·
+                      - generic [ref=e344]: User
+                - generic [ref=e345]: 3m ago
+              - generic [ref=e346] [cursor=pointer]:
+                - generic [ref=e347]:
+                  - img [ref=e349]
+                  - generic [ref=e352]:
+                    - paragraph [ref=e353]: "{}"
+                    - paragraph [ref=e354]:
+                      - img [ref=e355]
+                      - generic [ref=e358]: opencode
+                      - generic [ref=e359]: ·
+                      - generic [ref=e360]: Agent
+                - generic [ref=e361]: 6m ago
+              - generic [ref=e362] [cursor=pointer]:
+                - generic [ref=e363]:
+                  - img [ref=e365]
+                  - generic [ref=e368]:
+                    - paragraph [ref=e369]: Assistant turn (llamaswap/Qwen3.6-35B-A3B-Opencode-128K)
+                    - paragraph [ref=e370]:
+                      - img [ref=e371]
+                      - generic [ref=e374]: opencode
+                      - generic [ref=e375]: ·
+                      - generic [ref=e376]: Agent
+                - generic [ref=e377]: 7m ago
+              - generic [ref=e378] [cursor=pointer]:
+                - generic [ref=e379]:
+                  - img [ref=e381]
+                  - generic [ref=e384]:
+                    - paragraph [ref=e385]: Invalid Tool
+                    - paragraph [ref=e386]:
+                      - img [ref=e387]
+                      - generic [ref=e390]: opencode
+                      - generic [ref=e391]: ·
+                      - generic [ref=e392]: Agent
+                - generic [ref=e393]: 7m ago
+          - generic [ref=e171]:
+            - generic [ref=e172]:
+              - heading "Token Usage" [level=3] [ref=e173]
+              - paragraph [ref=e174]: Daily total for OpenCode
+            - application [ref=e396]:
+              - generic [ref=e415]:
+                - generic [ref=e416]:
+                  - generic [ref=e418]: 5/7
+                  - generic [ref=e420]: 5/9
+                  - generic [ref=e422]: 6/9
+                  - generic [ref=e424]: 6/11
+                  - generic [ref=e426]: 6/14
+                  - generic [ref=e428]: 6/28
+                  - generic [ref=e430]: 6/30
+                  - generic [ref=e432]: 7/2
+                  - generic [ref=e434]: 7/5
+                  - generic [ref=e436]: 7/9
+                  - generic [ref=e438]: 7/11
+                  - generic [ref=e440]: 7/13
+                  - generic [ref=e442]: 7/22
+                  - generic [ref=e444]: 7/27
+                  - generic [ref=e446]: 7/29
+                  - generic [ref=e448]: 7/31
+                  - generic [ref=e450]: 8/4
+                - generic [ref=e451]:
+                  - generic [ref=e453]: "0"
+                  - generic [ref=e455]: "450000"
+                  - generic [ref=e457]: "900000"
+                  - generic [ref=e459]: "1350000"
+                  - generic [ref=e461]: "1800000"
+        - generic [ref=e462]:
+          - heading "Failures in last 24 hours" [level=3] [ref=e464]:
+            - img [ref=e465]
+            - text: Failures in last 24 hours
+          - generic [ref=e467]:
+            - generic [ref=e468]:
+              - generic [ref=e469]: "{\"filePath\":\"/home/ben/Dev/opportunity-scout/AGENTS.md\"}"
+              - generic [ref=e470]: 4h ago
+            - generic [ref=e471]:
+              - generic [ref=e472]: "{\"id\":\"BSH-87\"}"
+              - generic [ref=e473]: 4h ago
+            - generic [ref=e474]:
+              - generic [ref=e475]: "{\"query\":\"b88f4ebf-c1a3-4315-b9f4-03b3263027d2\"}"
+              - generic [ref=e476]: 4h ago
+            - generic [ref=e477]:
+              - generic [ref=e478]: "{\"filePath\":\"/home/ben/Dev/opportunity-scout/src/lib/local-llm.test.ts\"}"
+              - generic [ref=e479]: 4h ago
+  - generic [ref=e264]: "3"

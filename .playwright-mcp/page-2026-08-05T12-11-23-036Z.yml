@@ -1,0 +1,133 @@
+- generic [ref=f9e6]:
+  - complementary [ref=f9e7]:
+    - generic [ref=f9e8]:
+      - generic [ref=f9e13]:
+        - generic [ref=f9e14]: Mission Control
+        - generic [ref=f9e15]: Unified AI usage dashboard
+      - navigation "Main" [ref=f9e16]:
+        - link "Dashboard" [ref=f9e17] [cursor=pointer]:
+          - /url: /
+        - link "Activities" [ref=f9e25] [cursor=pointer]:
+          - /url: /activities
+        - link "Sessions" [ref=f9e29] [cursor=pointer]:
+          - /url: /sessions
+        - link "Runtime" [ref=f9e36] [cursor=pointer]:
+          - /url: /runtime
+        - link "Failures" [ref=f9e42] [cursor=pointer]:
+          - /url: /failures
+        - link "Consumption" [ref=f9e47] [cursor=pointer]:
+          - /url: /consumption
+        - generic [ref=f9e52]:
+          - paragraph [ref=f9e53]: Workloads
+          - generic [ref=f9e54]:
+            - link "Jobs" [ref=f9e55] [cursor=pointer]:
+              - /url: /jobs
+            - link "Generations Off" [ref=f9e61] [cursor=pointer]:
+              - /url: /generations
+              - generic [ref=f9e67]: Generations
+              - generic [ref=f9e68]: "Off"
+        - link "Settings" [ref=f9e70] [cursor=pointer]:
+          - /url: /settings
+      - generic [ref=f9e77]: System Online
+  - generic [ref=f9e81]:
+    - banner [ref=f9e82]:
+      - generic "Settings are not source-scoped" [ref=f9e83]:
+        - combobox "Filter by source" [disabled] [ref=f9e84]:
+          - generic: All sources
+        - generic [ref=f9e87]: Not filtered
+      - button "Toggle theme" [ref=f9e88]
+    - main [ref=f9e90]:
+      - generic [ref=f9e91]:
+        - generic [ref=f9e93]:
+          - heading "Settings" [level=1] [ref=f9e94]
+          - paragraph [ref=f9e95]: Source registry, provider budget, and application info
+        - generic [ref=f9e96]:
+          - tablist [ref=f9e97]:
+            - tab "Sources & Instances" [selected] [ref=f9e98]
+            - tab "Budgets" [ref=f9e102]
+            - tab "About" [ref=f9e105]
+          - tabpanel "Sources & Instances" [ref=f9e108]:
+            - generic [ref=f9e109]:
+              - generic [ref=f9e110]:
+                - heading "Sources" [level=3] [ref=f9e111]
+                - paragraph [ref=f9e112]: Every source and its collector instances, seeded once at server startup. Effective status uses heartbeat age so stale collectors cannot stay green indefinitely.
+              - table [ref=f9e115]:
+                - rowgroup [ref=f9e116]:
+                  - row [ref=f9e117]:
+                    - columnheader "Source" [ref=f9e118]
+                    - columnheader "Instance" [ref=f9e119]
+                    - columnheader "Machine" [ref=f9e120]
+                    - columnheader "Collector" [ref=f9e121]
+                    - columnheader "Status" [ref=f9e122]
+                    - columnheader "Last Seen" [ref=f9e123]
+                - rowgroup [ref=f9e124]:
+                  - row [ref=f9e125]:
+                    - cell "Claude Code" [ref=f9e126]
+                    - cell "claude-code@arch-desktop" [ref=f9e127]
+                    - cell "arch-desktop" [ref=f9e128]
+                    - cell "jsonl-push" [ref=f9e129]
+                    - cell "Healthy" [ref=f9e131]
+                    - cell "Just now 8/5/2026, 1:11:20 PM" [ref=f9e133]:
+                      - generic [ref=f9e134]:
+                        - generic [ref=f9e135]: Just now
+                        - generic "8/5/2026, 1:11:20 PM" [ref=f9e136]
+                  - row [ref=f9e137]:
+                    - cell "Codex CLI" [ref=f9e138]
+                    - cell "codex@arch-desktop" [ref=f9e139]
+                    - cell "arch-desktop" [ref=f9e140]
+                    - cell "jsonl-push" [ref=f9e141]
+                    - cell "Healthy" [ref=f9e143]
+                    - cell "Just now 8/5/2026, 1:10:56 PM" [ref=f9e145]:
+                      - generic [ref=f9e146]:
+                        - generic [ref=f9e147]: Just now
+                        - generic "8/5/2026, 1:10:56 PM" [ref=f9e148]
+                  - row [ref=f9e149]:
+                    - cell "ComfyUI" [ref=f9e150]
+                    - cell "comfyui@strix-halo" [ref=f9e151]
+                    - cell "strix-halo" [ref=f9e152]
+                    - cell "http-poll" [ref=f9e153]
+                    - cell "Offline" [ref=f9e155]
+                    - cell "Just now 8/5/2026, 1:11:15 PM" [ref=f9e157]:
+                      - generic [ref=f9e158]:
+                        - generic [ref=f9e159]: Just now
+                        - generic "8/5/2026, 1:11:15 PM" [ref=f9e160]
+                  - row [ref=f9e161]:
+                    - cell "Grok" [ref=f9e162]
+                    - cell "grok@arch-desktop" [ref=f9e163]
+                    - cell "arch-desktop" [ref=f9e164]
+                    - cell "jsonl-push" [ref=f9e165]
+                    - cell "Healthy" [ref=f9e167]
+                    - cell "Just now 8/5/2026, 1:10:53 PM" [ref=f9e169]:
+                      - generic [ref=f9e170]:
+                        - generic [ref=f9e171]: Just now
+                        - generic "8/5/2026, 1:10:53 PM" [ref=f9e172]
+                  - row [ref=f9e173]:
+                    - cell "Hermes" [ref=f9e174]
+                    - cell "hermes@strix-halo" [ref=f9e175]
+                    - cell "strix-halo" [ref=f9e176]
+                    - cell "http-poll" [ref=f9e177]
+                    - cell "Healthy" [ref=f9e179]
+                    - cell "Just now 8/5/2026, 1:11:21 PM" [ref=f9e181]:
+                      - generic [ref=f9e182]:
+                        - generic [ref=f9e183]: Just now
+                        - generic "8/5/2026, 1:11:21 PM" [ref=f9e184]
+                  - row [ref=f9e185]:
+                    - cell "Lemonade" [ref=f9e186]
+                    - cell "lemonade@strix-halo" [ref=f9e187]
+                    - cell "strix-halo" [ref=f9e188]
+                    - cell "http-poll" [ref=f9e189]
+                    - cell "Offline" [ref=f9e191]
+                    - cell "Just now 8/5/2026, 1:11:10 PM" [ref=f9e193]:
+                      - generic [ref=f9e194]:
+                        - generic [ref=f9e195]: Just now
+                        - generic "8/5/2026, 1:11:10 PM" [ref=f9e196]
+                  - row [ref=f9e197]:
+                    - cell "OpenCode" [ref=f9e198]
+                    - cell "opencode@arch-desktop" [ref=f9e199]
+                    - cell "arch-desktop" [ref=f9e200]
+                    - cell "jsonl-push" [ref=f9e201]
+                    - cell "Healthy" [ref=f9e203]
+                    - cell "Just now 8/5/2026, 1:11:00 PM" [ref=f9e205]:
+                      - generic [ref=f9e206]:
+                        - generic [ref=f9e207]: Just now
+                        - generic "8/5/2026, 1:11:00 PM" [ref=f9e208]

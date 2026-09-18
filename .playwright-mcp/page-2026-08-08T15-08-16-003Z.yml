@@ -1,0 +1,446 @@
+- generic [ref=f1e1]:
+  - generic [ref=f1e6]:
+    - complementary [ref=f1e7]:
+      - generic [ref=f1e8]:
+        - generic [ref=f1e13]:
+          - generic [ref=f1e14]: Mission Control
+          - generic [ref=f1e15]: Unified AI usage dashboard
+        - navigation "Main" [ref=f1e16]:
+          - link "Dashboard" [ref=f1e17] [cursor=pointer]:
+            - /url: /
+          - link "Activities" [ref=f1e25] [cursor=pointer]:
+            - /url: /activities
+          - link "Sessions" [ref=f1e29] [cursor=pointer]:
+            - /url: /sessions
+          - link "Runtime" [ref=f1e36] [cursor=pointer]:
+            - /url: /runtime
+          - link "Failures" [ref=f1e42] [cursor=pointer]:
+            - /url: /failures
+          - link "Consumption" [ref=f1e47] [cursor=pointer]:
+            - /url: /consumption
+          - generic [ref=f1e53]:
+            - paragraph [ref=f1e54]: Workloads
+            - generic [ref=f1e55]:
+              - link "Jobs" [ref=f1e56] [cursor=pointer]:
+                - /url: /jobs
+              - link "Generations Off" [ref=f1e62] [cursor=pointer]:
+                - /url: /generations
+                - generic [ref=f1e68]: Generations
+                - generic [ref=f1e69]: "Off"
+          - link "Settings" [ref=f1e71] [cursor=pointer]:
+            - /url: /settings
+        - generic [ref=f1e77]: System Online
+    - generic [ref=f1e81]:
+      - alert [ref=f1e82]:
+        - generic [ref=f1e86]:
+          - paragraph [ref=f1e87]: Security notice
+          - paragraph [ref=f1e88]: App authentication is off. Anyone who can reach this host can read activity data.
+      - banner [ref=f1e89]:
+        - generic "Agent usage and attribution respect the source filter; provider API costs are account-wide" [ref=f1e90]:
+          - combobox "Filter by source" [ref=f1e91]:
+            - generic: All sources
+        - button "Toggle theme" [ref=f1e94]
+      - main [ref=f1e96]:
+        - generic [ref=f1e97]:
+          - generic [ref=f1e99]:
+            - heading "Consumption" [level=1] [ref=f1e100]
+            - paragraph [ref=f1e101]: Agent session usage for all sources; Direct API Spend is account-wide; Attribution links them with confidence — never summed blindly
+          - generic [ref=f1e102]:
+            - generic [ref=f1e103]:
+              - tablist [ref=f1e105]:
+                - tab "Agent Usage" [ref=f1e106]
+                - tab "Direct API Spend" [selected] [ref=f1e110]
+                - tab "Attribution" [ref=f1e113]
+              - generic [ref=f1e117]:
+                - button "Today" [ref=f1e118]
+                - button "Last 7 days" [ref=f1e119]
+                - button "Last 30 days" [ref=f1e120]
+                - button "All time" [ref=f1e121]
+            - paragraph [ref=f1e122]: "Showing: Last 30 days"
+            - tabpanel "Direct API Spend" [ref=f1e125]:
+              - generic [ref=f1e126]:
+                - generic [ref=f1e128]:
+                  - generic [ref=f1e129]:
+                    - generic [ref=f1e130]:
+                      - heading "Direct API Spend" [level=3] [ref=f1e131]
+                      - generic [ref=f1e134]: Account-wide
+                    - paragraph [ref=f1e135]:
+                      - strong [ref=f1e136]: API org spend
+                      - text: "from provider Admin billing APIs — not agent session logs, plan usage windows, or wallet balances. Budget/forecast: calendar month (America/Los_Angeles)."
+                  - generic [ref=f1e137]:
+                    - link "Configure budget" [ref=f1e138] [cursor=pointer]:
+                      - /url: /settings?tab=budgets
+                    - button "Sync now" [ref=f1e139]
+                - generic [ref=f1e140]:
+                  - region [ref=f1e141]:
+                    - generic [ref=f1e142]:
+                      - heading "Overview" [level=2] [ref=f1e143]
+                      - generic [ref=f1e144]: Month-to-date spend & budget risk
+                    - generic [ref=f1e145]:
+                      - generic [ref=f1e146]:
+                        - heading "MTD spent" [level=3] [ref=f1e148]
+                        - generic [ref=f1e151]:
+                          - generic [ref=f1e152]: $0.67
+                          - paragraph [ref=f1e153]: 2026-08-01 → 2026-08-08 (America/Los_Angeles)
+                      - generic [ref=f1e154]:
+                        - heading "Budget remaining" [level=3] [ref=f1e156]
+                        - generic [ref=f1e161]:
+                          - generic [ref=f1e162]: $49.33
+                          - paragraph [ref=f1e165]: 1.3% of $50.00
+                      - generic [ref=f1e166]:
+                        - heading "Burn rate" [level=3] [ref=f1e168]
+                        - generic [ref=f1e172]:
+                          - generic [ref=f1e173]: $0.00/day
+                          - paragraph [ref=f1e174]: Day 8 of 31
+                      - generic [ref=f1e175]:
+                        - generic [ref=f1e176]:
+                          - heading "Forecast month-end" [level=3] [ref=f1e177]
+                          - generic [ref=f1e178]: unreliable
+                        - generic [ref=f1e179]:
+                          - generic [ref=f1e180]: $0.00
+                          - paragraph [ref=f1e181]: Range $0.00–$0.00 · 29% conf
+                          - paragraph [ref=f1e182]: Stale/failed sync — do not trust this figure
+                          - paragraph [ref=f1e183]: "Incomplete days excluded from burn: 2026-08-06, 2026-08-07, 2026-08-08"
+                    - generic [ref=f1e184]:
+                      - generic [ref=f1e185]:
+                        - heading "Cost classes (kept separate)" [level=3] [ref=f1e186]
+                        - paragraph [ref=f1e187]: Actual provider billing, agent-attributed session cost, and estimates are never summed together
+                      - generic [ref=f1e189]:
+                        - generic [ref=f1e190]:
+                          - paragraph [ref=f1e191]: Actual provider spend
+                          - paragraph [ref=f1e192]: $0.67
+                        - generic [ref=f1e193]:
+                          - paragraph [ref=f1e194]: Agent-attributed
+                          - paragraph [ref=f1e195]: —
+                        - generic [ref=f1e196]:
+                          - paragraph [ref=f1e197]: Est. cache savings
+                          - paragraph [ref=f1e198]: —
+                          - paragraph [ref=f1e199]: Estimated — not a credit
+                        - generic [ref=f1e200]:
+                          - paragraph [ref=f1e201]: Failure waste
+                          - paragraph [ref=f1e202]: —
+                          - paragraph [ref=f1e203]: Agent-attributed
+                  - region [ref=f1e204]:
+                    - generic [ref=f1e205]:
+                      - heading "Drivers" [level=2] [ref=f1e206]
+                      - generic [ref=f1e207]: Trend, anomalies, top movers
+                    - generic [ref=f1e208]:
+                      - generic [ref=f1e209]:
+                        - heading "Daily spend (MTD)" [level=3] [ref=f1e210]
+                        - paragraph [ref=f1e211]: Current month vs same day-of-month in the prior month
+                      - generic [ref=f1e214]:
+                        - list [ref=f1e216]:
+                          - listitem [ref=f1e217]:
+                            - img "Prior month legend icon" [ref=f1e218]
+                            - text: Prior month
+                          - listitem [ref=f1e220]:
+                            - img "This month legend icon" [ref=f1e221]
+                            - text: This month
+                        - application [ref=f1e223]:
+                          - generic [ref=f1e235]:
+                            - generic [ref=f1e236]:
+                              - generic [ref=f1e237]: 8/1
+                              - generic [ref=f1e239]: 8/2
+                              - generic [ref=f1e241]: 8/3
+                              - generic [ref=f1e243]: 8/4
+                              - generic [ref=f1e245]: 8/5
+                              - generic [ref=f1e247]: 8/6
+                              - generic [ref=f1e249]: 8/7
+                              - generic [ref=f1e251]: 8/8
+                            - generic [ref=f1e253]:
+                              - generic [ref=f1e254]: $0
+                              - generic [ref=f1e256]: $1
+                              - generic [ref=f1e258]: $2
+                              - generic [ref=f1e260]: $3
+                              - generic [ref=f1e262]: $4
+                    - generic [ref=f1e264]:
+                      - generic [ref=f1e265]:
+                        - heading "Top provider / model (MTD)" [level=3] [ref=f1e266]
+                        - paragraph [ref=f1e267]: vs same day-of-month range last month
+                      - table [ref=f1e270]:
+                        - rowgroup [ref=f1e271]:
+                          - row [ref=f1e272]:
+                            - columnheader "Provider" [ref=f1e273]
+                            - columnheader "Model" [ref=f1e274]
+                            - columnheader "Cost" [ref=f1e275]
+                            - columnheader "Prior" [ref=f1e276]
+                            - columnheader "Δ" [ref=f1e277]
+                        - rowgroup [ref=f1e278]:
+                          - row [ref=f1e279]:
+                            - cell "openrouter" [ref=f1e280]
+                            - cell "deepseek/deepseek-v4-pro" [ref=f1e281]
+                            - cell "$0.5354" [ref=f1e282]
+                            - cell "$0.0000" [ref=f1e283]
+                            - cell "+0.5354" [ref=f1e284]
+                          - row [ref=f1e285]:
+                            - cell "openrouter" [ref=f1e286]
+                            - cell "moonshotai/kimi-k2.6" [ref=f1e287]
+                            - cell "$0.1395" [ref=f1e288]
+                            - cell "$0.0000" [ref=f1e289]
+                            - cell "+0.1395" [ref=f1e290]
+                  - region [ref=f1e291]:
+                    - generic [ref=f1e292]:
+                      - heading "Efficiency & actions" [level=2] [ref=f1e293]
+                      - generic [ref=f1e294]: Unit economics · optimization signals
+                    - generic [ref=f1e295]:
+                      - generic [ref=f1e296]:
+                        - heading "Provider / model unit costs" [level=3] [ref=f1e297]
+                        - paragraph [ref=f1e298]: Actual API billing — cost/request and $/1M output tokens
+                      - table [ref=f1e301]:
+                        - rowgroup [ref=f1e302]:
+                          - row [ref=f1e303]:
+                            - columnheader "Key" [ref=f1e304]
+                            - columnheader "Cost" [ref=f1e305]
+                            - columnheader "$/req" [ref=f1e306]
+                            - columnheader "$/1M out" [ref=f1e307]
+                        - rowgroup [ref=f1e308]:
+                          - row [ref=f1e309]:
+                            - cell "openrouter/deepseek/deepseek-v4-pro" [ref=f1e310]
+                            - cell "$0.5354" [ref=f1e311]
+                            - cell "$0.0027" [ref=f1e312]
+                            - cell "$4.88" [ref=f1e313]
+                          - row [ref=f1e314]:
+                            - cell "openrouter/moonshotai/kimi-k2.6" [ref=f1e315]
+                            - cell "$0.1395" [ref=f1e316]
+                            - cell "$0.0033" [ref=f1e317]
+                            - cell "$3.90" [ref=f1e318]
+                    - generic [ref=f1e319]:
+                      - generic [ref=f1e320]:
+                        - heading "Project efficiency (agent-attributed)" [level=3] [ref=f1e321]
+                        - paragraph [ref=f1e322]: Separate from actual provider billing — cost/session when attribution exists
+                      - table [ref=f1e325]:
+                        - rowgroup [ref=f1e326]:
+                          - row [ref=f1e327]:
+                            - columnheader "Project" [ref=f1e328]
+                            - columnheader "Cost" [ref=f1e329]
+                            - columnheader "$/session" [ref=f1e330]
+                            - columnheader "Cache $" [ref=f1e331]
+                        - rowgroup [ref=f1e332]:
+                          - row [ref=f1e333]:
+                            - cell "benbishop-context-bsh-83" [ref=f1e334]
+                            - cell "—" [ref=f1e335]
+                            - cell "—" [ref=f1e336]
+                            - cell "—" [ref=f1e337]
+                          - row [ref=f1e338]:
+                            - cell "bshp" [ref=f1e339]
+                            - cell "—" [ref=f1e340]
+                            - cell "—" [ref=f1e341]
+                            - cell "—" [ref=f1e342]
+                          - row [ref=f1e343]:
+                            - cell "agent-skills-plugin" [ref=f1e344]
+                            - cell "—" [ref=f1e345]
+                            - cell "—" [ref=f1e346]
+                            - cell "—" [ref=f1e347]
+                          - row [ref=f1e348]:
+                            - cell "opportunity-scout" [ref=f1e349]
+                            - cell "—" [ref=f1e350]
+                            - cell "—" [ref=f1e351]
+                            - cell "—" [ref=f1e352]
+                          - row [ref=f1e353]:
+                            - cell "mission-control" [ref=f1e354]
+                            - cell "—" [ref=f1e355]
+                            - cell "—" [ref=f1e356]
+                            - cell "—" [ref=f1e357]
+                          - row [ref=f1e358]:
+                            - cell "Dev" [ref=f1e359]
+                            - cell "—" [ref=f1e360]
+                            - cell "—" [ref=f1e361]
+                            - cell "—" [ref=f1e362]
+                          - row [ref=f1e363]:
+                            - cell "astro-llms" [ref=f1e364]
+                            - cell "—" [ref=f1e365]
+                            - cell "—" [ref=f1e366]
+                            - cell "—" [ref=f1e367]
+                          - row [ref=f1e368]:
+                            - cell "framediff" [ref=f1e369]
+                            - cell "—" [ref=f1e370]
+                            - cell "—" [ref=f1e371]
+                            - cell "—" [ref=f1e372]
+                          - row [ref=f1e373]:
+                            - cell "grok-plugin-cc" [ref=f1e374]
+                            - cell "—" [ref=f1e375]
+                            - cell "—" [ref=f1e376]
+                            - cell "—" [ref=f1e377]
+                          - row [ref=f1e378]:
+                            - cell "benbishop-context" [ref=f1e379]
+                            - cell "—" [ref=f1e380]
+                            - cell "—" [ref=f1e381]
+                            - cell "—" [ref=f1e382]
+                          - row [ref=f1e383]:
+                            - cell "unassigned" [ref=f1e384]
+                            - cell "—" [ref=f1e385]
+                            - cell "—" [ref=f1e386]
+                            - cell "—" [ref=f1e387]
+                  - region [ref=f1e388]:
+                    - generic [ref=f1e389]:
+                      - heading "Provider breakdown" [level=2] [ref=f1e390]
+                      - generic [ref=f1e391]: Billing rows in selected range (Last 30 days) — not agent matched
+                    - generic [ref=f1e392]:
+                      - generic [ref=f1e393]:
+                        - text: "Tokens:"
+                        - strong [ref=f1e394]: 5,566,510
+                      - generic [ref=f1e395]:
+                        - text: "Cost:"
+                        - strong [ref=f1e396]: $15.1301
+                    - table [ref=f1e398]:
+                      - rowgroup [ref=f1e399]:
+                        - row [ref=f1e400]:
+                          - columnheader "Provider" [ref=f1e401]
+                          - columnheader "Model" [ref=f1e402]
+                          - columnheader "Input" [ref=f1e403]
+                          - columnheader "Output" [ref=f1e404]
+                          - columnheader "Cost" [ref=f1e405]
+                      - rowgroup [ref=f1e406]:
+                        - row [ref=f1e407]:
+                          - cell "anthropic" [ref=f1e408]
+                          - cell "claude-sonnet-5" [ref=f1e409]
+                          - cell "3,742,280" [ref=f1e410]
+                          - cell "160,589" [ref=f1e411]
+                          - cell "$9.0905" [ref=f1e412]
+                        - row [ref=f1e413]:
+                          - cell "anthropic" [ref=f1e414]
+                          - cell "Web Search Usage" [ref=f1e415]
+                          - cell "0" [ref=f1e416]
+                          - cell "0" [ref=f1e417]
+                          - cell "$1.8100" [ref=f1e418]
+                        - row [ref=f1e419]:
+                          - cell "openrouter" [ref=f1e420]
+                          - cell "openai/gpt-5.5" [ref=f1e421]
+                          - cell "100,483" [ref=f1e422]
+                          - cell "34,201" [ref=f1e423]
+                          - cell "$1.5284" [ref=f1e424]
+                        - row [ref=f1e425]:
+                          - cell "anthropic" [ref=f1e426]
+                          - cell "claude-opus-4-8" [ref=f1e427]
+                          - cell "140,664" [ref=f1e428]
+                          - cell "7,729" [ref=f1e429]
+                          - cell "$0.8965" [ref=f1e430]
+                        - row [ref=f1e431]:
+                          - cell "openrouter" [ref=f1e432]
+                          - cell "anthropic/claude-sonnet-5" [ref=f1e433]
+                          - cell "183,915" [ref=f1e434]
+                          - cell "27,940" [ref=f1e435]
+                          - cell "$0.6472" [ref=f1e436]
+                        - row [ref=f1e437]:
+                          - cell "openrouter" [ref=f1e438]
+                          - cell "deepseek/deepseek-v4-pro" [ref=f1e439]
+                          - cell "742,496" [ref=f1e440]
+                          - cell "109,804" [ref=f1e441]
+                          - cell "$0.5354" [ref=f1e442]
+                        - row [ref=f1e443]:
+                          - cell "openrouter" [ref=f1e444]
+                          - cell "x-ai/grok-4.5" [ref=f1e445]
+                          - cell "96,668" [ref=f1e446]
+                          - cell "49,978" [ref=f1e447]
+                          - cell "$0.4825" [ref=f1e448]
+                        - row [ref=f1e449]:
+                          - cell "openrouter" [ref=f1e450]
+                          - cell "moonshotai/kimi-k2.6" [ref=f1e451]
+                          - cell "133,602" [ref=f1e452]
+                          - cell "35,786" [ref=f1e453]
+                          - cell "$0.1395" [ref=f1e454]
+                        - row [ref=f1e455]:
+                          - cell "openrouter" [ref=f1e456]
+                          - cell "meta-llama/llama-3.3-70b-instruct" [ref=f1e457]
+                          - cell "320" [ref=f1e458]
+                          - cell "55" [ref=f1e459]
+                          - cell "$0.0001" [ref=f1e460]
+                  - group [ref=f1e461]:
+                    - generic "Capacity & data health Plan usage · wallet · connectors · caveats" [active] [ref=f1e462] [cursor=pointer]:
+                      - generic [ref=f1e463]: Capacity & data health
+                      - generic [ref=f1e467]: Plan usage · wallet · connectors · caveats
+                    - generic [ref=f1e469]:
+                      - paragraph [ref=f1e470]:
+                        - text: Plan usage and wallet balances are
+                        - strong [ref=f1e471]: not
+                        - text: API org spend. If OpenRouter BYOK and a direct provider (e.g. Anthropic) are both configured, the same spend can appear under both connectors.
+                      - generic [ref=f1e472]:
+                        - generic "Management key recommended for /activity (provider returns ~last 30 UTC days; filtered to sync window client-side)." [ref=f1e473]:
+                          - generic [ref=f1e474]: OpenRouter
+                          - generic [ref=f1e475]: ok
+                          - generic [ref=f1e476]: synced 8/8/2026, 4:02:04 PM
+                        - generic "Usage credit wallet is not exposed on Anthropic Admin Usage & Cost APIs." [ref=f1e477]:
+                          - generic [ref=f1e478]: Anthropic
+                          - generic [ref=f1e479]: ok
+                          - generic [ref=f1e480]: synced 8/8/2026, 4:02:05 PM
+                        - generic "OpenAI prepaid usage-credit wallet is not available via Admin/secret API keys (dashboard credit_grants requires a browser session key). Codex usage windows are separate (plan usage)." [ref=f1e481]:
+                          - generic [ref=f1e482]: OpenAI
+                          - generic [ref=f1e483]: limited
+                          - generic [ref=f1e484]: synced 8/8/2026, 4:02:08 PM
+                        - generic "xAI has no public historical usage/cost API; key verified via /models. Set MC_XAI_USAGE_ENDPOINT to a JSON usage export URL when available. xAI has no public prepaid balance/credits API; remaining capacity is not available programmatically." [ref=f1e485]:
+                          - generic [ref=f1e486]: xAI
+                          - generic [ref=f1e487]: limited
+                          - generic [ref=f1e488]: synced 8/8/2026, 4:02:10 PM
+                      - paragraph [ref=f1e492]: "openai: limited (limited)"
+                      - paragraph [ref=f1e496]: "xai: limited (limited)"
+                      - generic [ref=f1e497]:
+                        - generic [ref=f1e498]:
+                          - heading "Plan usage" [level=3] [ref=f1e499]
+                          - paragraph [ref=f1e504]: Subscription / rate-limit windows (percent remaining). Not wallet balance and not Direct API Spend. Expired windows are never green.
+                        - generic [ref=f1e507]:
+                          - generic "Claude Pro / Claude Code plan limits are not available via Admin API. Shown in claude.ai settings only." [ref=f1e508]:
+                            - generic [ref=f1e509]:
+                              - generic [ref=f1e510]: anthropic
+                              - generic [ref=f1e511]: unavailable
+                            - paragraph [ref=f1e512]: Plan limits · not available
+                            - paragraph [ref=f1e513]: —
+                            - paragraph [ref=f1e514]: as of 8/8/2026, 4:02:08 PM
+                          - generic "Codex/OpenAI usage window (rate-limit quota), not prepaid USD credits." [ref=f1e515]:
+                            - generic [ref=f1e516]:
+                              - generic [ref=f1e517]: openai
+                              - generic [ref=f1e518]: ok
+                            - paragraph [ref=f1e519]: Usage window · codex:primary 10080m · session quota
+                            - paragraph [ref=f1e520]: 83% left
+                            - paragraph [ref=f1e521]: as of 8/8/2026, 3:22:51 PM
+                          - generic "Quota window has reset; this observation is no longer valid." [ref=f1e522]:
+                            - generic [ref=f1e523]:
+                              - generic [ref=f1e524]: openai
+                              - generic [ref=f1e525]: expired
+                            - paragraph [ref=f1e526]: Usage window · codex:secondary 10080m · session quota
+                            - paragraph [ref=f1e527]: 98% left
+                            - paragraph [ref=f1e528]: Quota window has reset; this observation is no longer valid.
+                            - paragraph [ref=f1e529]: as of 7/10/2026, 2:25:52 AM
+                      - generic [ref=f1e530]:
+                        - generic [ref=f1e531]:
+                          - heading "Usage credits (wallet)" [level=3] [ref=f1e532]
+                          - paragraph [ref=f1e535]: Prepaid credit balance when providers expose it. Never mixed into Direct API Spend or session costs.
+                        - generic [ref=f1e537]:
+                          - generic "Usage credit wallet is not exposed on Anthropic Admin Usage & Cost APIs." [ref=f1e538]:
+                            - generic [ref=f1e539]:
+                              - generic [ref=f1e540]: anthropic
+                              - generic [ref=f1e541]: unavailable
+                            - paragraph [ref=f1e542]: Wallet balance · not available
+                            - paragraph [ref=f1e543]: —
+                            - paragraph [ref=f1e544]: as of 8/8/2026, 4:02:08 PM
+                          - generic "OpenAI prepaid usage-credit wallet is not available via Admin/secret API keys (dashboard credit_grants requires a browser session key). Codex usage windows are separate (plan usage)." [ref=f1e545]:
+                            - generic [ref=f1e546]:
+                              - generic [ref=f1e547]: openai
+                              - generic [ref=f1e548]: unavailable
+                            - paragraph [ref=f1e549]: Wallet balance · not available
+                            - paragraph [ref=f1e550]: —
+                            - paragraph [ref=f1e551]: as of 8/8/2026, 4:02:10 PM
+                          - generic "OpenRouter account credit wallet (not a subscription plan window)." [ref=f1e552]:
+                            - generic [ref=f1e553]:
+                              - generic [ref=f1e554]: openrouter
+                              - generic [ref=f1e555]: ok
+                            - paragraph [ref=f1e556]: Wallet balance · provider API
+                            - paragraph [ref=f1e557]: $10.70
+                            - paragraph [ref=f1e558]: as of 8/8/2026, 4:02:05 PM
+                          - generic "xAI has no public prepaid balance/credits API; remaining capacity is not available programmatically." [ref=f1e559]:
+                            - generic [ref=f1e560]:
+                              - generic [ref=f1e561]: xai
+                              - generic [ref=f1e562]: limited
+                            - paragraph [ref=f1e563]: Wallet balance · not available
+                            - paragraph [ref=f1e564]: —
+                            - paragraph [ref=f1e565]: as of 8/8/2026, 4:02:10 PM
+                      - paragraph [ref=f1e566]:
+                        - text: Costs are provider-API billing only; never summed with Agent Usage / session-log costs. Partial-month forecast uses current burn. Provider billing can lag finalization. Configure
+                        - code [ref=f1e567]: OPENROUTER_API_KEY
+                        - text: ","
+                        - code [ref=f1e568]: ANTHROPIC_ADMIN_KEY
+                        - text: ","
+                        - code [ref=f1e569]: OPENAI_ADMIN_KEY
+                        - text: ", and/or"
+                        - code [ref=f1e570]: XAI_API_KEY
+                        - text: .
+  - generic [ref=f1e468]: $0

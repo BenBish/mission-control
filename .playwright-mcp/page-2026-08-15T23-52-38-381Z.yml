@@ -1,0 +1,54 @@
+- generic [ref=f2e7]:
+  - banner [ref=f2e8]:
+    - button "Toggle menu" [ref=f2e9]
+    - generic "Agent usage and attribution respect the source filter; provider API costs are account-wide" [ref=f2e11]:
+      - combobox "Filter by source" [ref=f2e12]:
+        - generic: All sources
+    - button "Logout" [ref=f2e15]
+    - button "Toggle theme" [ref=f2e17]
+  - main [ref=f2e19]:
+    - generic [ref=f2e20]:
+      - generic [ref=f2e22]:
+        - heading "Consumption" [level=1] [ref=f2e23]
+        - paragraph [ref=f2e24]: Agent usage for all sources; subscription capacity, prepaid wallets, and account-wide Direct API Spend stay separate; Attribution links usage and spend without summing blindly
+      - generic [ref=f2e25]:
+        - generic [ref=f2e26]:
+          - tablist [ref=f2e28]:
+            - tab "Agent Usage" [ref=f2e29]
+            - tab "Direct API Spend" [ref=f2e33]
+            - tab "Plan usage & wallet" [selected] [ref=f2e36]
+            - tab "Attribution" [ref=f2e40]
+          - generic [ref=f2e44]:
+            - button "Today" [ref=f2e45]
+            - button "Last 7 days" [ref=f2e46]
+            - button "Last 30 days" [ref=f2e47]
+            - button "All time" [ref=f2e48]
+        - paragraph [ref=f2e49]: "Showing: Last 30 days"
+        - tabpanel "Plan usage & wallet" [ref=f2e52]:
+          - generic [ref=f2e54]:
+            - generic [ref=f2e56]:
+              - generic [ref=f2e57]:
+                - heading "Plan usage & wallet" [level=3] [ref=f2e58]
+                - paragraph [ref=f2e62]: Subscription windows and prepaid balances are capacity, not API organization spend. Unavailable slots remain explicit instead of being inferred from other windows.
+              - button "Sync capacity" [ref=f2e63]
+            - generic [ref=f2e64]:
+              - generic [ref=f2e65]:
+                - heading "Plan usage & wallet" [level=3] [ref=f2e66]
+                - paragraph [ref=f2e67]:
+                  - text: Plan usage and wallet balances are
+                  - strong [ref=f2e68]: not
+                  - text: API org spend and are never mixed into Direct API Spend totals.
+              - generic [ref=f2e69]:
+                - generic [ref=f2e70]:
+                  - heading "Plan usage" [level=3] [ref=f2e71]
+                  - paragraph [ref=f2e76]: Subscription / rate-limit windows (percent remaining). Each plan lists 5-hour and weekly slots; extras such as Opus weekly stay separate. Not wallet balance and not Direct API Spend. Expired windows are never green.
+                - paragraph [ref=f2e78]: No plan-usage windows yet. Codex, Claude Code, and Grok quotas appear after the desktop collector runs; Admin APIs do not expose subscription plan bars. Each subscription lists 5-hour and weekly slots (unavailable when the provider does not expose that window).
+              - generic [ref=f2e79]:
+                - generic [ref=f2e80]:
+                  - heading "Usage credits (wallet)" [level=3] [ref=f2e81]
+                  - paragraph [ref=f2e84]: Prepaid credit balance when providers expose it. Never mixed into Direct API Spend or session costs.
+                - paragraph [ref=f2e86]: No wallet snapshots yet. Configure provider keys and click Sync now.
+            - group [ref=f2e87]:
+              - generic "Connectors & data health Connector status · caveats · env vars" [ref=f2e88] [cursor=pointer]:
+                - generic [ref=f2e89]: Connectors & data health
+                - generic [ref=f2e93]: Connector status · caveats · env vars

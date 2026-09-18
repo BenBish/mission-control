@@ -1,0 +1,73 @@
+- generic:
+  - generic:
+    - generic:
+      - generic:
+        - banner:
+          - button:
+            - generic: Toggle menu
+          - combobox [expanded]:
+            - generic: All sources
+          - button:
+            - generic: Toggle theme
+        - main:
+          - generic:
+            - generic:
+              - generic:
+                - heading [level=1]: Consumption
+                - paragraph: Agent session usage and direct provider API spend — separate datasets, not summed together
+            - generic:
+              - generic:
+                - tablist:
+                  - tab [selected]: Agent Usage
+                  - tab: Direct API Spend
+                - generic:
+                  - button: Today
+                  - button: Last 7 days
+                  - button: Last 30 days
+                  - button: All time
+              - paragraph: "Showing: Last 30 days"
+              - tabpanel:
+                - generic:
+                  - paragraph: Session-derived usage from agent sources (Claude Code, Codex, Grok, Hermes, etc.). Honors the global source filter. Not the same as account-level provider billing.
+                  - generic:
+                    - button: Tokens
+                    - button: Compute time
+                    - button: USD
+                - generic:
+                  - generic:
+                    - generic:
+                      - paragraph:
+                        - text: No billable agent usage in this range. Sources here are subscription or local, or no
+                        - code: cost_usd
+                        - text: was recorded in session logs.
+                      - paragraph:
+                        - text: Provider account billing is under the
+                        - button: Direct API Spend
+                        - text: view — it is a separate dataset.
+  - generic: "0"
+  - listbox [ref=e330]:
+    - option "All sources" [active] [selected] [ref=e331]
+    - 'option "claude-code@arch-desktop: ok Claude Code" [ref=e337]':
+      - generic [ref=e340]:
+        - 'generic "claude-code@arch-desktop: ok" [ref=e341]'
+        - generic [ref=e342]: Claude Code
+    - 'option "codex@arch-desktop: error Codex CLI" [ref=e343]':
+      - generic [ref=e346]:
+        - 'generic "codex@arch-desktop: error" [ref=e347]'
+        - generic [ref=e348]: Codex CLI
+    - 'option "comfyui@strix-halo: off ComfyUI" [ref=e349]':
+      - generic [ref=e352]:
+        - 'generic "comfyui@strix-halo: off" [ref=e353]'
+        - generic [ref=e354]: ComfyUI
+    - 'option "grok@arch-desktop: ok Grok" [ref=e355]':
+      - generic [ref=e358]:
+        - 'generic "grok@arch-desktop: ok" [ref=e359]'
+        - generic [ref=e360]: Grok
+    - 'option "hermes@strix-halo: ok Hermes" [ref=e361]':
+      - generic [ref=e364]:
+        - 'generic "hermes@strix-halo: ok" [ref=e365]'
+        - generic [ref=e366]: Hermes
+    - 'option "lemonade@strix-halo: off Lemonade" [ref=e367]':
+      - generic [ref=e370]:
+        - 'generic "lemonade@strix-halo: off" [ref=e371]'
+        - generic [ref=e372]: Lemonade

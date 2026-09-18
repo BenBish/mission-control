@@ -1,0 +1,22 @@
+{
+  "success": true,
+  "dataset": "provider-usage",
+  "source": "provider-api",
+  "exportedAt": "2026-08-13T21:19:23.930Z",
+  "filters": {
+    "since": "2026-07-14",
+    "provider": null
+  },
+  "usage": [
+    {
+      "provider": "openrouter",
+      "day": "2026-08-10",
+      "model": "test/model",
+      "input_tokens": 100,
+      "output_tokens": 20,
+      "cost_usd": 0.0123,
+      "request_count": 2,
+      "updated_at": "2026-08-13 21:15:51"
+    }
+  ]
+}

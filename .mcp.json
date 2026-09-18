@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "benbishop-context": {
+      "command": "node",
+      "args": [
+        "/home/ben/Dev/benbishop-context/projects/benbishop-context-mcp/dist/index.js"
+      ],
+      "env": {
+        "BENBISHOP_CONTEXT_ROOT": "/home/ben/Dev/benbishop-context"
+      }
+    }
+  }
+}

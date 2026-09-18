@@ -1,0 +1,72 @@
+- generic [ref=f4e4]:
+  - banner [ref=f4e5]:
+    - button "Toggle menu" [ref=f4e6]
+    - generic "Agent usage and attribution respect the source filter; provider API costs are account-wide" [ref=f4e16]:
+      - combobox "Filter by source" [ref=f4e17]:
+        - generic: All sources
+    - button "Logout" [ref=f4e9]
+    - button "Toggle theme" [ref=f4e11]
+  - main [ref=f4e13]:
+    - generic [ref=f4e20]:
+      - generic [ref=f4e22]:
+        - heading "Consumption" [level=1] [ref=f4e23]
+        - paragraph [ref=f4e24]: Agent usage for all sources; subscription capacity, prepaid wallets, and account-wide Direct API Spend stay separate; Attribution links usage and spend without summing blindly
+      - generic [ref=f4e25]:
+        - generic [ref=f4e26]:
+          - tablist [ref=f4e28]:
+            - tab "Agent Usage" [ref=f4e29]
+            - tab "Direct API Spend" [ref=f4e33]
+            - tab "Plan usage & wallet" [selected] [ref=f4e36]
+            - tab "Attribution" [ref=f4e40]
+          - generic [ref=f4e44]:
+            - button "Today" [ref=f4e45]
+            - button "Last 7 days" [ref=f4e46]
+            - button "Last 30 days" [ref=f4e47]
+            - button "All time" [ref=f4e48]
+        - paragraph [ref=f4e49]: "Showing: Last 30 days"
+        - tabpanel "Plan usage & wallet" [ref=f4e52]:
+          - generic [ref=f4e54]:
+            - generic [ref=f4e55]:
+              - generic [ref=f4e56]:
+                - generic [ref=f4e57]:
+                  - heading "Plan usage & wallet" [level=3] [ref=f4e58]
+                  - paragraph [ref=f4e62]: Subscription windows and prepaid balances are capacity, not API organization spend. Unavailable slots remain explicit instead of being inferred from other windows.
+                - button "Sync capacity" [ref=f4e63]
+              - paragraph [ref=f4e94]: "openrouter: not_configured · anthropic: not_configured · openai: not_configured · xai: not_configured"
+            - generic [ref=f4e64]:
+              - generic [ref=f4e65]:
+                - heading "Plan usage & wallet" [level=3] [ref=f4e66]
+                - paragraph [ref=f4e67]:
+                  - text: Plan usage and wallet balances are
+                  - strong [ref=f4e68]: not
+                  - text: API org spend and are never mixed into Direct API Spend totals.
+              - generic [ref=f4e69]:
+                - generic [ref=f4e70]:
+                  - heading "Plan usage" [level=3] [ref=f4e71]
+                  - paragraph [ref=f4e76]: Subscription / rate-limit windows (percent remaining). Each plan lists 5-hour and weekly slots; extras such as Opus weekly stay separate. Not wallet balance and not Direct API Spend. Expired windows are never green.
+                - generic [ref=f4e97]:
+                  - paragraph [ref=f4e98]: OpenAI
+                  - generic [ref=f4e99]:
+                    - generic "Codex/OpenAI usage window (rate-limit quota), not prepaid USD credits." [ref=f4e100]:
+                      - generic [ref=f4e101]:
+                        - generic [ref=f4e102]: openai
+                        - generic [ref=f4e103]: ok
+                      - paragraph [ref=f4e104]: 5-hour window · session quota
+                      - paragraph [ref=f4e105]: 88% left
+                      - paragraph [ref=f4e106]: as of 8/15/2026, 4:39:48 PM
+                    - generic "Codex/OpenAI usage window (rate-limit quota), not prepaid USD credits." [ref=f4e107]:
+                      - generic [ref=f4e108]:
+                        - generic [ref=f4e109]: openai
+                        - generic [ref=f4e110]: ok
+                      - paragraph [ref=f4e111]: Weekly window · session quota
+                      - paragraph [ref=f4e112]: 66% left
+                      - paragraph [ref=f4e113]: as of 8/15/2026, 4:39:48 PM
+              - generic [ref=f4e79]:
+                - generic [ref=f4e80]:
+                  - heading "Usage credits (wallet)" [level=3] [ref=f4e81]
+                  - paragraph [ref=f4e84]: Prepaid credit balance when providers expose it. Never mixed into Direct API Spend or session costs.
+                - paragraph [ref=f4e86]: No wallet snapshots yet. Configure provider keys and click Sync now.
+            - group [ref=f4e87]:
+              - generic "Connectors & data health Connector status · caveats · env vars" [ref=f4e88] [cursor=pointer]:
+                - generic [ref=f4e89]: Connectors & data health
+                - generic [ref=f4e93]: Connector status · caveats · env vars
