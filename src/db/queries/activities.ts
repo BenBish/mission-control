@@ -173,11 +173,33 @@ export async function insertActivity(
        END,
        details = COALESCE(excluded.details, activities.details),
        result = COALESCE(excluded.result, activities.result),
-       input_tokens = COALESCE(excluded.input_tokens, activities.input_tokens),
-       output_tokens = COALESCE(excluded.output_tokens, activities.output_tokens),
-       total_tokens = COALESCE(excluded.total_tokens, activities.total_tokens),
-       cache_read_tokens = COALESCE(excluded.cache_read_tokens, activities.cache_read_tokens),
-       cache_write_tokens = COALESCE(excluded.cache_write_tokens, activities.cache_write_tokens),
+       -- Token observations are cumulative; a late older observation must not
+       -- regress the total already shown on the activity/dashboard.
+       input_tokens = CASE
+         WHEN excluded.input_tokens IS NULL THEN activities.input_tokens
+         WHEN activities.input_tokens IS NULL THEN excluded.input_tokens
+         ELSE MAX(excluded.input_tokens, activities.input_tokens)
+       END,
+       output_tokens = CASE
+         WHEN excluded.output_tokens IS NULL THEN activities.output_tokens
+         WHEN activities.output_tokens IS NULL THEN excluded.output_tokens
+         ELSE MAX(excluded.output_tokens, activities.output_tokens)
+       END,
+       total_tokens = CASE
+         WHEN excluded.total_tokens IS NULL THEN activities.total_tokens
+         WHEN activities.total_tokens IS NULL THEN excluded.total_tokens
+         ELSE MAX(excluded.total_tokens, activities.total_tokens)
+       END,
+       cache_read_tokens = CASE
+         WHEN excluded.cache_read_tokens IS NULL THEN activities.cache_read_tokens
+         WHEN activities.cache_read_tokens IS NULL THEN excluded.cache_read_tokens
+         ELSE MAX(excluded.cache_read_tokens, activities.cache_read_tokens)
+       END,
+       cache_write_tokens = CASE
+         WHEN excluded.cache_write_tokens IS NULL THEN activities.cache_write_tokens
+         WHEN activities.cache_write_tokens IS NULL THEN excluded.cache_write_tokens
+         ELSE MAX(excluded.cache_write_tokens, activities.cache_write_tokens)
+       END,
        model = COALESCE(excluded.model, activities.model),
        cost_usd = COALESCE(excluded.cost_usd, activities.cost_usd),
        request_id = COALESCE(excluded.request_id, activities.request_id),

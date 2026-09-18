@@ -262,6 +262,173 @@ describe("POST /api/ingest/batch", () => {
     );
   });
 
+  test("rejects a duplicate activity when its replay identity changes", async () => {
+    const original: IngestBatch = {
+      sourceId: "codex",
+      instanceId: "codex@arch-desktop",
+      collectorVersion: "test",
+      sentAt: "2026-09-18T12:20:00.000Z",
+      events: [
+        {
+          kind: "activity",
+          naturalKey: "codex:identity-binding",
+          payload: {
+            sessionExternalId: "sess-identity-binding",
+            externalId: "activity-identity-binding",
+            timestamp: "2026-09-18T12:20:00.000Z",
+            actorType: "agent",
+            actorId: "codex",
+            actionType: "event",
+            description: "Original activity",
+            status: "success",
+            updateOnDuplicate: true,
+            inputTokens: 100,
+            outputTokens: 10,
+          },
+        },
+      ],
+    };
+
+    const replay = (
+      sessionExternalId: string,
+      externalId: string,
+    ): IngestBatch => ({
+      ...original,
+      events: [
+        {
+          ...original.events[0],
+          payload: {
+            ...original.events[0].payload,
+            sessionExternalId,
+            externalId,
+            description: "Mismatched replay",
+            inputTokens: 200,
+            outputTokens: 20,
+          },
+        },
+      ],
+    });
+
+    const initial = await processIngestBatch(db.raw(), original);
+    const sessionMismatch = await processIngestBatch(
+      db.raw(),
+      replay("sess-other-identity", "activity-identity-binding"),
+    );
+    const activityMismatch = await processIngestBatch(
+      db.raw(),
+      replay("sess-identity-binding", "activity-other-identity"),
+    );
+
+    expect(initial).toMatchObject({ accepted: 1, duplicates: 0, rejected: [] });
+    expect(sessionMismatch).toMatchObject({
+      accepted: 0,
+      duplicates: 0,
+      rejected: [
+        {
+          index: 0,
+          error: expect.stringContaining(
+            "does not match its original activity row",
+          ),
+        },
+      ],
+    });
+    expect(activityMismatch).toMatchObject({
+      accepted: 0,
+      duplicates: 0,
+      rejected: [
+        {
+          index: 0,
+          error: expect.stringContaining(
+            "does not match its original activity row",
+          ),
+        },
+      ],
+    });
+
+    const rows = await db.raw().all<{
+      id: string;
+      session_id: string;
+      external_id: string;
+      input_tokens: number;
+      output_tokens: number;
+    }>(
+      `SELECT id, session_id, external_id, input_tokens, output_tokens
+       FROM activities
+       WHERE source_id = ?
+         AND session_id IN (?, ?)`,
+      "codex",
+      "codex:sess-identity-binding",
+      "codex:sess-other-identity",
+    );
+    expect(rows).toEqual([
+      expect.objectContaining({
+        session_id: "codex:sess-identity-binding",
+        external_id: "activity-identity-binding",
+        input_tokens: 100,
+        output_tokens: 10,
+      }),
+    ]);
+  });
+
+  test("does not regress turn totals when an older observation arrives later", async () => {
+    const filePath =
+      "/tmp/rollout-2026-09-18T12-30-00-01a09322-9d50-72d2-bb3c-dc77b28f3f85.jsonl";
+    const parsed = (
+      inputTokens: number,
+      outputTokens: number,
+      ordinal: number,
+    ) =>
+      parseCodexLine(
+        JSON.stringify({
+          type: "token_usage_record",
+          ordinal,
+          timestamp: "2026-09-18T12:30:00.000Z",
+          payload: {
+            turn_id: "turn-reverse-order",
+            turn_token_usage: {
+              input_tokens: inputTokens,
+              output_tokens: outputTokens,
+            },
+          },
+        }),
+        filePath,
+      )?.activity;
+
+    const older = parsed(100, 10, 1);
+    const newer = parsed(125, 12, 2);
+    expect(older).toBeDefined();
+    expect(newer).toBeDefined();
+    expect(newer?.naturalKey).toBe(older?.naturalKey);
+
+    const batch = (event: NonNullable<typeof older>): IngestBatch => ({
+      sourceId: "codex",
+      instanceId: "codex@arch-desktop",
+      collectorVersion: "test",
+      sentAt: "2026-09-18T12:30:01.000Z",
+      events: [event],
+    });
+
+    const initial = await processIngestBatch(db.raw(), batch(newer!));
+    const lateOlder = await processIngestBatch(db.raw(), batch(older!));
+    expect(initial).toMatchObject({ accepted: 1, duplicates: 0, rejected: [] });
+    expect(lateOlder).toMatchObject({
+      accepted: 0,
+      duplicates: 1,
+      rejected: [],
+    });
+
+    const row = await db
+      .raw()
+      .get<{ input_tokens: number; output_tokens: number }>(
+        `SELECT input_tokens, output_tokens
+       FROM activities
+       WHERE source_id = ? AND external_id = ?`,
+        "codex",
+        newer!.payload.externalId,
+      );
+    expect(row).toEqual({ input_tokens: 125, output_tokens: 12 });
+  });
+
   test("re-observing a session merges counters instead of double-counting them", async () => {
     const observation = (
       turnCount: number,

@@ -25,7 +25,9 @@ import type {
 } from "../../types/ingest.js";
 import {
   checkAndRecordDedupe,
+  getDedupeEntityId,
   releaseDedupe,
+  setDedupeEntityId,
 } from "../../db/queries/dedupe.js";
 import {
   upsertSession,
@@ -280,11 +282,47 @@ async function processOneEvent(
   // for one turn). Generic activity retries must remain fully idempotent.
   const activityPayload =
     event.kind === "activity" ? (parsed.data as ActivityPayload) : undefined;
-  const canReapplyActivity =
+  const canAttemptActivityReapply =
     isDuplicate &&
     activityPayload?.updateOnDuplicate === true &&
     typeof activityPayload.externalId === "string" &&
     activityPayload.externalId.length > 0;
+  let canReapplyActivity = false;
+  if (canAttemptActivityReapply) {
+    const dedupeEntityId = await getDedupeEntityId(
+      db,
+      sourceId,
+      instanceId,
+      event.kind,
+      event.naturalKey,
+    );
+    const sessionRowId = computeSessionId(
+      sourceId,
+      activityPayload.sessionExternalId,
+    );
+    const activity = dedupeEntityId
+      ? await db.get<{ id: string }>(
+          `SELECT id
+           FROM activities
+           WHERE id = ?
+             AND source_id = ?
+             AND instance_id = ?
+             AND session_id = ?
+             AND external_id = ?`,
+          dedupeEntityId,
+          sourceId,
+          instanceId,
+          sessionRowId,
+          activityPayload.externalId,
+        )
+      : undefined;
+    if (!activity) {
+      throw new Error(
+        `Duplicate activity ${event.naturalKey} does not match its original activity row`,
+      );
+    }
+    canReapplyActivity = true;
+  }
   if (isDuplicate && !canReapplyActivity) return "duplicate";
 
   const privacy = resolvePrivacyPolicy();
@@ -322,6 +360,16 @@ async function processOneEvent(
           existingSessionId,
           payload,
         );
+        if (!isDuplicate) {
+          await setDedupeEntityId(
+            db,
+            sourceId,
+            instanceId,
+            event.kind,
+            event.naturalKey,
+            row.id,
+          );
+        }
         // Counters come from upsertSession's MAX-merge across session-event
         // re-observations, not from here — see touchSessionActivity's doc comment.
         await touchSessionActivity(db, existingSessionId, payload.timestamp);
