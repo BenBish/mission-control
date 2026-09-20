@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -32,6 +32,45 @@ class CapturingSink implements Sink {
   }
 
   async heartbeat(_beat: Heartbeat) {}
+}
+
+const originalFetch = globalThis.fetch;
+
+afterEach(() => {
+  globalThis.fetch = originalFetch;
+});
+
+function writeCredentials(root: string): string {
+  const credentialsPath = path.join(root, "credentials.toml");
+  fs.writeFileSync(
+    credentialsPath,
+    'windsurf_api_key = "test-key-not-real"\napi_server_url = "https://server.example.com"\n',
+  );
+  return credentialsPath;
+}
+
+function installUsageFetch() {
+  globalThis.fetch = (async () =>
+    new Response(
+      JSON.stringify({
+        planStatus: {
+          dailyQuotaRemainingPercent: 40,
+          weeklyQuotaRemainingPercent: 70,
+          acuConsumed: 120,
+          acuLimit: 500,
+        },
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    )) as typeof fetch;
+}
+
+function createEmptyDb(): { dir: string; dbPath: string } {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mc-devin-empty-"));
+  const dbPath = path.join(dir, "sessions.db");
+  const db = new Database(dbPath);
+  db.exec(`CREATE TABLE sessions (id text PRIMARY KEY)`);
+  db.close();
+  return { dir, dbPath };
 }
 
 function createFixtureDb(): { dir: string; dbPath: string } {
@@ -237,5 +276,45 @@ describe("DevinCollector", () => {
     expect(result.sourceStatus).toBe("off");
     expect(sink.batches.length).toBe(0);
     expect(state.persisted).toBe(false);
+  });
+
+  test("emits quota events when the database is missing", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "mc-devin-quota-"));
+    installUsageFetch();
+    const sink = new CapturingSink();
+    const collector = new DevinCollector(
+      new MemoryState() as never,
+      path.join(root, "sessions.db"),
+      writeCredentials(root),
+    );
+
+    const result = await collector.tick(sink);
+
+    expect(result.sourceStatus).toBe("ok");
+    expect(result.eventsEmitted).toBe(3);
+    expect(sink.batches).toHaveLength(1);
+    expect(
+      sink.batches[0]?.events.every((e) => e.kind === "quota_snapshot"),
+    ).toBe(true);
+  });
+
+  test("emits quota events when the database has no sessions", async () => {
+    const { dir, dbPath } = createEmptyDb();
+    installUsageFetch();
+    const sink = new CapturingSink();
+    const collector = new DevinCollector(
+      new MemoryState() as never,
+      dbPath,
+      writeCredentials(dir),
+    );
+
+    const result = await collector.tick(sink);
+
+    expect(result.sourceStatus).toBe("ok");
+    expect(result.eventsEmitted).toBe(3);
+    expect(sink.batches).toHaveLength(1);
+    expect(
+      sink.batches[0]?.events.every((e) => e.kind === "quota_snapshot"),
+    ).toBe(true);
   });
 });

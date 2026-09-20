@@ -2,8 +2,10 @@
  * Cloud Handoff collector — polls the control plane's operator API for session
  * events and emits token usage.
  *
- * Each worker reports `agent.usage` events ({inputTokens, cachedInputTokens,
- * outputTokens, costUsd?}) over POST /internal/sessions/:id/events; the
+ * Workers report token usage in one of two shapes: `agent.usage` events
+ * ({inputTokens, cachedInputTokens, outputTokens, costUsd?}) or, on the
+ * Codex-style harness, `turn.completed` events carrying
+ * usage:{input_tokens, cached_input_tokens, output_tokens, ...}. The
  * collector replays them via GET /v1/sessions/:id/events?after=<id> and maps
  * each one to an `activity` ingest event (the consumption view reads tokens
  * from activities). A cumulative `session` event keeps the sessions row's
@@ -14,6 +16,13 @@
  * the shared CollectorStateStore so restarts don't replay or undercount.
  * Aggregates are only written after the batch is ACKed, so a failed send just
  * refetches from the old cursor — server-side dedupe absorbs the replay.
+ *
+ * Backfill: state written before `turn.completed` support has no
+ * `turnUsageDrained` flag. Such a session gets one full-stream replay
+ * (after=0) that counts every turn.completed usage (they were never
+ * counted) while skipping already-watermarked agent.usage events, then the
+ * flag is set so the replay runs exactly once — including for `done`
+ * sessions, which are otherwise never re-polled.
  */
 
 import os from "os";
@@ -28,6 +37,7 @@ import {
 import {
   fetchSessionEvents,
   fetchSessions,
+  type CloudHandoffEvent,
   type CloudHandoffSession,
 } from "./client.js";
 
@@ -43,12 +53,15 @@ interface SessionAgg {
   inputTokens: number;
   outputTokens: number;
   cacheReadTokens: number;
+  cacheWriteTokens: number;
   /** Undefined until an agent.usage event actually carries costUsd. */
   costUsd?: number;
   /** A `session` event has been emitted at least once. */
   emitted?: boolean;
   /** Terminal status reached and event stream drained — stop polling. */
   done?: boolean;
+  /** Full-stream replay for turn.completed usage has run (backfill flag). */
+  turnUsageDrained?: boolean;
 }
 
 interface StateStore {
@@ -69,6 +82,7 @@ function emptyAgg(): SessionAgg {
     inputTokens: 0,
     outputTokens: 0,
     cacheReadTokens: 0,
+    cacheWriteTokens: 0,
   };
 }
 
@@ -77,7 +91,7 @@ function sessionPayload(
   agg: SessionAgg,
 ): IngestEvent {
   const terminal = TERMINAL_STATUSES.has(session.status);
-  const naturalKey = `${session.id}:${session.status}:${agg.inputTokens}:${agg.outputTokens}:${agg.cacheReadTokens}:${agg.costUsd ?? ""}`;
+  const naturalKey = `${session.id}:${session.status}:${agg.inputTokens}:${agg.outputTokens}:${agg.cacheReadTokens}:${agg.cacheWriteTokens}:${agg.costUsd ?? ""}`;
   return {
     kind: "session",
     naturalKey,
@@ -93,24 +107,67 @@ function sessionPayload(
       inputTokens: agg.inputTokens,
       outputTokens: agg.outputTokens,
       cacheReadTokens: agg.cacheReadTokens,
+      cacheWriteTokens: agg.cacheWriteTokens,
       costUsd: agg.costUsd,
     },
   };
 }
 
+interface UsageTokens {
+  input: number;
+  output: number;
+  cached: number;
+  cacheWrite: number;
+  cost?: number;
+}
+
+/**
+ * Token usage carried by one control-plane event, in either vocabulary:
+ *  - `agent.usage`   → payload.{inputTokens, cachedInputTokens, outputTokens, costUsd?}
+ *  - `turn.completed`→ payload.usage.{input_tokens, cached_input_tokens,
+ *                     output_tokens, cache_write_input_tokens}
+ * Returns null for non-usage events and usage-less turn.completed frames.
+ */
+function eventUsage(ev: CloudHandoffEvent): UsageTokens | null {
+  const p = ev.payload ?? {};
+  if (ev.type === "agent.usage") {
+    return {
+      input: num(p.inputTokens) ?? 0,
+      output: num(p.outputTokens) ?? 0,
+      cached: num(p.cachedInputTokens) ?? 0,
+      cacheWrite: num(p.cacheWriteTokens) ?? 0,
+      cost: num(p.costUsd),
+    };
+  }
+  if (ev.type === "turn.completed") {
+    const usage = p.usage;
+    if (!usage || typeof usage !== "object") return null;
+    const u = usage as Record<string, unknown>;
+    const cached = num(u.cached_input_tokens) ?? 0;
+    return {
+      // Codex input_tokens includes cached input; keep the activity and
+      // session totals split into uncached input plus cache-read tokens.
+      input: Math.max(0, (num(u.input_tokens) ?? 0) - cached),
+      output: num(u.output_tokens) ?? 0,
+      cached,
+      cacheWrite: num(u.cache_write_input_tokens) ?? 0,
+    };
+  }
+  return null;
+}
+
 function usageActivity(
   session: CloudHandoffSession,
-  eventId: number,
-  createdAt: string,
-  tokens: { input: number; output: number; cached: number; cost?: number },
+  ev: CloudHandoffEvent,
+  tokens: UsageTokens,
 ): IngestEvent {
   return {
     kind: "activity",
-    naturalKey: `usage:${session.id}:${eventId}`,
+    naturalKey: `usage:${session.id}:${ev.id}`,
     payload: {
       sessionExternalId: session.id,
-      externalId: `agent.usage:${eventId}`,
-      timestamp: createdAt,
+      externalId: `${ev.type}:${ev.id}`,
+      timestamp: ev.createdAt,
       actorType: "agent",
       actorId: session.agentExecutionSnapshot?.harness ?? SOURCE_ID,
       actionType: "event",
@@ -120,6 +177,7 @@ function usageActivity(
       inputTokens: tokens.input,
       outputTokens: tokens.output,
       cacheReadTokens: tokens.cached,
+      cacheWriteTokens: tokens.cacheWrite,
       costUsd: tokens.cost,
     },
   };
@@ -165,15 +223,23 @@ export class CloudHandoffCollector implements Collector {
     for (const session of sessions) {
       const aggKey = `${SOURCE_ID}:${session.id}`;
       const prev = this.state.getAggregate<SessionAgg>(aggKey) ?? emptyAgg();
-      if (prev.done) continue;
-      const agg: SessionAgg = { ...prev };
+      // done + drained is terminal; done-but-undrained gets one backfill pass.
+      if (prev.done && prev.turnUsageDrained) continue;
+      // Spread over emptyAgg so counters added later (e.g. cacheWriteTokens)
+      // default to 0 instead of turning NaN on legacy aggregates.
+      const agg: SessionAgg = { ...emptyAgg(), ...prev };
+
+      // State predating turn.completed support gets a full replay: those
+      // events were consumed (watermark advanced) but never counted.
+      const backfill = !agg.turnUsageDrained;
+      const watermark = backfill ? 0 : agg.lastEventId;
 
       let sessionEvents;
       try {
         sessionEvents = await fetchSessionEvents(
           config,
           session.id,
-          agg.lastEventId,
+          watermark,
           this.fetchImpl,
         );
       } catch (err) {
@@ -187,32 +253,26 @@ export class CloudHandoffCollector implements Collector {
       let sawUsage = false;
       let consumed = 0;
       for (const ev of sessionEvents) {
-        // The server filters on `after`, but guard anyway so a replayed stream
-        // can never double-count.
-        if (ev.id <= agg.lastEventId) continue;
-        agg.lastEventId = ev.id;
-        consumed++;
-        if (ev.type !== "agent.usage") continue;
-        const p = ev.payload ?? {};
-        const input = num(p.inputTokens) ?? 0;
-        const output = num(p.outputTokens) ?? 0;
-        const cached = num(p.cachedInputTokens) ?? 0;
-        const cost = num(p.costUsd);
-        agg.inputTokens += input;
-        agg.outputTokens += output;
-        agg.cacheReadTokens += cached;
-        if (cost != null) agg.costUsd = (agg.costUsd ?? 0) + cost;
+        const alreadyCounted = ev.id <= prev.lastEventId;
+        if (ev.id > agg.lastEventId) agg.lastEventId = ev.id;
+        if (!alreadyCounted) consumed++;
+        const usage = eventUsage(ev);
+        if (!usage) continue;
+        // Below the watermark, usage is countable only during the backfill
+        // pass and only for turn.completed — the type the watermark advanced
+        // past without counting. Everything else there is already folded in.
+        if (alreadyCounted && !(backfill && ev.type === "turn.completed")) {
+          continue;
+        }
+        agg.inputTokens += usage.input;
+        agg.outputTokens += usage.output;
+        agg.cacheReadTokens += usage.cached;
+        agg.cacheWriteTokens += usage.cacheWrite;
+        if (usage.cost != null) agg.costUsd = (agg.costUsd ?? 0) + usage.cost;
         sawUsage = true;
-
-        events.push(
-          usageActivity(session, ev.id, ev.createdAt, {
-            input,
-            output,
-            cached,
-            cost,
-          }),
-        );
+        events.push(usageActivity(session, ev, usage));
       }
+      if (backfill) agg.turnUsageDrained = true;
 
       const becameDone = TERMINAL_STATUSES.has(session.status);
       let emittedSession = false;
@@ -224,7 +284,7 @@ export class CloudHandoffCollector implements Collector {
       if (becameDone) agg.done = true;
       // Only persist aggs that actually changed — a running session with no new
       // events leaves its record untouched and shouldn't rewrite the state file.
-      if (consumed > 0 || emittedSession || becameDone) {
+      if (consumed > 0 || emittedSession || becameDone || backfill) {
         pendingAggs.set(aggKey, agg);
       }
     }

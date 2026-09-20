@@ -1,8 +1,12 @@
 import { describe, expect, test } from "bun:test";
+import fs from "fs";
+import os from "os";
+import path from "path";
 import {
   devinUserStatusUrl,
   mapDevinPlanToQuotaEvents,
   pollDevinUsageEvents,
+  resolveDevinCliVersion,
 } from "../../../collectors/devin/usage-poller.js";
 
 const now = new Date("2026-09-20T12:00:00.000Z");
@@ -22,6 +26,27 @@ describe("devinUserStatusUrl", () => {
   test("targets the SeatManagementService GetUserStatus RPC", () => {
     expect(devinUserStatusUrl("https://server.example.com/")).toBe(
       "https://server.example.com/exa.seat_management_pb.SeatManagementService/GetUserStatus",
+    );
+  });
+});
+
+describe("resolveDevinCliVersion", () => {
+  test("resolves the installed version from the current symlink", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "mc-devin-version-"));
+    const versionsDir = path.join(root, "cli", "_versions");
+    fs.mkdirSync(versionsDir, { recursive: true });
+    fs.symlinkSync("1.2.3", path.join(versionsDir, "current"));
+
+    expect(resolveDevinCliVersion(path.join(root, "credentials.toml"))).toBe(
+      "1.2.3",
+    );
+  });
+
+  test("falls back when no installed version is available", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "mc-devin-version-"));
+
+    expect(resolveDevinCliVersion(path.join(root, "credentials.toml"))).toBe(
+      "0.1.0",
     );
   });
 });
@@ -154,6 +179,38 @@ describe("pollDevinUsageEvents", () => {
       });
       expect(events).toHaveLength(3);
       expect(events.every((e) => e.kind === "quota_snapshot")).toBe(true);
+    } finally {
+      delete process.env.MC_DEVIN_API_KEY;
+    }
+  });
+
+  test("sends the metadata envelope the Connect-RPC endpoint requires", async () => {
+    process.env.MC_DEVIN_API_KEY = "test-key-not-real";
+    let capturedBody: unknown;
+    try {
+      await pollDevinUsageEvents({
+        fetchImpl: async (_url, init) => {
+          capturedBody = JSON.parse(String(init?.body));
+          return new Response(JSON.stringify(planPayload), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        },
+        now,
+        onWarn: () => {},
+      });
+      // The server 400s on a bare {} — metadata with api_key, request_id
+      // (uint64), ide_name, ide_version, extension_version is required.
+      // extension_version is parsed server-side and must look like semver.
+      const meta = (capturedBody as { metadata?: Record<string, unknown> })
+        .metadata;
+      expect(meta?.api_key).toBe("test-key-not-real");
+      expect(String(meta?.request_id)).toMatch(/^\d+$/);
+      expect(String(meta?.extension_version)).toMatch(/^\d+\.\d+\.\d+/);
+      for (const field of ["ide_name", "ide_version"]) {
+        expect(typeof meta?.[field]).toBe("string");
+        expect(String(meta?.[field]).length).toBeGreaterThan(0);
+      }
     } finally {
       delete process.env.MC_DEVIN_API_KEY;
     }
