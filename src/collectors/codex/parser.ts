@@ -56,10 +56,11 @@
  *  - a new top-level `token_usage_record` type replaces `token_count` for
  *    token totals — `payload.thread_token_usage` is the cumulative-for-the-
  *    whole-session total (verified: grows monotonically across a session,
- *    unlike `turn_token_usage` which is per-turn). It does NOT carry
- *    `rate_limits` — plan-quota snapshots still depend on the legacy
- *    `token_count` event, which the CLI still emits alongside the new
- *    shape as of this writing but is not guaranteed to keep emitting.
+ *    unlike `turn_token_usage` which is per-turn). The latter is emitted as a
+ *    dedicated activity so daily consumption can use the turn's timestamp.
+ *    It does NOT carry `rate_limits` — plan-quota snapshots still depend on
+ *    the legacy `token_count` event, which the CLI still emits alongside the
+ *    new shape as of this writing but is not guaranteed to keep emitting.
  *  - `task_started`/`task_complete`/`turn_aborted` bookend a turn; only used
  *    here to keep `endedAt` moving forward on sessions that otherwise emit
  *    only new-shape lines.
@@ -136,6 +137,28 @@ interface CodexRecord {
   timestamp?: string;
   type: string;
   payload?: Record<string, unknown>;
+}
+
+interface CodexTokenUsage {
+  input_tokens?: number;
+  output_tokens?: number;
+  cached_input_tokens?: number;
+  cache_write_input_tokens?: number;
+  total_tokens?: number;
+}
+
+function hasTokenUsageValues(
+  usage: CodexTokenUsage | null | undefined,
+): usage is CodexTokenUsage {
+  return (
+    usage != null &&
+    [
+      usage.input_tokens,
+      usage.output_tokens,
+      usage.cached_input_tokens,
+      usage.cache_write_input_tokens,
+    ].some((value) => typeof value === "number")
+  );
 }
 
 export interface ParsedLine {
@@ -465,25 +488,77 @@ export function parseCodexLine(
   }
 
   if (record.type === "token_usage_record") {
-    const usage = record.payload?.thread_token_usage as
-      | {
-          input_tokens?: number;
-          output_tokens?: number;
-          cached_input_tokens?: number;
-          cache_write_input_tokens?: number;
-        }
+    const threadUsage = record.payload?.thread_token_usage as
+      | CodexTokenUsage
+      | null
       | undefined;
-    if (!usage) return null;
+    const turnUsage = record.payload?.turn_token_usage as
+      | CodexTokenUsage
+      | null
+      | undefined;
+
+    if (!threadUsage && !hasTokenUsageValues(turnUsage)) return null;
+
+    const sessionUpdate: Partial<CodexSessionAggregate> = threadUsage
+      ? {
+          // thread_token_usage is cumulative for the whole session. Keep it
+          // on the session aggregate only; activities use turn_token_usage.
+          inputTokens: threadUsage.input_tokens ?? 0,
+          outputTokens: threadUsage.output_tokens ?? 0,
+          cacheReadTokens: threadUsage.cached_input_tokens ?? 0,
+          cacheWriteTokens: threadUsage.cache_write_input_tokens ?? 0,
+          endedAt: timestamp,
+        }
+      : { endedAt: timestamp };
+
+    let activity: IngestEvent | undefined;
+    const turnId =
+      typeof record.payload?.turn_id === "string"
+        ? record.payload.turn_id
+        : undefined;
+    // turn_token_usage is cumulative within a turn and emits several times
+    // per turn, so only turn_id can safely collapse those records into one
+    // activity. Without it an ordinal/timestamp key would create a separate
+    // activity per snapshot and daily sums would multiply-count — skip the
+    // activity instead (the session update above still lands either way).
+    if (turnId && hasTokenUsageValues(turnUsage)) {
+      const naturalKey = `${filePath}:${turnId}:token_usage`;
+      // input_tokens is inclusive of cached_input_tokens (verified against
+      // real rollout files, same shape as Grok) — store non-cached input so
+      // Consumption sums stay comparable with Claude Code activities.
+      const cacheReadTokens = turnUsage.cached_input_tokens ?? 0;
+      const inputTokens = Math.max(
+        0,
+        (turnUsage.input_tokens ?? 0) - cacheReadTokens,
+      );
+      const outputTokens = turnUsage.output_tokens ?? 0;
+      const cacheWriteTokens = turnUsage.cache_write_input_tokens ?? 0;
+      const payload: ActivityPayload = {
+        sessionExternalId,
+        externalId: naturalKey,
+        timestamp,
+        actorType: "agent",
+        actorId: "codex",
+        actionType: "event",
+        description: "Codex turn token usage",
+        status: "success",
+        updateOnDuplicate: true,
+        inputTokens,
+        outputTokens,
+        cacheReadTokens,
+        cacheWriteTokens,
+        totalTokens:
+          turnUsage.total_tokens ??
+          inputTokens + cacheReadTokens + outputTokens + cacheWriteTokens,
+        details: { turnId },
+      };
+      activity = { kind: "activity", naturalKey, payload };
+    }
 
     return {
       sessionExternalId,
-      sessionUpdate: {
-        inputTokens: usage.input_tokens ?? 0,
-        outputTokens: usage.output_tokens ?? 0,
-        cacheReadTokens: usage.cached_input_tokens ?? 0,
-        cacheWriteTokens: usage.cache_write_input_tokens ?? 0,
-        endedAt: timestamp,
-      },
+      sessionUpdate,
+      activity,
     };
   }
 
