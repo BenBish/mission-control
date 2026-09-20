@@ -120,6 +120,19 @@ describe("getEffectiveHealth", () => {
     expect(health.reason).toMatch(/not connected/i);
   });
 
+  test("status off stays Offline even when a stale lastError is stored", () => {
+    const health = getEffectiveHealth(
+      instance({
+        status: "off",
+        lastError: "no sessions.db found",
+        lastSeenAt: iso(30_000),
+      }),
+      NOW,
+      THRESHOLDS,
+    );
+    expect(health.status).toBe("Offline");
+  });
+
   test("missing lastSeenAt is Unknown", () => {
     const health = getEffectiveHealth(
       instance({ lastSeenAt: null }),
