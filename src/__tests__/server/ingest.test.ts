@@ -730,6 +730,72 @@ describe("POST /api/ingest/heartbeat", () => {
     expect(res.status).toBe(400);
   });
 
+  test("does not record informational detail as last_error on off beats", async () => {
+    const res = await fetch(`${baseUrl}/api/ingest/heartbeat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sourceId: "cursor",
+        instanceId: "cursor@test-machine",
+        status: "off",
+        detail: "no Cursor data found (state.vscdb or ~/.cursor/chats)",
+        eventsEmitted: 0,
+      }),
+    });
+    expect(res.status).toBe(200);
+
+    const sources = await (await fetch(`${baseUrl}/api/sources`)).json();
+    const cursor = sources.sources.find(
+      (s: { id: string }) => s.id === "cursor",
+    );
+    const instance = cursor.instances.find(
+      (i: { id: string }) => i.id === "cursor@test-machine",
+    );
+    expect(instance.status).toBe("off");
+    expect(instance.lastError).toBeNull();
+  });
+
+  test("records detail as last_error on error beats and clears it on recovery", async () => {
+    const errRes = await fetch(`${baseUrl}/api/ingest/heartbeat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sourceId: "cursor",
+        instanceId: "cursor@test-machine-2",
+        status: "error",
+        detail: "state.vscdb is corrupt",
+        eventsEmitted: 0,
+      }),
+    });
+    expect(errRes.status).toBe(200);
+
+    let sources = await (await fetch(`${baseUrl}/api/sources`)).json();
+    let instance = sources.sources
+      .find((s: { id: string }) => s.id === "cursor")
+      .instances.find((i: { id: string }) => i.id === "cursor@test-machine-2");
+    expect(instance.status).toBe("error");
+    expect(instance.lastError).toBe("state.vscdb is corrupt");
+
+    const okRes = await fetch(`${baseUrl}/api/ingest/heartbeat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sourceId: "cursor",
+        instanceId: "cursor@test-machine-2",
+        status: "ok",
+        eventsEmitted: 3,
+      }),
+    });
+    expect(okRes.status).toBe(200);
+
+    sources = await (await fetch(`${baseUrl}/api/sources`)).json();
+    instance = sources.sources
+      .find((s: { id: string }) => s.id === "cursor")
+      .instances.find((i: { id: string }) => i.id === "cursor@test-machine-2");
+    expect(instance.status).toBe("ok");
+    expect(instance.lastError).toBeNull();
+  });
+
   test("rejects a heartbeat whose instance id does not match the source", async () => {
     const res = await fetch(`${baseUrl}/api/ingest/heartbeat`, {
       method: "POST",

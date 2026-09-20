@@ -497,7 +497,9 @@ export async function processHeartbeat(
     beat.sourceId,
     beat.instanceId,
     beat.status,
-    beat.detail,
+    // detail on off/ok beats is informational ("no sessions.db found"),
+    // not a failure — only error beats may populate last_error.
+    beat.status === "error" ? beat.detail : undefined,
   );
   return { ok: true };
 }

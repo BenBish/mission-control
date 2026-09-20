@@ -91,8 +91,9 @@ export type Thresholds = HeartbeatThresholds;
  * Determine the effective health of a source instance.
  *
  * Priority:
- *   1. Explicit error (`lastError` or persisted status `error`) → Error
- *   2. Intentional quiet state (`off`) → Offline (not age-based)
+ *   1. Intentional quiet state (`off`) → Offline (not age-based); a stale
+ *      `lastError` cannot turn an explicitly-quiet instance into Error
+ *   2. Explicit error (`lastError` or persisted status `error`) → Error
  *   3. Missing `lastSeenAt` → Unknown
  *   4. Heartbeat older than offline threshold → Offline
  *   5. Heartbeat older than stale threshold → Stale
@@ -115,20 +116,20 @@ export function getEffectiveHealth(
     thresholds.offline,
   );
 
-  if (lastError || statusLower === "error") {
-    return {
-      status: "Error",
-      reason: lastError ?? "Collector reported an error",
-      lastSeenAt,
-    };
-  }
-
   // Intentional quiet / never-connected sources stay Offline without
   // being aged as a failed heartbeat (and are excluded from system rollup).
   if (statusLower === "off") {
     return {
       status: "Offline",
       reason: "Not connected — no collector polling this source yet",
+      lastSeenAt,
+    };
+  }
+
+  if (lastError || statusLower === "error") {
+    return {
+      status: "Error",
+      reason: lastError ?? "Collector reported an error",
       lastSeenAt,
     };
   }
