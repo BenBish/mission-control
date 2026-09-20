@@ -16,6 +16,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import { Database } from "../../db/database.js";
+import { ensureSourceInstance } from "../../db/queries/sources.js";
 import { setupRoutes } from "../../server/routes/index.js";
 
 let fixtureDir: string;
@@ -30,6 +31,10 @@ beforeAll(async () => {
   fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), "mc-failures-"));
   db = new Database(path.join(fixtureDir, "test.db"));
   await db.initialize();
+  // Desktop instance ids are no longer seeded — register the rows the
+  // fixtures reference (same path the ingest service uses).
+  await ensureSourceInstance(db.raw(), "claude-code", CC_INSTANCE);
+  await ensureSourceInstance(db.raw(), "grok", "grok@arch-desktop");
 
   const app = express();
   app.use(express.json());

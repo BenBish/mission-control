@@ -126,7 +126,7 @@ export class ComfyUiCollector implements Collector {
       await sendBatched(
         sink,
         SOURCE_ID,
-        INSTANCE_ID,
+        this.instanceId,
         COLLECTOR_VERSION,
         events,
       );

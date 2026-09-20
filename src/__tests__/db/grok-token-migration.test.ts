@@ -11,6 +11,7 @@ import {
   Database,
   normalizeGrokCacheInclusiveInputTokens,
 } from "../../db/database.js";
+import { ensureSourceInstance } from "../../db/queries/sources.js";
 
 let fixtureDir: string;
 let db: Database;
@@ -22,6 +23,10 @@ beforeEach(async () => {
   fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), "mc-grok-mig-"));
   db = new Database(path.join(fixtureDir, "test.db"));
   await db.initialize();
+  // Desktop instance ids are no longer seeded — register the rows the
+  // fixtures reference (same path the ingest service uses).
+  await ensureSourceInstance(db.raw(), "grok", GROK_INSTANCE);
+  await ensureSourceInstance(db.raw(), "claude-code", CLAUDE_INSTANCE);
 });
 
 afterEach(async () => {

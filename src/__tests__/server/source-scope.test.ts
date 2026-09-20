@@ -9,6 +9,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import { Database } from "../../db/database.js";
+import { ensureSourceInstance } from "../../db/queries/sources.js";
 import { setupRoutes } from "../../server/routes/index.js";
 
 let fixtureDir: string;
@@ -24,7 +25,12 @@ beforeAll(async () => {
   const raw = db.raw();
   const now = new Date().toISOString();
 
-  // Use seeded source_instances (FK). Multiple sources with failures.
+  // Desktop instance ids are no longer seeded — register them the same
+  // way the ingest service does before fixtures reference them (FK).
+  await ensureSourceInstance(raw, "claude-code", "claude-code@arch-desktop");
+  await ensureSourceInstance(raw, "grok", "grok@arch-desktop");
+
+  // Multiple sources with failures.
   for (const [sourceId, instanceId, activityId] of [
     ["claude-code", "claude-code@arch-desktop", "act-cc-fail"],
     ["hermes", "hermes@strix-halo", "act-hermes-fail"],

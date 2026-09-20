@@ -15,6 +15,7 @@ import {
   runDataClassRetention,
 } from "../../db/queries/retention.js";
 import { insertQuotaSnapshot } from "../../db/queries/telemetry.js";
+import { ensureSourceInstance } from "../../db/queries/sources.js";
 
 let fixtureDir: string;
 let db: Database;
@@ -25,6 +26,13 @@ beforeEach(async () => {
   fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), "mc-retention-"));
   db = new Database(path.join(fixtureDir, "test.db"));
   await db.initialize();
+  // Desktop instance ids are no longer seeded — register the one the
+  // quota fixtures reference (same path the ingest service uses).
+  await ensureSourceInstance(
+    db.raw(),
+    "claude-code",
+    "claude-code@arch-desktop",
+  );
 });
 
 afterEach(async () => {

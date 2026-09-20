@@ -94,6 +94,14 @@ async function main() {
     new OpenCodeCollector(state),
     new CursorCollector(state),
   ];
+  // Per-machine instance ids — collectors on different machines must not
+  // share an instance row or their heartbeats race (a box without the
+  // source would flap a healthy machine's status to off). `machine` comes
+  // from collector.toml; hostname is the fallback.
+  const machine = config.machine ?? os.hostname();
+  for (const collector of collectors) {
+    collector.instanceId = `${collector.sourceId}@${machine}`;
+  }
   const scheduler = new Scheduler(collectors, sink);
 
   async function shutdown() {

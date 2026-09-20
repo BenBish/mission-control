@@ -9,6 +9,7 @@ import * as os from "os";
 import express from "express";
 import * as http from "http";
 import { Database } from "../../db/database.js";
+import { ensureSourceInstance } from "../../db/queries/sources.js";
 import { setupRoutes } from "../../server/routes/index.js";
 import {
   resolveAuthConfig,
@@ -235,8 +236,10 @@ describe("roles and API field gating", () => {
     await db.initialize();
     authConfig = makeAuthConfig();
 
-    // Seed a session + activity with sensitive fields (use seeded instance ids)
+    // Seed a session + activity with sensitive fields. Desktop instance
+    // ids are no longer seeded — register the same way ingest does.
     const instanceId = "claude-code@arch-desktop";
+    await ensureSourceInstance(db.raw(), "claude-code", instanceId);
     await db.raw().run(
       `INSERT INTO sessions (id, source_id, instance_id, external_id, cwd, started_at)
        VALUES ('sess-1', 'claude-code', ?, 'ext-1', '/home/ben/Dev/secret-project', datetime('now'))`,
@@ -440,6 +443,13 @@ describe("data-class retention", () => {
     fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), "mc-ret-class-"));
     db = new Database(path.join(fixtureDir, "test.db"));
     await db.initialize();
+    // Desktop instance ids are no longer seeded — register the same way
+    // ingest does before fixtures reference them (FK).
+    await ensureSourceInstance(
+      db.raw(),
+      "claude-code",
+      "claude-code@arch-desktop",
+    );
   });
 
   afterEach(async () => {

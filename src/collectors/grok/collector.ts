@@ -157,7 +157,13 @@ export class GrokCollector implements Collector {
       return { eventsEmitted: 0, sourceStatus: "ok" };
     }
 
-    await sendBatched(sink, SOURCE_ID, INSTANCE_ID, COLLECTOR_VERSION, events);
+    await sendBatched(
+      sink,
+      SOURCE_ID,
+      this.instanceId,
+      COLLECTOR_VERSION,
+      events,
+    );
     this.state.persist();
 
     return { eventsEmitted: events.length, sourceStatus: "ok" };

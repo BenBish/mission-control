@@ -92,6 +92,16 @@ Shared collector core: `src/collectors/core/` (`scheduler`, `sinks`,
 Desktop config: `~/.config/mission-control/collector.toml`  
 (see `deploy/collector.toml.example`).
 
+Desktop collectors name their instances `<source>@<machine>`, where
+`machine` comes from `collector.toml` and falls back to the OS hostname.
+Since hostnames cannot be pre-seeded, the first heartbeat or ingest batch
+auto-registers the `source_instances` row (`ensureSourceInstance` in
+`src/db/queries/sources.ts`); heartbeats for unknown `source_id`s are still
+rejected. This keeps collectors on different machines from sharing an
+instance row and racing each other's heartbeat status. Server-side HTTP
+pollers keep static seeded instance ids (e.g. `hermes@strix-halo`) since
+those names describe the polled target rather than the reporting host.
+
 ### Devin collector notes
 
 The Devin collector reads `sessions.db` read-only and tracks compound cursors

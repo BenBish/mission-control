@@ -36,9 +36,14 @@ bun run dev
 ```bash
 mkdir -p ~/.config/mission-control
 cp deploy/collector.toml.example ~/.config/mission-control/collector.toml
-# Edit server_url + api_key
+# Edit server_url + api_key (and machine — see below)
 bun run collector
 ```
+
+`machine` names this host's collector instances (`<source>@<machine>`) and
+defaults to the OS hostname. Set it on each machine that runs the collector
+so Source Health tracks every machine's instances separately instead of
+letting them overwrite one shared row.
 
 For pure local API without Tailscale, set e.g.:
 

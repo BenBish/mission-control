@@ -407,13 +407,38 @@ describe("POST /api/ingest/heartbeat", () => {
     expect(instance.lastSeenAt).toBeTruthy();
   });
 
-  test("rejects a heartbeat for an unknown instance", async () => {
+  test("auto-registers a heartbeat for a new per-machine instance", async () => {
     const res = await fetch(`${baseUrl}/api/ingest/heartbeat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         sourceId: "claude-code",
-        instanceId: "claude-code@nonexistent-machine",
+        instanceId: "claude-code@new-machine",
+        status: "ok",
+        eventsEmitted: 0,
+      }),
+    });
+    expect(res.status).toBe(200);
+
+    const sources = await (await fetch(`${baseUrl}/api/sources`)).json();
+    const claude = sources.sources.find(
+      (s: { id: string }) => s.id === "claude-code",
+    );
+    const instance = claude.instances.find(
+      (i: { id: string }) => i.id === "claude-code@new-machine",
+    );
+    expect(instance).toBeTruthy();
+    expect(instance.machine).toBe("new-machine");
+    expect(instance.status).toBe("ok");
+  });
+
+  test("rejects a heartbeat for an unknown source", async () => {
+    const res = await fetch(`${baseUrl}/api/ingest/heartbeat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sourceId: "not-a-source",
+        instanceId: "not-a-source@some-machine",
         status: "ok",
         eventsEmitted: 0,
       }),

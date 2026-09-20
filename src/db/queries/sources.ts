@@ -83,6 +83,11 @@ const SEED_SOURCES: Array<{
   },
 ];
 
+// Desktop-push instances are not seeded — collector instance ids are
+// per-machine (`<source>@<machine>`, machine from collector.toml or
+// hostname) and auto-register on first heartbeat/batch via
+// ensureSourceInstance below. Only the server-side HTTP pollers keep
+// static seeds, since their instance names describe the polled target.
 const SEED_INSTANCES: Array<{
   id: string;
   sourceId: string;
@@ -91,69 +96,6 @@ const SEED_INSTANCES: Array<{
   collectorKind: string;
   status: string;
 }> = [
-  {
-    id: "claude-code@arch-desktop",
-    sourceId: "claude-code",
-    machine: "arch-desktop",
-    endpoint: null,
-    collectorKind: "jsonl-push",
-    status: "unknown",
-  },
-  {
-    id: "codex@arch-desktop",
-    sourceId: "codex",
-    machine: "arch-desktop",
-    endpoint: null,
-    collectorKind: "jsonl-push",
-    status: "unknown",
-  },
-  {
-    id: "devin@arch-desktop",
-    sourceId: "devin",
-    machine: "arch-desktop",
-    endpoint: null,
-    // Reads ~/.local/share/devin/cli/sessions.db (SQLite). Same
-    // "jsonl-push = desktop push collector" convention as OpenCode.
-    collectorKind: "jsonl-push",
-    status: "unknown",
-  },
-  {
-    id: "grok@arch-desktop",
-    sourceId: "grok",
-    machine: "arch-desktop",
-    endpoint: null,
-    collectorKind: "jsonl-push",
-    status: "unknown",
-  },
-  {
-    id: "opencode@arch-desktop",
-    sourceId: "opencode",
-    machine: "arch-desktop",
-    endpoint: null,
-    // Reads ~/.local/share/opencode/opencode.db (SQLite). Schema CHECK on
-    // source_instances.collector_kind only allows jsonl-push | http-poll;
-    // jsonl-push here means desktop push collector, not the file format.
-    collectorKind: "jsonl-push",
-    status: "unknown",
-  },
-  {
-    id: "cloud-handoff@arch-desktop",
-    sourceId: "cloud-handoff",
-    machine: "arch-desktop",
-    endpoint: null,
-    collectorKind: "jsonl-push",
-    status: "unknown",
-  },
-  {
-    id: "cursor@arch-desktop",
-    sourceId: "cursor",
-    machine: "arch-desktop",
-    endpoint: null,
-    // Reads Cursor state.vscdb + ~/.cursor/chats store.db (SQLite);
-    // collector_kind "jsonl-push" means desktop push collector, not format.
-    collectorKind: "jsonl-push",
-    status: "unknown",
-  },
   {
     id: "hermes@strix-halo",
     sourceId: "hermes",
@@ -232,10 +174,41 @@ export async function listSources(db: SqliteDatabase) {
 }
 
 /**
- * Upserts heartbeat status onto a pre-seeded instance row. Returns false if
- * no matching (sourceId, instanceId) row exists — heartbeats never create
- * new instance rows themselves, since collector_kind/machine must be known
- * up front (set in the seed above).
+ * Registers an instance row for a known source if one does not already
+ * exist. Desktop collectors name their instances `<source>@<machine>`
+ * (machine from collector.toml, else hostname), so instance ids cannot be
+ * pre-seeded — the first heartbeat or ingest batch creates the row. The
+ * machine label is parsed from the `@` suffix; instances for unknown
+ * sources are never created (returns false so callers can reject).
+ */
+export async function ensureSourceInstance(
+  db: SqliteDatabase,
+  sourceId: string,
+  instanceId: string,
+): Promise<boolean> {
+  const source = await db.get<{ id: string }>(
+    `SELECT id FROM sources WHERE id = ?`,
+    sourceId,
+  );
+  if (!source) return false;
+
+  const machine = instanceId.includes("@")
+    ? instanceId.slice(instanceId.lastIndexOf("@") + 1)
+    : "unknown";
+  await db.run(
+    `INSERT OR IGNORE INTO source_instances (id, source_id, machine, endpoint, collector_kind, status) VALUES (?, ?, ?, NULL, 'jsonl-push', 'unknown')`,
+    instanceId,
+    sourceId,
+    machine,
+  );
+  return true;
+}
+
+/**
+ * Upserts heartbeat status onto a pre-seeded or auto-registered instance
+ * row. Returns false if no matching (sourceId, instanceId) row exists —
+ * callers should run ensureSourceInstance first when the instance may not
+ * be seeded.
  */
 export async function recordHeartbeat(
   db: SqliteDatabase,
