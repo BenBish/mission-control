@@ -232,15 +232,15 @@ export async function processIngestBatch(
   // yet — register it before any event writes hit the instance_id FK. The
   // heartbeat that would create it only fires after the first tick's
   // sendBatched calls, so the batch path cannot rely on heartbeat ordering.
-  // An unknown source id registers nothing; reject the batch up front rather
-  // than surfacing N opaque FK violations.
+  // An unknown source id or malformed instance id registers nothing; reject
+  // the batch up front rather than surfacing N opaque FK violations.
   if (!(await ensureSourceInstance(db, batch.sourceId, batch.instanceId))) {
     return {
       accepted: 0,
       duplicates: 0,
       rejected: batch.events.map((_, index) => ({
         index,
-        error: `Unknown source: ${batch.sourceId}`,
+        error: `Unknown source or malformed instance id: ${batch.sourceId}/${batch.instanceId}`,
       })),
     };
   }
@@ -417,11 +417,12 @@ export async function processHeartbeat(
   }
   const beat = parsed.data;
   // Auto-register per-machine desktop instances (e.g. `devin@strix-point`)
-  // on first contact; unknown source ids are still rejected.
+  // on first contact; unknown source ids and malformed instance ids are
+  // still rejected.
   if (!(await ensureSourceInstance(db, beat.sourceId, beat.instanceId))) {
     return {
       ok: false,
-      error: `Unknown source: ${beat.sourceId}`,
+      error: `Unknown source or malformed instance id: ${beat.sourceId}/${beat.instanceId}`,
     };
   }
   await recordHeartbeat(

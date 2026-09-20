@@ -30,7 +30,6 @@ import {
 } from "./parser.js";
 
 const SOURCE_ID = "opencode";
-const INSTANCE_ID = "opencode@arch-desktop";
 const COLLECTOR_VERSION = "0.1.0";
 const DEFAULT_DB_PATH = path.join(
   os.homedir(),
@@ -53,7 +52,7 @@ interface StateStore {
 
 export class OpenCodeCollector implements Collector {
   sourceId = SOURCE_ID;
-  instanceId = INSTANCE_ID;
+  instanceId = `${SOURCE_ID}@${os.hostname()}`;
   intervalMs = 30_000;
 
   constructor(

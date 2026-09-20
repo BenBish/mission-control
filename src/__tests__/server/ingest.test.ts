@@ -445,4 +445,28 @@ describe("POST /api/ingest/heartbeat", () => {
     });
     expect(res.status).toBe(400);
   });
+
+  test("rejects a heartbeat whose instance id does not match the source", async () => {
+    const res = await fetch(`${baseUrl}/api/ingest/heartbeat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sourceId: "claude-code",
+        instanceId: "devin@some-machine",
+        status: "ok",
+        eventsEmitted: 0,
+      }),
+    });
+    expect(res.status).toBe(400);
+
+    const sources = await (await fetch(`${baseUrl}/api/sources`)).json();
+    const claude = sources.sources.find(
+      (s: { id: string }) => s.id === "claude-code",
+    );
+    expect(
+      claude.instances.find(
+        (i: { id: string }) => i.id === "devin@some-machine",
+      ),
+    ).toBeUndefined();
+  });
 });

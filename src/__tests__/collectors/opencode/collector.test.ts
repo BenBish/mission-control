@@ -270,7 +270,7 @@ describe("OpenCodeCollector", () => {
 
       const batch = sink.batches[0]!;
       expect(batch.sourceId).toBe("opencode");
-      expect(batch.instanceId).toBe("opencode@arch-desktop");
+      expect(batch.instanceId).toBe(`opencode@${os.hostname()}`);
 
       const kinds = batch.events.map((e) => e.kind);
       expect(kinds).toContain("session");

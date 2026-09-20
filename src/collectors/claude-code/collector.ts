@@ -21,13 +21,12 @@ import {
 import { OtelReceiver, type OtelReceiverLike } from "./otel-receiver.js";
 
 const SOURCE_ID = "claude-code";
-const INSTANCE_ID = "claude-code@arch-desktop";
 const DEFAULT_GLOB = `${os.homedir()}/.claude/projects/**/*.jsonl`;
 const COLLECTOR_VERSION = "0.1.0";
 
 export class ClaudeCodeCollector implements Collector {
   sourceId = SOURCE_ID;
-  instanceId = INSTANCE_ID;
+  instanceId = `${SOURCE_ID}@${os.hostname()}`;
   intervalMs = 30_000;
 
   /** Last successful-or-attempted OAuth usage poll (ms epoch). */

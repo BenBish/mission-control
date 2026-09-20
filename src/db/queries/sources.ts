@@ -179,7 +179,8 @@ export async function listSources(db: SqliteDatabase) {
  * (machine from collector.toml, else hostname), so instance ids cannot be
  * pre-seeded — the first heartbeat or ingest batch creates the row. The
  * machine label is parsed from the `@` suffix; instances for unknown
- * sources are never created (returns false so callers can reject).
+ * sources or malformed ids (anything not shaped `<source>@<machine>`)
+ * are never created (returns false so callers can reject).
  */
 export async function ensureSourceInstance(
   db: SqliteDatabase,
@@ -192,9 +193,13 @@ export async function ensureSourceInstance(
   );
   if (!source) return false;
 
-  const machine = instanceId.includes("@")
-    ? instanceId.slice(instanceId.lastIndexOf("@") + 1) || "unknown"
-    : "unknown";
+  // Only auto-register ids in the `<source>@<machine>` shape — anything else
+  // would let an authenticated ingest client mint arbitrary instance rows.
+  const prefix = `${sourceId}@`;
+  const machine = instanceId.startsWith(prefix)
+    ? instanceId.slice(prefix.length)
+    : "";
+  if (!machine) return false;
   await db.run(
     `INSERT OR IGNORE INTO source_instances (id, source_id, machine, endpoint, collector_kind, status) VALUES (?, ?, ?, NULL, 'jsonl-push', 'unknown')`,
     instanceId,

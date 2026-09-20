@@ -225,7 +225,7 @@ describe("CursorCollector", () => {
       expect(sink.batches).toHaveLength(1);
       const batch = sink.batches[0]!;
       expect(batch.sourceId).toBe("cursor");
-      expect(batch.instanceId).toBe("cursor@arch-desktop");
+      expect(batch.instanceId).toBe(`cursor@${os.hostname()}`);
 
       const session = batch.events.find((e) => e.kind === "session");
       expect(session!.payload).toMatchObject({

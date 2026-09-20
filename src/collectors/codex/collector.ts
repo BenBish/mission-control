@@ -15,13 +15,12 @@ import {
 } from "./parser.js";
 
 const SOURCE_ID = "codex";
-const INSTANCE_ID = "codex@arch-desktop";
 const DEFAULT_GLOB = `${os.homedir()}/.codex/sessions/**/rollout-*.jsonl`;
 const COLLECTOR_VERSION = "0.1.0";
 
 export class CodexCollector implements Collector {
   sourceId = SOURCE_ID;
-  instanceId = INSTANCE_ID;
+  instanceId = `${SOURCE_ID}@${os.hostname()}`;
   intervalMs = 30_000;
 
   constructor(
