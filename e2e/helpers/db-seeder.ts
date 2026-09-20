@@ -45,6 +45,18 @@ const CLAUDE_MODELS = [
 ];
 const CODEX_MODELS = ["gpt-5-codex"];
 
+// Keep the shared Source filter's E2E fixture long enough to exercise its
+// bounded, scrollable menu without adding production-only source definitions.
+const E2E_OVERFLOW_SOURCES = Array.from({ length: 20 }, (_, index) => {
+  const suffix = String(index + 1).padStart(2, "0");
+  return {
+    id: `zz-e2e-overflow-${suffix}`,
+    name: `E2E Overflow Source ${suffix}`,
+    kind: "agentic",
+    defaultUnit: "quota",
+  };
+});
+
 function randomItem<T>(arr: readonly T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
@@ -274,6 +286,17 @@ export async function seedDatabase(): Promise<void> {
 
   const db = new Database(DB_PATH);
   await db.initialize(); // creates schema, runs migrations, seeds sources
+  for (const source of E2E_OVERFLOW_SOURCES) {
+    await db
+      .raw()
+      .run(
+        `INSERT OR IGNORE INTO sources (id, name, kind, default_unit) VALUES (?, ?, ?, ?)`,
+        source.id,
+        source.name,
+        source.kind,
+        source.defaultUnit,
+      );
+  }
   await seedSessionsAndActivities(db.raw());
   await db.close();
 }
