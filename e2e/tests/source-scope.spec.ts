@@ -207,4 +207,51 @@ test.describe("Source filter scope", () => {
     ).toBeVisible();
     expect(agentScoped).toEqual([]);
   });
+
+  test("Source filter keeps a long list bounded and scrollable", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await page
+      .getByRole("heading", { name: "Dashboard", level: 1 })
+      .waitFor({ state: "visible" });
+
+    await sourceFilterTrigger(page).click();
+
+    const listbox = page.getByRole("listbox");
+    await expect(listbox).toBeVisible();
+
+    const viewport = page.viewportSize();
+    expect(viewport).not.toBeNull();
+    const listboxBox = await listbox.boundingBox();
+    expect(listboxBox).not.toBeNull();
+    expect(listboxBox!.y).toBeGreaterThanOrEqual(0);
+    expect(listboxBox!.y + listboxBox!.height).toBeLessThanOrEqual(
+      viewport!.height,
+    );
+    expect(listboxBox!.height).toBeLessThanOrEqual(24 * 16);
+
+    const selectViewport = listbox.locator("[data-radix-select-viewport]");
+    await expect(selectViewport).toBeVisible();
+
+    const finalOption = listbox.getByRole("option").last();
+    await expect(finalOption).toHaveText("E2E Overflow Source 20");
+    await selectViewport.hover();
+    for (let i = 0; i < 8; i++) {
+      await page.mouse.wheel(0, 500);
+    }
+    await expect(finalOption).toBeInViewport();
+    await expect
+      .poll(() => selectViewport.evaluate((element) => element.scrollTop))
+      .toBeGreaterThan(0);
+
+    const viewportBox = await selectViewport.boundingBox();
+    const finalOptionBox = await finalOption.boundingBox();
+    expect(viewportBox).not.toBeNull();
+    expect(finalOptionBox).not.toBeNull();
+    expect(finalOptionBox!.y).toBeGreaterThanOrEqual(viewportBox!.y);
+    expect(finalOptionBox!.y + finalOptionBox!.height).toBeLessThanOrEqual(
+      viewportBox!.y + viewportBox!.height,
+    );
+  });
 });
