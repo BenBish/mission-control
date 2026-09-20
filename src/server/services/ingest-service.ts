@@ -232,7 +232,18 @@ export async function processIngestBatch(
   // yet — register it before any event writes hit the instance_id FK. The
   // heartbeat that would create it only fires after the first tick's
   // sendBatched calls, so the batch path cannot rely on heartbeat ordering.
-  await ensureSourceInstance(db, batch.sourceId, batch.instanceId);
+  // An unknown source id registers nothing; reject the batch up front rather
+  // than surfacing N opaque FK violations.
+  if (!(await ensureSourceInstance(db, batch.sourceId, batch.instanceId))) {
+    return {
+      accepted: 0,
+      duplicates: 0,
+      rejected: batch.events.map((_, index) => ({
+        index,
+        error: `Unknown source: ${batch.sourceId}`,
+      })),
+    };
+  }
 
   let accepted = 0;
   let duplicates = 0;

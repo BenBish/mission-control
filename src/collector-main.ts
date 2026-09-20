@@ -71,7 +71,7 @@ function loadConfig(): CollectorConfig {
   return {
     serverUrl: parsed.server_url.replace(/\/$/, ""),
     apiKey: parsed.api_key,
-    machine: parsed.machine,
+    machine: parsed.machine || undefined,
   };
 }
 

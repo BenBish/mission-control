@@ -193,7 +193,7 @@ export async function ensureSourceInstance(
   if (!source) return false;
 
   const machine = instanceId.includes("@")
-    ? instanceId.slice(instanceId.lastIndexOf("@") + 1)
+    ? instanceId.slice(instanceId.lastIndexOf("@") + 1) || "unknown"
     : "unknown";
   await db.run(
     `INSERT OR IGNORE INTO source_instances (id, source_id, machine, endpoint, collector_kind, status) VALUES (?, ?, ?, NULL, 'jsonl-push', 'unknown')`,
