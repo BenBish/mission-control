@@ -176,11 +176,13 @@ describe("pollDevinUsageEvents", () => {
       });
       // The server 400s on a bare {} — metadata with api_key, request_id
       // (uint64), ide_name, ide_version, extension_version is required.
+      // extension_version is parsed server-side and must look like semver.
       const meta = (capturedBody as { metadata?: Record<string, unknown> })
         .metadata;
       expect(meta?.api_key).toBe("test-key-not-real");
       expect(String(meta?.request_id)).toMatch(/^\d+$/);
-      for (const field of ["ide_name", "ide_version", "extension_version"]) {
+      expect(String(meta?.extension_version)).toMatch(/^\d+\.\d+\.\d+/);
+      for (const field of ["ide_name", "ide_version"]) {
         expect(typeof meta?.[field]).toBe("string");
         expect(String(meta?.[field]).length).toBeGreaterThan(0);
       }

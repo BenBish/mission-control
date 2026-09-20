@@ -14,10 +14,15 @@
  * Request contract (verified against a live response): the server rejects
  * a bare `{}` body with 400 invalid_argument — it requires a `metadata`
  * field carrying `api_key`, `request_id` (uint64), `ide_name`,
- * `ide_version`, and `extension_version`. Calls are still made
- * defensively: soft failures return [] rather than inventing numbers.
+ * `ide_version`, and `extension_version`. `extension_version` is parsed
+ * server-side and must look like a version (non-version strings 500) —
+ * the installed CLI version is read from cli/_versions/current when
+ * available. Calls are still made defensively: soft failures return []
+ * rather than inventing numbers.
  */
 
+import fs from "fs";
+import path from "path";
 import {
   PLAN_WINDOW_MONTH_MINUTES,
   PLAN_WINDOW_WEEKLY_MINUTES,
@@ -33,6 +38,32 @@ export { DEFAULT_DEVIN_API_SERVER, DEFAULT_DEVIN_CREDENTIALS_PATH };
 export const DEVIN_USAGE_POLL_INTERVAL_MS = 15 * 60 * 1000;
 export const DEVIN_USAGE_FETCH_TIMEOUT_MS = 15_000;
 
+/**
+ * Installed Devin CLI version — `~/.local/share/devin/cli/_versions/current`
+ * is a symlink into a directory named after the version. Derived from the
+ * credentials path so MC_DEVIN_CREDENTIALS_PATH overrides stay consistent.
+ * Falls back to a plausible constant — the server only requires that
+ * extension_version parses as a version.
+ */
+export function resolveDevinCliVersion(
+  credentialsPath: string = DEFAULT_DEVIN_CREDENTIALS_PATH,
+): string {
+  try {
+    const current = path.join(
+      path.dirname(credentialsPath),
+      "cli",
+      "_versions",
+      "current",
+    );
+    const target = fs.readlinkSync(current);
+    const version = path.basename(target);
+    if (/^\d+\.\d+\.\d+/.test(version)) return version;
+  } catch {
+    // no CLI install — fall through to the constant
+  }
+  return "0.1.0";
+}
+
 export function devinUserStatusUrl(
   base: string = DEFAULT_DEVIN_API_SERVER,
 ): string {
@@ -45,6 +76,7 @@ export async function fetchDevinUserStatus(
   apiKey: string,
   fetchImpl: FetchImpl = fetch,
   url: string = devinUserStatusUrl(),
+  cliVersion: string = resolveDevinCliVersion(),
 ): Promise<unknown> {
   const res = await fetchImpl(url, {
     method: "POST",
@@ -60,8 +92,8 @@ export async function fetchDevinUserStatus(
         api_key: apiKey,
         request_id: String(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER)),
         ide_name: "devin",
-        ide_version: "devin-cli",
-        extension_version: "devin-cli",
+        ide_version: cliVersion,
+        extension_version: cliVersion,
         os_name: process.platform,
       },
     }),
@@ -241,6 +273,7 @@ export async function pollDevinUsageEvents(
       cred.apiKey,
       opts.fetchImpl,
       opts.statusUrl ?? devinUserStatusUrl(cred.apiServerUrl),
+      resolveDevinCliVersion(opts.credentialsPath),
     );
     const events = mapDevinPlanToQuotaEvents(payload, now);
     if (events.length === 0) {
