@@ -1,8 +1,12 @@
 import { describe, expect, test } from "bun:test";
+import fs from "fs";
+import os from "os";
+import path from "path";
 import {
   devinUserStatusUrl,
   mapDevinPlanToQuotaEvents,
   pollDevinUsageEvents,
+  resolveDevinCliVersion,
 } from "../../../collectors/devin/usage-poller.js";
 
 const now = new Date("2026-09-20T12:00:00.000Z");
@@ -22,6 +26,27 @@ describe("devinUserStatusUrl", () => {
   test("targets the SeatManagementService GetUserStatus RPC", () => {
     expect(devinUserStatusUrl("https://server.example.com/")).toBe(
       "https://server.example.com/exa.seat_management_pb.SeatManagementService/GetUserStatus",
+    );
+  });
+});
+
+describe("resolveDevinCliVersion", () => {
+  test("resolves the installed version from the current symlink", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "mc-devin-version-"));
+    const versionsDir = path.join(root, "cli", "_versions");
+    fs.mkdirSync(versionsDir, { recursive: true });
+    fs.symlinkSync("1.2.3", path.join(versionsDir, "current"));
+
+    expect(resolveDevinCliVersion(path.join(root, "credentials.toml"))).toBe(
+      "1.2.3",
+    );
+  });
+
+  test("falls back when no installed version is available", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "mc-devin-version-"));
+
+    expect(resolveDevinCliVersion(path.join(root, "credentials.toml"))).toBe(
+      "0.1.0",
     );
   });
 });

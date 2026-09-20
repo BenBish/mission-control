@@ -261,7 +261,7 @@ describe("CloudHandoffCollector", () => {
     expect(activity?.payload).toMatchObject({
       sessionExternalId: "s1",
       externalId: "turn.completed:5",
-      inputTokens: 1000,
+      inputTokens: 200,
       outputTokens: 120,
       cacheReadTokens: 800,
       cacheWriteTokens: 50,
@@ -270,7 +270,7 @@ describe("CloudHandoffCollector", () => {
     const session = emitted.find((e) => e.kind === "session");
     expect(session?.payload).toMatchObject({
       externalId: "s1",
-      inputTokens: 1000,
+      inputTokens: 200,
       outputTokens: 120,
       cacheReadTokens: 800,
       cacheWriteTokens: 50,

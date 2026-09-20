@@ -143,10 +143,13 @@ function eventUsage(ev: CloudHandoffEvent): UsageTokens | null {
     const usage = p.usage;
     if (!usage || typeof usage !== "object") return null;
     const u = usage as Record<string, unknown>;
+    const cached = num(u.cached_input_tokens) ?? 0;
     return {
-      input: num(u.input_tokens) ?? 0,
+      // Codex input_tokens includes cached input; keep the activity and
+      // session totals split into uncached input plus cache-read tokens.
+      input: Math.max(0, (num(u.input_tokens) ?? 0) - cached),
       output: num(u.output_tokens) ?? 0,
-      cached: num(u.cached_input_tokens) ?? 0,
+      cached,
       cacheWrite: num(u.cache_write_input_tokens) ?? 0,
     };
   }
