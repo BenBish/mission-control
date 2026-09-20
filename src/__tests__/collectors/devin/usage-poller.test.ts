@@ -158,4 +158,34 @@ describe("pollDevinUsageEvents", () => {
       delete process.env.MC_DEVIN_API_KEY;
     }
   });
+
+  test("sends the metadata envelope the Connect-RPC endpoint requires", async () => {
+    process.env.MC_DEVIN_API_KEY = "test-key-not-real";
+    let capturedBody: unknown;
+    try {
+      await pollDevinUsageEvents({
+        fetchImpl: async (_url, init) => {
+          capturedBody = JSON.parse(String(init?.body));
+          return new Response(JSON.stringify(planPayload), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        },
+        now,
+        onWarn: () => {},
+      });
+      // The server 400s on a bare {} — metadata with api_key, request_id
+      // (uint64), ide_name, ide_version, extension_version is required.
+      const meta = (capturedBody as { metadata?: Record<string, unknown> })
+        .metadata;
+      expect(meta?.api_key).toBe("test-key-not-real");
+      expect(String(meta?.request_id)).toMatch(/^\d+$/);
+      for (const field of ["ide_name", "ide_version", "extension_version"]) {
+        expect(typeof meta?.[field]).toBe("string");
+        expect(String(meta?.[field]).length).toBeGreaterThan(0);
+      }
+    } finally {
+      delete process.env.MC_DEVIN_API_KEY;
+    }
+  });
 });

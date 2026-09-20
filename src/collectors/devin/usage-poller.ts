@@ -11,8 +11,11 @@
  * matching reset timestamps. Session JSONL/SQLite has no token usage at
  * all — this endpoint is the only known source of plan capacity.
  *
- * The exact request contract is not publicly documented; calls are made
- * defensively and soft failures return [] rather than inventing numbers.
+ * Request contract (verified against a live response): the server rejects
+ * a bare `{}` body with 400 invalid_argument — it requires a `metadata`
+ * field carrying `api_key`, `request_id` (uint64), `ide_name`,
+ * `ide_version`, and `extension_version`. Calls are still made
+ * defensively: soft failures return [] rather than inventing numbers.
  */
 
 import {
@@ -52,7 +55,16 @@ export async function fetchDevinUserStatus(
       Accept: "application/json",
       "User-Agent": "mission-control-devin-collector",
     },
-    body: "{}",
+    body: JSON.stringify({
+      metadata: {
+        api_key: apiKey,
+        request_id: String(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER)),
+        ide_name: "devin",
+        ide_version: "devin-cli",
+        extension_version: "devin-cli",
+        os_name: process.platform,
+      },
+    }),
     signal: AbortSignal.timeout(DEVIN_USAGE_FETCH_TIMEOUT_MS),
   });
   if (!res.ok) {

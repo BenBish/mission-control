@@ -72,11 +72,9 @@ export class DevinCollector implements Collector {
 
   async tick(sink: Sink): Promise<TickResult> {
     if (!fs.existsSync(this.dbPath)) {
-      return {
-        eventsEmitted: 0,
-        sourceStatus: "off",
-        detail: "no sessions.db found",
-      };
+      // Plan quota is account-level — a machine can report it from
+      // credentials.toml even when Devin CLI has never run a session here.
+      return this.usageOnlyTick(sink, "no sessions.db found");
     }
 
     let db: Database;
@@ -95,11 +93,7 @@ export class DevinCollector implements Collector {
         db.query(`SELECT COUNT(*) AS c FROM sessions`).get() as { c: number }
       ).c;
       if (sessionCount === 0) {
-        return {
-          eventsEmitted: 0,
-          sourceStatus: "off",
-          detail: "no sessions in sessions.db",
-        };
+        return await this.usageOnlyTick(sink, "no sessions in sessions.db");
       }
 
       const cursor = normalizeCursor(this.state.getAggregate(CURSOR_KEY));
@@ -208,15 +202,7 @@ export class DevinCollector implements Collector {
 
       // Plan-usage poll (every 15 min). Can emit events even when no session
       // rows changed — do not early-return solely on an empty scan.
-      const nowMs = Date.now();
-      if (nowMs - this.lastUsagePollMs >= DEVIN_USAGE_POLL_INTERVAL_MS) {
-        this.lastUsagePollMs = nowMs;
-        const quotaEvents = await pollDevinUsageEvents({
-          credentialsPath: this.credentialsPath,
-          onWarn: (m) => console.warn(`[devin] ${m}`),
-        });
-        events.push(...quotaEvents);
-      }
+      events.push(...(await this.maybePollUsage()));
 
       if (events.length > 0) {
         await sendBatched(
@@ -235,6 +221,38 @@ export class DevinCollector implements Collector {
     } finally {
       db.close();
     }
+  }
+
+  /** Interval-gated plan-usage poll shared by the normal and db-less paths. */
+  private async maybePollUsage(): Promise<IngestEvent[]> {
+    const nowMs = Date.now();
+    if (nowMs - this.lastUsagePollMs < DEVIN_USAGE_POLL_INTERVAL_MS) {
+      return [];
+    }
+    this.lastUsagePollMs = nowMs;
+    return pollDevinUsageEvents({
+      credentialsPath: this.credentialsPath,
+      onWarn: (m) => console.warn(`[devin] ${m}`),
+    });
+  }
+
+  /**
+   * No session data on this machine — still try the quota poll. Emits and
+   * reports "ok" when quota events flow; otherwise "off" with the reason.
+   */
+  private async usageOnlyTick(sink: Sink, detail: string): Promise<TickResult> {
+    const quotaEvents = await this.maybePollUsage();
+    if (quotaEvents.length === 0) {
+      return { eventsEmitted: 0, sourceStatus: "off", detail };
+    }
+    await sendBatched(
+      sink,
+      SOURCE_ID,
+      this.instanceId,
+      COLLECTOR_VERSION,
+      quotaEvents,
+    );
+    return { eventsEmitted: quotaEvents.length, sourceStatus: "ok" };
   }
 
   private loadCounts(db: Database, sessionId: string): DevinSessionCounts {
