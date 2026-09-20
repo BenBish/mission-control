@@ -56,3 +56,8 @@ e2e/.auth/
 .playwright-cli/
 e2e/test-results/
 e2e/.auth/
+
+# Local agent tooling config and scratch
+.claude/
+.mcp.json
+.playwright-mcp/
