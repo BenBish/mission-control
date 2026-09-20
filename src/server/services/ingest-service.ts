@@ -44,7 +44,10 @@ import {
 } from "../../db/queries/telemetry.js";
 import { upsertGenerationJob } from "../../db/queries/generation.js";
 import { upsertJobRun } from "../../db/queries/jobs.js";
-import { recordHeartbeat } from "../../db/queries/sources.js";
+import {
+  ensureSourceInstance,
+  recordHeartbeat,
+} from "../../db/queries/sources.js";
 import type { Activity } from "../../types/activity.js";
 import { resolvePrivacyPolicy } from "../privacy/policy.js";
 import {
@@ -228,6 +231,23 @@ export async function processIngestBatch(
   db: SqliteDatabase,
   batch: IngestBatch,
 ): Promise<IngestAck> {
+  // Desktop collectors name instances per-machine, so the row may not exist
+  // yet — register it before any event writes hit the instance_id FK. The
+  // heartbeat that would create it only fires after the first tick's
+  // sendBatched calls, so the batch path cannot rely on heartbeat ordering.
+  // An unknown source id or malformed instance id registers nothing; reject
+  // the batch up front rather than surfacing N opaque FK violations.
+  if (!(await ensureSourceInstance(db, batch.sourceId, batch.instanceId))) {
+    return {
+      accepted: 0,
+      duplicates: 0,
+      rejected: batch.events.map((_, index) => ({
+        index,
+        error: `Unknown source or malformed instance id: ${batch.sourceId}/${batch.instanceId}`,
+      })),
+    };
+  }
+
   let accepted = 0;
   let duplicates = 0;
   const rejected: IngestRejection[] = [];
@@ -463,18 +483,21 @@ export async function processHeartbeat(
     return { ok: false, error: parsed.error.message };
   }
   const beat = parsed.data;
-  const matched = await recordHeartbeat(
+  // Auto-register per-machine desktop instances (e.g. `devin@strix-point`)
+  // on first contact; unknown source ids and malformed instance ids are
+  // still rejected.
+  if (!(await ensureSourceInstance(db, beat.sourceId, beat.instanceId))) {
+    return {
+      ok: false,
+      error: `Unknown source or malformed instance id: ${beat.sourceId}/${beat.instanceId}`,
+    };
+  }
+  await recordHeartbeat(
     db,
     beat.sourceId,
     beat.instanceId,
     beat.status,
     beat.detail,
   );
-  if (!matched) {
-    return {
-      ok: false,
-      error: `Unknown source instance: ${beat.sourceId}/${beat.instanceId}`,
-    };
-  }
   return { ok: true };
 }

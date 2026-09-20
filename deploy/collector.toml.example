@@ -33,5 +33,8 @@ server_url = "https://fedora.taile952db.ts.net:3001"
 # routes bypass without needing a JWT session.
 api_key = "changeme"
 
-# Informational only for now — shown in source_instances.meta.
-machine = "arch-desktop"
+# Instance ID suffix for this machine's collectors. Each collector
+# registers itself as `<source>@<machine>` (e.g. `devin@strix-point`), so
+# collectors running on multiple machines never share a source_instances
+# row and race heartbeats. Falls back to the OS hostname when unset.
+machine = "my-desktop"

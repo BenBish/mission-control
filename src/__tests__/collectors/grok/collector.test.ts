@@ -160,7 +160,7 @@ describe("GrokCollector", () => {
       expect(state.persisted).toBe(true);
       expect(sink.batches).toHaveLength(1);
       expect(sink.batches[0].sourceId).toBe("grok");
-      expect(sink.batches[0].instanceId).toBe("grok@arch-desktop");
+      expect(sink.batches[0].instanceId).toBe(`grok@${os.hostname()}`);
 
       const events = sink.batches[0].events;
       expect(events.filter((event) => event.kind === "activity")).toHaveLength(

@@ -1,4 +1,5 @@
 import { createHash } from "crypto";
+import os from "os";
 import type { Collector, TickResult } from "../core/types.js";
 import type {
   IngestEvent,
@@ -11,7 +12,6 @@ import { LEMONADE_POLL_INTERVAL_MS } from "./config.js";
 import { pollHealth, pollSystemStats, pollStats } from "./poller.js";
 
 const SOURCE_ID = "lemonade";
-const INSTANCE_ID = "lemonade@strix-halo";
 const COLLECTOR_VERSION = "0.1.0";
 const HEALTH_STATE_KEY = "lemonade:health";
 
@@ -33,7 +33,7 @@ function statKey(entry: { externalId?: string }, fallbackSeed: string): string {
  */
 export class LemonadeCollector implements Collector {
   sourceId = SOURCE_ID;
-  instanceId = INSTANCE_ID;
+  instanceId = `${SOURCE_ID}@${os.hostname()}`;
   intervalMs = LEMONADE_POLL_INTERVAL_MS;
 
   constructor(private state: CollectorStateStore) {}
@@ -72,7 +72,7 @@ export class LemonadeCollector implements Collector {
         await sendBatched(
           sink,
           SOURCE_ID,
-          INSTANCE_ID,
+          this.instanceId,
           COLLECTOR_VERSION,
           events,
         );
@@ -110,7 +110,7 @@ export class LemonadeCollector implements Collector {
       await sendBatched(
         sink,
         SOURCE_ID,
-        INSTANCE_ID,
+        this.instanceId,
         COLLECTOR_VERSION,
         events,
       );

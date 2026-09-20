@@ -42,7 +42,6 @@ import {
 } from "./parser.js";
 
 const SOURCE_ID = "cursor";
-const INSTANCE_ID = "cursor@arch-desktop";
 const COLLECTOR_VERSION = "0.1.0";
 const CURSOR_KEY = `${SOURCE_ID}:db-cursor`;
 /** Cap rows per tick so a first-run backfill does not monopolize the sink. */
@@ -152,7 +151,7 @@ function tableExists(db: Database, name: string): boolean {
 
 export class CursorCollector implements Collector {
   sourceId = SOURCE_ID;
-  instanceId = INSTANCE_ID;
+  instanceId = `${SOURCE_ID}@${os.hostname()}`;
   intervalMs = 30_000;
 
   private globalDbPath: string;
@@ -221,7 +220,7 @@ export class CursorCollector implements Collector {
       await sendBatched(
         sink,
         SOURCE_ID,
-        INSTANCE_ID,
+        this.instanceId,
         COLLECTOR_VERSION,
         events,
       );

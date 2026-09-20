@@ -11,6 +11,7 @@
 import path from "path";
 import fs from "fs";
 import { Database } from "../../src/db/database.js";
+import { ensureSourceInstance } from "../../src/db/queries/sources.js";
 import type { Database as SqliteDatabase } from "sqlite";
 
 const DB_PATH = path.resolve("./test-data/playwright.db");
@@ -57,6 +58,11 @@ interface SessionSeed {
 
 async function seedSessionsAndActivities(db: SqliteDatabase): Promise<void> {
   const now = new Date();
+
+  // Desktop instance ids are no longer seeded — register the rows the
+  // fixtures reference (same path the ingest service uses).
+  await ensureSourceInstance(db, "claude-code", "claude-code@arch-desktop");
+  await ensureSourceInstance(db, "codex", "codex@arch-desktop");
 
   const sessions: SessionSeed[] = [
     ...TEST_SESSIONS.claudeCode.map((externalId) => ({

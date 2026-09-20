@@ -15,13 +15,12 @@ import {
 } from "./parser.js";
 
 const SOURCE_ID = "codex";
-const INSTANCE_ID = "codex@arch-desktop";
 const DEFAULT_GLOB = `${os.homedir()}/.codex/sessions/**/rollout-*.jsonl`;
 const COLLECTOR_VERSION = "0.1.0";
 
 export class CodexCollector implements Collector {
   sourceId = SOURCE_ID;
-  instanceId = INSTANCE_ID;
+  instanceId = `${SOURCE_ID}@${os.hostname()}`;
   intervalMs = 30_000;
 
   constructor(
@@ -113,7 +112,13 @@ export class CodexCollector implements Collector {
       return { eventsEmitted: 0, sourceStatus: "ok" };
     }
 
-    await sendBatched(sink, SOURCE_ID, INSTANCE_ID, COLLECTOR_VERSION, events);
+    await sendBatched(
+      sink,
+      SOURCE_ID,
+      this.instanceId,
+      COLLECTOR_VERSION,
+      events,
+    );
     this.state.persist();
 
     return { eventsEmitted: events.length, sourceStatus: "ok" };

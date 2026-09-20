@@ -1,3 +1,4 @@
+import os from "os";
 import type { Collector, TickResult } from "../core/types.js";
 import type { IngestEvent, Sink } from "../../types/ingest.js";
 import type { CollectorStateStore } from "../core/state-store.js";
@@ -11,7 +12,6 @@ import {
 } from "./poller.js";
 
 const SOURCE_ID = "comfyui";
-const INSTANCE_ID = "comfyui@strix-halo";
 const COLLECTOR_VERSION = "0.1.0";
 const TRACKED_JOBS_KEY = "comfyui:tracked-jobs";
 
@@ -39,7 +39,7 @@ type TrackedJobs = Record<string, TrackedJob>;
  */
 export class ComfyUiCollector implements Collector {
   sourceId = SOURCE_ID;
-  instanceId = INSTANCE_ID;
+  instanceId = `${SOURCE_ID}@${os.hostname()}`;
   intervalMs = COMFYUI_POLL_INTERVAL_MS;
 
   constructor(private state: CollectorStateStore) {}
@@ -126,7 +126,7 @@ export class ComfyUiCollector implements Collector {
       await sendBatched(
         sink,
         SOURCE_ID,
-        INSTANCE_ID,
+        this.instanceId,
         COLLECTOR_VERSION,
         events,
       );

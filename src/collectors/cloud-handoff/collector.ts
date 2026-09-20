@@ -16,6 +16,7 @@
  * refetches from the old cursor — server-side dedupe absorbs the replay.
  */
 
+import os from "os";
 import type { Collector, TickResult } from "../core/types.js";
 import type { IngestEvent, Sink } from "../../types/ingest.js";
 import { CollectorStateStore } from "../core/state-store.js";
@@ -31,7 +32,6 @@ import {
 } from "./client.js";
 
 const SOURCE_ID = "cloud-handoff";
-const INSTANCE_ID = "cloud-handoff@arch-desktop";
 const COLLECTOR_VERSION = "0.1.0";
 const TERMINAL_STATUSES = new Set(["completed", "failed", "cancelled"]);
 
@@ -127,7 +127,7 @@ function usageActivity(
 
 export class CloudHandoffCollector implements Collector {
   sourceId = SOURCE_ID;
-  instanceId = INSTANCE_ID;
+  instanceId = `${SOURCE_ID}@${os.hostname()}`;
   intervalMs = 60_000;
 
   constructor(
@@ -233,7 +233,7 @@ export class CloudHandoffCollector implements Collector {
       await sendBatched(
         sink,
         SOURCE_ID,
-        INSTANCE_ID,
+        this.instanceId,
         COLLECTOR_VERSION,
         events,
       );

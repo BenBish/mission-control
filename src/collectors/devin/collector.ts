@@ -36,7 +36,6 @@ import {
 } from "./usage-poller.js";
 
 const SOURCE_ID = "devin";
-const INSTANCE_ID = "devin@arch-desktop";
 const COLLECTOR_VERSION = "0.1.0";
 const DEFAULT_DB_PATH = path.join(
   os.homedir(),
@@ -59,7 +58,7 @@ interface StateStore {
 
 export class DevinCollector implements Collector {
   sourceId = SOURCE_ID;
-  instanceId = INSTANCE_ID;
+  instanceId = `${SOURCE_ID}@${os.hostname()}`;
   intervalMs = 30_000;
 
   /** Last successful-or-attempted plan-usage poll (ms epoch). */
@@ -223,7 +222,7 @@ export class DevinCollector implements Collector {
         await sendBatched(
           sink,
           SOURCE_ID,
-          INSTANCE_ID,
+          this.instanceId,
           COLLECTOR_VERSION,
           events,
         );
