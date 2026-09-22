@@ -23,6 +23,15 @@
  * counted) while skipping already-watermarked agent.usage events, then the
  * flag is set so the replay runs exactly once — including for `done`
  * sessions, which are otherwise never re-polled.
+ *
+ * `done` is not permanent. Cloud Handoff retries a failed worker
+ * (`session.retried`) and the same session id returns to running/
+ * finalizing, emitting more `agent.usage` events above the watermark. A
+ * previously-done session whose status is no longer terminal is
+ * resurrected and polling resumes from `lastEventId`. Terminal sessions
+ * also stay eligible to re-drain while `updatedAt` is within
+ * `CLOUD_HANDOFF_DONE_GRACE_MS`, so usage flushed at teardown is not
+ * stranded above the watermark.
  */
 
 import os from "os";
@@ -44,6 +53,8 @@ import {
 const SOURCE_ID = "cloud-handoff";
 const COLLECTOR_VERSION = "0.1.0";
 const TERMINAL_STATUSES = new Set(["completed", "failed", "cancelled"]);
+/** Keep polling a terminal session this long so teardown usage isn't dropped. */
+export const CLOUD_HANDOFF_DONE_GRACE_MS = 10 * 60 * 1000;
 
 type FetchImpl = typeof fetch;
 
@@ -58,7 +69,11 @@ interface SessionAgg {
   costUsd?: number;
   /** A `session` event has been emitted at least once. */
   emitted?: boolean;
-  /** Terminal status reached and event stream drained — stop polling. */
+  /**
+   * Terminal status observed. Skip is gated on this *and* a stale
+   * updatedAt; a retry that returns the session to a non-terminal status
+   * clears the flag so polling resumes from lastEventId.
+   */
   done?: boolean;
   /** Full-stream replay for turn.completed usage has run (backfill flag). */
   turnUsageDrained?: boolean;
@@ -86,11 +101,31 @@ function emptyAgg(): SessionAgg {
   };
 }
 
+function isTerminalStatus(status: string): boolean {
+  return TERMINAL_STATUSES.has(status);
+}
+
+/**
+ * A drained session can be skipped only while it is still terminal *and*
+ * `updatedAt` is older than the grace window. Unparseable timestamps are
+ * treated as stale so a bad value cannot pin the collector on a session
+ * forever.
+ */
+export function isCloudHandoffDoneEligible(
+  session: Pick<CloudHandoffSession, "status" | "updatedAt">,
+  nowMs: number = Date.now(),
+): boolean {
+  if (!isTerminalStatus(session.status)) return false;
+  const updatedMs = Date.parse(session.updatedAt);
+  if (!Number.isFinite(updatedMs)) return true;
+  return nowMs - updatedMs >= CLOUD_HANDOFF_DONE_GRACE_MS;
+}
+
 function sessionPayload(
   session: CloudHandoffSession,
   agg: SessionAgg,
 ): IngestEvent {
-  const terminal = TERMINAL_STATUSES.has(session.status);
+  const terminal = isTerminalStatus(session.status);
   const naturalKey = `${session.id}:${session.status}:${agg.inputTokens}:${agg.outputTokens}:${agg.cacheReadTokens}:${agg.cacheWriteTokens}:${agg.costUsd ?? ""}`;
   return {
     kind: "session",
@@ -223,8 +258,17 @@ export class CloudHandoffCollector implements Collector {
     for (const session of sessions) {
       const aggKey = `${SOURCE_ID}:${session.id}`;
       const prev = this.state.getAggregate<SessionAgg>(aggKey) ?? emptyAgg();
-      // done + drained is terminal; done-but-undrained gets one backfill pass.
-      if (prev.done && prev.turnUsageDrained) continue;
+      // Skip a drained session only while it is still terminal and past
+      // the grace window. Retry (status back to running/finalizing) or a
+      // recent updatedAt (teardown flush) resume from lastEventId.
+      // done-but-undrained still gets one backfill pass.
+      if (
+        prev.done &&
+        prev.turnUsageDrained &&
+        isCloudHandoffDoneEligible(session)
+      ) {
+        continue;
+      }
       // Spread over emptyAgg so counters added later (e.g. cacheWriteTokens)
       // default to 0 instead of turning NaN on legacy aggregates.
       const agg: SessionAgg = { ...emptyAgg(), ...prev };
@@ -274,17 +318,24 @@ export class CloudHandoffCollector implements Collector {
       }
       if (backfill) agg.turnUsageDrained = true;
 
-      const becameDone = TERMINAL_STATUSES.has(session.status);
+      const terminal = isTerminalStatus(session.status);
       let emittedSession = false;
-      if (!agg.emitted || sawUsage || becameDone) {
+      // Emit on first observation, token growth, or the transition into a
+      // terminal status. Grace-period re-polls of an already-terminal
+      // session must not rewrite an identical session snapshot every tick.
+      if (!agg.emitted || sawUsage || (terminal && !prev.done)) {
         events.push(sessionPayload(session, agg));
         agg.emitted = true;
         emittedSession = true;
       }
-      if (becameDone) agg.done = true;
+      // Flag done on first terminal observation so the next tick can use
+      // `!prev.done` as "just became terminal". Skip is still gated on
+      // the grace window via isCloudHandoffDoneEligible; retry clears it.
+      agg.done = terminal;
       // Only persist aggs that actually changed — a running session with no new
       // events leaves its record untouched and shouldn't rewrite the state file.
-      if (consumed > 0 || emittedSession || becameDone || backfill) {
+      const doneChanged = Boolean(prev.done) !== Boolean(agg.done);
+      if (consumed > 0 || emittedSession || doneChanged || backfill) {
         pendingAggs.set(aggKey, agg);
       }
     }
