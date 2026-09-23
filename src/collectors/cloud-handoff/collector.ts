@@ -31,7 +31,10 @@
  * resurrected and polling resumes from `lastEventId`. Terminal sessions
  * also stay eligible to re-drain while `updatedAt` is within
  * `CLOUD_HANDOFF_DONE_GRACE_MS`, so usage flushed at teardown is not
- * stranded above the watermark.
+ * stranded above the watermark. Sessions marked done before this
+ * handling existed additionally get exactly one post-done incremental
+ * sweep (`postDoneDrained`) — some completed while the collector was
+ * already skipping them, stranding usage it never fetched.
  */
 
 import os from "os";
@@ -77,6 +80,13 @@ interface SessionAgg {
   done?: boolean;
   /** Full-stream replay for turn.completed usage has run (backfill flag). */
   turnUsageDrained?: boolean;
+  /**
+   * One incremental drain ran after `done` was set (backfill flag).
+   * Recovers usage stranded above the watermark by sessions that were
+   * marked done before retry/grace handling existed — e.g. failed →
+   * retried → completed while the collector was already skipping them.
+   */
+  postDoneDrained?: boolean;
 }
 
 interface StateStore {
@@ -261,17 +271,21 @@ export class CloudHandoffCollector implements Collector {
     for (const session of sessions) {
       const aggKey = `${SOURCE_ID}:${session.id}`;
       const prev = this.state.getAggregate<SessionAgg>(aggKey) ?? emptyAgg();
-      // Skip a drained session only while it is still terminal and past
-      // the grace window. Retry (status back to running/finalizing) or a
-      // recent updatedAt (teardown flush) resume from lastEventId.
-      // done-but-undrained still gets one backfill pass.
+      // Skip a drained session only while it is still terminal, past the
+      // grace window, and has had its one post-done sweep. Retry (status
+      // back to running/finalizing) or a recent updatedAt (teardown
+      // flush) resume from lastEventId. done-but-undrained still gets
+      // one backfill pass; every previously-done session gets exactly
+      // one more incremental drain via postDoneDrained.
       if (
         prev.done &&
         prev.turnUsageDrained &&
+        prev.postDoneDrained &&
         canSkipDrainedSession(session)
       ) {
         continue;
       }
+      const postDoneSweep = Boolean(prev.done) && !prev.postDoneDrained;
       // Spread over emptyAgg so counters added later (e.g. cacheWriteTokens)
       // default to 0 instead of turning NaN on legacy aggregates.
       const agg: SessionAgg = { ...emptyAgg(), ...prev };
@@ -320,8 +334,11 @@ export class CloudHandoffCollector implements Collector {
         events.push(usageActivity(session, ev, usage));
       }
       if (backfill) agg.turnUsageDrained = true;
-
       const terminal = isTerminalStatus(session.status);
+      // Mark the post-done sweep as covered: prev.done means this pass
+      // just ran it; terminal means the drain that sets done already
+      // covers the stream and no legacy sweep is needed.
+      if (prev.done || terminal) agg.postDoneDrained = true;
       const resurrected = Boolean(prev.done) && !terminal;
       let emittedSession = false;
       // Emit on first observation, token growth, or a terminal-status
@@ -340,7 +357,13 @@ export class CloudHandoffCollector implements Collector {
       // Only persist aggs that actually changed — a running session with no new
       // events leaves its record untouched and shouldn't rewrite the state file.
       const doneChanged = Boolean(prev.done) !== Boolean(agg.done);
-      if (consumed > 0 || emittedSession || doneChanged || backfill) {
+      if (
+        consumed > 0 ||
+        emittedSession ||
+        doneChanged ||
+        backfill ||
+        postDoneSweep
+      ) {
         pendingAggs.set(aggKey, agg);
       }
     }
