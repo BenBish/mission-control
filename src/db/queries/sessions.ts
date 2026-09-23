@@ -49,7 +49,8 @@ export async function upsertSession(
        title = COALESCE(excluded.title, sessions.title),
        client_version = COALESCE(excluded.client_version, sessions.client_version),
        model_provider = COALESCE(excluded.model_provider, sessions.model_provider),
-       ended_at = COALESCE(excluded.ended_at, sessions.ended_at),
+       ended_at = CASE WHEN ? THEN NULL
+                       ELSE COALESCE(excluded.ended_at, sessions.ended_at) END,
        turn_count = MAX(sessions.turn_count, excluded.turn_count),
        tool_call_count = MAX(sessions.tool_call_count, excluded.tool_call_count),
        failure_count = MAX(sessions.failure_count, excluded.failure_count),
@@ -78,6 +79,8 @@ export async function upsertSession(
     payload.cacheReadTokens ?? 0,
     payload.cacheWriteTokens ?? 0,
     payload.costUsd ?? null,
+    // Trailing param binds the `?` inside the ended_at CASE in DO UPDATE.
+    payload.clearEndedAt ? 1 : 0,
   );
   return id;
 }

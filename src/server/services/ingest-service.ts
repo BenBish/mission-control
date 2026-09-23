@@ -76,6 +76,7 @@ const sessionPayloadSchema = z.object({
   modelProvider: z.string().optional(),
   startedAt: z.string().min(1),
   endedAt: z.string().optional(),
+  clearEndedAt: z.boolean().optional(),
   turnCount: z.number().optional(),
   toolCallCount: z.number().optional(),
   failureCount: z.number().optional(),

@@ -109,9 +109,11 @@ The Cloud Handoff collector polls `GET /v1/sessions` and incremental
 `turn.completed` token events. Per-session `done` in `cursors.json` is
 **not** permanent: a failed/cancelled session that the control plane
 retries (`session.retried`) returns to a non-terminal status and polling
-resumes from `lastEventId`. Terminal sessions also stay eligible to
-re-drain while `updatedAt` is within a 10-minute grace window so usage
-flushed at teardown is not stranded above the watermark.
+resumes from `lastEventId`; the resurrected session event carries
+`clearEndedAt` so the stored `ended_at` is cleared. Terminal sessions
+also stay eligible to re-drain while `updatedAt` is within a 10-minute
+grace window so usage flushed at teardown is not stranded above the
+watermark.
 
 ### Devin collector notes
 

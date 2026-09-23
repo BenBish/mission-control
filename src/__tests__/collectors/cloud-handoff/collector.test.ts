@@ -5,7 +5,7 @@ import path from "path";
 import {
   CloudHandoffCollector,
   CLOUD_HANDOFF_DONE_GRACE_MS,
-  isCloudHandoffDoneEligible,
+  canSkipDrainedSession,
 } from "../../../collectors/cloud-handoff/collector.js";
 import { readCloudHandoffConfig } from "../../../collectors/cloud-handoff/config.js";
 import { parseEventStream } from "../../../collectors/cloud-handoff/client.js";
@@ -118,18 +118,18 @@ describe("readCloudHandoffConfig", () => {
   });
 });
 
-describe("isCloudHandoffDoneEligible", () => {
+describe("canSkipDrainedSession", () => {
   const now = Date.parse("2026-09-22T12:00:00.000Z");
 
   test("non-terminal statuses are never skippable", () => {
     expect(
-      isCloudHandoffDoneEligible(
+      canSkipDrainedSession(
         { status: "running", updatedAt: "2026-01-01T00:00:00.000Z" },
         now,
       ),
     ).toBe(false);
     expect(
-      isCloudHandoffDoneEligible(
+      canSkipDrainedSession(
         { status: "finalizing", updatedAt: "2026-01-01T00:00:00.000Z" },
         now,
       ),
@@ -138,7 +138,7 @@ describe("isCloudHandoffDoneEligible", () => {
 
   test("terminal statuses inside the grace window stay pollable", () => {
     expect(
-      isCloudHandoffDoneEligible(
+      canSkipDrainedSession(
         {
           status: "failed",
           updatedAt: new Date(
@@ -152,7 +152,7 @@ describe("isCloudHandoffDoneEligible", () => {
 
   test("terminal statuses older than the grace window are skippable", () => {
     expect(
-      isCloudHandoffDoneEligible(
+      canSkipDrainedSession(
         {
           status: "completed",
           updatedAt: new Date(now - CLOUD_HANDOFF_DONE_GRACE_MS).toISOString(),
@@ -164,10 +164,7 @@ describe("isCloudHandoffDoneEligible", () => {
 
   test("unparseable updatedAt is treated as stale", () => {
     expect(
-      isCloudHandoffDoneEligible(
-        { status: "cancelled", updatedAt: "nope" },
-        now,
-      ),
+      canSkipDrainedSession({ status: "cancelled", updatedAt: "nope" }, now),
     ).toBe(true);
   });
 });
@@ -488,6 +485,7 @@ describe("CloudHandoffCollector", () => {
       outputTokens: 7,
       cacheReadTokens: 10,
       endedAt: undefined,
+      clearEndedAt: true,
     });
     expect(state.getAggregate("cloud-handoff:s1")).toMatchObject({
       lastEventId: 149173,
@@ -501,6 +499,51 @@ describe("CloudHandoffCollector", () => {
     const second = await collector.tick(sink);
     expect(second.eventsEmitted).toBe(0);
     expect(afters).toEqual(["140976", "149173"]);
+  });
+
+  test("emits a session event on resurrection even with no new stream events", async () => {
+    const root = tmpDir();
+    const state = new MemoryState();
+    state.aggregates.set("cloud-handoff:s1", {
+      lastEventId: 50,
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      emitted: true,
+      done: true,
+      turnUsageDrained: true,
+    });
+    const sink = new CapturingSink();
+    const sessions = [
+      {
+        id: "s1",
+        status: "running",
+        task: "Retried work",
+        createdAt: "2026-09-16T09:00:00.000Z",
+        updatedAt: "2026-09-16T11:00:00.000Z",
+      },
+    ];
+    const collector = new CloudHandoffCollector(
+      state,
+      writeConfig(root),
+      makeFetch({ sessions, events: { s1: ": keepalive\n\n" } }),
+    );
+
+    const result = await collector.tick(sink);
+    expect(result.sourceStatus).toBe("ok");
+    const emitted = sink.batches.flatMap((b) => b.events);
+    const session = emitted.find((e) => e.kind === "session");
+    // The resurrected emit carries clearEndedAt so the server clears the
+    // ended_at recorded when the pre-retry drain observed a terminal status.
+    expect(session?.payload).toMatchObject({
+      externalId: "s1",
+      endedAt: undefined,
+      clearEndedAt: true,
+    });
+    expect(state.getAggregate("cloud-handoff:s1")).toMatchObject({
+      done: false,
+    });
   });
 
   test("keeps polling a recently-terminal session so teardown usage is ingested", async () => {

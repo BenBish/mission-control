@@ -111,7 +111,7 @@ function isTerminalStatus(status: string): boolean {
  * treated as stale so a bad value cannot pin the collector on a session
  * forever.
  */
-export function isCloudHandoffDoneEligible(
+export function canSkipDrainedSession(
   session: Pick<CloudHandoffSession, "status" | "updatedAt">,
   nowMs: number = Date.now(),
 ): boolean {
@@ -139,6 +139,9 @@ function sessionPayload(
         session.agentExecutionSnapshot?.harness,
       startedAt: session.createdAt,
       endedAt: terminal ? session.updatedAt : undefined,
+      // Non-terminal sessions must clear any ended_at left behind by a
+      // drain that observed a terminal status before a control-plane retry.
+      clearEndedAt: terminal ? undefined : true,
       inputTokens: agg.inputTokens,
       outputTokens: agg.outputTokens,
       cacheReadTokens: agg.cacheReadTokens,
@@ -265,7 +268,7 @@ export class CloudHandoffCollector implements Collector {
       if (
         prev.done &&
         prev.turnUsageDrained &&
-        isCloudHandoffDoneEligible(session)
+        canSkipDrainedSession(session)
       ) {
         continue;
       }
@@ -319,18 +322,20 @@ export class CloudHandoffCollector implements Collector {
       if (backfill) agg.turnUsageDrained = true;
 
       const terminal = isTerminalStatus(session.status);
+      const resurrected = Boolean(prev.done) && !terminal;
       let emittedSession = false;
-      // Emit on first observation, token growth, or the transition into a
-      // terminal status. Grace-period re-polls of an already-terminal
-      // session must not rewrite an identical session snapshot every tick.
-      if (!agg.emitted || sawUsage || (terminal && !prev.done)) {
+      // Emit on first observation, token growth, or a terminal-status
+      // transition in either direction. Grace-period re-polls of an
+      // already-terminal session must not rewrite an identical session
+      // snapshot every tick.
+      if (!agg.emitted || sawUsage || resurrected || (terminal && !prev.done)) {
         events.push(sessionPayload(session, agg));
         agg.emitted = true;
         emittedSession = true;
       }
       // Flag done on first terminal observation so the next tick can use
       // `!prev.done` as "just became terminal". Skip is still gated on
-      // the grace window via isCloudHandoffDoneEligible; retry clears it.
+      // the grace window via canSkipDrainedSession; retry clears it.
       agg.done = terminal;
       // Only persist aggs that actually changed — a running session with no new
       // events leaves its record untouched and shouldn't rewrite the state file.
