@@ -118,6 +118,57 @@ describe("POST /api/ingest/batch", () => {
     expect(sessionBody.session.activities[0].toolName).toBe("Read");
   });
 
+  test("clearEndedAt clears a previously stored session endTime", async () => {
+    const base = {
+      sourceId: "cloud-handoff",
+      instanceId: "cloud-handoff@test",
+      collectorVersion: "test",
+      sentAt: new Date().toISOString(),
+    };
+    const ended: IngestBatch = {
+      ...base,
+      events: [
+        {
+          kind: "session",
+          naturalKey: "sess-clear:failed",
+          payload: {
+            externalId: "sess-clear",
+            startedAt: "2026-09-22T00:00:00.000Z",
+            endedAt: "2026-09-22T01:00:00.000Z",
+          },
+        },
+      ],
+    };
+    const resurrected: IngestBatch = {
+      ...base,
+      events: [
+        {
+          kind: "session",
+          naturalKey: "sess-clear:running",
+          payload: {
+            externalId: "sess-clear",
+            startedAt: "2026-09-22T00:00:00.000Z",
+            clearEndedAt: true,
+          },
+        },
+      ],
+    };
+
+    expect((await postBatch(ended)).status).toBe(200);
+    const endedRes = await fetch(
+      `${baseUrl}/api/sessions/cloud-handoff:sess-clear`,
+    );
+    expect((await endedRes.json()).session.endTime).toBe(
+      "2026-09-22T01:00:00.000Z",
+    );
+
+    expect((await postBatch(resurrected)).status).toBe(200);
+    const liveRes = await fetch(
+      `${baseUrl}/api/sessions/cloud-handoff:sess-clear`,
+    );
+    expect((await liveRes.json()).session.endTime).toBeUndefined();
+  });
+
   test("re-sending the exact same batch reports duplicates, not accepted", async () => {
     const batch: IngestBatch = {
       sourceId: "claude-code",

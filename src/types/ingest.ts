@@ -44,6 +44,8 @@ export interface SessionPayload {
   modelProvider?: string;
   startedAt: string;
   endedAt?: string;
+  /** Clear a previously-stored ended_at (e.g. a terminal session resurrected by retry). */
+  clearEndedAt?: boolean;
   turnCount?: number;
   toolCallCount?: number;
   failureCount?: number;

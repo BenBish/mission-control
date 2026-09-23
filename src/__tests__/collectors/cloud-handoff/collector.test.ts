@@ -2,7 +2,11 @@ import { describe, expect, test } from "bun:test";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { CloudHandoffCollector } from "../../../collectors/cloud-handoff/collector.js";
+import {
+  CloudHandoffCollector,
+  CLOUD_HANDOFF_DONE_GRACE_MS,
+  canSkipDrainedSession,
+} from "../../../collectors/cloud-handoff/collector.js";
 import { readCloudHandoffConfig } from "../../../collectors/cloud-handoff/config.js";
 import { parseEventStream } from "../../../collectors/cloud-handoff/client.js";
 import type { FileCursor } from "../../../collectors/core/jsonl-scanner.js";
@@ -111,6 +115,57 @@ describe("readCloudHandoffConfig", () => {
   test("returns null when nothing is configured", () => {
     const cfg = readCloudHandoffConfig(path.join(tmpDir(), "missing"), {});
     expect(cfg).toBeNull();
+  });
+});
+
+describe("canSkipDrainedSession", () => {
+  const now = Date.parse("2026-09-22T12:00:00.000Z");
+
+  test("non-terminal statuses are never skippable", () => {
+    expect(
+      canSkipDrainedSession(
+        { status: "running", updatedAt: "2026-01-01T00:00:00.000Z" },
+        now,
+      ),
+    ).toBe(false);
+    expect(
+      canSkipDrainedSession(
+        { status: "finalizing", updatedAt: "2026-01-01T00:00:00.000Z" },
+        now,
+      ),
+    ).toBe(false);
+  });
+
+  test("terminal statuses inside the grace window stay pollable", () => {
+    expect(
+      canSkipDrainedSession(
+        {
+          status: "failed",
+          updatedAt: new Date(
+            now - CLOUD_HANDOFF_DONE_GRACE_MS + 1,
+          ).toISOString(),
+        },
+        now,
+      ),
+    ).toBe(false);
+  });
+
+  test("terminal statuses older than the grace window are skippable", () => {
+    expect(
+      canSkipDrainedSession(
+        {
+          status: "completed",
+          updatedAt: new Date(now - CLOUD_HANDOFF_DONE_GRACE_MS).toISOString(),
+        },
+        now,
+      ),
+    ).toBe(true);
+  });
+
+  test("unparseable updatedAt is treated as stale", () => {
+    expect(
+      canSkipDrainedSession({ status: "cancelled", updatedAt: "nope" }, now),
+    ).toBe(true);
   });
 });
 
@@ -359,6 +414,280 @@ describe("CloudHandoffCollector", () => {
     const second = await collector.tick(sink);
     expect(second.eventsEmitted).toBe(0);
     expect(afters).toEqual(["0"]);
+  });
+
+  test("resumes polling from lastEventId when a done session is retried", async () => {
+    const root = tmpDir();
+    const state = new MemoryState();
+    // Live-bug shape: drained while failed, then the control plane retried.
+    state.aggregates.set("cloud-handoff:s1", {
+      lastEventId: 140976,
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      emitted: true,
+      done: true,
+      turnUsageDrained: true,
+    });
+    const sink = new CapturingSink();
+    const afters: string[] = [];
+    const sessions = [
+      {
+        id: "s1",
+        status: "running",
+        task: "Retried work",
+        createdAt: "2026-09-16T09:00:00.000Z",
+        updatedAt: "2026-09-16T11:00:00.000Z",
+        agentExecutionSnapshot: { harness: "grok", model: "grok-4.5" },
+      },
+    ];
+    const collector = new CloudHandoffCollector(
+      state,
+      writeConfig(root),
+      (async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/v1/sessions")) {
+          return new Response(JSON.stringify(sessions), { status: 200 });
+        }
+        const m = url.match(/\/v1\/sessions\/([^/]+)\/events\?after=(\d+)/);
+        if (m) {
+          afters.push(m[2]!);
+          return new Response(
+            sseBody([
+              {
+                id: 149173,
+                sessionId: "s1",
+                type: "agent.usage",
+                payload: {
+                  inputTokens: 42,
+                  cachedInputTokens: 10,
+                  outputTokens: 7,
+                },
+              },
+            ]),
+            { status: 200 },
+          );
+        }
+        return new Response("not found", { status: 404 });
+      }) as typeof fetch,
+    );
+
+    const first = await collector.tick(sink);
+    expect(first.sourceStatus).toBe("ok");
+    expect(afters).toEqual(["140976"]);
+    const emitted = sink.batches.flatMap((b) => b.events);
+    expect(emitted.map((e) => e.naturalKey)).toContain("usage:s1:149173");
+    const session = emitted.find((e) => e.kind === "session");
+    expect(session?.payload).toMatchObject({
+      externalId: "s1",
+      inputTokens: 42,
+      outputTokens: 7,
+      cacheReadTokens: 10,
+      endedAt: undefined,
+      clearEndedAt: true,
+    });
+    expect(state.getAggregate("cloud-handoff:s1")).toMatchObject({
+      lastEventId: 149173,
+      done: false,
+      turnUsageDrained: true,
+      inputTokens: 42,
+    });
+
+    // Still running: keep polling from the new watermark, no full replay.
+    sink.batches.length = 0;
+    const second = await collector.tick(sink);
+    expect(second.eventsEmitted).toBe(0);
+    expect(afters).toEqual(["140976", "149173"]);
+  });
+
+  test("emits a session event on resurrection even with no new stream events", async () => {
+    const root = tmpDir();
+    const state = new MemoryState();
+    state.aggregates.set("cloud-handoff:s1", {
+      lastEventId: 50,
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      emitted: true,
+      done: true,
+      turnUsageDrained: true,
+    });
+    const sink = new CapturingSink();
+    const sessions = [
+      {
+        id: "s1",
+        status: "running",
+        task: "Retried work",
+        createdAt: "2026-09-16T09:00:00.000Z",
+        updatedAt: "2026-09-16T11:00:00.000Z",
+      },
+    ];
+    const collector = new CloudHandoffCollector(
+      state,
+      writeConfig(root),
+      makeFetch({ sessions, events: { s1: ": keepalive\n\n" } }),
+    );
+
+    const result = await collector.tick(sink);
+    expect(result.sourceStatus).toBe("ok");
+    const emitted = sink.batches.flatMap((b) => b.events);
+    const session = emitted.find((e) => e.kind === "session");
+    // The resurrected emit carries clearEndedAt so the server clears the
+    // ended_at recorded when the pre-retry drain observed a terminal status.
+    expect(session?.payload).toMatchObject({
+      externalId: "s1",
+      endedAt: undefined,
+      clearEndedAt: true,
+    });
+    expect(state.getAggregate("cloud-handoff:s1")).toMatchObject({
+      done: false,
+    });
+  });
+
+  test("keeps polling a recently-terminal session so teardown usage is ingested", async () => {
+    const root = tmpDir();
+    const state = new MemoryState();
+    const sink = new CapturingSink();
+    const afters: string[] = [];
+    const session = {
+      id: "s1",
+      status: "failed",
+      task: "Flaky worker",
+      createdAt: "2026-09-16T09:00:00.000Z",
+      updatedAt: new Date().toISOString(),
+    };
+    let usageEvents = [
+      {
+        id: 3,
+        sessionId: "s1",
+        type: "agent.usage",
+        payload: { inputTokens: 10, outputTokens: 5 },
+      },
+    ];
+    const collector = new CloudHandoffCollector(
+      state,
+      writeConfig(root),
+      (async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/v1/sessions")) {
+          return new Response(JSON.stringify([session]), { status: 200 });
+        }
+        const m = url.match(/\/v1\/sessions\/([^/]+)\/events\?after=(\d+)/);
+        if (m) {
+          afters.push(m[2]!);
+          return new Response(sseBody(usageEvents), { status: 200 });
+        }
+        return new Response("not found", { status: 404 });
+      }) as typeof fetch,
+    );
+
+    const first = await collector.tick(sink);
+    expect(first.sourceStatus).toBe("ok");
+    expect(afters).toEqual(["0"]);
+    expect(state.getAggregate("cloud-handoff:s1")).toMatchObject({
+      lastEventId: 3,
+      done: true,
+      turnUsageDrained: true,
+    });
+
+    usageEvents = [
+      {
+        id: 8,
+        sessionId: "s1",
+        type: "agent.usage",
+        payload: { inputTokens: 20, outputTokens: 4 },
+      },
+    ];
+    sink.batches.length = 0;
+    const second = await collector.tick(sink);
+    expect(second.eventsEmitted).toBeGreaterThan(0);
+    expect(afters).toEqual(["0", "3"]);
+    const activity = sink.batches
+      .flatMap((b) => b.events)
+      .find((e) => e.kind === "activity");
+    expect(activity?.naturalKey).toBe("usage:s1:8");
+    expect(state.getAggregate("cloud-handoff:s1")).toMatchObject({
+      lastEventId: 8,
+      inputTokens: 30,
+      outputTokens: 9,
+      done: true,
+    });
+
+    // Past the grace window: stop polling.
+    session.updatedAt = new Date(
+      Date.now() - CLOUD_HANDOFF_DONE_GRACE_MS - 1,
+    ).toISOString();
+    sink.batches.length = 0;
+    const third = await collector.tick(sink);
+    expect(third.eventsEmitted).toBe(0);
+    expect(afters).toEqual(["0", "3"]);
+  });
+
+  test("re-drains a done terminal session whose updatedAt is still within the grace window", async () => {
+    const root = tmpDir();
+    const state = new MemoryState();
+    state.aggregates.set("cloud-handoff:s1", {
+      lastEventId: 5,
+      inputTokens: 10,
+      outputTokens: 5,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      emitted: true,
+      done: true,
+      turnUsageDrained: true,
+    });
+    const sink = new CapturingSink();
+    const afters: string[] = [];
+    const sessions = [
+      {
+        id: "s1",
+        status: "failed",
+        createdAt: "2026-09-16T09:00:00.000Z",
+        updatedAt: new Date().toISOString(),
+      },
+    ];
+    const collector = new CloudHandoffCollector(
+      state,
+      writeConfig(root),
+      (async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/v1/sessions")) {
+          return new Response(JSON.stringify(sessions), { status: 200 });
+        }
+        const m = url.match(/\/v1\/sessions\/([^/]+)\/events\?after=(\d+)/);
+        if (m) {
+          afters.push(m[2]!);
+          return new Response(
+            sseBody([
+              {
+                id: 9,
+                sessionId: "s1",
+                type: "agent.usage",
+                payload: { inputTokens: 15, outputTokens: 2 },
+              },
+            ]),
+            { status: 200 },
+          );
+        }
+        return new Response("not found", { status: 404 });
+      }) as typeof fetch,
+    );
+
+    const result = await collector.tick(sink);
+    expect(result.sourceStatus).toBe("ok");
+    expect(afters).toEqual(["5"]);
+    const activity = sink.batches
+      .flatMap((b) => b.events)
+      .find((e) => e.kind === "activity");
+    expect(activity?.naturalKey).toBe("usage:s1:9");
+    expect(state.getAggregate("cloud-handoff:s1")).toMatchObject({
+      lastEventId: 9,
+      inputTokens: 25,
+      outputTokens: 7,
+      done: true,
+    });
   });
 
   test("marks terminal sessions done and stops polling them", async () => {
