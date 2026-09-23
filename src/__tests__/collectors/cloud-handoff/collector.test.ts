@@ -690,6 +690,81 @@ describe("CloudHandoffCollector", () => {
     });
   });
 
+  test("legacy done sessions get exactly one post-done sweep before skip eligibility", async () => {
+    const root = tmpDir();
+    const state = new MemoryState();
+    // Written by pre-grace code: done+drained, completed while the
+    // collector was already skipping it — usage stranded above the
+    // watermark. No postDoneDrained flag.
+    state.aggregates.set("cloud-handoff:s1", {
+      lastEventId: 140976,
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      emitted: true,
+      done: true,
+      turnUsageDrained: true,
+    });
+    const sink = new CapturingSink();
+    const afters: string[] = [];
+    const stale = new Date(
+      Date.now() - CLOUD_HANDOFF_DONE_GRACE_MS - 1,
+    ).toISOString();
+    const sessions = [
+      {
+        id: "s1",
+        status: "completed",
+        createdAt: "2026-09-16T09:00:00.000Z",
+        updatedAt: stale,
+      },
+    ];
+    const collector = new CloudHandoffCollector(
+      state,
+      writeConfig(root),
+      (async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/v1/sessions")) {
+          return new Response(JSON.stringify(sessions), { status: 200 });
+        }
+        const m = url.match(/\/v1\/sessions\/([^/]+)\/events\?after=(\d+)/);
+        if (m) {
+          afters.push(m[2]!);
+          return new Response(
+            sseBody([
+              {
+                id: 149173,
+                sessionId: "s1",
+                type: "agent.usage",
+                payload: { inputTokens: 42, outputTokens: 7 },
+              },
+            ]),
+            { status: 200 },
+          );
+        }
+        return new Response("not found", { status: 404 });
+      }) as typeof fetch,
+    );
+
+    const first = await collector.tick(sink);
+    expect(first.sourceStatus).toBe("ok");
+    expect(afters).toEqual(["140976"]);
+    const emitted = sink.batches.flatMap((b) => b.events);
+    expect(emitted.map((e) => e.naturalKey)).toContain("usage:s1:149173");
+    expect(state.getAggregate("cloud-handoff:s1")).toMatchObject({
+      lastEventId: 149173,
+      inputTokens: 42,
+      postDoneDrained: true,
+      done: true,
+    });
+
+    // Sweep consumed: terminal + stale + flagged → skipped, no fetch.
+    sink.batches.length = 0;
+    const second = await collector.tick(sink);
+    expect(second.eventsEmitted).toBe(0);
+    expect(afters).toEqual(["140976"]);
+  });
+
   test("marks terminal sessions done and stops polling them", async () => {
     const root = tmpDir();
     const state = new MemoryState();

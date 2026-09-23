@@ -113,7 +113,9 @@ resumes from `lastEventId`; the resurrected session event carries
 `clearEndedAt` so the stored `ended_at` is cleared. Terminal sessions
 also stay eligible to re-drain while `updatedAt` is within a 10-minute
 grace window so usage flushed at teardown is not stranded above the
-watermark.
+watermark. Sessions marked `done` before this handling existed get one
+extra incremental drain (`postDoneDrained`) to recover usage that
+streamed while they were being skipped.
 
 ### Devin collector notes
 
