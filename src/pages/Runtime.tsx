@@ -1076,7 +1076,10 @@ export default function Runtime() {
   const modelsLoaded = modelsSnapshot?.modelsLoaded ?? [];
   const anyInstances = sources.some((s) => s.instances.length > 0);
   const saturated =
-    metrics.totalSlots > 0 && metrics.activeSlots >= metrics.totalSlots;
+    metrics.activeSlots != null &&
+    metrics.totalSlots != null &&
+    metrics.totalSlots > 0 &&
+    metrics.activeSlots >= metrics.totalSlots;
 
   const activeProblemFilter =
     reqStatus === "error"
