@@ -149,11 +149,11 @@ interface CancelLine {
 interface HalogenSummaryLine {
   type: "halogen_summary";
   promptTokens: number;
-  cachedTokens: number;
+  cachedTokens?: number;
   completionTokens: number;
   durationMs: number;
   tokensPerSec: number;
-  ttftMs: number;
+  ttftMs?: number;
 }
 type ParsedLine =
   | LaunchLine
@@ -178,8 +178,12 @@ const RE_RELEASE =
 const RE_SEND_ERROR =
   /srv\s+send_error:\s*task id\s*=\s*(\d+),\s*error:\s*(.+)$/;
 const RE_CANCEL = /srv\s+stop:\s*cancel task,\s*id_task\s*=\s*(\d+)/;
-const RE_HALOGEN_SUMMARY =
+const RE_HALOGEN_CACHED_SUMMARY =
   /serve_api:\s*mtp\s+([\d,]+)\s+tok\s+in\s+([\d.]+)s\s*=\s*([\d.]+)\s+t\/s.*?\|\s*prompt\s+([\d,]+)\s+\(([\d,]+)\s+cached,\s*[\d.]+%\),\s*prefill\s+([\d.]+)s\s+\(([\d,]+)\s+new\)/;
+const RE_HALOGEN_SUMMARY =
+  /serve_api:\s*mtp\s+([\d,]+)\s+tok\s+in\s+([\d.]+)s\s*=\s*([\d.]+)\s+t\/s.*?\|\s*prompt\s+([\d,]+),\s*prefill\s+([\d.]+)s\s*=\s*[\d.]+\s+t\/s/;
+const HALOGEN_DUPLICATE_WINDOW_US = 5_000;
+const HALOGEN_RECENT_SUMMARY_LIMIT = 256;
 
 /** Order matters here: RE_PROMPT_EVAL must be tried before RE_EVAL. Real
  *  "prompt eval time" lines also carry the "(... ms per token, ... tokens
@@ -240,7 +244,7 @@ export function parseLine(message: string): ParsedLine | null {
   m = message.match(RE_CANCEL);
   if (m) return { type: "cancel", task: Number(m[1]) };
 
-  m = message.match(RE_HALOGEN_SUMMARY);
+  m = message.match(RE_HALOGEN_CACHED_SUMMARY);
   if (m)
     return {
       type: "halogen_summary",
@@ -250,6 +254,17 @@ export function parseLine(message: string): ParsedLine | null {
       promptTokens: Number(m[4].replaceAll(",", "")),
       cachedTokens: Number(m[5].replaceAll(",", "")),
       ttftMs: Math.round(Number(m[6]) * 1000),
+    };
+
+  m = message.match(RE_HALOGEN_SUMMARY);
+  if (m)
+    return {
+      type: "halogen_summary",
+      completionTokens: Number(m[1].replaceAll(",", "")),
+      durationMs: Math.round(Number(m[2]) * 1000),
+      tokensPerSec: Number(m[3]),
+      promptTokens: Number(m[4].replaceAll(",", "")),
+      ttftMs: Math.round(Number(m[5]) * 1000),
     };
 
   return null;
@@ -272,9 +287,10 @@ interface OpenTask {
 
 /** Persisted state for one unit's log parser — survives a server restart
  *  via CollectorStateStore. Open-task buffers are intentionally NOT
- *  persisted (see file header); only the journal cursor is. */
+ *  persisted (see file header). */
 export interface LogParserState {
   cursor?: string;
+  recentHalogenSummaries?: { fingerprint: string; timestampUs: number }[];
 }
 
 export class HermesLogParser {
@@ -293,21 +309,31 @@ export class HermesLogParser {
    * the returned events have been successfully sent (same at-least-once
    * discipline as the JSONL collectors).
    */
-  async tick(
-    state: LogParserState,
-  ): Promise<{ events: IngestEvent[]; cursor: string | undefined }> {
+  async tick(state: LogParserState): Promise<{
+    events: IngestEvent[];
+    cursor: string | undefined;
+    recentHalogenSummaries?: LogParserState["recentHalogenSummaries"];
+  }> {
     let cursor = state.cursor;
     if (!cursor) {
       cursor = await tailCursor(this.backend.unit);
-      return { events: [], cursor };
+      return {
+        events: [],
+        cursor,
+        recentHalogenSummaries: state.recentHalogenSummaries,
+      };
     }
 
     const entries = await readJournal(this.backend.unit, cursor);
     if (entries.length === 0) {
-      return { events: [], cursor };
+      return {
+        events: [],
+        cursor,
+        recentHalogenSummaries: state.recentHalogenSummaries,
+      };
     }
 
-    return this.processEntries(entries);
+    return this.processEntries(entries, state);
   }
 
   /**
@@ -317,13 +343,23 @@ export class HermesLogParser {
    * task lifecycle correlation across interleaved slots), the journalctl
    * plumbing around it is a thin, low-risk wrapper.
    */
-  processEntries(entries: JournalEntry[]): {
+  processEntries(
+    entries: JournalEntry[],
+    state: LogParserState = {},
+  ): {
     events: IngestEvent[];
     cursor: string;
+    recentHalogenSummaries?: LogParserState["recentHalogenSummaries"];
   } {
     let cursor = entries[entries.length - 1].__CURSOR;
     const events: IngestEvent[] = [];
-    const emittedKeys = new Set<string>();
+    const recentHalogenSummaries = Array.isArray(state.recentHalogenSummaries)
+      ? state.recentHalogenSummaries.filter(
+          (summary) =>
+            typeof summary.fingerprint === "string" &&
+            Number.isFinite(summary.timestampUs),
+        )
+      : [];
 
     for (const entry of entries) {
       cursor = entry.__CURSOR;
@@ -334,10 +370,37 @@ export class HermesLogParser {
       ).toISOString();
 
       if (parsed.type === "halogen_summary") {
-        const event = this.buildHalogenEvent(parsed, entry, timestampIso);
-        if (!emittedKeys.has(event.naturalKey)) {
-          emittedKeys.add(event.naturalKey);
+        const normalizedMessage = entry.MESSAGE.replace(/\s+/g, " ").trim();
+        const fingerprint = createHash("sha256")
+          .update(normalizedMessage)
+          .digest("hex");
+        const timestampUs = Number(entry.__REALTIME_TIMESTAMP);
+        const duplicateIndex = recentHalogenSummaries.findIndex(
+          (summary) =>
+            summary.fingerprint === fingerprint &&
+            Math.abs(timestampUs - summary.timestampUs) <=
+              HALOGEN_DUPLICATE_WINDOW_US,
+        );
+        if (duplicateIndex >= 0) {
+          recentHalogenSummaries[duplicateIndex] = {
+            fingerprint,
+            timestampUs,
+          };
+        } else {
+          const event = this.buildHalogenEvent(
+            parsed,
+            entry,
+            timestampIso,
+            normalizedMessage,
+          );
           events.push(event);
+          recentHalogenSummaries.push({ fingerprint, timestampUs });
+          if (recentHalogenSummaries.length > HALOGEN_RECENT_SUMMARY_LIMIT) {
+            recentHalogenSummaries.splice(
+              0,
+              recentHalogenSummaries.length - HALOGEN_RECENT_SUMMARY_LIMIT,
+            );
+          }
         }
         continue;
       }
@@ -415,16 +478,17 @@ export class HermesLogParser {
       }
     }
 
-    return { events, cursor };
+    return { events, cursor, recentHalogenSummaries };
   }
 
   private buildHalogenEvent(
     summary: HalogenSummaryLine,
     entry: JournalEntry,
     timestamp: string,
+    normalizedMessage: string,
   ): IngestEvent {
     const identity = createHash("sha256")
-      .update(`${entry.__REALTIME_TIMESTAMP}\0${entry.MESSAGE}`)
+      .update(`${entry.__REALTIME_TIMESTAMP}\0${normalizedMessage}`)
       .digest("hex");
 
     return {
