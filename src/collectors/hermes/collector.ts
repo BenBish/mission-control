@@ -7,9 +7,8 @@ import { HermesBackendCollector } from "./backend-collector.js";
 /**
  * Assembles every Hermes-side Collector: the router (llama-swap) health
  * poller plus one combined slots+log collector per backend port. All run
- * server-side via LocalSink (see src/collectors/core/sinks.ts) since
- * llama-server's individual backend ports and its systemd journal are
- * only reachable on the same box as the server itself.
+ * server-side via LocalSink (see src/collectors/core/sinks.ts) since the
+ * backend ports and systemd journal are only reachable on the same box.
  */
 export function buildHermesCollectors(
   state: CollectorStateStore = new CollectorStateStore(),

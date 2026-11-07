@@ -1,8 +1,7 @@
 /**
- * Slot occupancy polling for one llama-server backend, direct on its own
- * port (bypasses llama-swap entirely — verified /slots works the same
- * whether hit through the router or not, and going direct means this
- * still works even if llama-swap itself is down).
+ * Slot occupancy polling for one inference backend, direct on its own
+ * port (bypasses llama-swap entirely). Some backends expose only the slot
+ * count and not busy state, in which case occupancy is left unknown.
  *
  * Saturation ("all slots busy") is tracked as an episode, not a per-sample
  * event: emitting once per 5s sample while a backend stays pegged would
@@ -26,11 +25,12 @@ import { SATURATION_SAMPLE_THRESHOLD, type HermesBackend } from "./config.js";
 
 interface SlotEntry {
   id: number;
-  is_processing: boolean;
+  is_processing?: unknown;
 }
 
 export interface SlotPollResult {
   reachable: boolean;
+  occupancySupported?: boolean;
   slotsTotal?: number;
   slotsBusy?: number;
   snapshot?: RuntimeSnapshotPayload;
@@ -45,10 +45,16 @@ export async function pollSlots(
     });
     if (!res.ok) return { reachable: false };
     const slots = (await res.json()) as SlotEntry[];
-    const slotsTotal = slots.length;
-    const slotsBusy = slots.filter((s) => s.is_processing).length;
+    const occupancySupported = slots.every(
+      (slot) => typeof slot.is_processing === "boolean",
+    );
+    const slotsTotal = occupancySupported ? slots.length : undefined;
+    const slotsBusy = occupancySupported
+      ? slots.filter((slot) => slot.is_processing).length
+      : undefined;
     return {
       reachable: true,
+      occupancySupported,
       slotsTotal,
       slotsBusy,
       snapshot: {
@@ -56,7 +62,11 @@ export async function pollSlots(
         kind: "slots",
         slotsTotal,
         slotsBusy,
-        payload: { port: backend.port, label: backend.label },
+        payload: {
+          port: backend.port,
+          label: backend.label,
+          occupancySupported,
+        },
       },
     };
   } catch {

@@ -70,12 +70,18 @@ type RuntimeBody = {
   sources?: Array<{ id: string; kind: string; instances: unknown[] }>;
   snapshots?: Array<{
     kind: string;
-    payload: { port?: number; label?: string } | null;
+    slotsTotal?: number | null;
+    slotsBusy?: number | null;
+    payload: {
+      port?: number;
+      label?: string;
+      occupancySupported?: boolean;
+    } | null;
     modelsLoaded?: unknown;
   }>;
   metrics?: {
-    activeSlots: number;
-    totalSlots: number;
+    activeSlots: number | null;
+    totalSlots: number | null;
     saturationRate: number | null;
     requestThroughputPerHour: number | null;
     cancellationRate: number | null;
@@ -172,10 +178,11 @@ async function insertEvent(opts: {
 }
 
 async function insertSlotSnapshot(opts: {
-  busy: number;
-  total: number;
+  busy: number | null;
+  total: number | null;
   port?: number;
   timestamp?: string;
+  occupancySupported?: boolean;
 }) {
   await db.raw().run(
     `INSERT INTO runtime_snapshots (
@@ -185,7 +192,13 @@ async function insertSlotSnapshot(opts: {
     opts.timestamp ?? new Date().toISOString(),
     opts.total,
     opts.busy,
-    JSON.stringify({ port: opts.port ?? 8080, label: "backend-a" }),
+    JSON.stringify({
+      port: opts.port ?? 8080,
+      label: "backend-a",
+      ...(opts.occupancySupported == null
+        ? {}
+        : { occupancySupported: opts.occupancySupported }),
+    }),
   );
 }
 
@@ -211,6 +224,28 @@ describe("GET /api/runtime", () => {
     expect(body.requestsByClient).toEqual([]);
     expect(body.filters?.requestStatuses).toContain("success");
     expect(body.filters?.eventKinds).toContain("slots_saturated");
+  });
+
+  test("unsupported slot occupancy remains unknown in snapshots and aggregate metrics", async () => {
+    await insertSlotSnapshot({
+      busy: null,
+      total: null,
+      port: 12348,
+      occupancySupported: false,
+    });
+
+    const { body } = await getJson("/api/runtime?range=1h&section=summary");
+    const slot = body.snapshots?.find((snapshot) => snapshot.kind === "slots");
+    expect(slot?.slotsTotal).toBeNull();
+    expect(slot?.slotsBusy).toBeNull();
+    expect(slot?.payload).toEqual({
+      port: 12348,
+      label: "backend-a",
+      occupancySupported: false,
+    });
+    expect(body.metrics?.activeSlots).toBeNull();
+    expect(body.metrics?.totalSlots).toBeNull();
+    expect(body.metrics?.saturationRate).toBeNull();
   });
 
   test("BSH-89: requestsByClient aggregates volume per client_label", async () => {
@@ -577,9 +612,10 @@ describe("GET /api/runtime", () => {
       slimSnapshotPayload({
         port: 1,
         label: "x",
+        occupancySupported: false,
         extra: { huge: true },
       }),
-    ).toEqual({ port: 1, label: "x" });
+    ).toEqual({ port: 1, label: "x", occupancySupported: false });
     expect(slimSnapshotPayload(null)).toBeNull();
     expect(slimSnapshotPayload("nope")).toBeNull();
     expect(slimSnapshotPayload({})).toBeNull();

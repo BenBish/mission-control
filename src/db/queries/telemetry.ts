@@ -441,11 +441,11 @@ export async function latestRuntimeSnapshots(
 }
 
 export interface RuntimeMetrics {
-  /** Sum of slots_busy across latest per-backend slot snapshots. */
-  activeSlots: number;
-  /** Sum of slots_total across latest per-backend slot snapshots. */
-  totalSlots: number;
-  /** activeSlots / totalSlots, or null when totalSlots is 0. */
+  /** Sum of slots_busy across latest per-backend slot snapshots, or null when occupancy is unsupported. */
+  activeSlots: number | null;
+  /** Sum of slots_total across latest per-backend slot snapshots, or null when occupancy is unsupported. */
+  totalSlots: number | null;
+  /** activeSlots / totalSlots, or null when occupancy is unsupported or totalSlots is 0. */
   saturationRate: number | null;
   /** Requests per hour over the metrics window (null if window is unbounded). */
   requestThroughputPerHour: number | null;
@@ -494,13 +494,20 @@ export async function getRuntimeMetrics(
   const snapshots = (
     opts.snapshots ?? (await latestRuntimeSnapshots(db, opts.sourceId))
   ).filter((s) => !opts.sourceId || s.source_id === opts.sourceId);
-  let activeSlots = 0;
-  let totalSlots = 0;
+  let measuredActiveSlots = 0;
+  let measuredTotalSlots = 0;
+  let occupancyUnsupported = false;
   for (const s of snapshots) {
     if (s.kind !== "slots") continue;
-    activeSlots += s.slots_busy ?? 0;
-    totalSlots += s.slots_total ?? 0;
+    if (s.slots_busy == null || s.slots_total == null) {
+      occupancyUnsupported = true;
+      continue;
+    }
+    measuredActiveSlots += s.slots_busy;
+    measuredTotalSlots += s.slots_total;
   }
+  const activeSlots = occupancyUnsupported ? null : measuredActiveSlots;
+  const totalSlots = occupancyUnsupported ? null : measuredTotalSlots;
 
   const clauses: string[] = [];
   const params: unknown[] = [];
@@ -555,7 +562,10 @@ export async function getRuntimeMetrics(
   return {
     activeSlots,
     totalSlots,
-    saturationRate: totalSlots > 0 ? activeSlots / totalSlots : null,
+    saturationRate:
+      activeSlots != null && totalSlots != null && totalSlots > 0
+        ? activeSlots / totalSlots
+        : null,
     requestThroughputPerHour,
     cancellationRate: requestCount > 0 ? cancelled / requestCount : null,
     p50LatencyMs: percentile(sorted, 50),

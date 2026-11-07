@@ -82,7 +82,7 @@ There is **no** `src/api/` tree. Older docs that referenced a single
 | Cloud Handoff | agentic | Desktop | Control plane API (`GET /v1/sessions` + `GET /v1/sessions/:id/events`) |
 | Devin | agentic | Desktop | Devin CLI SQLite (`~/.local/share/devin/cli/sessions.db`) + CLI `GetUserStatus` plan-status poll |
 | Cursor | agentic | Desktop | Cursor `state.vscdb` (`cursorDiskKV`) + `~/.cursor/chats` `store.db` |
-| Hermes | inference | Server (when `MC_HERMES_POLLING_ENABLED`) | llama-swap / llama-server / journal |
+| Hermes | inference | Server (when `MC_HERMES_POLLING_ENABLED`) | llama-swap / Halogen HTTP / systemd journal |
 | Lemonade | inference | Server (when configured) | Local inference HTTP |
 | ComfyUI | generation | Server (when configured) | ComfyUI queue/history API |
 

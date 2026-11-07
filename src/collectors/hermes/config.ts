@@ -1,19 +1,15 @@
 /**
- * Hermes topology on the Strix Halo box — fixed, not user-configurable in
- * P2. Verified live against the real box (2026-07-13): three llama-server
- * backends behind llama-swap, each its own systemd --user unit inside the
- * `llama-rocm-7.2.4` podman container, each reachable only from
- * 127.0.0.1 on that box (not exposed over Tailscale) — which is exactly
- * why this poller has to run colocated on that box via LocalSink rather
+ * Hermes topology on the Strix Halo box — fixed, not user-configurable.
+ * Halogen is reached directly on loopback and its systemd journal is read
+ * locally, so this poller must run on the same box via LocalSink rather
  * than as a remote HTTP collector.
  */
 
 export interface HermesBackend {
-  /** llama-server's own port — /slots, /metrics, and per-request journal
-   *  telemetry all come from here directly, bypassing llama-swap. */
+  /** Backend's own port — /slots and request telemetry are read directly,
+   *  bypassing llama-swap. */
   port: number;
-  /** systemd --user unit whose journal carries this backend's slot/request
-   *  log lines (`slot launch_slot_`, `slot release`, `srv send_error`, ...). */
+  /** systemd unit whose journal carries this backend's request telemetry. */
   unit: string;
   /** Human-readable label for client_label/UI — not a precise per-agent
    *  attribution (llama-server has no concept of which Hermes gateway a
@@ -40,26 +36,11 @@ export const LLAMA_SWAP_URL = "http://127.0.0.1:8080";
 
 export const HERMES_BACKENDS: HermesBackend[] = [
   {
-    port: 12346,
-    unit: "llama-toolbox-qwen-hermes.service",
-    label: "hermes-qwen",
-    model: "Qwen3.6-27B-UD-Q4_K_XL.gguf",
+    port: 12348,
+    unit: "halogen.service",
+    label: "halogen",
+    model: "Qwen3.8-Flash-Next-UD-IQ4_XS",
     sharedByGateways: true,
-  },
-  {
-    port: 12347,
-    unit: "llama-toolbox-qwen-opencode.service",
-    // Runtime/inference client label only — not the agentic desktop source
-    // `opencode` (OpenCode CLI sessions from opencode.db). Same string, two
-    // product surfaces: Hermes backend health vs Activity/Sessions filter.
-    label: "opencode",
-    model: "Qwen3.6-35B-A3B-Opencode-128K",
-  },
-  {
-    port: 12345,
-    unit: "llama-toolbox-gemma.service",
-    label: "gemma-fallback",
-    model: "gemma-4-26B-A4B-it-UD-Q4_K_XL.gguf",
   },
 ];
 

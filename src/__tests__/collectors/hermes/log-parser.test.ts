@@ -33,6 +33,16 @@ const OPENCODE_BACKEND: HermesBackend = {
   model: "Qwen3.6-35B-A3B-Opencode-128K",
 };
 
+const HALOGEN_BACKEND: HermesBackend = {
+  port: 12348,
+  unit: "halogen.service",
+  label: "halogen",
+  model: "Qwen3.8-Flash-Next-UD-IQ4_XS",
+};
+
+const HALOGEN_SUMMARY =
+  "serve_api: mtp 231 tok in 5.10s = 45.33 t/s | 72 rounds, commit 3.21/round | prompt 38217 (38071 cached, 99.6%), prefill 0.52s (146 new) | detok 26us/tok | pool 111360/131072 85% | think off";
+
 describe("parseLine", () => {
   test("parses a launch_slot_ line", () => {
     const line = parseLine(
@@ -128,6 +138,18 @@ describe("parseLine", () => {
       ),
     ).toBeNull();
   });
+
+  test("parses a Halogen request summary with supported token and timing fields", () => {
+    expect(parseLine(HALOGEN_SUMMARY)).toEqual({
+      type: "halogen_summary",
+      completionTokens: 231,
+      durationMs: 5100,
+      tokensPerSec: 45.33,
+      promptTokens: 38217,
+      cachedTokens: 38071,
+      ttftMs: 520,
+    });
+  });
 });
 
 function entry(
@@ -143,6 +165,35 @@ function entry(
 }
 
 describe("HermesLogParser.processEntries — real request lifecycles", () => {
+  test("Halogen summaries emit request telemetry and dedupe replayed journal entries", () => {
+    const parser = new HermesLogParser(HALOGEN_BACKEND);
+    const first = entry("h1", 1_000_000, HALOGEN_SUMMARY);
+    const duplicate = entry("h2", 1_000_000, HALOGEN_SUMMARY);
+
+    const { events, cursor } = parser.processEntries([first, duplicate]);
+
+    expect(cursor).toBe("h2");
+    expect(events).toHaveLength(1);
+    expect(events[0].kind).toBe("inference_request");
+    expect(events[0].naturalKey).toMatch(/^halogen\.service:halogen:/);
+    const payload = events[0].payload as InferenceRequestPayload;
+    expect(payload.timestamp).toBe(new Date(1_000_000 / 1000).toISOString());
+    expect(payload.endpoint).toBe("http://127.0.0.1:12348");
+    expect(payload.model).toBe(HALOGEN_BACKEND.model);
+    expect(payload.clientLabel).toBe("halogen");
+    expect(payload.promptTokens).toBe(38217);
+    expect(payload.cachedTokens).toBe(38071);
+    expect(payload.completionTokens).toBe(231);
+    expect(payload.durationMs).toBe(5100);
+    expect(payload.ttftMs).toBe(520);
+    expect(payload.tokensPerSec).toBe(45.33);
+    expect(payload.slotId).toBeUndefined();
+    expect(payload.status).toBe("success");
+
+    const replay = new HermesLogParser(HALOGEN_BACKEND).processEntries([first]);
+    expect(replay.events[0].naturalKey).toBe(events[0].naturalKey);
+  });
+
   test("a full success sequence emits one inference_request with correct fields", () => {
     const parser = new HermesLogParser(BACKEND);
     const entries: JournalEntry[] = [
