@@ -87,6 +87,20 @@ const HEALTHY_STATUSES = new Set(["ok", "healthy", "on"]);
 
 export type Thresholds = HeartbeatThresholds;
 
+export function aggregateCollectorStatus(instances: HealthInput[]): string {
+  if (
+    instances.some((instance) => {
+      const status = (instance.status ?? "").toLowerCase();
+      return (
+        status !== "off" && (Boolean(instance.lastError) || status === "error")
+      );
+    })
+  ) {
+    return "error";
+  }
+  return instances[0]?.status ?? "unknown";
+}
+
 /**
  * Determine the effective health of a source instance.
  *

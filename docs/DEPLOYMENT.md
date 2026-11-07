@@ -142,10 +142,11 @@ remains unknown when the backend's `/slots` response omits busy-state fields;
 it is not inferred as zero.
 
 The collector starts at the current journal tail and does not backfill old
-requests. Retained logs may contain repeated summaries and access records
-without a stable request identifier, so they are not a reliable source for
-reconstructing historical request totals. Do not estimate missed counts from
-access-log lines.
+requests. It suppresses normalized duplicate summaries that arrive within 5ms;
+Halogen does not provide a stable request ID, so distinct identical summaries
+inside that narrow window can be coalesced. Retained logs and access records
+are not a reliable source for reconstructing historical request totals. Do not
+estimate missed counts from access-log lines.
 
 Generate a password hash:
 

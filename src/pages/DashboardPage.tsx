@@ -48,6 +48,7 @@ import {
 import { formatProviderPlanLine, summarizePlanUsage } from "@/lib/plan-usage";
 import { getProviderUsageSinceDay, utcDayKey } from "@/lib/date-range";
 import { failureStatusScopeLabel } from "@/types/failures";
+import { aggregateCollectorStatus } from "@/services/sourceHealth";
 import {
   AreaChart,
   Area,
@@ -536,7 +537,7 @@ export default function DashboardPage() {
           <CardContent>
             <div className="flex flex-wrap gap-2">
               {(sources ?? []).map((source) => {
-                const status = source.instances[0]?.status ?? "unknown";
+                const status = aggregateCollectorStatus(source.instances);
                 // Opacity is emphasis only — health stays fleet-wide, not filtered.
                 const isSelected =
                   !selectedSourceId || source.id === selectedSourceId;

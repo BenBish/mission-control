@@ -12,6 +12,7 @@ import {
   formatInstanceHealthTooltip,
   getEffectiveHealth,
   getSystemHealth,
+  aggregateCollectorStatus,
   HEALTH_DOT_CLASS,
   type HealthInput,
 } from "../../services/sourceHealth";
@@ -212,6 +213,35 @@ describe("getSystemHealth", () => {
 
   test("empty list → Unknown", () => {
     expect(getSystemHealth([], NOW, THRESHOLDS)).toBe("Unknown");
+  });
+});
+
+describe("aggregateCollectorStatus", () => {
+  test("surfaces an error from a backend even when the first instance is healthy", () => {
+    expect(
+      aggregateCollectorStatus([
+        instance({ status: "ok" }),
+        instance({ status: "error" }),
+      ]),
+    ).toBe("error");
+  });
+
+  test("uses the first instance status when none report an error", () => {
+    expect(
+      aggregateCollectorStatus([
+        instance({ status: "ok" }),
+        instance({ status: "off" }),
+      ]),
+    ).toBe("ok");
+  });
+
+  test("does not elevate an intentional off instance because of a stale error", () => {
+    expect(
+      aggregateCollectorStatus([
+        instance({ status: "off", lastError: "stale error" }),
+        instance({ status: "ok" }),
+      ]),
+    ).toBe("off");
   });
 });
 

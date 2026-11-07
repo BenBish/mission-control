@@ -125,7 +125,10 @@ export class HermesBackendCollector implements Collector {
     // Persist the new cursor regardless of send outcome below being awaited
     // first — see note at the bottom of this method for why this ordering
     // is safe here (unlike the JSONL collectors' cursor-after-ACK rule).
-    const newLogState: LogParserState = { cursor: logResult.cursor };
+    const newLogState: LogParserState = {
+      cursor: logResult.cursor,
+      recentHalogenSummaries: logResult.recentHalogenSummaries,
+    };
 
     if (events.length > 0) {
       await sendBatched(

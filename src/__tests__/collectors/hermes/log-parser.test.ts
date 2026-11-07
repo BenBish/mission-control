@@ -42,6 +42,8 @@ const HALOGEN_BACKEND: HermesBackend = {
 
 const HALOGEN_SUMMARY =
   "serve_api: mtp 231 tok in 5.10s = 45.33 t/s | 72 rounds, commit 3.21/round | prompt 38217 (38071 cached, 99.6%), prefill 0.52s (146 new) | detok 26us/tok | pool 111360/131072 85% | think off";
+const HALOGEN_LIVE_SUMMARY =
+  "serve_api: mtp 87 tok in 1.41s = 61.78 t/s | 16 rounds, commit 5.44/round | prompt 50382, prefill 37.60s = 1340 t/s | detok 24us/tok | pool 82432/131072 63% | think off | closest earlier: 50352 tokens shared with a request 71s ago, all of it";
 
 describe("parseLine", () => {
   test("parses a launch_slot_ line", () => {
@@ -150,6 +152,17 @@ describe("parseLine", () => {
       ttftMs: 520,
     });
   });
+
+  test("parses the current Halogen summary without inventing cache metrics", () => {
+    expect(parseLine(HALOGEN_LIVE_SUMMARY)).toEqual({
+      type: "halogen_summary",
+      completionTokens: 87,
+      durationMs: 1410,
+      tokensPerSec: 61.78,
+      promptTokens: 50382,
+      ttftMs: 37600,
+    });
+  });
 });
 
 function entry(
@@ -165,6 +178,42 @@ function entry(
 }
 
 describe("HermesLogParser.processEntries — real request lifecycles", () => {
+  test("dedupes Halogen summary copies with distinct timestamps and spacing", () => {
+    const parser = new HermesLogParser(HALOGEN_BACKEND);
+    const first = entry("h1", 1_000_000, HALOGEN_LIVE_SUMMARY);
+    const duplicate = entry(
+      "h2",
+      1_000_867,
+      HALOGEN_LIVE_SUMMARY.replace(" | prompt", "  | prompt") + " ",
+    );
+
+    const firstTick = parser.processEntries([first]);
+    expect(firstTick.events).toHaveLength(1);
+
+    const restartedParser = new HermesLogParser(HALOGEN_BACKEND);
+    const duplicateTick = restartedParser.processEntries([duplicate], {
+      cursor: firstTick.cursor,
+      recentHalogenSummaries: firstTick.recentHalogenSummaries,
+    });
+
+    expect(duplicateTick.cursor).toBe("h2");
+    expect(duplicateTick.events).toHaveLength(0);
+
+    const laterRequest = entry("h3", 1_006_000, HALOGEN_LIVE_SUMMARY);
+    const nextTick = restartedParser.processEntries([laterRequest], {
+      cursor: duplicateTick.cursor,
+      recentHalogenSummaries: duplicateTick.recentHalogenSummaries,
+    });
+    expect(nextTick.events).toHaveLength(1);
+    const payload = nextTick.events[0].payload as InferenceRequestPayload;
+    expect(payload.promptTokens).toBe(50382);
+    expect(payload.cachedTokens).toBeUndefined();
+    expect(payload.completionTokens).toBe(87);
+    expect(payload.durationMs).toBe(1410);
+    expect(payload.ttftMs).toBe(37600);
+    expect(payload.tokensPerSec).toBe(61.78);
+  });
+
   test("Halogen summaries emit request telemetry and dedupe replayed journal entries", () => {
     const parser = new HermesLogParser(HALOGEN_BACKEND);
     const first = entry("h1", 1_000_000, HALOGEN_SUMMARY);
