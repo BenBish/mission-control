@@ -18,11 +18,10 @@ import { anyGatewayCompressionActivity } from "./workload-correlation.js";
 import type { InferenceRequestPayload } from "../../types/ingest.js";
 
 const SOURCE_ID = "hermes";
-const INSTANCE_ID = "hermes@strix-halo";
 const COLLECTOR_VERSION = "0.1.0";
 
 /**
- * One collector per llama-server backend (12345/12346/12347) — combines
+ * One collector per inference backend — combines
  * /slots occupancy polling (live snapshot + saturation-episode detection)
  * with journal-based per-request telemetry (log-parser.ts). Both target
  * the same backend on the same interval, so one Collector per port is a
@@ -31,7 +30,6 @@ const COLLECTOR_VERSION = "0.1.0";
  */
 export class HermesBackendCollector implements Collector {
   sourceId = SOURCE_ID;
-  instanceId = INSTANCE_ID;
   intervalMs = POLL_INTERVAL_MS;
 
   private logParser: HermesLogParser;
@@ -47,25 +45,19 @@ export class HermesBackendCollector implements Collector {
     this.cursorKey = `hermes:log-cursor:${backend.unit}`;
   }
 
+  get instanceId(): string {
+    return `hermes@strix-halo:backend-${this.backend.label}`;
+  }
+
   async tick(sink: Sink): Promise<TickResult> {
     const events: IngestEvent[] = [];
 
     const slotResult = await pollSlots(this.backend);
     if (!slotResult.reachable) {
-      // A specific backend being unreachable is data (surfaced by the
-      // Runtime page as "no recent snapshot for this backend"), not a
-      // collector failure — and since all 4 Hermes collectors
-      // (llama-swap + 3 backends) share the single hermes@strix-halo
-      // instanceId, each independently calls heartbeat() every tick, so
-      // reporting anything other than 'ok' here would make
-      // source_instances.status flap between collectors' differing views
-      // instead of reflecting whether the Hermes poller itself is
-      // operating. llama-swap's own health polling is the intended
-      // signal for "something's actually wrong" (service_down).
       return {
         eventsEmitted: 0,
-        sourceStatus: "ok",
-        detail: `${this.backend.label} (port ${this.backend.port}) unreachable`,
+        sourceStatus: "error",
+        detail: `${this.backend.label} backend telemetry unavailable on port ${this.backend.port}`,
       };
     }
 

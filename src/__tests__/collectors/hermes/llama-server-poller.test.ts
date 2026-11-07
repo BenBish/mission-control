@@ -7,6 +7,7 @@
 
 import { describe, test, expect } from "bun:test";
 import {
+  pollSlots,
   updateSaturation,
   emptySaturationState,
   type SaturationState,
@@ -18,6 +19,12 @@ const BACKEND: HermesBackend = {
   port: 12346,
   unit: "llama-toolbox-qwen-hermes.service",
   label: "hermes-qwen",
+};
+
+const HALOGEN_BACKEND: HermesBackend = {
+  port: 12348,
+  unit: "halogen.service",
+  label: "halogen",
 };
 
 function saturated(slotsTotal = 2) {
@@ -102,5 +109,51 @@ describe("updateSaturation", () => {
       emptySaturationState(),
     );
     expect(result.state.consecutiveSaturated).toBe(0);
+  });
+});
+
+describe("pollSlots", () => {
+  test("marks Halogen occupancy unsupported when slot status fields are absent", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () =>
+      new Response(JSON.stringify([{ id: 0, n_ctx: 131072 }]), {
+        status: 200,
+      });
+
+    try {
+      const result = await pollSlots(HALOGEN_BACKEND);
+      expect(result.reachable).toBe(true);
+      expect(result.occupancySupported).toBe(false);
+      expect(result.slotsTotal).toBeUndefined();
+      expect(result.slotsBusy).toBeUndefined();
+      expect(result.snapshot?.payload).toEqual({
+        port: 12348,
+        label: "halogen",
+        occupancySupported: false,
+      });
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  test("retains measured occupancy when slot status fields are present", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () =>
+      new Response(
+        JSON.stringify([
+          { id: 0, is_processing: true },
+          { id: 1, is_processing: false },
+        ]),
+        { status: 200 },
+      );
+
+    try {
+      const result = await pollSlots(BACKEND);
+      expect(result.occupancySupported).toBe(true);
+      expect(result.slotsTotal).toBe(2);
+      expect(result.slotsBusy).toBe(1);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });

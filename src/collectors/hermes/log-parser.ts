@@ -1,18 +1,16 @@
 /**
- * Per-request inference telemetry, derived from llama-server's own
- * completion logging in the systemd --user journal for each
- * llama-toolbox-*.service unit (see src/collectors/hermes/config.ts for
- * the port/unit topology).
+ * Per-request inference telemetry, derived from backend request summaries
+ * or llama-server's completion logging in the systemd journal (see
+ * src/collectors/hermes/config.ts for the port/unit topology).
  *
  * Neither llama-swap's /logs (a plain HTTP access log of requests to the
  * router itself, no per-completion token/timing data) nor llama-server's
  * own /metrics (cumulative counters since process start, no per-request
- * breakdown) carry what's needed here — this journal is the only source
- * with real per-request token/timing/failure data. Verified against real
- * log lines on the box this targets; see the regexes below for exact
- * formats.
+ * breakdown) carry what's needed here. Halogen summary lines provide
+ * aggregate per-request fields; llama-server request records are assembled
+ * from task lifecycle lines.
  *
- * A completed request is reconstructed from several log lines for the
+ * A llama-server request is reconstructed from several log lines for the
  * same (slot id, task id) pair, which can interleave with lines for a
  * *different* task on a *different* slot of the same unit (concurrent
  * slots). Tasks are buffered by "slot:task" key until a closing line
@@ -25,6 +23,7 @@
  */
 
 import { execFile } from "child_process";
+import { createHash } from "node:crypto";
 import { promisify } from "util";
 import type { IngestEvent } from "../../types/ingest.js";
 import type { HermesBackend } from "./config.js";
@@ -147,6 +146,15 @@ interface CancelLine {
   type: "cancel";
   task: number;
 }
+interface HalogenSummaryLine {
+  type: "halogen_summary";
+  promptTokens: number;
+  cachedTokens: number;
+  completionTokens: number;
+  durationMs: number;
+  tokensPerSec: number;
+  ttftMs: number;
+}
 type ParsedLine =
   | LaunchLine
   | PromptEvalLine
@@ -154,7 +162,8 @@ type ParsedLine =
   | TotalLine
   | ReleaseLine
   | SendErrorLine
-  | CancelLine;
+  | CancelLine
+  | HalogenSummaryLine;
 
 const RE_LAUNCH =
   /slot\s+launch_slot_:\s*id\s+(\d+)\s*\|\s*task\s+(\d+)\s*\|\s*processing task/;
@@ -169,6 +178,8 @@ const RE_RELEASE =
 const RE_SEND_ERROR =
   /srv\s+send_error:\s*task id\s*=\s*(\d+),\s*error:\s*(.+)$/;
 const RE_CANCEL = /srv\s+stop:\s*cancel task,\s*id_task\s*=\s*(\d+)/;
+const RE_HALOGEN_SUMMARY =
+  /serve_api:\s*mtp\s+([\d,]+)\s+tok\s+in\s+([\d.]+)s\s*=\s*([\d.]+)\s+t\/s.*?\|\s*prompt\s+([\d,]+)\s+\(([\d,]+)\s+cached,\s*[\d.]+%\),\s*prefill\s+([\d.]+)s\s+\(([\d,]+)\s+new\)/;
 
 /** Order matters here: RE_PROMPT_EVAL must be tried before RE_EVAL. Real
  *  "prompt eval time" lines also carry the "(... ms per token, ... tokens
@@ -228,6 +239,18 @@ export function parseLine(message: string): ParsedLine | null {
 
   m = message.match(RE_CANCEL);
   if (m) return { type: "cancel", task: Number(m[1]) };
+
+  m = message.match(RE_HALOGEN_SUMMARY);
+  if (m)
+    return {
+      type: "halogen_summary",
+      completionTokens: Number(m[1].replaceAll(",", "")),
+      durationMs: Math.round(Number(m[2]) * 1000),
+      tokensPerSec: Number(m[3]),
+      promptTokens: Number(m[4].replaceAll(",", "")),
+      cachedTokens: Number(m[5].replaceAll(",", "")),
+      ttftMs: Math.round(Number(m[6]) * 1000),
+    };
 
   return null;
 }
@@ -300,6 +323,7 @@ export class HermesLogParser {
   } {
     let cursor = entries[entries.length - 1].__CURSOR;
     const events: IngestEvent[] = [];
+    const emittedKeys = new Set<string>();
 
     for (const entry of entries) {
       cursor = entry.__CURSOR;
@@ -308,6 +332,15 @@ export class HermesLogParser {
       const timestampIso = new Date(
         Number(entry.__REALTIME_TIMESTAMP) / 1000,
       ).toISOString();
+
+      if (parsed.type === "halogen_summary") {
+        const event = this.buildHalogenEvent(parsed, entry, timestampIso);
+        if (!emittedKeys.has(event.naturalKey)) {
+          emittedKeys.add(event.naturalKey);
+          events.push(event);
+        }
+        continue;
+      }
 
       if (parsed.type === "launch") {
         this.open.set(this.key(parsed.slot, parsed.task), {
@@ -383,6 +416,36 @@ export class HermesLogParser {
     }
 
     return { events, cursor };
+  }
+
+  private buildHalogenEvent(
+    summary: HalogenSummaryLine,
+    entry: JournalEntry,
+    timestamp: string,
+  ): IngestEvent {
+    const identity = createHash("sha256")
+      .update(`${entry.__REALTIME_TIMESTAMP}\0${entry.MESSAGE}`)
+      .digest("hex");
+
+    return {
+      kind: "inference_request",
+      naturalKey: `${this.backend.unit}:halogen:${identity}`,
+      payload: {
+        externalId: identity,
+        timestamp,
+        endpoint: `http://127.0.0.1:${this.backend.port}`,
+        model: this.backend.model,
+        clientLabel: this.backend.label,
+        workload: "unknown",
+        promptTokens: summary.promptTokens,
+        cachedTokens: summary.cachedTokens,
+        completionTokens: summary.completionTokens,
+        ttftMs: summary.ttftMs,
+        durationMs: summary.durationMs,
+        tokensPerSec: summary.tokensPerSec,
+        status: "success",
+      },
+    };
   }
 
   private buildEvent(

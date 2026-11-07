@@ -1163,7 +1163,11 @@ export interface RuntimeSnapshot {
   /** kind:'slots' snapshots carry {port, label} here — the only way to
    *  tell one backend's occupancy from another's, since slotsTotal/Busy
    *  alone don't identify which backend they're for. */
-  payload: { port?: number; label?: string } | null;
+  payload: {
+    port?: number;
+    label?: string;
+    occupancySupported?: boolean;
+  } | null;
 }
 
 export interface InferenceRequestSummary {
@@ -1209,8 +1213,8 @@ export type RuntimeRange = "1h" | "6h" | "24h" | "7d" | "all";
 export type RuntimeSection = "summary" | "lists" | "all";
 
 export interface RuntimeMetrics {
-  activeSlots: number;
-  totalSlots: number;
+  activeSlots: number | null;
+  totalSlots: number | null;
   saturationRate: number | null;
   requestThroughputPerHour: number | null;
   cancellationRate: number | null;

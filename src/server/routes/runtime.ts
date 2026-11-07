@@ -88,25 +88,36 @@ export function rangeToSince(
 }
 
 /**
- * Slim snapshot payload for the default UI — only port/label are used
- * for slot occupancy identification. Collectors may store large raw
+ * Slim snapshot payload for the default UI — only port/label and occupancy
+ * support are needed for slot snapshots. Collectors may store large raw
  * system-stats objects; never ship those on the Runtime page.
  */
 export function slimSnapshotPayload(
   raw: unknown,
-): { port?: number; label?: string } | null {
+): { port?: number; label?: string; occupancySupported?: boolean } | null {
   if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
     return null;
   }
   const obj = raw as Record<string, unknown>;
-  const slim: { port?: number; label?: string } = {};
+  const slim: {
+    port?: number;
+    label?: string;
+    occupancySupported?: boolean;
+  } = {};
   if (typeof obj.port === "number" && Number.isFinite(obj.port)) {
     slim.port = obj.port;
   }
   if (typeof obj.label === "string" && obj.label.length > 0) {
     slim.label = obj.label;
   }
-  return slim.port != null || slim.label != null ? slim : null;
+  if (typeof obj.occupancySupported === "boolean") {
+    slim.occupancySupported = obj.occupancySupported;
+  }
+  return slim.port != null ||
+    slim.label != null ||
+    slim.occupancySupported != null
+    ? slim
+    : null;
 }
 
 /**

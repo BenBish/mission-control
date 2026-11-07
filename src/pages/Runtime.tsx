@@ -224,8 +224,12 @@ function InstanceHealthCard({
 }
 
 function SlotOccupancyRow({ snapshot }: { snapshot: RuntimeSnapshot }) {
-  const total = snapshot.slotsTotal ?? 0;
-  const busy = snapshot.slotsBusy ?? 0;
+  const occupancySupported =
+    snapshot.payload?.occupancySupported !== false &&
+    snapshot.slotsTotal != null &&
+    snapshot.slotsBusy != null;
+  const total = occupancySupported ? snapshot.slotsTotal! : 0;
+  const busy = occupancySupported ? snapshot.slotsBusy! : 0;
   const rawLabel = snapshot.payload?.label;
   const display = clientLabelDisplay(rawLabel);
   const label = rawLabel ? display.name : snapshot.instanceId;
@@ -247,21 +251,23 @@ function SlotOccupancyRow({ snapshot }: { snapshot: RuntimeSnapshot }) {
         </p>
       </div>
       <div className="flex items-center gap-2">
-        <div className="flex gap-1">
-          {Array.from({ length: total }).map((_, i) => (
-            <div
-              key={i}
-              className={`h-4 w-4 rounded-sm border ${
-                i < busy
-                  ? "bg-amber-500 border-amber-600"
-                  : "bg-muted border-border"
-              }`}
-              title={i < busy ? "busy" : "idle"}
-            />
-          ))}
-        </div>
+        {occupancySupported && (
+          <div className="flex gap-1">
+            {Array.from({ length: total }).map((_, i) => (
+              <div
+                key={i}
+                className={`h-4 w-4 rounded-sm border ${
+                  i < busy
+                    ? "bg-amber-500 border-amber-600"
+                    : "bg-muted border-border"
+                }`}
+                title={i < busy ? "busy" : "idle"}
+              />
+            ))}
+          </div>
+        )}
         <span className="text-sm tabular-nums text-muted-foreground w-12 text-right">
-          {busy}/{total}
+          {occupancySupported ? `${busy}/${total}` : "Not reported"}
         </span>
       </div>
     </div>
@@ -551,8 +557,16 @@ function MetricsStrip({
     {
       key: "slots",
       label: "Active slots",
-      value: `${metrics.activeSlots}/${metrics.totalSlots}`,
-      hint: saturated ? "Saturated" : "Current occupancy",
+      value:
+        metrics.activeSlots == null || metrics.totalSlots == null
+          ? "—"
+          : `${metrics.activeSlots}/${metrics.totalSlots}`,
+      hint:
+        metrics.activeSlots == null || metrics.totalSlots == null
+          ? "Occupancy not reported by backend"
+          : saturated
+            ? "Saturated"
+            : "Current occupancy",
       icon: Gauge,
       alert: saturated,
       onClick: undefined as (() => void) | undefined,
@@ -1062,7 +1076,10 @@ export default function Runtime() {
   const modelsLoaded = modelsSnapshot?.modelsLoaded ?? [];
   const anyInstances = sources.some((s) => s.instances.length > 0);
   const saturated =
-    metrics.totalSlots > 0 && metrics.activeSlots >= metrics.totalSlots;
+    metrics.activeSlots != null &&
+    metrics.totalSlots != null &&
+    metrics.totalSlots > 0 &&
+    metrics.activeSlots >= metrics.totalSlots;
 
   const activeProblemFilter =
     reqStatus === "error"

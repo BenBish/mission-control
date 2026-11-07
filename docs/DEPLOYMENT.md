@@ -135,6 +135,18 @@ Authoritative examples: `deploy/server.env.example` and
 | `MC_XAI_USAGE_ENDPOINT` | optional custom xAI usage JSON export |
 | `MC_DEVIN_API_KEY`, `MC_DEVIN_CREDENTIALS_PATH`, `MC_DEVIN_API_SERVER_URL` | optional Devin overrides — defaults to the Devin CLI credential file (`~/.local/share/devin/credentials.toml`) |
 
+Hermes polls the Halogen backend directly on loopback port `12348` and reads
+`halogen.service` journal summaries on the same host. The Runtime page reports
+request, token, and timing fields available in those summaries. Slot occupancy
+remains unknown when the backend's `/slots` response omits busy-state fields;
+it is not inferred as zero.
+
+The collector starts at the current journal tail and does not backfill old
+requests. Retained logs may contain repeated summaries and access records
+without a stable request identifier, so they are not a reliable source for
+reconstructing historical request totals. Do not estimate missed counts from
+access-log lines.
+
 Generate a password hash:
 
 ```bash
