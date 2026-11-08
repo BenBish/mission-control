@@ -76,7 +76,7 @@ export function AgentUsageTab({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <p className="text-sm text-muted-foreground max-w-2xl">
           Session-derived usage from agent sources (Claude Code, Codex, Grok,
-          Hermes, etc.) for {agentScope}. Honors the global source filter. Not
+          OpenCode, etc.) for {agentScope}. Honors the global source filter. Not
           the same as account-level provider billing.
         </p>
         <div className="flex gap-2">

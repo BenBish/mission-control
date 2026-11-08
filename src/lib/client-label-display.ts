@@ -22,18 +22,25 @@ export interface ClientLabelDisplay {
  * by collectors (HERMES_BACKENDS[].label, lemonade poller, etc.).
  */
 const KNOWN: Record<string, Omit<ClientLabelDisplay, "id">> = {
-  opencode: {
-    name: "OpenCode (llama-swap)",
+  halogen: {
+    name: "Halogen",
     description:
-      "Hermes/llama-swap backend traffic for the OpenCode-dedicated slot — not OpenCode agent sessions.",
+      "Shared local inference backend — not agent sessions or per-agent attribution.",
+  },
+  opencode: {
+    name: "OpenCode backend (retired)",
+    description:
+      "Historical llama-swap backend traffic for the retired OpenCode-dedicated slot — not OpenCode agent sessions.",
   },
   "hermes-qwen": {
-    name: "Hermes Qwen",
-    description: "Shared Hermes gateway backend (Qwen).",
+    name: "Qwen backend (retired)",
+    description:
+      "Historical traffic from the retired shared Qwen gateway backend.",
   },
   "gemma-fallback": {
-    name: "Gemma fallback",
-    description: "Hermes gemma-fallback llama-server backend.",
+    name: "Gemma fallback (retired)",
+    description:
+      "Historical traffic from the retired Gemma llama-server backend.",
   },
   lemonade: {
     name: "Lemonade",

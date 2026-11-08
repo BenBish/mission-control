@@ -68,7 +68,12 @@ const SEED_SOURCES: Array<{
     kind: "agentic",
     defaultUnit: "quota",
   },
-  { id: "hermes", name: "Hermes", kind: "inference", defaultUnit: "compute" },
+  {
+    id: "hermes",
+    name: "Local Inference",
+    kind: "inference",
+    defaultUnit: "compute",
+  },
   {
     id: "lemonade",
     name: "Lemonade",
@@ -133,6 +138,9 @@ export async function seedSources(db: SqliteDatabase): Promise<void> {
       s.defaultUnit,
     );
   }
+  await db.run(
+    `UPDATE sources SET name = 'Local Inference' WHERE id = 'hermes' AND name = 'Hermes'`,
+  );
   for (const i of SEED_INSTANCES) {
     await db.run(
       `INSERT OR IGNORE INTO source_instances (id, source_id, machine, endpoint, collector_kind, status) VALUES (?, ?, ?, ?, ?, ?)`,

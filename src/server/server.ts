@@ -158,8 +158,11 @@ export class MissionControlServer {
     // Hermes) doesn't spend 5s-interval cycles failing to reach
     // 127.0.0.1:8080/12345/12346/12347 and spawning journalctl for units
     // that don't exist there.
-    if (process.env.MC_HERMES_POLLING_ENABLED === "true") {
-      console.log("🔥 Hermes polling enabled");
+    if (
+      (process.env.MC_LOCAL_INFERENCE_POLLING_ENABLED ??
+        process.env.MC_HERMES_POLLING_ENABLED) === "true"
+    ) {
+      console.log("Local inference polling enabled");
       this.hermesScheduler = new Scheduler(
         buildHermesCollectors(collectorState),
         new LocalSink(this.db.raw()),
