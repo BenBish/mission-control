@@ -158,7 +158,7 @@ test.describe("Source filter scope", () => {
     await expect(page.getByText(/Partial scope/i)).toBeVisible();
   });
 
-  test("Runtime requests include sourceId after selecting Hermes", async ({
+  test("Runtime requests retain the legacy sourceId after selecting Local Inference", async ({
     page,
   }) => {
     await page.goto("/runtime");
@@ -172,11 +172,11 @@ test.describe("Source filter scope", () => {
     const runtimeReq = page.waitForRequest(
       (r) => isApi(r, "/api/runtime") && sourceIdFrom(r) === "hermes",
     );
-    await selectSource(page, "Hermes");
+    await selectSource(page, "Local Inference");
     await runtimeReq;
 
     await expect(
-      page.getByText(/Local inference telemetry for Hermes/i),
+      page.getByText(/Local inference telemetry for Local Inference/i),
     ).toBeVisible();
     await expect(page.getByText("Not filtered", { exact: true })).toHaveCount(
       0,

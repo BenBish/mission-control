@@ -483,8 +483,8 @@ function RequestsByClientCard({
           Requests by backend
         </CardTitle>
         <CardDescription>
-          Inference volume by client label ({windowLabel}). These are Hermes /
-          lemonade backends — not agentic Activity sources.
+          Inference volume by client label ({windowLabel}). These are local
+          inference backends — not agentic Activity sources.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -1128,7 +1128,7 @@ export default function Runtime() {
           role="note"
         >
           Source filter “{selectedSourceName}” does not apply here — Runtime is
-          local inference (Hermes, Lemonade).
+          local inference (Halogen, Lemonade).
         </div>
       )}
 
@@ -1165,8 +1165,8 @@ export default function Runtime() {
                 <span className="font-medium text-foreground">
                   {formatClientLabel("opencode")}
                 </span>{" "}
-                in the Client filter and request table is Hermes/llama-swap
-                backend inference for the OpenCode-dedicated slot — not OpenCode
+                in the Client filter and request table is historical backend
+                inference for the retired OpenCode-dedicated slot — not OpenCode
                 agent sessions (Activities / Sessions). Filter or open{" "}
                 <button
                   type="button"

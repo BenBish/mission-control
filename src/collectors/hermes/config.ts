@@ -40,7 +40,7 @@ export const HERMES_BACKENDS: HermesBackend[] = [
     unit: "halogen.service",
     label: "halogen",
     model: "Qwen3.8-Flash-Next-UD-IQ4_XS",
-    sharedByGateways: true,
+    sharedByGateways: false,
   },
 ];
 

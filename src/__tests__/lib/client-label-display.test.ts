@@ -11,15 +11,23 @@ describe("clientLabelDisplay", () => {
   test("maps known Hermes OpenCode backend to a human label", () => {
     const d = clientLabelDisplay("opencode");
     expect(d.id).toBe("opencode");
-    expect(d.name).toBe("OpenCode (llama-swap)");
+    expect(d.name).toBe("OpenCode backend (retired)");
     expect(d.description).toMatch(/backend/i);
     expect(d.description).toMatch(/not OpenCode agent/i);
   });
 
   test("maps other known Hermes backends without inventing agent sources", () => {
-    expect(formatClientLabel("hermes-qwen")).toBe("Hermes Qwen");
-    expect(formatClientLabel("gemma-fallback")).toBe("Gemma fallback");
+    expect(formatClientLabel("hermes-qwen")).toBe("Qwen backend (retired)");
+    expect(formatClientLabel("gemma-fallback")).toBe(
+      "Gemma fallback (retired)",
+    );
     expect(formatClientLabel("lemonade")).toBe("Lemonade");
+  });
+
+  test("identifies the active local backend without attributing agent sessions", () => {
+    const display = clientLabelDisplay("halogen");
+    expect(display.name).toBe("Halogen");
+    expect(display.description).toContain("not agent sessions");
   });
 
   test("passes through unknown labels unchanged as the display name", () => {

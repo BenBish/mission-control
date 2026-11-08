@@ -33,7 +33,7 @@ function jobsEmptyCopy(state: ReturnType<typeof getEmptyWorkloadPageState>) {
       return {
         title: "Job collectors are offline",
         description:
-          "Related sources are intentionally offline. Enable agent or Hermes collectors to start observing background jobs.",
+          "Related sources are intentionally offline. Enable agent collectors to start observing background jobs.",
         detail: undefined,
       };
     case "error":
@@ -49,7 +49,7 @@ function jobsEmptyCopy(state: ReturnType<typeof getEmptyWorkloadPageState>) {
         // Keep exact title string for e2e JobsPage empty-state locator.
         title: "No background jobs observed yet.",
         description:
-          "Jobs appear here once a collector or Hermes background task runs.",
+          "Jobs appear here once a collector observes a background task.",
         detail: undefined,
       };
   }
@@ -63,7 +63,7 @@ export function JobsList() {
     isLoading: sourcesLoading,
     error: sourcesError,
   } = useSourceFilter();
-  const pageDescription = `Background work ${scopePhrase(selectedSourceId, sources)} — Hermes jobs and collector self-observation`;
+  const pageDescription = `Background work ${scopePhrase(selectedSourceId, sources)} — observed jobs and collector self-observation`;
   const {
     data: jobs,
     isLoading,

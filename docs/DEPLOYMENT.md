@@ -128,18 +128,25 @@ Authoritative examples: `deploy/server.env.example` and
 | `MC_REQUIRE_AUTH_IN_PRODUCTION` | refuse start if prod + auth off |
 | `MC_REDACTION_MODE` | `off` \| `standard` \| `strict` |
 | `MC_RETENTION_*_DAYS` | per data class (see Architecture) |
-| `MC_HERMES_POLLING_ENABLED` | `true` only on the box with llama-swap/journal access |
+| `MC_LOCAL_INFERENCE_POLLING_ENABLED` | `true` only on the box with llama-swap/journal access; falls back to legacy `MC_HERMES_POLLING_ENABLED` when unset |
 | `OPENROUTER_API_KEY`, `ANTHROPIC_ADMIN_KEY`, `OPENAI_ADMIN_KEY`, `XAI_API_KEY` | provider connectors |
 | `MC_PROVIDER_SYNC_ENABLED` | scheduled billing sync |
 | `MC_PROVIDER_SYNC_INTERVAL_MS` | default 3600000 (1h) |
 | `MC_XAI_USAGE_ENDPOINT` | optional custom xAI usage JSON export |
 | `MC_DEVIN_API_KEY`, `MC_DEVIN_CREDENTIALS_PATH`, `MC_DEVIN_API_SERVER_URL` | optional Devin overrides — defaults to the Devin CLI credential file (`~/.local/share/devin/credentials.toml`) |
 
-Hermes polls the Halogen backend directly on loopback port `12348` and reads
+Local Inference polls the Halogen backend directly on loopback port `12348` and reads
 `halogen.service` journal summaries on the same host. The Runtime page reports
 request, token, and timing fields available in those summaries. Slot occupancy
 remains unknown when the backend's `/slots` response omits busy-state fields;
 it is not inferred as zero.
+
+Hermes agents and their gateway correlation are retired. The active Halogen
+backend does not scan retired gateway journals or attribute requests to Hermes
+agents. The `hermes` source ID, instance IDs, collector paths, and cursor keys
+remain compatibility identifiers so historical usage stays connected and
+restarts do not replay requests. The source is displayed as **Local Inference**;
+retired dedicated backend labels are explicitly marked as historical.
 
 The collector starts at the current journal tail and does not backfill old
 requests. It suppresses normalized duplicate summaries that arrive within 5ms;
@@ -308,6 +315,6 @@ on). See [ARCHITECTURE.md](./ARCHITECTURE.md#retention).
 | `EADDRINUSE` on 3001 | Another `bun run api` or Tailscale already binding |
 | Collector 401 on ingest | `api_key` ≠ `MC_API_KEY` |
 | Empty agent data | Collector not running / wrong log paths / wrong machine |
-| Empty Hermes runtime | `MC_HERMES_POLLING_ENABLED` false or not on the GPU box |
+| Empty local inference runtime | Polling disabled (`MC_LOCAL_INFERENCE_POLLING_ENABLED`, with legacy fallback) or not on the GPU box |
 | UI loads but API fails in dev | API not running; Vite proxy expects port 3001 |
 | Production UI blank | Forgot `bun run build` → missing `dist-vite/` |
